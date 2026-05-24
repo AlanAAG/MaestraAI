@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(anthropic-skills:docx)",
+      "Skill(anthropic-skills:docx:*)",
+      "Bash(extract-text \"/Users/alan/Desktop/projects/MaestraAI/MaestraAI_Spec_v5.docx\")",
+      "Bash(pandoc \"/Users/alan/Desktop/projects/MaestraAI/MaestraAI_Spec_v5.docx\" -o /tmp/maestra_spec.md)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
