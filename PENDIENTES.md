@@ -18,17 +18,21 @@ El archivo `.env.local` ya existe en el proyecto. Antes de hacer deploy a produc
 1. **Supabase**: ejecutar migraciones en orden (001 → 005) en SQL Editor
 2. **Supabase**: ejecutar `seed.sql` para vocabulary_items
 3. **Vercel**: configurar variables de entorno
-4. **Vercel**: configurar dominio custom + subdomain diario.*
+4. **Vercel**: configurar dominio custom + subdomain diario.\*
 5. **Supabase**: verificar RLS policies activas en todas las tablas
 
 ## Datos de seed inicial (Alejandra García - piloto)
 
 Ya definidos en `seed.sql`:
+
 - School: "Escuela Americana", CDMX
 - Teacher: Alejandra García (requiere auth_id después de registro)
-- Group: "Preprimaria A", Kinder 3, ciclo 2025-2026
-- Richmond: class_code VZU5DHSH, UUID dcdb1c33-cb61-4822-a05b-32202df8ece4
-- 12 alumnos (2 con NEE)
+- Group A: "Preprimaria A", Kinder 3, ciclo 2025-2026
+- Richmond class_code Group A: VZU5DHSH, UUID: dcdb1c33-cb61-4822-a05b-32202df8ece4
+- Group A: 12 alumnos
+- Group B: "Preprimaria B", Kinder 3, ciclo 2025-2026
+- Richmond class_code Group B: XWAMCC4Y, UUID: dcdb1c33-cb61-4822-a05b-32202df8ece4
+- Group B: 13 alumnos
 
 ## Decisiones de arquitectura pendientes
 
