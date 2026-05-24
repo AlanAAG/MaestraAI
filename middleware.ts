@@ -5,8 +5,7 @@ import type { NextRequest } from 'next/server'
 export function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') ?? ''
   const isDiarySite =
-    hostname.startsWith('diario.') ||
-    process.env.NEXT_PUBLIC_FORCE_DIARY_SITE === 'true'
+    hostname.startsWith('diario.') || process.env.NEXT_PUBLIC_FORCE_DIARY_SITE === 'true'
 
   if (isDiarySite) {
     const pathname = req.nextUrl.pathname

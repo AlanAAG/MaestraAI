@@ -6,19 +6,19 @@
 @layer base {
   :root {
     /* Color tokens */
-    --color-primary: #4F6AF0;
-    --color-primary-light: #EEF1FE;
-    --color-primary-dark: #3451C7;
-    --color-accent: #F5A623;
-    --color-success: #22C55E;
-    --color-warning: #F59E0B;
-    --color-destructive: #EF4444;
-    --color-bg: #FAFBFC;
-    --color-surface: #FFFFFF;
-    --color-border: #E4E7EC;
+    --color-primary: #4f6af0;
+    --color-primary-light: #eef1fe;
+    --color-primary-dark: #3451c7;
+    --color-accent: #f5a623;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-destructive: #ef4444;
+    --color-bg: #fafbfc;
+    --color-surface: #ffffff;
+    --color-border: #e4e7ec;
     --color-text-primary: #111827;
-    --color-text-secondary: #6B7280;
-    --color-text-disabled: #D1D5DB;
+    --color-text-secondary: #6b7280;
+    --color-text-disabled: #d1d5db;
 
     /* Spacing tokens (8pt grid) */
     --space-1: 4px;
