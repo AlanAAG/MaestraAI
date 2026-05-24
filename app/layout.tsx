@@ -1,32 +1,23 @@
-import type { Metadata } from "next";
-import localFont from "next/font/local";
-import "./globals.css";
-import { cn } from "@/lib/utils";
+// app/layout.tsx
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: "MaestraAI",
-  description: "AI-powered tools for Mexican preschool English teachers",
-};
+  title: 'MaestraAI',
+  description: 'Tu asistente para maestra de inglés en preescolar',
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={cn(geistSans.variable, geistMono.variable)}>
-      <body className="antialiased">{children}</body>
+    <html lang="es" className={inter.variable}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
-  );
+  )
 }

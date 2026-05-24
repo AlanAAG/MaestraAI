@@ -1,65 +1,77 @@
+/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Color tokens */
+    --color-primary: #4F6AF0;
+    --color-primary-light: #EEF1FE;
+    --color-primary-dark: #3451C7;
+    --color-accent: #F5A623;
+    --color-success: #22C55E;
+    --color-warning: #F59E0B;
+    --color-destructive: #EF4444;
+    --color-bg: #FAFBFC;
+    --color-surface: #FFFFFF;
+    --color-border: #E4E7EC;
+    --color-text-primary: #111827;
+    --color-text-secondary: #6B7280;
+    --color-text-disabled: #D1D5DB;
+
+    /* Spacing tokens (8pt grid) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-16: 64px;
+
+    /* Typography scale */
+    --type-display-size: 32px;
+    --type-heading-1-size: 24px;
+    --type-heading-2-size: 20px;
+    --type-heading-3-size: 16px;
+    --type-body-size: 16px;
+    --type-body-sm-size: 14px;
+    --type-caption-size: 12px;
+    --type-label-size: 13px;
+    --type-button-size: 15px;
+
+    /* shadcn/ui HSL compatibility (keep these — shadcn components use them) */
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 228 86% 63%;
+    --radius: 0.75rem;
+    --primary: 228 86% 63%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 229 93% 97%;
+    --secondary-foreground: 228 86% 47%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 35 95% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --popover-foreground: 222 47% 11%;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-size: var(--type-body-size);
+    line-height: 1.6;
   }
 }
