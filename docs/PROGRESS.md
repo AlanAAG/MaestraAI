@@ -12,12 +12,14 @@ Subdomain middleware: diario.maestraai.mx → /diary/*
 
 Supabase: 13 tables, RLS on all tables
 
-Dev tooling: Vitest, Prettier, Husky
+Dev tooling: Vitest, Prettier, Husky, typecheck script
 
-DB tables
-teachers, students, groups, lesson_plans, lesson_blocks,
-vocabulary_items, observations, report_cards, richmond_units,
-diary_entries, diary_summaries, material_requests, material_outputs
+Supabase middleware client: lib/supabase/middleware.ts
+
+DB tables (13)
+schools, teachers, groups, group_teachers, students,
+vocabulary_items, fortnights, lesson_plans, materials,
+teacher_observations, report_cards, teacher_diary, usage_logs
 
 Seeded data
 129 vocabulary words in vocabulary_items
@@ -40,7 +42,7 @@ Add .env.local values (Supabase URL/keys + Anthropic API key)
 
 Deploy to Vercel
 
-Run SQL migrations in Supabase SQL Editor in order: 001 → 002 → 003 → 004
+Run SQL migrations in Supabase SQL Editor in order: 001 → 002 → 003 → 004 → 005
 
 Run vocabulary seed
 
@@ -59,4 +61,4 @@ Richmond sync
 
 Session log
 Date	What was shipped	Files changed
-2026-05-24	Initial setup — Phase 0 + 0.5	—
+2026-05-24	Phase 0 + 0.5 complete	CLAUDE.md, PENDIENTES.md, lib/supabase/middleware.ts, supabase/migrations/005_usage_logs.sql, package.json (typecheck), .gitignore
