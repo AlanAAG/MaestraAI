@@ -1,0 +1,115 @@
+-- supabase/seed.sql
+-- Run AFTER migrations 001-004 using Supabase SQL Editor with service role.
+-- The vocabulary INSERT runs immediately. Teacher/group/student INSERTs are
+-- commented out — follow inline instructions once you have auth UIDs.
+
+INSERT INTO schools (id, name, city, plan) VALUES
+  ('a1b2c3d4-0000-0000-0000-000000000001', 'Escuela Americana', 'CDMX', 'free');
+
+-- STEP: Create Alejandra's auth account in Supabase Auth dashboard,
+-- copy her UUID, then uncomment and run the following:
+
+-- INSERT INTO teachers (id, auth_id, school_id, full_name, email, role) VALUES
+--   ('t1000000-0000-0000-0000-000000000001', 'YOUR-AUTH-UUID-HERE',
+--    'a1b2c3d4-0000-0000-0000-000000000001', 'Alejandra Garcia',
+--    'alejandra@escuelamericana.mx', 'titular');
+
+-- INSERT INTO groups (id, school_id, titular_teacher_id, name, grade, academic_year, richmond_class_code) VALUES
+--   ('g1000000-0000-0000-0000-000000000001',
+--    'a1b2c3d4-0000-0000-0000-000000000001',
+--    't1000000-0000-0000-0000-000000000001',
+--    'Preprimaria A', 'Kinder 3', '2025-2026', 'VZU5DHSH');
+
+-- INSERT INTO students (group_id, display_name, first_name_encrypted, last_name_encrypted, has_nee, observation_day) VALUES
+--   ('g1000000-0000-0000-0000-000000000001', 'Aitana R.', 'Aitana', 'Ruiz Olvera', TRUE, 'lunes'),
+--   ('g1000000-0000-0000-0000-000000000001', 'Carlos S.', 'Carlos Santiago', 'Ramirez Mendoza', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Dylan Y.', 'Dylan Yamil', 'Perez Valadez', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Emilia G.', 'Emilia', 'Gallegos Espinoza', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Giovanna T.', 'Giovanna', 'Thacker Arreguin', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Guillermo G.', 'Guillermo', 'Garcia Hernandez', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Gustavo S.', 'Gustavo', 'Santos Millan', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Luis F.', 'Luis Fernando', 'Davila Vieyra', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Maria R.', 'Maria Regina', 'Lopez Huitron', TRUE, 'martes'),
+--   ('g1000000-0000-0000-0000-000000000001', 'Priscila N.', 'Priscila Nicole', 'Limon Tadeo', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Samuel E.', 'Samuel Enrique', 'Godinez Zambrano', FALSE, NULL),
+--   ('g1000000-0000-0000-0000-000000000001', 'Thiago J.', 'Thiago', 'Juarez Guzman', FALSE, NULL);
+
+-- 129 vocabulary items (A-Z, Fly High Pre-Primary official words)
+INSERT INTO vocabulary_items (letter, word, color_code, color_hex, pair_index) VALUES
+  ('A','astronaut','azul','#2196F3',1), ('A','ape','amarillo','#FFC107',2),
+  ('A','apple','rojo','#F44336',3), ('A','ant','verde','#4CAF50',4),
+  ('A','arrow','morado','#9C27B0',5),
+  ('B','ball','azul','#2196F3',1), ('B','baby','amarillo','#FFC107',2),
+  ('B','book','rojo','#F44336',3), ('B','bird','verde','#4CAF50',4),
+  ('B','bus','morado','#9C27B0',5),
+  ('C','car','azul','#2196F3',1), ('C','carrot','amarillo','#FFC107',2),
+  ('C','crocodile','rojo','#F44336',3), ('C','cat','verde','#4CAF50',4),
+  ('C','crayon','morado','#9C27B0',5),
+  ('D','dog','azul','#2196F3',1), ('D','doctor','amarillo','#FFC107',2),
+  ('D','duck','rojo','#F44336',3), ('D','dinner','verde','#4CAF50',4),
+  ('D','dinosaur','morado','#9C27B0',5),
+  ('E','egg','azul','#2196F3',1), ('E','elbow','amarillo','#FFC107',2),
+  ('E','elephant','rojo','#F44336',3), ('E','elf','verde','#4CAF50',4),
+  ('E','emperor','morado','#9C27B0',5),
+  ('F','frog','azul','#2196F3',1), ('F','farmer','amarillo','#FFC107',2),
+  ('F','fish','rojo','#F44336',3), ('F','family','verde','#4CAF50',4),
+  ('F','football','morado','#9C27B0',5),
+  ('G','girl','azul','#2196F3',1), ('G','goat','amarillo','#FFC107',2),
+  ('G','goose','rojo','#F44336',3), ('G','green','verde','#4CAF50',4),
+  ('G','guitar','morado','#9C27B0',5),
+  ('H','hat','azul','#2196F3',1), ('H','horse','amarillo','#FFC107',2),
+  ('H','hippo','rojo','#F44336',3), ('H','hands','verde','#4CAF50',4),
+  ('H','hero','morado','#9C27B0',5),
+  ('I','insects','azul','#2196F3',1), ('I','igloo','amarillo','#FFC107',2),
+  ('I','internet','rojo','#F44336',3), ('I','ink','verde','#4CAF50',4),
+  ('I','imagination','morado','#9C27B0',5),
+  ('J','jacket','azul','#2196F3',1), ('J','jar','amarillo','#FFC107',2),
+  ('J','jelly','rojo','#F44336',3), ('J','juice','verde','#4CAF50',4),
+  ('J','jump','morado','#9C27B0',5),
+  ('K','kite','azul','#2196F3',1), ('K','koala','amarillo','#FFC107',2),
+  ('K','kangaroo','rojo','#F44336',3), ('K','kids','verde','#4CAF50',4),
+  ('K','key','morado','#9C27B0',5),
+  ('L','lion','azul','#2196F3',1), ('L','ladder','amarillo','#FFC107',2),
+  ('L','lamb','rojo','#F44336',3), ('L','lollypop','verde','#4CAF50',4),
+  ('L','lemon','morado','#9C27B0',5),
+  ('M','music','azul','#2196F3',1), ('M','magic','amarillo','#FFC107',2),
+  ('M','milk','rojo','#F44336',3), ('M','monkey','verde','#4CAF50',4),
+  ('M','monster','morado','#9C27B0',5),
+  ('N','nose','azul','#2196F3',1), ('N','nine','amarillo','#FFC107',2),
+  ('N','nest','rojo','#F44336',3), ('N','nap','verde','#4CAF50',4),
+  ('N','nachos','morado','#9C27B0',5),
+  ('O','orange','azul','#2196F3',1), ('O','octopus','amarillo','#FFC107',2),
+  ('O','ox','rojo','#F44336',3), ('O','old','verde','#4CAF50',4),
+  ('O','otter','morado','#9C27B0',5),
+  ('P','pig','azul','#2196F3',1), ('P','pirate','amarillo','#FFC107',2),
+  ('P','pineapple','rojo','#F44336',3), ('P','puppy','verde','#4CAF50',4),
+  ('P','popcorn','morado','#9C27B0',5),
+  ('Q','queen','azul','#2196F3',1), ('Q','question','amarillo','#FFC107',2),
+  ('Q','quick','rojo','#F44336',3), ('Q','quiet','verde','#4CAF50',4),
+  ('R','red','azul','#2196F3',1), ('R','rainbow','amarillo','#FFC107',2),
+  ('R','run','rojo','#F44336',3), ('R','robot','verde','#4CAF50',4),
+  ('R','rose','morado','#9C27B0',5),
+  ('S','snake','azul','#2196F3',1), ('S','summer','amarillo','#FFC107',2),
+  ('S','sock','rojo','#F44336',3), ('S','swing','verde','#4CAF50',4),
+  ('S','sister','morado','#9C27B0',5),
+  ('T','truck','azul','#2196F3',1), ('T','train','amarillo','#FFC107',2),
+  ('T','triangle','rojo','#F44336',3), ('T','toys','verde','#4CAF50',4),
+  ('T','tiger','morado','#9C27B0',5),
+  ('U','up','azul','#2196F3',1), ('U','uniform','amarillo','#FFC107',2),
+  ('U','ugly','rojo','#F44336',3), ('U','umbrella','verde','#4CAF50',4),
+  ('U','uncle','morado','#9C27B0',5),
+  ('V','van','azul','#2196F3',1), ('V','Venus','amarillo','#FFC107',2),
+  ('V','vegetables','rojo','#F44336',3), ('V','violin','verde','#4CAF50',4),
+  ('V','volcano','morado','#9C27B0',5),
+  ('W','walk','azul','#2196F3',1), ('W','window','amarillo','#FFC107',2),
+  ('W','watermelon','rojo','#F44336',3), ('W','wand','verde','#4CAF50',4),
+  ('W','water','morado','#9C27B0',5),
+  ('X','saxophone','azul','#2196F3',1), ('X','fox','amarillo','#FFC107',2),
+  ('X','taxi','rojo','#F44336',3), ('X','galaxy','verde','#4CAF50',4),
+  ('X','box','morado','#9C27B0',5),
+  ('Y','yes','azul','#2196F3',1), ('Y','yo-yo','amarillo','#FFC107',2),
+  ('Y','yellow','rojo','#F44336',3), ('Y','yard','verde','#4CAF50',4),
+  ('Y','yoga','morado','#9C27B0',5),
+  ('Z','zoo','azul','#2196F3',1), ('Z','zebra','amarillo','#FFC107',2),
+  ('Z','zucchini','rojo','#F44336',3), ('Z','zip','verde','#4CAF50',4),
+  ('Z','zig-zag','morado','#9C27B0',5);
