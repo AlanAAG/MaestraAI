@@ -8,7 +8,9 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function DashboardPage() {
   const router = useRouter()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [teacher, setTeacher] = useState<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [lastSync, setLastSync] = useState<any>(null)
 
   useEffect(() => {
@@ -18,7 +20,9 @@ export default function DashboardPage() {
   async function loadData() {
     const supabase = createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return
 
     const { data: teacherData } = await supabase
@@ -30,6 +34,7 @@ export default function DashboardPage() {
     setTeacher(teacherData)
 
     if (teacherData) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const typedTeacher = teacherData as any
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: syncLog } = await (supabase as any)
@@ -65,7 +70,12 @@ export default function DashboardPage() {
           ¡Hola, {teacher.full_name?.split(' ')[0] || 'Maestra'}!
         </h1>
         <p className="text-text-secondary mt-1">
-          {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString('es-MX', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })}
         </p>
       </div>
 
@@ -95,7 +105,9 @@ export default function DashboardPage() {
           <Database size={32} className="text-primary mb-3" strokeWidth={1.5} />
           <h3 className="text-lg font-semibold text-text-primary mb-1">Richmond</h3>
           <p className="text-sm text-text-secondary">
-            {lastSync ? `Última sincronización: ${formatDate(lastSync.started_at)}` : 'Sin sincronizar'}
+            {lastSync
+              ? `Última sincronización: ${formatDate(lastSync.started_at)}`
+              : 'Sin sincronizar'}
           </p>
         </Card>
       </div>

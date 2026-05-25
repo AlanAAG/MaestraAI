@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teacherId = (teacher as any).id as string
 
   // Parse input
@@ -76,7 +77,11 @@ export async function POST(req: NextRequest) {
 
   if (result.status === 'error') {
     return NextResponse.json(
-      { error: 'sync_failed', message: result.errors[0] ?? 'Unknown error', details: result.errors },
+      {
+        error: 'sync_failed',
+        message: result.errors[0] ?? 'Unknown error',
+        details: result.errors,
+      },
       { status: 500 }
     )
   }

@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
 
   // Process each assignment
   for (const assignment of assignments) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: dbAssignment, error: assignmentError } = await (supabase as any)
       .from('richmond_assignments')
       .upsert(
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
         })
 
         if (matchedStudent && !matchedStudent.richmond_student_id) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await (supabase as any)
             .from('students')
             .update({ richmond_student_id: score.richmond_student_id })
@@ -112,7 +114,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dbAssignmentTyped = dbAssignment as any as { id: string }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: scoreError } = await (supabase as any).from('richmond_scores').upsert(
         {
           assignment_id: dbAssignmentTyped.id,

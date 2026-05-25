@@ -17,6 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [loading, setLoading] = useState(true)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
@@ -31,7 +32,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
         router.push('/login')
       }
