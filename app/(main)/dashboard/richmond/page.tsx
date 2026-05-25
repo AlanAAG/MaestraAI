@@ -44,6 +44,7 @@ export default function RichmondDashboard() {
     const supabase = createClient()
 
     // Load assignments for both groups
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: assignmentsDataA } = await (supabase as any)
       .from('richmond_assignments')
       .select('*')
@@ -51,6 +52,7 @@ export default function RichmondDashboard() {
       .order('due_at', { ascending: false })
       .limit(20)
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: assignmentsDataB } = await (supabase as any)
       .from('richmond_assignments')
       .select('*')
@@ -62,6 +64,7 @@ export default function RichmondDashboard() {
     setAssignmentsB(assignmentsDataB || [])
 
     // Load last sync logs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: syncLogA } = await (supabase as any)
       .from('richmond_sync_log')
       .select('*')
@@ -70,6 +73,7 @@ export default function RichmondDashboard() {
       .limit(1)
       .single()
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: syncLogB } = await (supabase as any)
       .from('richmond_sync_log')
       .select('*')
@@ -109,7 +113,7 @@ export default function RichmondDashboard() {
       } else {
         alert(`Error: ${result.message || 'No se pudo sincronizar'}`)
       }
-    } catch (error) {
+    } catch {
       alert('Error de red al sincronizar')
     } finally {
       setSyncing(false)
@@ -145,7 +149,7 @@ export default function RichmondDashboard() {
         } else {
           alert(`Error: ${result.error}`)
         }
-      } catch (error) {
+      } catch {
         alert('Error al subir archivo')
       } finally {
         setUploading(false)
@@ -308,7 +312,9 @@ export default function RichmondDashboard() {
                       <div className="text-xs text-text-secondary">{submissionPercent}%</div>
                     </td>
                     <td className="py-3 px-2 text-center text-sm text-text-primary">
-                      {assignment.class_avg_score ? `${assignment.class_avg_score.toFixed(1)}%` : '—'}
+                      {assignment.class_avg_score
+                        ? `${assignment.class_avg_score.toFixed(1)}%`
+                        : '—'}
                     </td>
                   </tr>
                 )

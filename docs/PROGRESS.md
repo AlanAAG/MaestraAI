@@ -8,7 +8,7 @@ Next.js 14 App Router + Tailwind v3 + shadcn/ui + Inter font
 
 Design system tokens in place
 
-Subdomain middleware: diario.maestraai.mx → /diary/*
+Subdomain middleware: diario.maestraai.mx → /diary/\*
 
 Supabase: 13 tables, RLS on all tables
 
@@ -76,6 +76,6 @@ Report cards generator
 Material generator (flashcards, memorama, YouTube)
 
 Session log
-Date	What was shipped	Files changed
-2026-05-24	Phase 0 + 0.5 complete	CLAUDE.md, PENDIENTES.md, lib/supabase/middleware.ts, supabase/migrations/005_usage_logs.sql, package.json (typecheck), .gitignore
-2026-05-24	Phase 1 complete — Richmond Sync	lib/richmond/*, app/api/richmond/*, app/(main)/dashboard/richmond/, extension/*, supabase/migrations/006_richmond_sync.sql, supabase/seed_step2.sql
+Date What was shipped Files changed
+2026-05-24 Phase 0 + 0.5 complete CLAUDE.md, PENDIENTES.md, lib/supabase/middleware.ts, supabase/migrations/005*usage_logs.sql, package.json (typecheck), .gitignore
+2026-05-24 Phase 1 complete — Richmond Sync lib/richmond/*, app/api/richmond/\_, app/(main)/dashboard/richmond/, extension/\*, supabase/migrations/006_richmond_sync.sql, supabase/seed_step2.sql

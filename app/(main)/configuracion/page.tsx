@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 
 export default function ConfiguracionPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [teacher, setTeacher] = useState<any>(null)
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -17,18 +18,17 @@ export default function ConfiguracionPage() {
 
   async function loadTeacher() {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
-      .from('teachers')
-      .select('*')
-      .eq('auth_id', user.id)
-      .single()
+    const { data } = await supabase.from('teachers').select('*').eq('auth_id', user.id).single()
 
     if (data) {
       setTeacher(data)
-      setFullName(data.full_name || '')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setFullName((data as any).full_name || '')
     }
   }
 
@@ -37,15 +37,14 @@ export default function ConfiguracionPage() {
     setSaved(false)
 
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return
 
     if (teacher) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
-        .from('teachers')
-        .update({ full_name: fullName })
-        .eq('id', teacher.id)
+      await (supabase as any).from('teachers').update({ full_name: fullName }).eq('id', teacher.id)
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any).from('teachers').insert({
@@ -91,9 +90,7 @@ export default function ConfiguracionPage() {
             {loading ? 'Guardando...' : 'Guardar cambios'}
           </Button>
 
-          {saved && (
-            <p className="text-sm text-success">✓ Cambios guardados correctamente</p>
-          )}
+          {saved && <p className="text-sm text-success">✓ Cambios guardados correctamente</p>}
         </div>
       </Card>
 
