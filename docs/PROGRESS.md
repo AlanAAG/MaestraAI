@@ -1,7 +1,7 @@
 MaestraAI — Project Progress
 Claude: update this file after every coding session before ending. Add what was built, what changed, and what's next. Keep it accurate — this is the single source of truth for project state.
 
-Current phase: Phase 1 complete — Richmond Sync
+Current phase: Phase 2 complete — Lesson Planner
 What exists
 Infrastructure
 Next.js 14 App Router + Tailwind v3 + shadcn/ui + Inter font
@@ -64,12 +64,36 @@ Dashboard UI at /dashboard/richmond (tabs, stats, assignments table)
 
 Migration 006_richmond_sync.sql (4 new tables)
 
+Auth & Main App (Phase 1)
+Login/register pages (email + password only)
+
+Onboarding wizard (3 questions: name, grade, editorial)
+
+Main app layout with sidebar navigation
+
+Dashboard with zero-state and Richmond sync status
+
+Configuration page (profile settings, Richmond sync instructions)
+
+Lesson Planner (Phase 2)
+Fortnights list view at /planeaciones with zero-state
+
+New fortnight form at /planeaciones/nueva (Zod validation)
+
+Fortnight detail view at /planeaciones/[id] with expandable 10-day schedule
+
+Streaming AI generation endpoint at /api/planner/generate (Claude Sonnet 4.5)
+
+RubricEditor component for qualitative evaluation (Sí/En proceso/No)
+
+Integrated NEM alignment (4 Campos Formativos, 7 Ejes Articuladores)
+
+Fixed weekly schedule constraints enforced
+
+NEE student reminders and observation day tracking
+
 What does NOT exist yet
-Auth flow (login/register pages)
-
-Main app navigation and layout
-
-Lesson planner generator
+Export Word + PDF for lesson plans
 
 Report cards generator
 
@@ -78,4 +102,6 @@ Material generator (flashcards, memorama, YouTube)
 Session log
 Date What was shipped Files changed
 2026-05-24 Phase 0 + 0.5 complete CLAUDE.md, PENDIENTES.md, lib/supabase/middleware.ts, supabase/migrations/005*usage_logs.sql, package.json (typecheck), .gitignore
-2026-05-24 Phase 1 complete — Richmond Sync lib/richmond/*, app/api/richmond/\_, app/(main)/dashboard/richmond/, extension/\*, supabase/migrations/006_richmond_sync.sql, supabase/seed_step2.sql
+2026-05-24 Phase 1 Auth complete app/(auth)/*, app/(app)/onboarding/, app/(app)/layout.tsx, app/(main)/dashboard/, app/(main)/configuracion/
+2026-05-24 Phase 1 Richmond Sync complete lib/richmond/_, app/api/richmond/_, app/(main)/dashboard/richmond/, extension/_, supabase/migrations/006_richmond_sync.sql, supabase/seed_step2.sql
+2026-05-25 Phase 2 Lesson Planner complete app/(main)/planeaciones/_, app/api/planner/generate/route.ts, components/app/RubricEditor.tsx
