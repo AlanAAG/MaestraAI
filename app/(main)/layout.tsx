@@ -1,12 +1,11 @@
-import { BookOpen, CalendarDays, Home, Layers, Lock, Users } from 'lucide-react'
+import { BookOpen, CalendarDays, Home, Lock } from 'lucide-react'
 import Link from 'next/link'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio', pro: false },
-  { href: '/diario', icon: BookOpen, label: 'Mi Diario', pro: false },
-  { href: '/planeaciones', icon: CalendarDays, label: 'Planeaciones', pro: true },
-  { href: '/material', icon: Layers, label: 'Material', pro: true },
-  { href: '/grupo', icon: Users, label: 'Mi Grupo', pro: true },
+  { href: '/diary', icon: BookOpen, label: 'Mi Diario', pro: false },
+  { href: '/planeaciones', icon: CalendarDays, label: 'Planeaciones', pro: false },
+  { href: '/configuracion', icon: Lock, label: 'Configuración', pro: false },
 ]
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
