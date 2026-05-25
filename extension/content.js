@@ -1,8 +1,8 @@
 // content.js - Intercepts Richmond API calls for assignment scores
 
 const GROUP_UUID_MAP = {
-  'grupo-aca6e': 'g1000000-0000-0000-0000-000000000001', // Preprimaria A
-  'grupo-b01f6': 'g2000000-0000-0000-0000-000000000002', // Preprimaria B
+  'grupo-aca6e': '91000000-0000-0000-0000-000000000001', // Preprimaria A
+  'grupo-b01f6': '92000000-0000-0000-0000-000000000002', // Preprimaria B
 }
 
 // Override XMLHttpRequest to intercept API calls

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { RefreshCw, Upload, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -34,8 +33,8 @@ export default function RichmondDashboard() {
   const [syncing, setSyncing] = useState(false)
   const [uploading, setUploading] = useState(false)
 
-  const groupAId = 'g1000000-0000-0000-0000-000000000001'
-  const groupBId = 'g2000000-0000-0000-0000-000000000002'
+  const groupAId = '91000000-0000-0000-0000-000000000001'
+  const groupBId = '92000000-0000-0000-0000-000000000002'
 
   useEffect(() => {
     loadData()

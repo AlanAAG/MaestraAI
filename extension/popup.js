@@ -1,8 +1,8 @@
 // popup.js - UI logic for extension popup
 
 const GROUP_NAMES = {
-  'g1000000-0000-0000-0000-000000000001': 'Grupo A',
-  'g2000000-0000-0000-0000-000000000002': 'Grupo B',
+  '91000000-0000-0000-0000-000000000001': 'Grupo A',
+  '92000000-0000-0000-0000-000000000002': 'Grupo B',
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -43,8 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 })
 
 function updateStatus(syncTimes) {
-  const groupAId = 'g1000000-0000-0000-0000-000000000001'
-  const groupBId = 'g2000000-0000-0000-0000-000000000002'
+  const groupAId = '91000000-0000-0000-0000-000000000001'
+  const groupBId = '92000000-0000-0000-0000-000000000002'
 
   const groupAStatus = document.getElementById('groupAStatus')
   const groupBStatus = document.getElementById('groupBStatus')

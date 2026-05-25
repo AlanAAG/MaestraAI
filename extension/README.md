@@ -33,8 +33,8 @@ Extensión de Chrome que intercepta automáticamente las calificaciones de Richm
 
 ## Mapeo de grupos
 
-- `grupo-aca6e` (Preprimaria A) → `g1000000-0000-0000-0000-000000000001`
-- `grupo-b01f6` (Preprimaria B) → `g2000000-0000-0000-0000-000000000002`
+- `grupo-aca6e` (Preprimaria A) → `91000000-0000-0000-0000-000000000001`
+- `grupo-b01f6` (Preprimaria B) → `92000000-0000-0000-0000-000000000002`
 
 ## Iconos
 

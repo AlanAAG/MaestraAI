@@ -5,7 +5,9 @@
       "Skill(anthropic-skills:docx:*)",
       "Bash(extract-text \"/Users/alan/Desktop/projects/MaestraAI/MaestraAI_Spec_v5.docx\")",
       "Bash(pandoc \"/Users/alan/Desktop/projects/MaestraAI/MaestraAI_Spec_v5.docx\" -o /tmp/maestra_spec.md)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(sed -i '' s/g1000000-0000-0000-0000-000000000001/91000000-0000-0000-0000-000000000001/g /Users/alan/Desktop/MaestraAI/extension/content.js /Users/alan/Desktop/MaestraAI/extension/README.md /Users/alan/Desktop/MaestraAI/extension/popup.js '/Users/alan/Desktop/MaestraAI/app/\\(main\\)/dashboard/richmond/page.tsx')",
+      "Bash(sed -i '' s/g2000000-0000-0000-0000-000000000002/92000000-0000-0000-0000-000000000002/g /Users/alan/Desktop/MaestraAI/extension/content.js /Users/alan/Desktop/MaestraAI/extension/README.md /Users/alan/Desktop/MaestraAI/extension/popup.js '/Users/alan/Desktop/MaestraAI/app/\\(main\\)/dashboard/richmond/page.tsx')"
     ]
   }
 }
