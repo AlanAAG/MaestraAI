@@ -18,20 +18,65 @@ export default function PlaneacionesPage() {
   }, [])
 
   async function loadFortnights() {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
-      .from('fortnights')
-      .select('*')
-      .order('start_date', { ascending: false })
+      if (authError) {
+        console.error('Auth error:', authError)
+        setLoading(false)
+        return
+      }
 
-    setFortnights(data || [])
-    setLoading(false)
+      if (!user) {
+        console.error('No user found')
+        setLoading(false)
+        return
+      }
+
+      // Get teacher_id first
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: teacher, error: teacherError } = await (supabase as any)
+        .from('teachers')
+        .select('id')
+        .eq('auth_id', user.id)
+        .single()
+
+      if (teacherError) {
+        console.error('Teacher query error:', teacherError)
+        setLoading(false)
+        return
+      }
+
+      if (!teacher) {
+        console.error('No teacher record found for user')
+        setLoading(false)
+        return
+      }
+
+      // Query fortnights
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error: fortnightsError } = await (supabase as any)
+        .from('fortnights')
+        .select('*')
+        .eq('teacher_id', teacher.id)
+        .order('start_date', { ascending: false })
+
+      if (fortnightsError) {
+        console.error('Fortnights query error:', fortnightsError)
+        setLoading(false)
+        return
+      }
+
+      setFortnights(data || [])
+      setLoading(false)
+    } catch (err) {
+      console.error('Unexpected error loading fortnights:', err)
+      setLoading(false)
+    }
   }
 
   if (loading) {

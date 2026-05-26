@@ -17,18 +17,41 @@ export default function ConfiguracionPage() {
   }, [])
 
   async function loadTeacher() {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
 
-    const { data } = await supabase.from('teachers').select('*').eq('auth_id', user.id).single()
+      if (authError) {
+        console.error('Auth error:', authError)
+        return
+      }
 
-    if (data) {
-      setTeacher(data)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setFullName((data as any).full_name || '')
+      if (!user) {
+        console.error('No user found')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*')
+        .eq('auth_id', user.id)
+        .single()
+
+      if (error) {
+        console.error('Teacher query error:', error)
+        return
+      }
+
+      if (data) {
+        setTeacher(data)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setFullName((data as any).full_name || '')
+      }
+    } catch (err) {
+      console.error('Unexpected error loading teacher:', err)
     }
   }
 

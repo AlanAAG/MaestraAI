@@ -47,6 +47,7 @@ export default function PlaneacionDetailPage() {
   const [lessonPlans, setLessonPlans] = useState<LessonPlan[]>([])
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [generationPhase, setGenerationPhase] = useState<
     'preparing' | 'analyzing' | 'generating' | 'done'
   >('preparing')
@@ -57,32 +58,57 @@ export default function PlaneacionDetailPage() {
   }, [params.id])
 
   async function loadData() {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/login')
-      return
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (authError) {
+        console.error('Auth error:', authError)
+        router.push('/login')
+        return
+      }
+
+      if (!user) {
+        console.error('No user found')
+        router.push('/login')
+        return
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: fortnightData, error: fortnightError } = await (supabase as any)
+        .from('fortnights')
+        .select('*')
+        .eq('id', params.id)
+        .single()
+
+      if (fortnightError) {
+        console.error('Fortnight query error:', fortnightError)
+        setLoading(false)
+        return
+      }
+
+      setFortnight(fortnightData)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: plansData, error: plansError } = await (supabase as any)
+        .from('lesson_plans')
+        .select('*')
+        .eq('fortnight_id', params.id)
+        .order('day_number', { ascending: true })
+
+      if (plansError) {
+        console.error('Lesson plans query error:', plansError)
+      }
+
+      setLessonPlans(plansData || [])
+      setLoading(false)
+    } catch (err) {
+      console.error('Unexpected error loading fortnight:', err)
+      setLoading(false)
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: fortnightData } = await (supabase as any)
-      .from('fortnights')
-      .select('*')
-      .eq('id', params.id)
-      .single()
-
-    setFortnight(fortnightData)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: plansData } = await (supabase as any)
-      .from('lesson_plans')
-      .select('*')
-      .eq('fortnight_id', params.id)
-      .order('day_number', { ascending: true })
-
-    setLessonPlans(plansData || [])
   }
 
   async function handleGenerate() {
@@ -149,7 +175,7 @@ export default function PlaneacionDetailPage() {
     return days[weekDay - 1]
   }
 
-  if (!fortnight) {
+  if (loading || !fortnight) {
     return (
       <div className="p-8">
         <p className="text-text-secondary">Cargando...</p>

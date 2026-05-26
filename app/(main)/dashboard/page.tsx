@@ -18,34 +18,57 @@ export default function DashboardPage() {
   }, [])
 
   async function loadData() {
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
 
-    const { data: teacherData } = await supabase
-      .from('teachers')
-      .select('*')
-      .eq('auth_id', user.id)
-      .single()
+      if (authError) {
+        console.error('Auth error:', authError)
+        return
+      }
 
-    setTeacher(teacherData)
+      if (!user) {
+        console.error('No user found')
+        return
+      }
 
-    if (teacherData) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const typedTeacher = teacherData as any
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: syncLog } = await (supabase as any)
-        .from('richmond_sync_log')
+      const { data: teacherData, error: teacherError } = await supabase
+        .from('teachers')
         .select('*')
-        .eq('teacher_id', typedTeacher.id)
-        .order('started_at', { ascending: false })
-        .limit(1)
+        .eq('auth_id', user.id)
         .single()
 
-      setLastSync(syncLog)
+      if (teacherError) {
+        console.error('Teacher query error:', teacherError)
+        return
+      }
+
+      setTeacher(teacherData)
+
+      if (teacherData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const typedTeacher = teacherData as any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: syncLog, error: syncError } = await (supabase as any)
+          .from('richmond_sync_log')
+          .select('*')
+          .eq('teacher_id', typedTeacher.id)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (syncError) {
+          console.error('Sync log query error (non-critical):', syncError)
+        }
+
+        setLastSync(syncLog)
+      }
+    } catch (err) {
+      console.error('Unexpected error loading dashboard:', err)
     }
   }
 
