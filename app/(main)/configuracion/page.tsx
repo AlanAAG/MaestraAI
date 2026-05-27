@@ -25,6 +25,7 @@ export default function ConfiguracionPage() {
   const [students, setStudents] = useState<any[]>([])
 
   const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -45,6 +46,9 @@ export default function ConfiguracionPage() {
 
       if (!user) return
 
+      // Set email from auth user
+      setEmail(user.email || '')
+
       // Load teacher
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: teacherData } = await (supabase as any)
@@ -55,7 +59,8 @@ export default function ConfiguracionPage() {
 
       if (teacherData) {
         setTeacher(teacherData)
-        setFullName(teacherData.full_name || '')
+        // Pre-fill name from teacher record, or use email username as fallback
+        setFullName(teacherData.full_name || user.email?.split('@')[0] || '')
 
         // Load school
         if (teacherData.school_id) {
@@ -269,10 +274,13 @@ export default function ConfiguracionPage() {
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">Email</label>
             <Input
-              value={teacher?.email || ''}
+              value={email}
               disabled
-              className="min-h-[44px] bg-bg text-text-disabled"
+              className="min-h-[44px] bg-surface text-text-secondary cursor-not-allowed"
             />
+            <p className="text-xs text-text-secondary mt-1">
+              El email no se puede cambiar porque es tu identificador de cuenta
+            </p>
           </div>
           <Button
             onClick={handleSaveProfile}

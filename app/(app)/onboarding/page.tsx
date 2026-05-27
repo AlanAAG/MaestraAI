@@ -99,7 +99,7 @@ export default function OnboardingPage() {
     name: string
     grade: string
     academic_year: string
-    richmond_group_slug: string
+    richmond_group_slug?: string
   }) {
     if (!schoolId) {
       setError('Debes seleccionar una escuela primero')

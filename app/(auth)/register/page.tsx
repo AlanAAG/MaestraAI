@@ -25,9 +25,12 @@ export default function RegisterPage() {
     }
 
     const supabase = createClient()
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/onboarding`,
+      },
     })
 
     if (signUpError) {
@@ -36,7 +39,14 @@ export default function RegisterPage() {
       return
     }
 
-    router.push('/onboarding')
+    // Check if email confirmation is required
+    if (data?.user && !data.session) {
+      // Email confirmation required - show clear message
+      router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
+    } else {
+      // No email confirmation required (auto-confirm enabled) - proceed to onboarding
+      router.push('/onboarding')
+    }
   }
 
   return (
@@ -70,7 +80,10 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-text-secondary mb-1"
+            >
               Contraseña
             </label>
             <Input

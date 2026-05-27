@@ -10,7 +10,7 @@ interface GroupData {
   name: string
   grade: string
   academic_year: string
-  richmond_group_slug: string
+  richmond_group_slug?: string
 }
 
 interface GroupCreatorProps {
@@ -80,22 +80,6 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
           required
           className="min-h-[44px]"
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Richmond Group Slug (opcional)
-        </label>
-        <Input
-          value={formData.richmond_group_slug}
-          onChange={(e) => setFormData({ ...formData, richmond_group_slug: e.target.value })}
-          placeholder="Ej: grupo-aca6e"
-          className="min-h-[44px]"
-        />
-        <p className="text-xs text-text-disabled mt-1">
-          Si usas Richmond LP, encuentra esto en la URL del curso (e.g., /courses/
-          <span className="font-mono">grupo-aca6e</span>/markbook)
-        </p>
       </div>
 
       <Button

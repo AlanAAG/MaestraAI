@@ -22,12 +22,27 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const supabase = createClient()
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.push('/login')
-      } else {
-        setLoading(false)
+        return
       }
+
+      // Check if teacher record exists
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: teacher } = await (supabase as any)
+        .from('teachers')
+        .select('id')
+        .eq('auth_id', user.id)
+        .maybeSingle()
+
+      if (!teacher) {
+        // No teacher record = onboarding not completed
+        router.push('/onboarding')
+        return
+      }
+
+      setLoading(false)
     })
 
     const {

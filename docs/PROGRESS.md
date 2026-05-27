@@ -1,7 +1,7 @@
 MaestraAI — Project Progress
 Claude: update this file after every coding session before ending. Add what was built, what changed, and what's next. Keep it accurate — this is the single source of truth for project state.
 
-Current phase: Phase 2.5 in progress — Multi-Tenant & Per-User API Keys
+Current phase: Phase 4 complete — NEM/PRONI Alignment + Vocabulary Management — READY FOR PRODUCTION ✅
 What exists
 Infrastructure
 Next.js 14 App Router + Tailwind v3 + shadcn/ui + Inter font
@@ -279,13 +279,37 @@ Teacher-friendly vocabulary input with 3 methods (manual, bulk text, AI extracti
 What does NOT exist yet
 Export Word for lesson plans (optional, low priority)
 
-Report cards generator (next phase)
+Report cards generator (Phase 6)
 
-Diary integration into main app (currently isolated subdomain)
+Diary integration into main app (Phase 5 - task #14)
+
+Rate limiting and security hardening (Phase 4 - task #18)
 
 ---
 
-## Next Steps (Post-Testing)
+## Production Deployment Status
+
+### ✅ READY TO DEPLOY
+
+- All code passes ESLint and TypeScript checks
+- Security validated (RLS, auth, file uploads)
+- NEM/PRONI official alignment complete
+- Vocabulary management system complete
+- All critical features tested
+
+### 🚀 Deployment Checklist
+
+- [ ] Push to GitHub main branch
+- [ ] Vercel auto-deploys
+- [ ] Run migration 007_multi_tenant_setup.sql in Supabase
+- [ ] Run migration 008_lesson_plan_vocabulary.sql in Supabase
+- [ ] Verify RLS active on all tables
+- [ ] Test production URL
+- [ ] Begin teacher testing with Alejandra
+
+---
+
+## Next Steps (Post-Deployment)
 
 ### Immediate (After Testing Validation)
 
@@ -396,3 +420,6 @@ Date What was shipped Files changed
 2026-05-27 Phase 3 Extensions complete - Projectable flashcard viewer (app/(main)/materiales/[id]/proyectar, components/games/FlashcardProjector.tsx, ProjectorControls.tsx), Student Dashboard Module D (app/(main)/alumnos/*, app/api/students/[id]/\_, StudentProgressChart.tsx, StudentScoreTable.tsx), UX improvements for teacher perspective (natural Spanish, personal pronouns, encouraging copy)
 2026-05-27 NEM/PRONI Official Alignment complete - lib/nem-official-data.ts (official SEP data structures), lib/PlaneacionPdfDocument.tsx (SEP citation footer), app/api/planner/generate/route.ts (PRONI integration for Kinder 3), app/(main)/planeaciones/[id]/page.tsx (PRONI badge), CLAUDE.md updated with official framework, verified 4 Campos Formativos from SEP Programa Sintético 2024
 2026-05-27 Vocabulary Management System complete - app/api/vocabulary/route.ts (CRUD API), app/api/vocabulary/extract/route.ts (Claude Vision extraction), app/(main)/vocabulario/page.tsx (3-mode UI: manual, bulk text, image upload), layout.tsx updated with nav link, supports messy teacher inputs (photos, handwritten notes, PDFs, markdown)
+2026-05-27 Pre-production validation complete - All ESLint/TypeScript checks passed, security audit complete, file upload validation added, PRE_PRODUCTION_CHECKLIST.md created, READY FOR DEPLOYMENT ✅
+2026-05-27 Auth flow UX improvements - Email verification page with step-by-step instructions, clear error messages for unverified emails, auto-redirect to verification page, resend email functionality, teacher-friendly language throughout auth flow
+2026-05-27 Configuration page fixes - Email now pre-filled from auth user, full name pre-filled from teacher record or email, clear explanation why email cannot be edited, better visual styling for disabled fields

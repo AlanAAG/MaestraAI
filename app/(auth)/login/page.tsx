@@ -25,7 +25,25 @@ export default function LoginPage() {
     })
 
     if (signInError) {
-      setError(signInError.message)
+      // Check if error is because email is not confirmed
+      if (signInError.message.toLowerCase().includes('email not confirmed')) {
+        setError(
+          'Aún no has confirmado tu correo electrónico. Revisa tu bandeja de entrada y haz clic en el enlace de confirmación.'
+        )
+        setLoading(false)
+        // Redirect to verify email page after 3 seconds
+        setTimeout(() => {
+          router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
+        }, 3000)
+        return
+      }
+
+      // Other errors - show friendly message
+      if (signInError.message.toLowerCase().includes('invalid')) {
+        setError('Email o contraseña incorrectos. Por favor verifica tus datos.')
+      } else {
+        setError(signInError.message)
+      }
       setLoading(false)
       return
     }
@@ -64,7 +82,10 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-text-secondary mb-1"
+            >
               Contraseña
             </label>
             <Input
