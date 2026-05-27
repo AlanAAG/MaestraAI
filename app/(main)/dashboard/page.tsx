@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ZeroState } from '@/components/app/ZeroState'
 import { Card } from '@/components/ui/card'
-import { BookOpen, Database, FileText, Calendar } from 'lucide-react'
+import { BookOpen, Database, FileText, Calendar, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function DashboardPage() {
@@ -102,7 +102,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card
           className="p-6 cursor-pointer hover:shadow-md transition-shadow"
           onClick={() => router.push('/planeaciones')}
@@ -110,6 +110,15 @@ export default function DashboardPage() {
           <BookOpen size={32} className="text-primary mb-3" strokeWidth={1.5} />
           <h3 className="text-lg font-semibold text-text-primary mb-1">Planeaciones</h3>
           <p className="text-sm text-text-secondary">Genera planeaciones quincenales</p>
+        </Card>
+
+        <Card
+          className="p-6 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push('/alumnos')}
+        >
+          <Users size={32} className="text-primary mb-3" strokeWidth={1.5} />
+          <h3 className="text-lg font-semibold text-text-primary mb-1">Alumnos</h3>
+          <p className="text-sm text-text-secondary">Seguimiento y progreso</p>
         </Card>
 
         <Card

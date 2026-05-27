@@ -4,8 +4,20 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ChevronDown, ChevronUp, Sparkles, Download } from 'lucide-react'
+import {
+  ChevronDown,
+  Sparkles,
+  Download,
+  ArrowLeft,
+  BookOpen,
+  Eye,
+  Heart,
+  Edit2,
+  Package,
+} from 'lucide-react'
 import { LoadingGeneration } from '@/components/app/LoadingGeneration'
+import { LessonPlanEditor } from '@/components/app/LessonPlanEditor'
+import { MaterialGenerator } from '@/components/app/MaterialGenerator'
 
 type LessonBlock = {
   time: string
@@ -40,6 +52,12 @@ type Fortnight = {
   status: string
 }
 
+type VocabularyItem = {
+  id: string
+  word: string
+  letter: string
+}
+
 export default function PlaneacionDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -48,9 +66,14 @@ export default function PlaneacionDetailPage() {
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
   const [generating, setGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const [generationPhase, setGenerationPhase] = useState<
     'preparing' | 'analyzing' | 'generating' | 'done'
   >('preparing')
+  const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([])
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
+  const [showMaterialGenerator, setShowMaterialGenerator] = useState(false)
+  const [selectedLessonPlanId, setSelectedLessonPlanId] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -104,6 +127,14 @@ export default function PlaneacionDetailPage() {
       }
 
       setLessonPlans(plansData || [])
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: vocabData } = await (supabase as any)
+        .from('vocabulary_items')
+        .select('id, word, letter')
+        .order('word', { ascending: true })
+
+      setVocabularyItems(vocabData || [])
       setLoading(false)
     } catch (err) {
       console.error('Unexpected error loading fortnight:', err)
@@ -169,10 +200,58 @@ export default function PlaneacionDetailPage() {
     }
   }
 
+  async function handleExportPdf() {
+    if (!fortnight) return
+
+    setExportingPdf(true)
+    try {
+      const response = await fetch('/api/planner/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fortnight_id: fortnight.id,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Planeacion_Quincena_${fortnight.number}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('PDF export error:', error)
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   function getDayLabel(dayNumber: number): string {
     const weekDay = ((dayNumber - 1) % 5) + 1
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
     return days[weekDay - 1]
+  }
+
+  function getMethodologyColor(methodology: string): string {
+    const colorMap: Record<string, string> = {
+      'Aprendizaje Basado en Proyectos': 'bg-blue-100 text-blue-700',
+      Juego: 'bg-purple-100 text-purple-700',
+      Rutina: 'bg-gray-100 text-gray-700',
+      'Actividad Dirigida': 'bg-green-100 text-green-700',
+      Exploración: 'bg-yellow-100 text-yellow-700',
+      Cierre: 'bg-orange-100 text-orange-700',
+    }
+    return colorMap[methodology] || 'bg-primary-light text-primary'
+  }
+
+  function handleSavePlan(updatedPlan: LessonPlan) {
+    setLessonPlans((prev) => prev.map((plan) => (plan.id === updatedPlan.id ? updatedPlan : plan)))
+    setEditingPlanId(null)
   }
 
   if (loading || !fortnight) {
@@ -193,32 +272,43 @@ export default function PlaneacionDetailPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">
-            Quincena {fortnight.number}: {fortnight.project_name}
-          </h1>
-          <p className="text-text-secondary mt-1">
-            {new Date(fortnight.start_date).toLocaleDateString('es-MX')} -{' '}
-            {new Date(fortnight.end_date).toLocaleDateString('es-MX')}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          {lessonPlans.length > 0 && (
-            <Button variant="outline" className="min-h-[44px]">
-              <Download size={16} className="mr-2" />
-              Exportar PDF
-            </Button>
-          )}
-          {lessonPlans.length === 0 && (
-            <Button
-              onClick={handleGenerate}
-              className="min-h-[44px] bg-primary hover:bg-primary-dark"
-            >
-              <Sparkles size={16} className="mr-2" />
-              Generar Planeación
-            </Button>
-          )}
+      <div className="mb-6">
+        <Button variant="ghost" onClick={() => router.push('/planeaciones')} className="mb-4 -ml-2">
+          <ArrowLeft size={16} className="mr-2" />
+          Volver a Planeaciones
+        </Button>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-text-primary">
+              Quincena {fortnight.number}: {fortnight.project_name}
+            </h1>
+            <p className="text-text-secondary mt-1">
+              {new Date(fortnight.start_date).toLocaleDateString('es-MX')} -{' '}
+              {new Date(fortnight.end_date).toLocaleDateString('es-MX')}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            {lessonPlans.length > 0 && (
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+              >
+                <Download size={16} className="mr-2" />
+                {exportingPdf ? 'Descargando...' : 'Descargar PDF'}
+              </Button>
+            )}
+            {lessonPlans.length === 0 && (
+              <Button
+                onClick={handleGenerate}
+                className="min-h-[44px] bg-primary hover:bg-primary-dark"
+              >
+                <Sparkles size={16} className="mr-2" />
+                Generar Planeación
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -241,101 +331,176 @@ export default function PlaneacionDetailPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {lessonPlans.map((plan) => (
-            <Card
-              key={plan.id}
-              className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() =>
-                setExpandedDay(expandedDay === plan.day_number ? null : plan.day_number)
-              }
-            >
-              <div className="p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-text-primary">
-                    Día {plan.day_number} - {getDayLabel(plan.day_number)}
-                  </h3>
-                  <p className="text-sm text-text-secondary">
-                    {new Date(plan.date).toLocaleDateString('es-MX', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                    })}
-                  </p>
+          {lessonPlans.map((plan) => {
+            const isExpanded = expandedDay === plan.day_number
+            const isEditing = editingPlanId === plan.id
+            return (
+              <Card key={plan.id} className="overflow-hidden transition-all duration-200">
+                <div
+                  className="p-4 flex items-center justify-between cursor-pointer hover:bg-bg/50"
+                  onClick={() => !isEditing && setExpandedDay(isExpanded ? null : plan.day_number)}
+                >
+                  <div>
+                    <h3 className="font-semibold text-text-primary">
+                      Día {plan.day_number} - {getDayLabel(plan.day_number)}
+                    </h3>
+                    <p className="text-sm text-text-secondary">
+                      {new Date(plan.date).toLocaleDateString('es-MX', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isExpanded && !isEditing && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingPlanId(plan.id)
+                        }}
+                        className="h-8"
+                      >
+                        <Edit2 size={14} className="mr-1" />
+                        Modificar
+                      </Button>
+                    )}
+                    <div
+                      className={`transform transition-transform duration-200 ${
+                        isExpanded ? 'rotate-180' : ''
+                      }`}
+                    >
+                      <ChevronDown size={20} className="text-text-secondary" />
+                    </div>
+                  </div>
                 </div>
-                {expandedDay === plan.day_number ? (
-                  <ChevronUp size={20} className="text-text-secondary" />
-                ) : (
-                  <ChevronDown size={20} className="text-text-secondary" />
+
+                {isExpanded && !isEditing && (
+                  <div className="border-t border-border p-6 bg-bg space-y-4 animate-in slide-in-from-top-2">
+                    {plan.blocks.map((block, idx) => (
+                      <div key={idx} className="bg-surface p-4 rounded-lg border border-border">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-text-secondary">{block.time}</p>
+                            <h4 className="text-base font-semibold text-text-primary mt-1">
+                              {block.activity}
+                            </h4>
+                          </div>
+                          <span
+                            className={`text-xs px-3 py-1 rounded-full font-medium ${getMethodologyColor(block.methodology)}`}
+                          >
+                            {block.methodology}
+                          </span>
+                        </div>
+
+                        {block.materials && block.materials.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <p className="text-xs font-semibold text-text-secondary mb-1.5">
+                              Materiales
+                            </p>
+                            <p className="text-sm text-text-primary">
+                              {block.materials.join(', ')}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="mt-3 pt-3 border-t border-border flex gap-6 text-xs">
+                          <div>
+                            <span className="font-semibold text-text-secondary">Campo: </span>
+                            <span className="text-text-primary">{block.nem_field}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-text-secondary">Eje: </span>
+                            <span className="text-text-primary">{block.nem_axis}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {plan.vocabulary && plan.vocabulary.length > 0 && (
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BookOpen size={16} className="text-blue-600" />
+                          <p className="text-xs font-semibold text-blue-900">Vocabulario del día</p>
+                        </div>
+                        <p className="text-sm text-blue-800">{plan.vocabulary.join(', ')}</p>
+                      </div>
+                    )}
+
+                    {plan.observation_students && plan.observation_students.length > 0 && (
+                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Eye size={16} className="text-purple-600" />
+                          <p className="text-xs font-semibold text-purple-900">Observar hoy</p>
+                        </div>
+                        <p className="text-sm text-purple-800">
+                          {plan.observation_students.join(', ')}
+                        </p>
+                      </div>
+                    )}
+
+                    {plan.nee_reminders && plan.nee_reminders.length > 0 && (
+                      <div className="bg-rose-50 p-4 rounded-lg border border-rose-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Heart size={16} className="text-rose-600" />
+                          <p className="text-xs font-semibold text-rose-900">Recordatorios NEE</p>
+                        </div>
+                        <ul className="text-sm text-rose-800 space-y-1">
+                          {plan.nee_reminders.map((reminder, idx) => (
+                            <li key={idx}>• {reminder}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="pt-4 border-t border-border">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedLessonPlanId(plan.id)
+                          setShowMaterialGenerator(true)
+                        }}
+                      >
+                        <Package size={16} className="mr-2" />
+                        Crear materiales
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              {expandedDay === plan.day_number && (
-                <div className="border-t border-border p-6 bg-bg space-y-4">
-                  {plan.blocks.map((block, idx) => (
-                    <div key={idx} className="bg-surface p-4 rounded-lg border border-border">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">{block.time}</p>
-                          <h4 className="text-base font-semibold text-text-primary mt-1">
-                            {block.activity}
-                          </h4>
-                        </div>
-                        <span className="text-xs bg-primary-light text-primary px-2 py-1 rounded">
-                          {block.methodology}
-                        </span>
-                      </div>
-
-                      {block.materials && block.materials.length > 0 && (
-                        <div className="mt-3">
-                          <p className="text-xs font-medium text-text-secondary mb-1">
-                            Materiales:
-                          </p>
-                          <p className="text-sm text-text-primary">{block.materials.join(', ')}</p>
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex gap-4 text-xs text-text-secondary">
-                        <span>Campo: {block.nem_field}</span>
-                        <span>Eje: {block.nem_axis}</span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {plan.vocabulary && plan.vocabulary.length > 0 && (
-                    <div className="bg-primary-light p-4 rounded-lg">
-                      <p className="text-xs font-medium text-text-secondary mb-2">
-                        Vocabulario del día:
-                      </p>
-                      <p className="text-sm text-text-primary">{plan.vocabulary.join(', ')}</p>
-                    </div>
-                  )}
-
-                  {plan.observation_students && plan.observation_students.length > 0 && (
-                    <div className="bg-accent/10 p-4 rounded-lg">
-                      <p className="text-xs font-medium text-text-secondary mb-2">Observar hoy:</p>
-                      <p className="text-sm text-text-primary">
-                        {plan.observation_students.join(', ')}
-                      </p>
-                    </div>
-                  )}
-
-                  {plan.nee_reminders && plan.nee_reminders.length > 0 && (
-                    <div className="bg-warning/10 p-4 rounded-lg">
-                      <p className="text-xs font-medium text-text-secondary mb-2">
-                        Recordatorios NEE:
-                      </p>
-                      <ul className="text-sm text-text-primary space-y-1">
-                        {plan.nee_reminders.map((reminder, idx) => (
-                          <li key={idx}>• {reminder}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </Card>
-          ))}
+                {isEditing && (
+                  <div className="border-t border-border p-4 bg-bg">
+                    <LessonPlanEditor
+                      lessonPlan={plan}
+                      vocabularyItems={vocabularyItems}
+                      onSave={handleSavePlan}
+                      onCancel={() => setEditingPlanId(null)}
+                    />
+                  </div>
+                )}
+              </Card>
+            )
+          })}
         </div>
+      )}
+
+      {showMaterialGenerator && selectedLessonPlanId && (
+        <MaterialGenerator
+          lessonPlanId={selectedLessonPlanId}
+          onClose={() => {
+            setShowMaterialGenerator(false)
+            setSelectedLessonPlanId(null)
+          }}
+          onSuccess={() => {
+            setShowMaterialGenerator(false)
+            setSelectedLessonPlanId(null)
+            loadData()
+          }}
+        />
       )}
     </div>
   )

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { type RichmondAssignment } from '@/lib/richmond/client'
+import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
 
 const IngestInputSchema = z.object({
   group_id: z.string().uuid(),
@@ -10,13 +11,42 @@ const IngestInputSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
-  // Auth: Bearer token
+  const supabase = createClient()
+
+  // Auth: Validate API key
   const authHeader = req.headers.get('authorization')
   const token = authHeader?.replace('Bearer ', '')
 
-  if (!token || token !== process.env.RICHMOND_INGEST_TOKEN) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!token) {
+    return NextResponse.json({ error: 'Missing API key' }, { status: 401 })
   }
+
+  // Get API key from database by prefix
+  const keyPrefix = extractKeyPrefix(token)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: apiKey, error: keyError } = await (supabase as any)
+    .from('api_keys')
+    .select('teacher_id, key_hash')
+    .eq('key_prefix', keyPrefix)
+    .is('revoked_at', null)
+    .single()
+
+  if (keyError || !apiKey) {
+    return NextResponse.json({ error: 'Invalid API key' }, { status: 401 })
+  }
+
+  // Verify API key hash
+  const isValid = await verifyApiKey(token, apiKey.key_hash)
+  if (!isValid) {
+    return NextResponse.json({ error: 'Invalid API key' }, { status: 401 })
+  }
+
+  // Update last_used_at timestamp
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any)
+    .from('api_keys')
+    .update({ last_used_at: new Date().toISOString() })
+    .eq('key_prefix', keyPrefix)
 
   // Parse input
   let body: unknown
@@ -37,7 +67,25 @@ export async function POST(req: NextRequest) {
   const { group_id, data } = parsed.data
   const assignments = data as RichmondAssignment[]
 
-  const supabase = createClient()
+  // Verify group ownership (prevent cross-tenant injection)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: group, error: groupError } = await (supabase as any)
+    .from('groups')
+    .select('titular_teacher_id')
+    .eq('id', group_id)
+    .single()
+
+  if (groupError || !group) {
+    return NextResponse.json({ error: 'Group not found' }, { status: 404 })
+  }
+
+  if (group.titular_teacher_id !== apiKey.teacher_id) {
+    return NextResponse.json(
+      { error: 'Forbidden: You do not have access to this group' },
+      { status: 403 }
+    )
+  }
+
   let syncedCount = 0
   const errors: string[] = []
 

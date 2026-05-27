@@ -10,7 +10,17 @@
       "Bash(sed -i '' s/g2000000-0000-0000-0000-000000000002/92000000-0000-0000-0000-000000000002/g /Users/alan/Desktop/MaestraAI/extension/content.js /Users/alan/Desktop/MaestraAI/extension/README.md /Users/alan/Desktop/MaestraAI/extension/popup.js '/Users/alan/Desktop/MaestraAI/app/\\(main\\)/dashboard/richmond/page.tsx')",
       "Bash(sed -i '' '48s/await supabase/await \\(supabase as any\\)/' /Users/alan/Desktop/MaestraAI/app/\\\\\\(app\\\\\\)/onboarding/page.tsx)",
       "Bash(sed -i '' '46s/await supabase/await \\(supabase as any\\)/' /Users/alan/Desktop/MaestraAI/app/\\\\\\(main\\\\\\)/configuracion/page.tsx)",
-      "Bash(sed -i '' '50s/await supabase/await \\(supabase as any\\)/' /Users/alan/Desktop/MaestraAI/app/\\\\\\(main\\\\\\)/configuracion/page.tsx)"
+      "Bash(sed -i '' '50s/await supabase/await \\(supabase as any\\)/' /Users/alan/Desktop/MaestraAI/app/\\\\\\(main\\\\\\)/configuracion/page.tsx)",
+      "Bash(psql *)",
+      "Bash(node *)",
+      "Bash(awk '{print $1}')",
+      "Bash(chmod -R 644 app/**/*.tsx)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(python3 scripts/search.py \"educational kindergarten preschool teacher SaaS playful friendly simple\" --design-system -p \"MaestraAI\" -f markdown)",
+      "Bash(python3 scripts/search.py \"educational kindergarten teacher\" --domain product -n 3)",
+      "Bash(cd *)",
+      "Bash(xargs rm -f)"
     ]
   }
 }

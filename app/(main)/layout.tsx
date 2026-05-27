@@ -1,14 +1,53 @@
-import { BookOpen, CalendarDays, Home, Lock } from 'lucide-react'
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { BookOpen, CalendarDays, Home, Lock, Users } from 'lucide-react'
 import Link from 'next/link'
+import { Toaster } from '@/components/ui/sonner'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio', pro: false },
   { href: '/diary', icon: BookOpen, label: 'Mi Diario', pro: false },
   { href: '/planeaciones', icon: CalendarDays, label: 'Planeaciones', pro: false },
+  { href: '/alumnos', icon: Users, label: 'Alumnos', pro: false },
   { href: '/configuracion', icon: Lock, label: 'Configuración', pro: false },
 ]
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.push('/login')
+      } else {
+        setLoading(false)
+      }
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        router.push('/login')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <div className="text-text-secondary">Cargando...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar — desktop only */}
@@ -49,6 +88,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Link>
         ))}
       </nav>
+
+      <Toaster />
     </div>
   )
 }

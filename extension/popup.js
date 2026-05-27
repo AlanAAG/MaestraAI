@@ -1,75 +1,155 @@
 // popup.js - UI logic for extension popup
 
-const GROUP_NAMES = {
-  '91000000-0000-0000-0000-000000000001': 'Grupo A',
-  '92000000-0000-0000-0000-000000000002': 'Grupo B',
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   // Load saved settings
-  const { ingestToken, apiUrl, syncTimes } = await chrome.storage.sync.get([
-    'ingestToken',
-    'apiUrl',
-    'syncTimes',
-  ])
+  const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
 
-  if (ingestToken) {
-    document.getElementById('ingestToken').value = ingestToken
+  if (apiKey) {
+    document.getElementById('apiKey').value = apiKey
   }
 
   if (apiUrl) {
     document.getElementById('apiUrl').value = apiUrl
+  } else {
+    document.getElementById('apiUrl').value = 'https://maestraai.mx'
   }
 
-  // Update status
-  updateStatus(syncTimes || {})
+  // Test connection on load if configured
+  if (apiKey && apiUrl) {
+    testConnection(apiKey, apiUrl)
+  }
 
   // Save button
   document.getElementById('saveBtn').addEventListener('click', async () => {
-    const token = document.getElementById('ingestToken').value
-    const url = document.getElementById('apiUrl').value || 'https://maestraai.mx'
+    const key = document.getElementById('apiKey').value.trim()
+    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraai.mx'
+
+    if (!key) {
+      showMessage('Por favor ingresa una clave API', 'error')
+      return
+    }
 
     await chrome.storage.sync.set({
-      ingestToken: token,
+      apiKey: key,
       apiUrl: url,
     })
 
-    const savedMsg = document.getElementById('savedMsg')
-    savedMsg.style.display = 'block'
-    setTimeout(() => {
-      savedMsg.style.display = 'none'
-    }, 2000)
+    showMessage('✓ Configuración guardada', 'success')
+
+    // Test connection after saving
+    setTimeout(() => testConnection(key, url), 500)
+  })
+
+  // Test connection button
+  document.getElementById('testBtn').addEventListener('click', async () => {
+    const key = document.getElementById('apiKey').value.trim()
+    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraai.mx'
+
+    if (!key) {
+      showMessage('Por favor ingresa una clave API primero', 'error')
+      return
+    }
+
+    await testConnection(key, url)
   })
 })
 
-function updateStatus(syncTimes) {
-  const groupAId = '91000000-0000-0000-0000-000000000001'
-  const groupBId = '92000000-0000-0000-0000-000000000002'
+async function testConnection(apiKey, apiUrl) {
+  const statusBox = document.getElementById('statusBox')
+  const statusDot = document.getElementById('statusDot')
+  const statusTitle = document.getElementById('statusTitle')
+  const statusDetails = document.getElementById('statusDetails')
 
-  const groupAStatus = document.getElementById('groupAStatus')
-  const groupBStatus = document.getElementById('groupBStatus')
+  // Show loading state
+  statusBox.className = 'status'
+  statusDot.className = 'status-dot gray'
+  statusTitle.textContent = 'Probando conexión...'
+  statusDetails.innerHTML = ''
 
-  if (syncTimes[groupAId]) {
-    const time = new Date(syncTimes[groupAId])
-    groupAStatus.textContent = `✓ ${formatTime(time)}`
-    groupAStatus.className = 'status-value success'
-  }
+  try {
+    const response = await fetch(`${apiUrl}/api/richmond/groups`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    })
 
-  if (syncTimes[groupBId]) {
-    const time = new Date(syncTimes[groupBId])
-    groupBStatus.textContent = `✓ ${formatTime(time)}`
-    groupBStatus.className = 'status-value success'
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    // Success - show connected state
+    statusBox.className = 'status connected'
+    statusDot.className = 'status-dot green'
+    statusTitle.textContent = `Conectado como ${data.teacherName}`
+
+    const groupNames = data.groups || []
+    const groupCount = data.totalGroups || 0
+
+    let detailsHTML = ''
+    if (groupCount > 0) {
+      detailsHTML = `
+        <div class="status-item">
+          <span class="status-label">Grupos sincronizando</span>
+          <span class="status-value">${groupCount}</span>
+        </div>
+      `
+      if (groupNames.length > 0) {
+        detailsHTML += `
+          <div class="status-item">
+            <span class="status-label">Grupos</span>
+            <span class="status-value">${groupNames.join(', ')}</span>
+          </div>
+        `
+      }
+    } else {
+      detailsHTML = `
+        <div class="status-item">
+          <span class="status-label" style="color: #f59e0b;">⚠ No hay grupos configurados</span>
+        </div>
+      `
+    }
+
+    statusDetails.innerHTML = detailsHTML
+
+    // Notify content script to reload mappings
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: 'RELOAD_MAPPINGS' })
+      }
+    })
+  } catch (error) {
+    // Error - show disconnected state
+    statusBox.className = 'status error'
+    statusDot.className = 'status-dot red'
+    statusTitle.textContent = 'Error de conexión'
+
+    let errorMsg = 'No se pudo conectar al servidor'
+    if (error.message.includes('401')) {
+      errorMsg = 'Clave API inválida o revocada'
+    } else if (error.message.includes('404')) {
+      errorMsg = 'Endpoint no encontrado - verifica la URL'
+    } else if (error.message.includes('Failed to fetch')) {
+      errorMsg = 'No se pudo conectar - verifica la URL'
+    }
+
+    statusDetails.innerHTML = `
+      <div class="status-item">
+        <span class="status-label" style="color: #ef4444;">${errorMsg}</span>
+      </div>
+    `
   }
 }
 
-function formatTime(date) {
-  const now = new Date()
-  const diff = now - date
-  const minutes = Math.floor(diff / 60000)
+function showMessage(text, type) {
+  const msg = document.getElementById('saveMsg')
+  msg.textContent = text
+  msg.className = `message ${type}`
 
-  if (minutes < 1) return 'Hace un momento'
-  if (minutes < 60) return `Hace ${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `Hace ${hours}h`
-  return date.toLocaleDateString('es-MX')
+  if (type === 'success') {
+    setTimeout(() => {
+      msg.className = 'message'
+    }, 3000)
+  }
 }

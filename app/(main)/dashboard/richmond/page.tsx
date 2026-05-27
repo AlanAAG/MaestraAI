@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +25,7 @@ type SyncLog = {
 }
 
 export default function RichmondDashboard() {
+  const router = useRouter()
   const [activeGroup, setActiveGroup] = useState<'A' | 'B'>('A')
   const [assignmentsA, setAssignmentsA] = useState<Assignment[]>([])
   const [assignmentsB, setAssignmentsB] = useState<Assignment[]>([])
@@ -31,7 +33,6 @@ export default function RichmondDashboard() {
   const [lastSyncB, setLastSyncB] = useState<SyncLog | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [syncing, setSyncing] = useState(false)
-  const [uploading, setUploading] = useState(false)
 
   const groupAId = '91000000-0000-0000-0000-000000000001'
   const groupBId = '92000000-0000-0000-0000-000000000002'
@@ -120,6 +121,8 @@ export default function RichmondDashboard() {
     }
   }
 
+  // CSV import now handled via /richmond/subir route
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function handleUploadXLSX(groupId: string) {
     const input = document.createElement('input')
     input.type = 'file'
@@ -128,8 +131,6 @@ export default function RichmondDashboard() {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
-
-      setUploading(true)
 
       try {
         const formData = new FormData()
@@ -151,8 +152,6 @@ export default function RichmondDashboard() {
         }
       } catch {
         alert('Error al subir archivo')
-      } finally {
-        setUploading(false)
       }
     }
 
@@ -184,13 +183,12 @@ export default function RichmondDashboard() {
 
         <div className="flex gap-3">
           <Button
-            onClick={() => handleUploadXLSX(activeGroupId)}
-            disabled={uploading}
+            onClick={() => router.push('/richmond/subir')}
             variant="outline"
             className="min-h-[44px] gap-2"
           >
             <Upload size={18} />
-            Subir XLSX
+            Importar CSV
           </Button>
           <Button
             onClick={() => handleSync(activeGroupId)}

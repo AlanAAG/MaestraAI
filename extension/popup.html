@@ -6,7 +6,7 @@
   <title>MaestraAI Sync</title>
   <style>
     body {
-      width: 320px;
+      width: 360px;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
@@ -52,11 +52,52 @@
     button:hover {
       background: #3451c7;
     }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: white;
+      color: #4f6af0;
+      border: 1px solid #4f6af0;
+    }
+    button.secondary:hover {
+      background: #eff2ff;
+    }
     .status {
       padding: 12px;
       background: #f3f4f6;
       border-radius: 8px;
       margin-top: 16px;
+    }
+    .status.connected {
+      background: #ecfdf5;
+      border: 1px solid #22c55e;
+    }
+    .status.error {
+      background: #fef2f2;
+      border: 1px solid #ef4444;
+    }
+    .status-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .status-dot.green {
+      background: #22c55e;
+    }
+    .status-dot.red {
+      background: #ef4444;
+    }
+    .status-dot.gray {
+      background: #9ca3af;
     }
     .status-item {
       display: flex;
@@ -64,29 +105,39 @@
       align-items: center;
       padding: 6px 0;
       border-bottom: 1px solid #e5e7eb;
+      font-size: 13px;
     }
     .status-item:last-child {
       border-bottom: none;
     }
     .status-label {
-      font-weight: 500;
-      color: #374151;
-    }
-    .status-value {
-      font-size: 12px;
       color: #6b7280;
     }
-    .success {
-      color: #22c55e;
+    .status-value {
+      font-weight: 500;
+      color: #111827;
     }
-    .warning {
-      color: #f59e0b;
-    }
-    .saved-msg {
-      color: #22c55e;
+    .message {
       font-size: 12px;
       margin-top: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
       display: none;
+    }
+    .message.success {
+      color: #166534;
+      background: #dcfce7;
+      display: block;
+    }
+    .message.error {
+      color: #991b1b;
+      background: #fee2e2;
+      display: block;
+    }
+    .help-text {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -96,25 +147,25 @@
   <div class="section">
     <label for="apiUrl">URL de MaestraAI</label>
     <input type="text" id="apiUrl" placeholder="https://maestraai.mx" />
+    <div class="help-text">Usa localhost para desarrollo local</div>
   </div>
 
   <div class="section">
-    <label for="ingestToken">Token de Sync</label>
-    <input type="password" id="ingestToken" placeholder="Ingresa tu token" />
-    <div class="saved-msg" id="savedMsg">✓ Configuración guardada</div>
+    <label for="apiKey">Clave API</label>
+    <input type="password" id="apiKey" placeholder="Ingresa tu clave API" />
+    <div class="help-text">Genera tu clave en Configuración</div>
+    <div class="message" id="saveMsg"></div>
   </div>
 
   <button id="saveBtn">Guardar Configuración</button>
+  <button id="testBtn" class="secondary" style="margin-top: 4px;">Probar Conexión</button>
 
-  <div class="status">
-    <div class="status-item">
-      <span class="status-label">Grupo A</span>
-      <span class="status-value" id="groupAStatus">⚠ Pendiente</span>
+  <div class="status" id="statusBox">
+    <div class="status-header">
+      <span class="status-dot gray" id="statusDot"></span>
+      <span id="statusTitle">No configurado</span>
     </div>
-    <div class="status-item">
-      <span class="status-label">Grupo B</span>
-      <span class="status-value" id="groupBStatus">⚠ Pendiente</span>
-    </div>
+    <div id="statusDetails"></div>
   </div>
 
   <script src="popup.js"></script>

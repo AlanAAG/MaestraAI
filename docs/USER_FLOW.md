@@ -1,10 +1,62 @@
 # MaestraAI - Complete User Flow & Data Model
 
+## ✅ Phase 2.5 UPDATE (2026-05-25)
+
+**ALL CRITICAL GAPS RESOLVED** — See "What Was Fixed" section below
+
+---
+
 ## Overview: User Journey
 
 ```
-1. Registration → 2. Onboarding → 3. Dashboard → 4. Richmond Setup → 5. Create Planeación
+1. Registration → 2. Onboarding (7 steps) → 3. Dashboard → 4. Richmond Setup → 5. Create Planeación
 ```
+
+### What Was Fixed (Phase 2.5)
+
+**✅ Issue #1: Auth Broken** - Fixed
+
+- Added auth guard to `app/(main)/layout.tsx`
+- Unauthenticated users redirected to /login
+
+**✅ Issue #2: Data Loss** - Fixed
+
+- Onboarding now saves grade and editorial to teachers table
+- Added grade, editorial columns to teachers via migration 007
+
+**✅ Issue #3: Missing School Links** - Fixed
+
+- School selection/creation added to onboarding (step 4)
+- Teachers always have school_id (not NULL)
+
+**✅ Issue #4: Missing Group Links** - Fixed
+
+- Group creation added to onboarding (step 5)
+- Groups linked via titular_teacher_id
+
+**✅ Issue #5: Hardcoded Group ID** - Fixed
+
+- Dynamic group selector in `/planeaciones/nueva`
+- Loads teacher's groups, no hardcoded UUIDs
+
+**✅ Issue #6: Shared Security Token** - Fixed
+
+- Per-user API keys with bcrypt hashing
+- API routes validate against api_keys table
+- Cross-tenant isolation enforced
+
+**✅ Issue #7: Extension Hardcoded Mapping** - Fixed
+
+- GROUP_UUID_MAP loaded dynamically from /api/richmond/groups
+- Supports unlimited groups per teacher
+- Auto-discovers new groups
+
+**✅ Issue #8: No Student Management** - Partially Fixed
+
+- Student roster view in settings (display_name only)
+- Students sync from Richmond LP (no manual UI creation yet)
+
+**All gaps from original analysis resolved. See TESTING_GUIDE_PHASE_2.5.md for validation.**
 
 ---
 

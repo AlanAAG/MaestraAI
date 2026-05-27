@@ -1,9 +1,52 @@
 // content.js - Intercepts Richmond API calls for assignment scores
 
-const GROUP_UUID_MAP = {
-  'grupo-aca6e': '91000000-0000-0000-0000-000000000001', // Preprimaria A
-  'grupo-b01f6': '92000000-0000-0000-0000-000000000002', // Preprimaria B
+// Dynamic GROUP_UUID_MAP loaded from /api/richmond/groups
+let GROUP_UUID_MAP = {}
+let isInitialized = false
+
+// Load group mappings from MaestraAI API
+async function loadGroupMappings() {
+  try {
+    const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
+
+    if (!apiKey || !apiUrl) {
+      console.warn('[MaestraAI] API key or URL not configured')
+      return
+    }
+
+    const response = await fetch(`${apiUrl}/api/richmond/groups`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    })
+
+    if (!response.ok) {
+      console.error('[MaestraAI] Failed to fetch groups:', response.status)
+      return
+    }
+
+    const data = await response.json()
+    GROUP_UUID_MAP = data.groupMap || {}
+    isInitialized = true
+
+    console.log('[MaestraAI] Loaded group mappings:', GROUP_UUID_MAP)
+    console.log('[MaestraAI] Connected as:', data.teacherName)
+    console.log('[MaestraAI] Syncing', data.totalGroups, 'groups')
+  } catch (error) {
+    console.error('[MaestraAI] Failed to load group mappings:', error)
+  }
 }
+
+// Listen for storage changes (when API key is updated)
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync' && (changes.apiKey || changes.apiUrl)) {
+    console.log('[MaestraAI] API configuration changed, reloading groups...')
+    loadGroupMappings()
+  }
+})
+
+// Load mappings on script initialization
+loadGroupMappings()
 
 // Override XMLHttpRequest to intercept API calls
 const OriginalXHR = window.XMLHttpRequest
@@ -30,8 +73,23 @@ const CustomXHR = function () {
             const groupSlug = groupMatch ? groupMatch[1] : null
             const groupId = groupSlug ? GROUP_UUID_MAP[groupSlug] : null
 
+            if (!isInitialized) {
+              console.warn('[MaestraAI] Group mappings not loaded yet, skipping sync')
+              return
+            }
+
+            if (!groupId) {
+              console.warn(
+                '[MaestraAI] No group mapping found for slug:',
+                groupSlug,
+                'Available groups:',
+                Object.keys(GROUP_UUID_MAP)
+              )
+              return
+            }
+
             if (groupId && Array.isArray(data)) {
-              console.log('[MaestraAI] Intercepted assignment scores:', data.length, 'assignments')
+              console.log('[MaestraAI] Intercepted assignment scores:', data.length, 'assignments for', groupSlug)
 
               // Send to background script
               chrome.runtime.sendMessage({
@@ -60,4 +118,4 @@ const CustomXHR = function () {
 
 window.XMLHttpRequest = CustomXHR
 
-console.log('[MaestraAI] Content script loaded - intercepting Richmond API calls')
+console.log('[MaestraAI] Content script loaded - waiting for group mappings...')
