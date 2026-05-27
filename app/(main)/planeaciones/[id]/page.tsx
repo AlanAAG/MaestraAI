@@ -387,6 +387,11 @@ export default function PlaneacionDetailPage() {
                             <h4 className="text-base font-semibold text-text-primary mt-1">
                               {block.activity}
                             </h4>
+                            {block.activity.includes('[PRONI:') && (
+                              <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                                PRONI
+                              </span>
+                            )}
                           </div>
                           <span
                             className={`text-xs px-3 py-1 rounded-full font-medium ${getMethodologyColor(block.methodology)}`}

@@ -89,11 +89,18 @@ Always validate API inputs with Zod before touching DB or calling Claude.
 Always run typecheck after modifying TypeScript files.
 
 NEM constraints (apply to all pedagogical outputs)
-Evaluation: Si / En proceso / No — qualitative observations only.
-4 Campos Formativos: Lenguajes, Saberes y Pensamiento Científico,
-Ética Naturaleza y Sociedades, De lo Humano y lo Comunitario.
-7 Ejes Articuladores: Inclusión, Pensamiento crítico, Interculturalidad,
-Igualdad de género, Vida saludable, Lectura y escritura, Artes.
+Official SEP alignment (2024):
+
+- 4 Campos Formativos (verified from Programa Sintético Fase 2, SEP 2024):
+  1. Lenguajes (includes PRONI for Kinder 3)
+  2. Saberes y Pensamiento Científico
+  3. Ética, Naturaleza y Sociedades
+  4. De lo Humano y lo Comunitario
+- 7 Ejes Articuladores: Inclusión, Pensamiento crítico, Interculturalidad,
+  Igualdad de género, Vida saludable, Lectura y escritura, Artes
+- PRONI (Programa Nacional de Inglés) applies ONLY to Kinder 3 (Tercer grado)
+- All PDFs must cite: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024"
+- Evaluation: Logrado / En proceso / Requiere apoyo / Sin evaluar — qualitative only, NO numeric grades
 
 Fixed weekly schedule:
 

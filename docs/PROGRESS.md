@@ -249,6 +249,33 @@ Complete Module D implementation for student tracking:
 - Proper NEM alignment (qualitative labels only, no numeric grades visible)
 - Export to CSV functionality for record keeping
 
+NEM/PRONI Official Alignment (Phase 4 Priority - COMPLETE)
+Complete implementation of official SEP framework alignment:
+
+- lib/nem-official-data.ts - Official Campos Formativos, Ejes Articuladores, PRONI data structures, SEP citations
+- Verified 4 Campos Formativos match official SEP Programa Sintético Fase 2 (2024)
+- PRONI integration: applies ONLY to Kinder 3 (6 content areas from PRONI 2024-2025)
+- Updated PlaneacionPdfDocument.tsx - Official SEP citation footer on all pages
+- Updated lesson plan generation prompt - PRONI markers for Kinder 3 groups
+- Added PRONI badge display in planeaciones/[id]/page.tsx for activities with [PRONI:] marker
+- Updated CLAUDE.md with official NEM framework documentation
+- Official citations: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024"
+- Evaluation labels: Logrado, En proceso, Requiere apoyo, Sin evaluar (qualitative only)
+
+Vocabulary Management System (Phase 4 Extension - COMPLETE)
+Teacher-friendly vocabulary input with 3 methods (manual, bulk text, AI extraction):
+
+- GET/POST/DELETE /api/vocabulary - CRUD API for teacher vocabulary items
+- POST /api/vocabulary/extract - Claude Vision + text extraction endpoint
+- /vocabulario/page.tsx - Full vocabulary management UI with 3 input modes
+- Manual entry: add single words with letter/color assignment
+- Bulk text import: paste from notes/markdown/docs, Claude extracts vocabulary
+- Image upload: photo of books/notes/handwritten lists, Claude Vision extracts words
+- Grouped display by letter (A-Z) with color-coded cards
+- Delete functionality for teacher-created vocabulary (not system vocabulary)
+- Navigation link added to main sidebar
+- Handles messy teacher inputs: photos, PDFs, handwritten notes, markdown files
+
 What does NOT exist yet
 Export Word for lesson plans (optional, low priority)
 
@@ -256,12 +283,116 @@ Report cards generator (next phase)
 
 Diary integration into main app (currently isolated subdomain)
 
+---
+
+## Next Steps (Post-Testing)
+
+### Immediate (After Testing Validation)
+
+1. **Deploy to Production**
+   - Push to GitHub (triggers Vercel auto-deploy)
+   - Run migrations 007 and 008 in Supabase
+   - Verify RLS policies active
+   - Seed vocabulary database (129 words)
+   - Test production URL
+
+2. **Teacher Testing with Alejandra**
+   - Create fortnight → Generate plans → Export PDF
+   - Upload Richmond CSV → Import scores
+   - View student progress → Export reports
+   - Generate materials → Project flashcards
+   - Play Memory Match game
+   - Collect UX feedback
+
+### Phase 4 - High Priority (Production Blockers)
+
+**Target: Next 2 weeks**
+
+3. **NEM/PRONI Official Alignment** (Task #15)
+   - Research official SEP NEM documentation
+   - Verify Campos Formativos match official list
+   - Verify Ejes Articuladores match framework
+   - Add official citations to PDF exports
+   - Add PRONI alignment markers
+   - Estimated: 4-6 hours
+
+4. **Security Implementation** (Task #18)
+   - Rate limiting on API routes (10-50 req/hour)
+   - File validation (MIME, size, malware)
+   - Aviso de Privacidad page (LFPDPPP 2025)
+   - CSP headers for XSS protection
+   - CSRF tokens for state changes
+   - Estimated: 6-8 hours
+
+5. **Richmond-Vocabulary-Lesson Integration** (Task #20)
+   - Link Richmond units → vocabulary_items
+   - Auto-populate vocabulary from Richmond unit
+   - Show Richmond context in lesson plans
+   - Bidirectional sync: scores ↔ plans
+   - Estimated: 4-5 hours
+
+### Phase 5 - Medium Priority
+
+**Target: Following 2 weeks**
+
+6. **Integrate Diary into Main App** (Task #14)
+   - Move from subdomain to main navigation
+   - Friday notification system
+   - Link entries to fortnights
+   - Show insights on dashboard
+   - Estimated: 3-4 hours
+
+7. **Memory Game Enhancements** (Task #19)
+   - Audio feedback (match/wrong/complete)
+   - Celebration animations (confetti, stars)
+   - Difficulty levels (4/6/8 pairs)
+   - Optional timer (challenge mode)
+   - Visual hints (color, category)
+   - Estimated: 4-5 hours
+
+8. **Visual Testing** (Task #16)
+   - Print PDFs on actual printer
+   - Test on classroom proyector (2m distance)
+   - Verify colors in bright lighting
+   - Test Memory Match on large screen
+   - Estimated: 2-3 hours
+
+### Phase 6 - Future Features
+
+**Post-Launch, based on teacher feedback**
+
+9. **Report Cards Generator**
+   - Trimestral reports (qualitative only)
+   - Export to PDF for parents
+   - Consolidate lesson plan observations
+   - NEM-compliant format
+   - Estimated: 8-10 hours
+
+10. **Additional Game Types**
+    - Bingo (vocabulary/numbers)
+    - Sorting Game (categories)
+    - Word Scramble (spelling)
+    - Simon Says (listening)
+    - Estimated: 6-8 hours per game
+
+### Success Metrics to Track
+
+- Usage: Fortnights created per week
+- Time saved: Planning time reduced to <1 hour
+- Error rate: Failed generations/imports
+- Teacher satisfaction: Would recommend to colleagues?
+- Student engagement: Kids enjoy games/flashcards?
+
+---
+
 Session log
 Date What was shipped Files changed
 2026-05-24 Phase 0 + 0.5 complete CLAUDE.md, PENDIENTES.md, lib/supabase/middleware.ts, supabase/migrations/005*usage_logs.sql, package.json (typecheck), .gitignore
 2026-05-24 Phase 1 Auth complete app/(auth)/*, app/(app)/onboarding/, app/(app)/layout.tsx, app/(main)/dashboard/, app/(main)/configuracion/
 2026-05-24 Phase 1 Richmond Sync complete lib/richmond/_, app/api/richmond/_, app/(main)/dashboard/richmond/, extension/_, supabase/migrations/006_richmond_sync.sql, supabase/seed_step2.sql
 2026-05-25 Phase 2 Lesson Planner complete app/(main)/planeaciones/_, app/api/planner/generate/route.ts, components/app/RubricEditor.tsx
-2026-05-27 Phase 3 complete - PDF Export, Editing, Materials, Games. Files: app/(main)/planeaciones/*.tsx (UI improvements), lib/*PdfDocument.tsx (5 PDF generators), app/api/planner/pdf|update (export + editing APIs), app/api/materials/export|generate (material APIs), components/games/_, components/app/LessonPlanEditor.tsx, components/app/MaterialGenerator.tsx, lib/materials/_, prompts/materials.ts, supabase/migrations/008_lesson_plan_vocabulary.sql
+2026-05-27 Phase 3 complete - PDF Export, Editing, Materials, Games. Files: app/(main)/planeaciones/*.tsx (UI improvements), lib/*PdfDocument.tsx (5 PDF generators), app/api/planner/pdf|update (export + editing APIs), app/api/materials/export|generate (material APIs), components/games/_, components/app/LessonPlanEditor.tsx, components/app/MaterialGenerator.tsx, lib/materials/_, prompts/materials.ts, supabase/migrations/008*lesson_plan_vocabulary.sql
 2026-05-27 Richmond CSV Import System complete - lib/richmond/csv-parser.ts, app/api/richmond/parse-csv|import-batch, app/(main)/richmond/subir/page.tsx, lib/richmond/**tests**/csv-parser.test.ts (4 passing tests), installed fastest-levenshtein, updated dashboard/richmond/page.tsx with Import button
-2026-05-27 Phase 3 Extensions complete - Projectable flashcard viewer (app/(main)/materiales/[id]/proyectar, components/games/FlashcardProjector.tsx, ProjectorControls.tsx), Student Dashboard Module D (app/(main)/alumnos/_, app/api/students/[id]/_, StudentProgressChart.tsx, StudentScoreTable.tsx), UX improvements for teacher perspective (natural Spanish, personal pronouns, encouraging copy)
+2026-05-27 Phase 3 Extensions complete - Projectable flashcard viewer (app/(main)/materiales/[id]/proyectar, components/games/FlashcardProjector.tsx, ProjectorControls.tsx), Student Dashboard Module D (app/(main)/alumnos/*, app/api/students/[id]/\_, StudentProgressChart.tsx, StudentScoreTable.tsx), UX improvements for teacher perspective (natural Spanish, personal pronouns, encouraging copy)
+2026-05-27 NEM/PRONI Official Alignment complete - lib/nem-official-data.ts (official SEP data structures), lib/PlaneacionPdfDocument.tsx (SEP citation footer), app/api/planner/generate/route.ts (PRONI integration for Kinder 3), app/(main)/planeaciones/[id]/page.tsx (PRONI badge), CLAUDE.md updated with official framework, verified 4 Campos Formativos from SEP Programa Sintético 2024
+2026-05-27 Vocabulary Management System complete - app/api/vocabulary/route.ts (CRUD API), app/api/vocabulary/extract/route.ts (Claude Vision extraction), app/(main)/vocabulario/page.tsx (3-mode UI: manual, bulk text, image upload), layout.tsx updated with nav link, supports messy teacher inputs (photos, handwritten notes, PDFs, markdown)

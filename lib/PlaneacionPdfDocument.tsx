@@ -124,6 +124,13 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#9CA3AF',
   },
+  citation: {
+    fontSize: 7,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 4,
+    fontFamily: 'Helvetica-Oblique',
+  },
 })
 
 export function PlaneacionPdfDocument(props: PlaneacionDocumentProps) {
@@ -178,9 +185,13 @@ export function PlaneacionPdfDocument(props: PlaneacionDocumentProps) {
           </View>
         </View>
 
-        <Text style={styles.footer}>
-          Generado el {props.generatedAt} · MaestraAI · maestraai.mx
-        </Text>
+        <View style={styles.footer}>
+          <Text>Generado el {props.generatedAt} · MaestraAI · maestraai.mx</Text>
+          <Text style={styles.citation}>
+            Basado en el Programa de Estudio para la Educación Preescolar, Fase 2. Secretaría de
+            Educación Pública, 2024.
+          </Text>
+        </View>
       </Page>
 
       {/* Lesson Plan Pages */}
@@ -250,10 +261,16 @@ export function PlaneacionPdfDocument(props: PlaneacionDocumentProps) {
             </View>
           )}
 
-          <Text style={styles.footer}>
-            Página {index + 2} de {props.lessonPlans.length + 1} · Quincena {props.fortnightNumber}{' '}
-            · {props.projectName}
-          </Text>
+          <View style={styles.footer}>
+            <Text>
+              Página {index + 2} de {props.lessonPlans.length + 1} · Quincena{' '}
+              {props.fortnightNumber} · {props.projectName}
+            </Text>
+            <Text style={styles.citation}>
+              Basado en el Programa de Estudio para la Educación Preescolar, Fase 2. Secretaría de
+              Educación Pública, 2024.
+            </Text>
+          </View>
         </Page>
       ))}
     </Document>

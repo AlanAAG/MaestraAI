@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
+import { isProniApplicable } from '@/lib/nem-official-data'
 
 const GenerateInputSchema = z.object({
   fortnight_id: z.string().uuid(),
@@ -62,7 +63,11 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const observationStudents = students?.filter((s: any) => s.observation_day) || []
 
-    const prompt = buildPrompt(fortnight, neeStudents, observationStudents)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const groupGrade = (fortnight as any).groups?.grade || ''
+    const includeProni = isProniApplicable(groupGrade)
+
+    const prompt = buildPrompt(fortnight, neeStudents, observationStudents, includeProni)
 
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -158,7 +163,8 @@ function buildPrompt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   neeStudents: any[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  observationStudents: any[]
+  observationStudents: any[],
+  includeProni: boolean
 ): string {
   const vocabList = ''
 
@@ -195,6 +201,23 @@ ALINEACIÓN NEM:
 Campos Formativos: ${NEM_FIELDS.join(', ')}
 Ejes Articuladores: ${NEM_AXES.join(', ')}
 
+${
+  includeProni
+    ? `INTEGRACIÓN PRONI (Kinder 3):
+Este grupo requiere integración del Programa Nacional de Inglés (PRONI 2024-2025).
+Integra al menos UNA de estas áreas de contenido PRONI por semana:
+- Familiarization with English (sonidos, ritmo, entonación)
+- Vocabulary development (palabras con apoyo visual)
+- Oral communication (frases simples, saludos, lenguaje de aula)
+- Written language awareness (reconocimiento de letras en inglés)
+- Cultural awareness (culturas de habla inglesa)
+- Multilingual identity (orgullo del bilingüismo)
+
+Marca las actividades PRONI con [PRONI: nombre_área] en el activity name.
+IMPORTANTE: Integra el inglés de forma natural en las actividades, NO como clase separada.
+`
+    : ''
+}
 INSTRUCCIONES:
 Genera 10 días de planeaciones (2 semanas × 5 días). Para cada día:
 

@@ -74,7 +74,7 @@ export default function JugarMaterialPage() {
 
   function handleGameComplete() {
     // Optional: track completion or show congratulations
-    console.log('Game completed!')
+    // Future: could save completion to database
   }
 
   function handleExit() {
