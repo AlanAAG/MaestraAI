@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Mail, CheckCircle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = searchParams.get('email') || ''
@@ -165,5 +165,19 @@ export default function VerifyEmailPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-bg">
+          <div className="text-text-secondary">Cargando...</div>
+        </div>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   )
 }
