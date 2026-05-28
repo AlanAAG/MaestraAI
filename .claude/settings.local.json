@@ -20,7 +20,8 @@
       "Bash(python3 scripts/search.py \"educational kindergarten preschool teacher SaaS playful friendly simple\" --design-system -p \"MaestraAI\" -f markdown)",
       "Bash(python3 scripts/search.py \"educational kindergarten teacher\" --domain product -n 3)",
       "Bash(cd *)",
-      "Bash(xargs rm -f)"
+      "Bash(xargs rm -f)",
+      "Bash(git push *)"
     ]
   }
 }
