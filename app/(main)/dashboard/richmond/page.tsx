@@ -7,6 +7,13 @@ import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Upload, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
+// Editorial display names
+const EDITORIAL_NAMES: Record<string, string> = {
+  richmond: 'Richmond LP',
+  macmillan: 'Macmillan Education',
+  pearson: 'Pearson',
+}
+
 type Assignment = {
   id: string
   title: string
@@ -33,6 +40,8 @@ export default function RichmondDashboard() {
   const [lastSyncB, setLastSyncB] = useState<SyncLog | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [teacher, setTeacher] = useState<any>(null)
 
   const groupAId = '91000000-0000-0000-0000-000000000001'
   const groupBId = '92000000-0000-0000-0000-000000000002'
@@ -43,6 +52,19 @@ export default function RichmondDashboard() {
 
   async function loadData() {
     const supabase = createClient()
+
+    // Load teacher to get editorial
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      const { data: teacherData } = await supabase
+        .from('teachers')
+        .select('editorial')
+        .eq('auth_id', user.id)
+        .single()
+      setTeacher(teacherData)
+    }
 
     // Load assignments for both groups
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,13 +193,17 @@ export default function RichmondDashboard() {
         )
       : 0
 
+  const editorialName = teacher?.editorial
+    ? EDITORIAL_NAMES[teacher.editorial] || teacher.editorial
+    : 'Editorial'
+
   return (
     <div className="max-w-6xl mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Richmond Sync</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">{editorialName}</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Calificaciones sincronizadas desde Richmond LP
+            Calificaciones sincronizadas desde {editorialName}
           </p>
         </div>
 

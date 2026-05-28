@@ -393,21 +393,33 @@ export default function ConfiguracionPage() {
         )}
       </Card>
 
-      {/* Richmond Integration Section */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Integración Richmond</h2>
-        <p className="text-sm text-text-secondary mb-4">
-          Genera claves API para sincronizar automáticamente datos de Richmond LP con la extensión
-          de Chrome.
-        </p>
-        <ApiKeyManager
-          apiKeys={apiKeys}
-          onGenerate={handleGenerateApiKey}
-          onRevoke={handleRevokeApiKey}
-          generatedKey={generatedKey}
-          loading={loading}
-        />
-      </Card>
+      {/* Editorial Integration Section */}
+      {teacher?.editorial && (
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-4">
+            Integración{' '}
+            {teacher.editorial === 'richmond'
+              ? 'Richmond LP'
+              : teacher.editorial === 'macmillan'
+                ? 'Macmillan'
+                : teacher.editorial === 'pearson'
+                  ? 'Pearson'
+                  : teacher.editorial}
+          </h2>
+          <p className="text-sm text-text-secondary mb-4">
+            Genera claves API para sincronizar automáticamente datos de{' '}
+            {teacher.editorial === 'richmond' ? 'Richmond LP' : teacher.editorial} con la extensión
+            de Chrome.
+          </p>
+          <ApiKeyManager
+            apiKeys={apiKeys}
+            onGenerate={handleGenerateApiKey}
+            onRevoke={handleRevokeApiKey}
+            generatedKey={generatedKey}
+            loading={loading}
+          />
+        </Card>
+      )}
     </div>
   )
 }

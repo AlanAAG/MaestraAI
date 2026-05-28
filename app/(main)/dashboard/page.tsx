@@ -130,18 +130,28 @@ export default function DashboardPage() {
           <p className="text-sm text-text-secondary">Genera boletas cualitativas</p>
         </Card>
 
-        <Card
-          className="p-6 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push('/dashboard/richmond')}
-        >
-          <Database size={32} className="text-primary mb-3" strokeWidth={1.5} />
-          <h3 className="text-lg font-semibold text-text-primary mb-1">Richmond</h3>
-          <p className="text-sm text-text-secondary">
-            {lastSync
-              ? `Última sincronización: ${formatDate(lastSync.started_at)}`
-              : 'Sin sincronizar'}
-          </p>
-        </Card>
+        {teacher?.editorial && (
+          <Card
+            className="p-6 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => router.push('/dashboard/richmond')}
+          >
+            <Database size={32} className="text-primary mb-3" strokeWidth={1.5} />
+            <h3 className="text-lg font-semibold text-text-primary mb-1">
+              {teacher.editorial === 'richmond'
+                ? 'Richmond LP'
+                : teacher.editorial === 'macmillan'
+                  ? 'Macmillan'
+                  : teacher.editorial === 'pearson'
+                    ? 'Pearson'
+                    : teacher.editorial.charAt(0).toUpperCase() + teacher.editorial.slice(1)}
+            </h3>
+            <p className="text-sm text-text-secondary">
+              {lastSync
+                ? `Última sincronización: ${formatDate(lastSync.started_at)}`
+                : 'Sin sincronizar'}
+            </p>
+          </Card>
+        )}
       </div>
     </div>
   )
