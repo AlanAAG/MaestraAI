@@ -69,7 +69,7 @@ export default function OnboardingPage() {
     }
   }
 
-  async function handleSchoolCreated(data: { name: string; city: string; state: string }) {
+  async function handleSchoolCreated(data: { name: string; city: string }) {
     setLoading(true)
     setError('')
 
