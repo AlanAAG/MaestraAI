@@ -54,7 +54,7 @@ COMMENT ON COLUMN teachers.role_type IS 'admin: full school access, coordinator:
 CREATE INDEX idx_teacher_diary_visibility ON teacher_diary(visibility, teacher_id);
 CREATE INDEX idx_teacher_diary_share_token ON teacher_diary(share_token) WHERE share_token IS NOT NULL;
 CREATE INDEX idx_school_announcements_school ON school_announcements(school_id, published_at DESC);
-CREATE INDEX idx_school_announcements_expires ON school_announcements(school_id, expires_at);
+CREATE INDEX idx_school_announcements_expires ON school_announcements(expires_at) WHERE expires_at IS NOT NULL;
 CREATE INDEX idx_teacher_resources_school ON teacher_resources(school_id, created_at DESC);
 CREATE INDEX idx_teacher_resources_tags ON teacher_resources USING GIN(tags);
 
