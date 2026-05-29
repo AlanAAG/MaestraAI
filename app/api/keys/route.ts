@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { generateApiKey, hashApiKey, extractKeyPrefix } from '@/lib/api-keys'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const CreateKeySchema = z.object({
   name: z.string().min(1).max(100),
@@ -26,6 +28,15 @@ export async function GET() {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Rate limiting - standard tier (50/hour for API key operations)
+  const { success, headers } = await checkRateLimit(user.id, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
   }
 
   // Get teacher record
@@ -68,6 +79,15 @@ export async function POST(req: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Rate limiting - standard tier (50/hour for API key operations)
+  const { success, headers } = await checkRateLimit(user.id, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
   }
 
   // Parse request body
@@ -121,6 +141,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create key' }, { status: 500 })
   }
 
+  // Audit log - API key creation
+  await logAudit({
+    teacher_id: teacher.id,
+    action: AUDIT_ACTIONS.API_KEY_CREATE,
+    resource_type: 'api_key',
+    resource_id: newKey.id,
+    metadata: { key_name: parsed.data.name, key_prefix: keyPrefix },
+    req,
+  })
+
   // Return plaintext key ONCE - will never be shown again
   return NextResponse.json({
     key, // Full plaintext key (53 chars)
@@ -140,6 +170,15 @@ export async function DELETE(req: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Rate limiting - standard tier (50/hour for API key operations)
+  const { success, headers } = await checkRateLimit(user.id, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
   }
 
   // Parse request body
@@ -182,6 +221,16 @@ export async function DELETE(req: NextRequest) {
     console.error('Failed to revoke API key:', revokeError)
     return NextResponse.json({ error: 'Failed to revoke key' }, { status: 500 })
   }
+
+  // Audit log - API key revocation
+  await logAudit({
+    teacher_id: teacher.id,
+    action: AUDIT_ACTIONS.API_KEY_REVOKE,
+    resource_type: 'api_key',
+    resource_id: parsed.data.id,
+    metadata: {},
+    req,
+  })
 
   return NextResponse.json({ ok: true })
 }

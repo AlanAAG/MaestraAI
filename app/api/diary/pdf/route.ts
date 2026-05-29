@@ -4,6 +4,7 @@ import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import React from 'react'
 import { DiaryPdfDocument } from '@/lib/DiaryPdfDocument'
 import { buildDiaryDocumentProps } from '@/lib/pdf'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const PdfInputSchema = z.object({
   teacherName: z.string().max(100).optional().default('Maestra'),
@@ -23,6 +24,17 @@ export async function POST(req: NextRequest) {
   const parsed = PdfInputSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+  }
+
+  // Rate limiting - standard tier (50/hour for PDF generation)
+  // Use IP address as identifier since this is a public endpoint
+  const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+  const { success, headers } = await checkRateLimit(ip, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
   }
 
   const props = buildDiaryDocumentProps(parsed.data)

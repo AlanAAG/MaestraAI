@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit } from '@/lib/audit'
 
 const VocabularyCreateSchema = z.object({
   word: z.string().min(1).max(50),
@@ -21,6 +23,15 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Rate limiting - relaxed tier (100/hour for read operations)
+    const { success, headers } = await checkRateLimit(user.id, 'relaxed')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
     }
 
     // Get teacher's vocabulary items
@@ -60,6 +71,15 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Rate limiting - standard tier (50/hour for write operations)
+    const { success, headers } = await checkRateLimit(user.id, 'standard')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
     }
 
     // Get teacher ID
@@ -148,6 +168,15 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limiting - standard tier (50/hour for delete operations)
+    const { success, headers } = await checkRateLimit(user.id, 'standard')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
+    }
+
     // Get teacher ID
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)
@@ -172,6 +201,16 @@ export async function DELETE(req: NextRequest) {
       console.error('Delete error:', error)
       return NextResponse.json({ error: 'Failed to delete vocabulary item' }, { status: 500 })
     }
+
+    // Audit log - vocabulary deletion
+    await logAudit({
+      teacher_id: teacher.id,
+      action: 'vocabulary.delete',
+      resource_type: 'vocabulary_item',
+      resource_id: id,
+      metadata: {},
+      req,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

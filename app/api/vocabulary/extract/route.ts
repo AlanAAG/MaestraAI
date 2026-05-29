@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { validateBase64Image } from '@/lib/file-validation'
 
 const ExtractInputSchema = z.object({
   text: z.string().min(1).max(10000).optional(),
@@ -21,6 +23,23 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Rate limiting - strict tier (10/hour for Claude Vision API)
+    const { success, headers } = await checkRateLimit(user.id, 'strict')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
+    }
+
+    // Validate image if provided (magic bytes, dimensions, size)
+    if (input.imageBase64 && input.imageMimeType) {
+      const validation = await validateBase64Image(input.imageBase64, input.imageMimeType)
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
+      }
     }
 
     const anthropic = new Anthropic({

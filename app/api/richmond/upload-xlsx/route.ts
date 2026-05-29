@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { read, utils } from 'xlsx'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { validateFile } from '@/lib/file-validation'
 
 export async function POST(req: NextRequest) {
   const supabase = createClient()
@@ -30,6 +32,15 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teacherId = (teacher as any).id as string
 
+  // Rate limiting - strict tier (10/hour for file uploads)
+  const { success, headers } = await checkRateLimit(user.id, 'strict')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
+  }
+
   // Parse multipart form
   const formData = await req.formData()
   const file = formData.get('file') as File | null
@@ -37,6 +48,12 @@ export async function POST(req: NextRequest) {
 
   if (!file || !groupId) {
     return NextResponse.json({ error: 'Missing file or group_id' }, { status: 400 })
+  }
+
+  // File validation (MIME type, magic bytes, size)
+  const validation = await validateFile(file, 'csv')
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
   }
 
   // Verify teacher owns this group

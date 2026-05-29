@@ -121,14 +121,22 @@ export async function validateFile(file: File, type: FileType): Promise<Validati
  * Validate image file signature (magic bytes)
  */
 async function validateImageSignature(bytes: Uint8Array): Promise<boolean> {
+  // Need at least 4 bytes for basic checks
+  if (bytes.length < 4) return false
+
   // PNG: 89 50 4E 47
   const isPNG = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
 
   // JPEG: FF D8 FF
   const isJPEG = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
 
-  // WebP: RIFF....WEBP (check bytes 8-11)
-  const isWEBP = bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  // WebP: RIFF....WEBP (check bytes 8-11, need at least 12 bytes)
+  const isWEBP =
+    bytes.length >= 12 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
 
   return isPNG || isJPEG || isWEBP
 }
@@ -179,6 +187,69 @@ function validateDocumentSignature(bytes: Uint8Array): boolean {
   const isDOCX = bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04
 
   return isPDF || isDOCX
+}
+
+/**
+ * Validate base64 image data
+ *
+ * @param base64Data - Base64 encoded image data (without data: prefix)
+ * @param mimeType - MIME type of the image
+ * @returns Validation result
+ */
+export async function validateBase64Image(
+  base64Data: string,
+  mimeType: string
+): Promise<ValidationResult> {
+  try {
+    // Convert base64 to bytes for validation
+    const binaryString = atob(base64Data)
+    const bytes = new Uint8Array(binaryString.length)
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
+
+    // Check size (5MB max for images)
+    if (bytes.length > MAX_SIZES.image) {
+      return {
+        valid: false,
+        error: `Image too large. Maximum size: ${MAX_SIZES.image / 1024 / 1024}MB`,
+      }
+    }
+
+    // Check MIME type
+    if (!ALLOWED_MIME_TYPES.images.includes(mimeType)) {
+      return {
+        valid: false,
+        error: `Invalid image type. Allowed: ${ALLOWED_MIME_TYPES.images.join(', ')}`,
+      }
+    }
+
+    // Validate image signature (magic bytes)
+    const signatureValid = await validateImageSignature(bytes)
+    if (!signatureValid) {
+      return {
+        valid: false,
+        error: 'Invalid image file signature. File may be corrupted or not a real image.',
+      }
+    }
+
+    // Validate dimensions
+    const blob = new Blob([bytes], { type: mimeType })
+    const img = await createImageBitmap(blob)
+    if (img.width > MAX_IMAGE_DIMENSIONS.width || img.height > MAX_IMAGE_DIMENSIONS.height) {
+      return {
+        valid: false,
+        error: `Image dimensions too large. Maximum: ${MAX_IMAGE_DIMENSIONS.width}x${MAX_IMAGE_DIMENSIONS.height}px`,
+      }
+    }
+
+    return { valid: true }
+  } catch {
+    return {
+      valid: false,
+      error: 'Failed to validate image data',
+    }
+  }
 }
 
 /**

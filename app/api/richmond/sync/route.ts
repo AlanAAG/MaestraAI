@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { syncGroup } from '@/lib/richmond/sync'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const SyncInputSchema = z.object({
   group_id: z.string().uuid(),
@@ -34,6 +36,15 @@ export async function POST(req: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teacherId = (teacher as any).id as string
+
+  // Rate limiting - standard tier (50/hour for external sync)
+  const { success, headers } = await checkRateLimit(user.id, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
+  }
 
   // Parse input
   let body: unknown
@@ -85,6 +96,20 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+
+  // Audit log - Richmond sync (successful)
+  await logAudit({
+    teacher_id: teacherId,
+    action: AUDIT_ACTIONS.RICHMOND_SYNC,
+    resource_type: 'richmond_sync',
+    resource_id: group_id,
+    metadata: {
+      synced_count: result.synced,
+      error_count: result.errors.length,
+      status: result.status,
+    },
+    req,
+  })
 
   return NextResponse.json({
     ok: true,

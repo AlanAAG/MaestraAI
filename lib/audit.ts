@@ -45,7 +45,8 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
     const userAgent = params.req.headers.get('user-agent')
 
     // Insert audit log
-    await supabase.from('audit_logs').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('audit_logs').insert({
       teacher_id: params.teacher_id,
       action: params.action,
       resource_type: params.resource_type,
@@ -83,7 +84,8 @@ export async function logFailedAuth(params: {
     const ip = params.req.headers.get('x-forwarded-for') || params.req.headers.get('x-real-ip')
     const userAgent = params.req.headers.get('user-agent')
 
-    await supabase.from('failed_auth_attempts').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('failed_auth_attempts').insert({
       email: params.email,
       ip_address: ip,
       user_agent: userAgent,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { parseRichmondCSV, matchStudents } from '@/lib/richmond/csv-parser'
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+import { checkRateLimit } from '@/lib/rate-limit'
+import { validateFile } from '@/lib/file-validation'
 
 export async function POST(req: NextRequest) {
   const supabase = createClient()
@@ -30,6 +30,15 @@ export async function POST(req: NextRequest) {
 
   const teacherId = (teacher as { id: string }).id
 
+  // Rate limiting - strict tier (10/hour for file uploads)
+  const { success, headers } = await checkRateLimit(user.id, 'strict')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
+  }
+
   try {
     // Parse multipart form
     const formData = await req.formData()
@@ -39,17 +48,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    // Validate file
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 })
-    }
-
-    const fileExt = file.name.toLowerCase().split('.').pop()
-    if (!['csv', 'xlsx', 'xls'].includes(fileExt || '')) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Only CSV, XLS, and XLSX files are supported' },
-        { status: 400 }
-      )
+    // File validation (MIME type, magic bytes, size - replaces basic checks)
+    const validation = await validateFile(file, 'csv')
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
     // Parse the CSV/XLSX

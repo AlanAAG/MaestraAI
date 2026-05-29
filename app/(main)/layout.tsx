@@ -88,6 +88,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* Main content */}
       <main className="flex-1 bg-bg">
         <div className="max-w-app mx-auto px-4 sm:px-8 md:px-16 py-8">{children}</div>
+
+        {/* Footer */}
+        <footer className="max-w-app mx-auto px-4 sm:px-8 md:px-16 py-6 text-center text-sm text-text-secondary border-t border-[var(--color-border)] mt-12">
+          <Link href="/privacidad" className="hover:text-primary transition-colors duration-150">
+            Aviso de Privacidad
+          </Link>
+          <span className="mx-2">•</span>
+          <span>© 2026 MaestraAI</span>
+        </footer>
       </main>
 
       {/* Bottom nav — mobile only */}

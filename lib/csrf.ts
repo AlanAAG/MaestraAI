@@ -74,11 +74,13 @@ export async function verifyCsrfFromRequest(req: Request): Promise<boolean> {
   }
 
   // Check for token in form data (for form submissions)
+  // Clone the request so the body can be read again by the API route
   try {
-    const contentType = req.headers.get('content-type')
+    const clonedReq = req.clone()
+    const contentType = clonedReq.headers.get('content-type')
 
     if (contentType?.includes('application/json')) {
-      const body = await req.json()
+      const body = await clonedReq.json()
       const token = body.csrf_token
       return verifyCsrfToken(token)
     }
@@ -87,7 +89,7 @@ export async function verifyCsrfFromRequest(req: Request): Promise<boolean> {
       contentType?.includes('multipart/form-data') ||
       contentType?.includes('application/x-www-form-urlencoded')
     ) {
-      const formData = await req.formData()
+      const formData = await clonedReq.formData()
       const token = formData.get('csrf_token') as string
       return verifyCsrfToken(token)
     }

@@ -10,16 +10,32 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
+// Check if Redis is configured (required for production)
+const isRedisConfigured = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+
 // Initialize Redis connection (reads from env vars)
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-})
+// If not configured, rate limiting will be disabled (dev mode)
+const redis = isRedisConfigured
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+  : null
+
+// Warn in development if Redis is not configured
+if (!isRedisConfigured && process.env.NODE_ENV !== 'production') {
+  console.warn(
+    '[Rate Limit] Upstash Redis not configured. Rate limiting is DISABLED in development mode.'
+  )
+}
 
 // Rate limit configuration by tier
 type RateLimitTier = 'strict' | 'standard' | 'relaxed'
 
-const RATE_LIMITS: Record<RateLimitTier, { tokens: number; window: string }> = {
+const RATE_LIMITS: Record<
+  RateLimitTier,
+  { tokens: number; window: `${number} ${'ms' | 's' | 'm' | 'h' | 'd'}` }
+> = {
   strict: { tokens: 10, window: '1 h' }, // AI generation, file uploads
   standard: { tokens: 50, window: '1 h' }, // API writes (POST/PATCH/DELETE)
   relaxed: { tokens: 100, window: '1 h' }, // API reads (GET)
@@ -30,6 +46,11 @@ const RATE_LIMITS: Record<RateLimitTier, { tokens: number; window: string }> = {
  */
 export function createRateLimit(tier: RateLimitTier) {
   const { tokens, window } = RATE_LIMITS[tier]
+
+  // If Redis is not configured, return null (graceful degradation)
+  if (!redis) {
+    return null
+  }
 
   return new Ratelimit({
     redis,
@@ -54,6 +75,19 @@ export async function checkRateLimit(
   headers: Record<string, string>
 }> {
   const limiter = createRateLimit(tier)
+
+  // If rate limiting is disabled (dev mode without Redis), allow all requests
+  if (!limiter) {
+    return {
+      success: true,
+      headers: {
+        'X-RateLimit-Limit': '999999',
+        'X-RateLimit-Remaining': '999999',
+        'X-RateLimit-Reset': new Date(Date.now() + 3600000).toISOString(),
+      },
+    }
+  }
+
   const { success, limit, remaining, reset } = await limiter.limit(identifier)
 
   return {

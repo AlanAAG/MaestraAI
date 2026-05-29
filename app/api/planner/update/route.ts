@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const LessonBlockSchema = z.object({
   time: z.string(),
@@ -33,6 +34,30 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limiting - standard tier (50/hour for lesson plan updates)
+    const { success, headers } = await checkRateLimit(user.id, 'standard')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
+    }
+
+    // Get teacher record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teacher, error: teacherError } = await (supabase as any)
+      .from('teachers')
+      .select('id')
+      .eq('auth_id', user.id)
+      .single()
+
+    if (teacherError || !teacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teacherId = (teacher as any).id as string
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: existingPlan } = await (supabase as any)
       .from('lesson_plans')
@@ -45,7 +70,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((existingPlan as any).fortnights.teacher_id !== user.id) {
+    if ((existingPlan as any).fortnights.teacher_id !== teacherId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { DIARIO_SYSTEM_PROMPT } from '@/prompts/diario'
 import { streamToReadable } from '@/lib/claude'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const DiaryInputSchema = z.object({
   q1: z.string().max(2000).optional().default(''),
@@ -27,6 +28,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: 'Datos inválidos', details: parsed.error.flatten() },
       { status: 400 }
+    )
+  }
+
+  // Rate limiting - strict tier (10/hour for AI generation)
+  // Use IP address as identifier since this is a public endpoint
+  const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+  const { success, headers } = await checkRateLimit(ip, 'strict')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
     )
   }
 

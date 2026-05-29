@@ -59,7 +59,10 @@ CREATE INDEX idx_teacher_resources_school ON teacher_resources(school_id, create
 CREATE INDEX idx_teacher_resources_tags ON teacher_resources USING GIN(tags);
 
 -- RLS Policies for teacher_diary
-ALTER TABLE teacher_diary ENABLE ROW LEVEL SECURITY;
+-- Note: RLS already enabled in migration 004
+-- Drop old policy and create granular policies for diary sharing
+
+DROP POLICY IF EXISTS diary_own ON teacher_diary;
 
 -- Teachers see own diaries + school-visible diaries from their school
 CREATE POLICY "Teachers view own or school diaries" ON teacher_diary

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 import { isProniApplicable } from '@/lib/nem-official-data'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const GenerateInputSchema = z.object({
   fortnight_id: z.string().uuid(),
@@ -39,6 +41,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limiting - strict tier (10/hour for AI generation)
+    const { success, headers } = await checkRateLimit(user.id, 'strict')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
+    }
+
+    // Get teacher record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teacher, error: teacherError } = await (supabase as any)
+      .from('teachers')
+      .select('id')
+      .eq('auth_id', user.id)
+      .single()
+
+    if (teacherError || !teacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teacherId = (teacher as any).id as string
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fortnight } = await (supabase as any)
       .from('fortnights')
@@ -47,7 +73,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!fortnight || (fortnight as any).teacher_id !== user.id) {
+    if (!fortnight || (fortnight as any).teacher_id !== teacherId) {
       return NextResponse.json({ error: 'Fortnight not found' }, { status: 404 })
     }
 
@@ -112,7 +138,7 @@ export async function POST(req: NextRequest) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase as any).from('lesson_plans').insert({
               fortnight_id: fortnight.id,
-              teacher_id: user.id,
+              teacher_id: teacherId,
               day_number: plan.day_number,
               date: plan.date,
               day_of_week: plan.day_of_week,
@@ -124,6 +150,22 @@ export async function POST(req: NextRequest) {
               approved: false,
             })
           }
+
+          // Audit log - fortnight creation
+          await logAudit({
+            teacher_id: teacherId,
+            action: AUDIT_ACTIONS.FORTNIGHT_CREATE,
+            resource_type: 'fortnight',
+            resource_id: fortnight.id,
+            metadata: {
+              fortnight_number: fortnight.number,
+              project_name: fortnight.project_name,
+              grade: groupGrade,
+              proni_enabled: includeProni,
+              days_generated: lessonPlans.length,
+            },
+            req,
+          })
 
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
         } catch (error) {

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function GET(req: NextRequest) {
   const supabase = createClient()
@@ -42,6 +43,15 @@ export async function GET(req: NextRequest) {
     .from('api_keys')
     .update({ last_used_at: new Date().toISOString() })
     .eq('key_prefix', keyPrefix)
+
+  // Rate limiting - relaxed tier (100/hour for read-only operations)
+  const { success, headers } = await checkRateLimit(apiKey.teacher_id, 'relaxed')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
+  }
 
   // Get teacher info
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

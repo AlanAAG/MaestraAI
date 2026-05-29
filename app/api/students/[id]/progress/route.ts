@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Map Richmond internal tracking to NEM qualitative bands
 // Richmond stores numeric data for platform compliance, but we display qualitative
@@ -21,6 +22,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Rate limiting - relaxed tier (100/hour for read-only operations)
+    const { success, headers } = await checkRateLimit(user.id, 'relaxed')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
     }
 
     // Verify student belongs to teacher's groups

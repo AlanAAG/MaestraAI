@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { type RichmondAssignment } from '@/lib/richmond/client'
 import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const IngestInputSchema = z.object({
   group_id: z.string().uuid(),
@@ -47,6 +49,16 @@ export async function POST(req: NextRequest) {
     .from('api_keys')
     .update({ last_used_at: new Date().toISOString() })
     .eq('key_prefix', keyPrefix)
+
+  // Rate limiting - standard tier (50/hour for bulk data ingest)
+  // Use teacher_id from API key as identifier
+  const { success, headers } = await checkRateLimit(apiKey.teacher_id, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
+  }
 
   // Parse input
   let body: unknown
@@ -185,6 +197,20 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  // Audit log - Richmond data ingest (Chrome extension)
+  await logAudit({
+    teacher_id: apiKey.teacher_id,
+    action: AUDIT_ACTIONS.RICHMOND_CSV_IMPORT,
+    resource_type: 'richmond_ingest',
+    resource_id: group_id,
+    metadata: {
+      synced_count: syncedCount,
+      error_count: errors.length,
+      assignments_count: assignments.length,
+    },
+    req,
+  })
 
   return NextResponse.json({ ok: true, synced: syncedCount, errors })
 }

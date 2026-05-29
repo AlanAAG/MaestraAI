@@ -6,6 +6,7 @@ import { FlashcardPdfDocument } from '@/lib/FlashcardPdfDocument'
 import { WorksheetPdfDocument } from '@/lib/WorksheetPdfDocument'
 import { GameCardsPdfDocument } from '@/lib/GameCardsPdfDocument'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const ExportInputSchema = z.object({
   material_id: z.string().uuid(),
@@ -35,6 +36,15 @@ export async function POST(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Rate limiting - standard tier (50/hour for PDF export)
+    const { success, headers } = await checkRateLimit(user.id, 'standard')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
     }
 
     // Get material

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const ImportRequestSchema = z.object({
   assignments: z.array(
@@ -39,6 +41,15 @@ export async function POST(req: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Rate limiting - standard tier (50/hour for batch imports)
+  const { success, headers } = await checkRateLimit(user.id, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
   }
 
   // Get teacher
@@ -229,6 +240,22 @@ export async function POST(req: NextRequest) {
     )
 
     await Promise.all(completeSyncLogPromises)
+
+    // Audit log - CSV batch import
+    await logAudit({
+      teacher_id: teacherId,
+      action: AUDIT_ACTIONS.RICHMOND_CSV_IMPORT,
+      resource_type: 'richmond_csv_import',
+      resource_id: validated.groupIds[0] || 'unknown',
+      metadata: {
+        assignments_created: assignmentsCreated,
+        submissions_created: submissionsCreated,
+        student_count: validated.students.filter((s) => s.matchedStudentId).length,
+        error_count: errors.length,
+        group_count: validated.groupIds.length,
+      },
+      req,
+    })
 
     return NextResponse.json({
       ok: true,

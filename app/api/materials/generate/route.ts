@@ -5,6 +5,8 @@ import { buildFlashcardContent } from '@/lib/materials/flashcards'
 import { buildWorksheetContent } from '@/lib/materials/worksheets'
 import { buildGameContent } from '@/lib/materials/games'
 import { buildYoutubeRecommendations } from '@/lib/materials/youtube'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const GenerateMaterialsSchema = z.object({
   lesson_plan_id: z.string().uuid(),
@@ -25,6 +27,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limiting - strict tier (10/hour for content generation)
+    const { success, headers } = await checkRateLimit(user.id, 'strict')
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429, headers }
+      )
+    }
+
+    // Get teacher record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teacher, error: teacherError } = await (supabase as any)
+      .from('teachers')
+      .select('id')
+      .eq('auth_id', user.id)
+      .single()
+
+    if (teacherError || !teacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teacherId = (teacher as any).id as string
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: lessonPlan, error: lessonError } = await (supabase as any)
       .from('lesson_plans')
@@ -37,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((lessonPlan as any).teacher_id !== user.id) {
+    if ((lessonPlan as any).teacher_id !== teacherId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -98,7 +124,7 @@ export async function POST(req: NextRequest) {
         const { data: material, error: insertError } = await (supabase as any)
           .from('materials')
           .insert({
-            teacher_id: user.id,
+            teacher_id: teacherId,
             lesson_plan_id: input.lesson_plan_id,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             fortnight_id: (lessonPlan as any).fortnight_id,
@@ -126,6 +152,21 @@ export async function POST(req: NextRequest) {
     if (createdMaterials.length === 0) {
       return NextResponse.json({ error: 'Failed to generate any materials' }, { status: 500 })
     }
+
+    // Audit log - material generation
+    await logAudit({
+      teacher_id: teacherId,
+      action: AUDIT_ACTIONS.MATERIAL_GENERATE,
+      resource_type: 'materials',
+      resource_id: input.lesson_plan_id,
+      metadata: {
+        material_types: input.material_types,
+        vocabulary_count: vocabulary.length,
+        project_theme: projectTheme,
+        materials_created: createdMaterials.length,
+      },
+      req,
+    })
 
     return NextResponse.json({
       success: true,

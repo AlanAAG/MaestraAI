@@ -16,11 +16,13 @@ Dev tooling: Vitest, Prettier, Husky, typecheck script
 
 Supabase middleware client: lib/supabase/middleware.ts
 
-DB tables (17)
-schools, teachers, groups, group_teachers, students,
+DB tables (17 + 4 pending migrations)
+Existing (17): schools, teachers, groups, group_teachers, students,
 vocabulary_items, fortnights, lesson_plans, materials,
 teacher_observations, report_cards, teacher_diary, usage_logs,
 richmond_credentials, richmond_sync_log, richmond_assignments, richmond_scores
+
+Pending migrations 010+011 (4 tables): school_announcements, teacher_resources, audit_logs, failed_auth_attempts
 
 Seeded data
 129 vocabulary words in vocabulary_items
@@ -276,14 +278,38 @@ Teacher-friendly vocabulary input with 3 methods (manual, bulk text, AI extracti
 - Navigation link added to main sidebar
 - Handles messy teacher inputs: photos, PDFs, handwritten notes, markdown files
 
+Security Infrastructure (Phase 4 - IN PROGRESS)
+Database migrations prepared for diary integration and audit logging:
+
+- Migration 010_diary_school_network.sql - Adds diary sharing (share_token, visibility), school_announcements, teacher_resources, role_type (teacher/admin/coordinator)
+- Migration 011_audit_logging.sql - Adds audit_logs, failed_auth_attempts, cleanup function
+- Fixed: Removed duplicate RLS enable, added DROP POLICY IF EXISTS for clean migration
+
+Security libraries implemented (not yet applied to routes):
+
+- lib/rate-limit.ts - Upstash Redis-based rate limiting with 3 tiers (strict: 10/hr, standard: 50/hr, relaxed: 100/hr)
+- lib/file-validation.ts - Multi-layer validation (MIME type, magic bytes, image dimensions)
+- lib/audit.ts - Audit logging for sensitive actions with IP/user agent tracking
+- lib/csrf.ts - CSRF token generation and verification for forms and AJAX
+- All libraries pass TypeScript and ESLint checks
+- Comprehensive security review documented in docs/SECURITY_REVIEW.md
+
+Dependencies installed: @upstash/redis, @upstash/ratelimit, csrf
+
 What does NOT exist yet
-Export Word for lesson plans (optional, low priority)
+Diary integration UI (authenticated routes for history, detail, sharing)
+
+Admin dashboard routes (diaries, announcements, resources, analytics)
+
+School network pages (recursos, red)
+
+Security applied to API routes (rate limiting, audit logging, CSRF)
+
+CSP headers in middleware
+
+LFPDPPP compliance page
 
 Report cards generator (Phase 6)
-
-Diary integration into main app (Phase 5 - task #14)
-
-Rate limiting and security hardening (Phase 4 - task #18)
 
 ---
 
@@ -303,6 +329,11 @@ Rate limiting and security hardening (Phase 4 - task #18)
 - [ ] Vercel auto-deploys
 - [ ] Run migration 007_multi_tenant_setup.sql in Supabase
 - [ ] Run migration 008_lesson_plan_vocabulary.sql in Supabase
+- [ ] Run migration 010_diary_school_network.sql in Supabase (Phase 4)
+- [ ] Run migration 011_audit_logging.sql in Supabase (Phase 4)
+- [ ] Set up Upstash Redis (add UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN to Vercel)
+- [ ] Generate and add CSRF_SECRET to Vercel (64-char hex)
+- [ ] Regenerate database types after migrations
 - [ ] Verify RLS active on all tables
 - [ ] Test production URL
 - [ ] Begin teacher testing with Alejandra
@@ -332,21 +363,22 @@ Rate limiting and security hardening (Phase 4 - task #18)
 
 **Target: Next 2 weeks**
 
-3. **NEM/PRONI Official Alignment** (Task #15)
-   - Research official SEP NEM documentation
-   - Verify Campos Formativos match official list
-   - Verify Ejes Articuladores match framework
-   - Add official citations to PDF exports
-   - Add PRONI alignment markers
-   - Estimated: 4-6 hours
+3. **✅ NEM/PRONI Official Alignment** (Task #15) - COMPLETE
+   - ✅ Research official SEP NEM documentation
+   - ✅ Verify Campos Formativos match official list
+   - ✅ Verify Ejes Articuladores match framework
+   - ✅ Add official citations to PDF exports
+   - ✅ Add PRONI alignment markers
 
-4. **Security Implementation** (Task #18)
-   - Rate limiting on API routes (10-50 req/hour)
-   - File validation (MIME, size, malware)
-   - Aviso de Privacidad page (LFPDPPP 2025)
-   - CSP headers for XSS protection
-   - CSRF tokens for state changes
-   - Estimated: 6-8 hours
+4. **🔄 Security Implementation** (Task #18) - IN PROGRESS
+   - ✅ Database migrations (010, 011)
+   - ✅ Security libraries (rate-limit, file-validation, audit, csrf)
+   - ⏳ Apply rate limiting to 18 API routes
+   - ⏳ Apply audit logging to sensitive endpoints
+   - ⏳ Apply CSRF protection to forms
+   - ⏳ Add CSP headers to middleware
+   - ⏳ Create Aviso de Privacidad page (LFPDPPP 2025)
+   - Estimated remaining: 8-10 hours
 
 5. **Richmond-Vocabulary-Lesson Integration** (Task #20)
    - Link Richmond units → vocabulary_items
@@ -423,3 +455,4 @@ Date What was shipped Files changed
 2026-05-27 Pre-production validation complete - All ESLint/TypeScript checks passed, security audit complete, file upload validation added, PRE_PRODUCTION_CHECKLIST.md created, READY FOR DEPLOYMENT ✅
 2026-05-27 Auth flow UX improvements - Email verification page with step-by-step instructions, clear error messages for unverified emails, auto-redirect to verification page, resend email functionality, teacher-friendly language throughout auth flow
 2026-05-27 Configuration page fixes - Email now pre-filled from auth user, full name pre-filled from teacher record or email, clear explanation why email cannot be edited, better visual styling for disabled fields
+2026-05-28 Security Infrastructure Phase 4 (Part 1) - Created migrations 010 (diary sharing, school network, admin roles) and 011 (audit logging), implemented security libraries (rate-limit.ts, file-validation.ts, audit.ts, csrf.ts), all libraries pass TypeScript/ESLint checks, comprehensive security review in SECURITY_REVIEW.md
