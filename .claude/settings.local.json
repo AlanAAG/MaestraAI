@@ -31,7 +31,11 @@
       "Bash(chmod +x /tmp/comprehensive_check.sh)",
       "Bash(/tmp/comprehensive_check.sh)",
       "Bash(chmod +x /tmp/verify_complete.sh)",
-      "Bash(/tmp/verify_complete.sh)"
+      "Bash(/tmp/verify_complete.sh)",
+      "WebFetch(domain:github.com)",
+      "Bash(open *)",
+      "Bash(curl -s http://localhost:37701)",
+      "mcp__plugin_claude-mem_mcp-search__observation_add"
     ]
   }
 }
