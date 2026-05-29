@@ -2,14 +2,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { type RichmondAssignment } from '@/lib/richmond/client'
 import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
+// Proper schema for Richmond assignment submissions
+const SubmissionSchema = z.object({
+  studentName: z.string(),
+  progress: z.string().nullable(),
+  done: z.boolean(),
+  rawValue: z.number().nullable(),
+})
+
+const AssignmentSchema = z.object({
+  title: z.string(),
+  instructions: z.string().optional(),
+  dueDate: z.string().optional(),
+  submissions: z.array(SubmissionSchema),
+})
+
 const IngestInputSchema = z.object({
   group_id: z.string().uuid(),
-  data: z.array(z.any()),
+  data: z.array(AssignmentSchema),
 })
 
 export async function POST(req: NextRequest) {
@@ -76,8 +90,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { group_id, data } = parsed.data
-  const assignments = data as RichmondAssignment[]
+  const { group_id, data: assignments } = parsed.data
 
   // Verify group ownership (prevent cross-tenant injection)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -127,6 +127,31 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(syncLogPromises)
 
+    // Collect all assignments and scores for batch insert
+    const assignmentsToInsert: Array<{
+      id: string
+      group_id: string
+      richmond_id: string
+      title: string
+      instructions: string
+      assigned_at: string
+      due_at: string
+      total_students: number
+      total_submitted: number
+      synced_at: string
+    }> = []
+    const scoresToInsert: Array<{
+      assignment_id: string
+      student_id: string
+      richmond_student_id: string | undefined
+      first_name: string
+      last_name: string
+      progress: string | null
+      total_score: number | null
+      done: boolean
+      synced_at: string
+    }> = []
+
     // Process each assignment
     for (const assignment of validated.assignments) {
       // Group submissions by group_id
@@ -145,79 +170,78 @@ export async function POST(req: NextRequest) {
         submissionsByGroup.get(groupId)!.push(submission)
       }
 
-      // Create one assignment per group
+      // Prepare assignments for batch insert
       for (const [groupId, submissions] of Array.from(submissionsByGroup.entries())) {
-        try {
-          const dueDate = assignment.dueDate
-            ? new Date(assignment.dueDate).toISOString()
-            : new Date().toISOString()
+        const dueDate = assignment.dueDate
+          ? new Date(assignment.dueDate).toISOString()
+          : new Date().toISOString()
 
-          const completedCount = submissions.filter(
-            (s: { rawValue: number | null }) => s.rawValue !== null
-          ).length
+        const completedCount = submissions.filter(
+          (s: { rawValue: number | null }) => s.rawValue !== null
+        ).length
 
-          // Create assignment
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: dbAssignment, error: assignmentError } = await (supabase as any)
-            .from('richmond_assignments')
-            .insert({
-              group_id: groupId,
-              richmond_id: `csv-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-              title: assignment.title,
-              instructions: 'Imported from CSV',
-              assigned_at: new Date().toISOString(),
-              due_at: dueDate,
-              total_students: submissions.length,
-              total_submitted: completedCount,
-              synced_at: new Date().toISOString(),
-            })
-            .select('id')
-            .single()
+        const assignmentId = crypto.randomUUID()
 
-          if (assignmentError || !dbAssignment) {
-            errors.push(`Failed to create assignment "${assignment.title}" for group ${groupId}`)
-            continue
-          }
+        assignmentsToInsert.push({
+          id: assignmentId,
+          group_id: groupId,
+          richmond_id: `csv-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          title: assignment.title,
+          instructions: 'Imported from CSV',
+          assigned_at: new Date().toISOString(),
+          due_at: dueDate,
+          total_students: submissions.length,
+          total_submitted: completedCount,
+          synced_at: new Date().toISOString(),
+        })
 
-          assignmentsCreated++
+        // Prepare scores for this assignment
+        for (const submission of submissions) {
+          const student = validated.students.find((s) => s.name === submission.studentName)
+          if (!student?.matchedStudentId) continue
 
-          const assignmentId = (dbAssignment as { id: string }).id
+          const richmondStudentId = studentIdToRichmondId.get(student.matchedStudentId)
 
-          // Create submissions
-          for (const submission of submissions) {
-            const student = validated.students.find((s) => s.name === submission.studentName)
-            if (!student?.matchedStudentId) continue
-
-            const richmondStudentId = studentIdToRichmondId.get(student.matchedStudentId)
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error: submissionError } = await (supabase as any)
-              .from('richmond_scores')
-              .insert({
-                assignment_id: assignmentId,
-                student_id: student.matchedStudentId,
-                richmond_student_id: richmondStudentId,
-                first_name: student.firstName,
-                last_name: student.lastName,
-                progress: submission.progress,
-                total_score: submission.rawValue,
-                done: submission.rawValue !== null,
-                synced_at: new Date().toISOString(),
-              })
-
-            if (!submissionError) {
-              submissionsCreated++
-            } else {
-              errors.push(
-                `Failed to create submission for ${student.name} in "${assignment.title}"`
-              )
-            }
-          }
-        } catch (error) {
-          errors.push(
-            `Error processing assignment "${assignment.title}": ${error instanceof Error ? error.message : 'Unknown error'}`
-          )
+          scoresToInsert.push({
+            assignment_id: assignmentId,
+            student_id: student.matchedStudentId,
+            richmond_student_id: richmondStudentId,
+            first_name: student.firstName,
+            last_name: student.lastName,
+            progress: submission.progress ?? null,
+            total_score: submission.rawValue,
+            done: submission.rawValue !== null,
+            synced_at: new Date().toISOString(),
+          })
         }
+      }
+    }
+
+    // Batch insert ALL assignments at once
+    if (assignmentsToInsert.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: assignmentError } = await (supabase as any)
+        .from('richmond_assignments')
+        .insert(assignmentsToInsert)
+
+      if (assignmentError) {
+        errors.push(`Failed to batch insert assignments: ${assignmentError.message}`)
+      } else {
+        assignmentsCreated = assignmentsToInsert.length
+      }
+    }
+
+    // Batch insert ALL scores at once
+    if (scoresToInsert.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: scoresError } = await (supabase as any)
+        .from('richmond_scores')
+        .insert(scoresToInsert)
+
+      if (scoresError) {
+        errors.push(`Failed to batch insert scores: ${scoresError.message}`)
+      } else {
+        submissionsCreated = scoresToInsert.length
       }
     }
 
