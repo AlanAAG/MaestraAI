@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
           const student = validated.students.find((s) => s.name === submission.studentName)
           if (!student?.matchedStudentId) continue
 
-          const richmondStudentId = studentIdToRichmondId.get(student.matchedStudentId)
+          const richmondStudentId = studentIdToRichmondId.get(student.matchedStudentId) ?? undefined
 
           scoresToInsert.push({
             assignment_id: assignmentId,
