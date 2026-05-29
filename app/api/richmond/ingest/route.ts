@@ -6,24 +6,31 @@ import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
-// Proper schema for Richmond assignment submissions
-const SubmissionSchema = z.object({
-  studentName: z.string(),
-  progress: z.string().nullable(),
+// Proper schema for Richmond assignment data (matches RichmondAssignment interface)
+const RichmondStudentScoreSchema = z.object({
+  richmond_student_id: z.string(),
+  first_name: z.string(),
+  last_name: z.string(),
+  progress: z.enum(['completed', 'not_started', 'started']),
+  total_score: z.number().nullable(),
   done: z.boolean(),
-  rawValue: z.number().nullable(),
 })
 
-const AssignmentSchema = z.object({
+const RichmondAssignmentSchema = z.object({
+  id: z.string(),
   title: z.string(),
-  instructions: z.string().optional(),
-  dueDate: z.string().optional(),
-  submissions: z.array(SubmissionSchema),
+  instructions: z.string().nullable(),
+  assigned_at: z.string(),
+  due_at: z.string(),
+  total_students: z.number(),
+  total_submitted: z.number(),
+  class_avg_score: z.number().nullable(),
+  students: z.array(RichmondStudentScoreSchema),
 })
 
 const IngestInputSchema = z.object({
   group_id: z.string().uuid(),
-  data: z.array(AssignmentSchema),
+  data: z.array(RichmondAssignmentSchema),
 })
 
 export async function POST(req: NextRequest) {
