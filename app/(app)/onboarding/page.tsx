@@ -75,16 +75,20 @@ export default function OnboardingPage() {
 
     try {
       const supabase = createClient()
+
+      // Use secure RPC function instead of direct INSERT
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: school, error: schoolError } = await (supabase as any)
-        .from('schools')
-        .insert(data)
-        .select()
-        .single()
+      const { data: schoolId, error: schoolError } = await (supabase as any).rpc(
+        'create_school_for_onboarding',
+        {
+          school_name: data.name,
+          school_city: data.city || 'CDMX',
+        }
+      )
 
       if (schoolError) throw schoolError
 
-      setSchoolId(school.id)
+      setSchoolId(schoolId as string)
       setShowSchoolCreator(false)
       setError('')
     } catch (err) {

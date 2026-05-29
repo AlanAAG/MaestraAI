@@ -51,13 +51,11 @@ COMMENT ON POLICY vocab_own_create ON vocabulary_items IS
 DROP POLICY IF EXISTS school_insert ON schools;
 
 -- Only allow school creation for authenticated users
--- (Still allows onboarding, but adds minimal validation)
+-- auth.uid() IS NOT NULL is implicit for 'TO authenticated'
 CREATE POLICY "school_insert_authenticated" ON schools
   FOR INSERT
   TO authenticated
-  WITH CHECK (
-    EXISTS (SELECT 1 FROM auth.users WHERE id = auth.uid())
-  );
+  WITH CHECK (true);
 
 COMMENT ON POLICY school_insert_authenticated ON schools IS
   'Onboarding only: allows authenticated users to create schools. Visibility still restricted via school_via_teacher SELECT policy. Consider moving to service-role-only function for tighter control.';
