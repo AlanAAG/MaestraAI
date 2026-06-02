@@ -65,8 +65,63 @@ export default function OnboardingPage() {
       await completeOnboarding()
     } else {
       setError('')
+
+      // After step 2 (editorial), create teacher record before moving to step 3 (school)
+      if (step === 2) {
+        const teacherCreated = await ensureTeacherRecordExists()
+        if (!teacherCreated) {
+          return // Error already set by ensureTeacherRecordExists
+        }
+      }
+
       setStep(step + 1)
     }
+  }
+
+  async function ensureTeacherRecordExists() {
+    const supabase = createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      setError('No se pudo verificar tu sesión')
+      return false
+    }
+
+    // Check if teacher record already exists
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingTeacher } = await (supabase as any)
+      .from('teachers')
+      .select('id')
+      .eq('auth_id', user.id)
+      .single()
+
+    if (existingTeacher) {
+      return true // Already exists
+    }
+
+    // Create teacher record with Step 1-3 data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: teacherError } = await (supabase as any).from('teachers').insert({
+      auth_id: user.id,
+      email: user.email!,
+      full_name: answers.full_name,
+      grade: answers.grade,
+      editorial: answers.editorial,
+      school_id: null, // Will be updated after school creation
+      role: 'titular',
+    })
+
+    if (teacherError) {
+      console.error('Failed to create teacher record:', teacherError)
+      setError('Error al crear tu perfil de maestra')
+      return false
+    }
+
+    return true
   }
 
   async function handleSchoolCreated(data: { name: string; city: string }) {
@@ -123,34 +178,24 @@ export default function OnboardingPage() {
         return
       }
 
-      // Get or create teacher record
+      // Teacher record already exists from Step 3, just fetch and update school_id
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let { data: teacher } = await (supabase as any)
+      const { data: teacher, error: teacherError } = await (supabase as any)
         .from('teachers')
         .select('id')
         .eq('auth_id', user.id)
         .single()
 
-      if (!teacher) {
-        // Create teacher record with all onboarding data
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: newTeacher, error: teacherError } = await (supabase as any)
-          .from('teachers')
-          .insert({
-            auth_id: user.id,
-            email: user.email!,
-            full_name: answers.full_name,
-            grade: answers.grade,
-            editorial: answers.editorial,
-            school_id: schoolId,
-            role: 'titular',
-          })
-          .select()
-          .single()
-
-        if (teacherError) throw teacherError
-        teacher = newTeacher
+      if (teacherError || !teacher) {
+        throw new Error('No se encontró tu perfil de maestra')
       }
+
+      // Update teacher's school_id
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('teachers')
+        .update({ school_id: schoolId })
+        .eq('id', teacher.id)
 
       // Create group
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
