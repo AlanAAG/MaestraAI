@@ -124,7 +124,7 @@ export default function OnboardingPage() {
     return true
   }
 
-  async function handleSchoolCreated(data: { name: string; city: string }) {
+  async function handleSchoolCreated(data: { name: string; state: string }) {
     setLoading(true)
     setError('')
 
@@ -137,7 +137,7 @@ export default function OnboardingPage() {
         'create_school_for_onboarding',
         {
           school_name: data.name,
-          school_city: data.city || 'CDMX',
+          school_state: data.state || 'Ciudad de México',
         }
       )
 
@@ -192,10 +192,7 @@ export default function OnboardingPage() {
 
       // Update teacher's school_id
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
-        .from('teachers')
-        .update({ school_id: schoolId })
-        .eq('id', teacher.id)
+      await (supabase as any).from('teachers').update({ school_id: schoolId }).eq('id', teacher.id)
 
       // Create group
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

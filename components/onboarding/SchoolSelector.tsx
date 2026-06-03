@@ -8,7 +8,6 @@ import { createClient } from '@/lib/supabase/client'
 interface School {
   id: string
   name: string
-  city: string
   state: string
 }
 
@@ -31,7 +30,7 @@ export function SchoolSelector({ value, onChange, onCreateNew }: SchoolSelectorP
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('schools')
-      .select('id, name, city, state')
+      .select('id, name, state')
       .order('name')
 
     if (!error && data) {
@@ -59,7 +58,7 @@ export function SchoolSelector({ value, onChange, onCreateNew }: SchoolSelectorP
         <option value="">{loading ? 'Cargando escuelas...' : 'Selecciona tu escuela'}</option>
         {schools.map((school) => (
           <option key={school.id} value={school.id}>
-            {school.name} ({school.city}, {school.state})
+            {school.name} ({school.state})
           </option>
         ))}
         <option value="__CREATE_NEW__">➕ Crear nueva escuela</option>

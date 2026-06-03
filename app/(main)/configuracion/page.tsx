@@ -300,7 +300,7 @@ export default function ConfiguracionPage() {
           <div className="space-y-2">
             <p className="text-text-primary font-medium">{school.name}</p>
             <p className="text-sm text-text-secondary">
-              {school.city}, {school.state}
+              {school.state}, {school.state}
             </p>
           </div>
         </Card>
