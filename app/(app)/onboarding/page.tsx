@@ -33,6 +33,8 @@ export default function OnboardingPage() {
   const [schoolId, setSchoolId] = useState<string | null>(null)
   const [showSchoolCreator, setShowSchoolCreator] = useState(false)
   const [groupId, setGroupId] = useState<string | null>(null)
+  const [groupsCreated, setGroupsCreated] = useState(0)
+  const [showGroupChoice, setShowGroupChoice] = useState(false)
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [apiKeyPrefix, setApiKeyPrefix] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -212,8 +214,9 @@ export default function OnboardingPage() {
       if (groupError) throw groupError
 
       setGroupId(group.id)
+      setGroupsCreated((n) => n + 1)
+      setShowGroupChoice(true)
       setError('')
-      setStep(step + 1) // Move to API key step
     } catch (err) {
       console.error('Failed to create group:', err)
       setError('Error al crear el grupo')
@@ -371,7 +374,37 @@ export default function OnboardingPage() {
             )}
 
             {/* Step 5: Group creation */}
-            {step === 4 && <GroupCreator onSubmit={handleGroupCreated} loading={loading} />}
+            {step === 4 && (
+              <>
+                {showGroupChoice ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm">
+                      <Check size={16} className="shrink-0" />
+                      {groupsCreated === 1 ? '1 grupo creado' : `${groupsCreated} grupos creados`}
+                    </div>
+                    <Button
+                      onClick={() => setShowGroupChoice(false)}
+                      variant="outline"
+                      className="w-full min-h-[44px]"
+                    >
+                      Agregar otro grupo
+                    </Button>
+                    <Button
+                      onClick={() => setStep(step + 1)}
+                      className="w-full min-h-[44px] bg-primary hover:bg-primary-dark"
+                    >
+                      Continuar →
+                    </Button>
+                  </div>
+                ) : (
+                  <GroupCreator
+                    key={groupsCreated}
+                    onSubmit={handleGroupCreated}
+                    loading={loading}
+                  />
+                )}
+              </>
+            )}
 
             {/* Step 6: API key display */}
             {step === 5 && (
