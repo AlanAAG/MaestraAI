@@ -10,7 +10,7 @@ interface GroupData {
   name: string
   grade: string
   academic_year: string
-  richmond_group_slug?: string
+  richmond_class_code?: string
 }
 
 interface GroupCreatorProps {
@@ -26,7 +26,7 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
     name: '',
     grade: '',
     academic_year: `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
-    richmond_group_slug: '',
+    richmond_class_code: '',
   })
 
   function handleSubmit(e: React.FormEvent) {
@@ -80,6 +80,22 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
           required
           className="min-h-[44px]"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          Código de clase Richmond{' '}
+          <span className="font-normal text-text-disabled">(opcional)</span>
+        </label>
+        <Input
+          value={formData.richmond_class_code || ''}
+          onChange={(e) => setFormData({ ...formData, richmond_class_code: e.target.value })}
+          placeholder="Ej: grupo-kinder3a"
+          className="min-h-[44px]"
+        />
+        <p className="text-xs text-text-disabled mt-1">
+          El slug de la URL en richmondlp.com — necesario para sincronizar calificaciones
+        </p>
       </div>
 
       <Button

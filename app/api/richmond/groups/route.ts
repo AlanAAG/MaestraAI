@@ -7,7 +7,7 @@ import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function GET(req: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Auth: Validate API key
   const authHeader = req.headers.get('authorization')
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: groups, error: groupsError } = await (supabase as any)
     .from('groups')
-    .select('id, name, richmond_group_slug')
+    .select('id, name, richmond_class_code')
     .eq('titular_teacher_id', apiKey.teacher_id)
     .order('name')
 
@@ -83,8 +83,8 @@ export async function GET(req: NextRequest) {
   const groupNames: string[] = []
 
   for (const group of groups || []) {
-    if (group.richmond_group_slug) {
-      groupMap[group.richmond_group_slug] = group.id
+    if (group.richmond_class_code) {
+      groupMap[group.richmond_class_code] = group.id
     }
     groupNames.push(group.name)
   }

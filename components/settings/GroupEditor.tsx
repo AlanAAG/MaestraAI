@@ -10,7 +10,7 @@ interface GroupData {
   name: string
   grade: string
   academic_year: string
-  richmond_group_slug?: string
+  richmond_class_code?: string
 }
 
 interface GroupEditorProps {
@@ -33,7 +33,7 @@ export function GroupEditor({
       name: '',
       grade: '',
       academic_year: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
-      richmond_group_slug: '',
+      richmond_class_code: '',
     }
   )
 
@@ -92,6 +92,22 @@ export function GroupEditor({
           required
           className="min-h-[44px]"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          Código de clase Richmond{' '}
+          <span className="font-normal text-text-disabled">(opcional)</span>
+        </label>
+        <Input
+          value={formData.richmond_class_code || ''}
+          onChange={(e) => setFormData({ ...formData, richmond_class_code: e.target.value })}
+          placeholder="Ej: grupo-kinder3a"
+          className="min-h-[44px]"
+        />
+        <p className="text-xs text-text-disabled mt-1">
+          El slug de la URL en richmondlp.com — necesario para sincronizar calificaciones
+        </p>
       </div>
 
       <div className="flex gap-3 pt-2">

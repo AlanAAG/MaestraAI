@@ -8,7 +8,7 @@ import { GroupList } from '@/components/settings/GroupList'
 import { GroupEditor } from '@/components/settings/GroupEditor'
 import { StudentRoster } from '@/components/settings/StudentRoster'
 import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
-import { X } from 'lucide-react'
+import { X, Download, Settings, Plug } from 'lucide-react'
 
 type ViewMode = 'list' | 'create' | 'edit' | 'students'
 
@@ -83,7 +83,7 @@ export default function ConfiguracionPage() {
             name,
             grade,
             academic_year,
-            richmond_group_slug,
+            richmond_class_code,
             students:students(count)
           `
           )
@@ -140,7 +140,7 @@ export default function ConfiguracionPage() {
       name: data.name,
       grade: data.grade,
       academic_year: data.academic_year,
-      richmond_group_slug: data.richmond_group_slug || null,
+      richmond_class_code: data.richmond_class_code || null,
     })
 
     setLoading(false)
@@ -162,7 +162,7 @@ export default function ConfiguracionPage() {
         name: data.name,
         grade: data.grade,
         academic_year: data.academic_year,
-        richmond_group_slug: data.richmond_group_slug || null,
+        richmond_class_code: data.richmond_class_code || null,
       })
       .eq('id', selectedGroupId)
 
@@ -248,7 +248,7 @@ export default function ConfiguracionPage() {
           name: selectedGroup.name,
           grade: selectedGroup.grade,
           academic_year: selectedGroup.academic_year,
-          richmond_group_slug: selectedGroup.richmond_group_slug || '',
+          richmond_class_code: selectedGroup.richmond_class_code || '',
         }
       : undefined
 
@@ -299,9 +299,7 @@ export default function ConfiguracionPage() {
           <h2 className="text-lg font-semibold text-text-primary mb-4">Escuela</h2>
           <div className="space-y-2">
             <p className="text-text-primary font-medium">{school.name}</p>
-            <p className="text-sm text-text-secondary">
-              {school.state}, {school.state}
-            </p>
+            <p className="text-sm text-text-secondary">{school.state}</p>
           </div>
         </Card>
       )}
@@ -393,31 +391,109 @@ export default function ConfiguracionPage() {
         )}
       </Card>
 
-      {/* Editorial Integration Section */}
-      {teacher?.editorial && (
+      {/* Richmond Sync Section */}
+      {teacher?.editorial?.toLowerCase().includes('richmond') && (
         <Card className="p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">
-            Integración{' '}
-            {teacher.editorial === 'richmond'
-              ? 'Richmond LP'
-              : teacher.editorial === 'macmillan'
-                ? 'Macmillan'
-                : teacher.editorial === 'pearson'
-                  ? 'Pearson'
-                  : teacher.editorial}
+          <h2 className="text-lg font-semibold text-text-primary mb-1">
+            Sincronización Richmond LP
           </h2>
-          <p className="text-sm text-text-secondary mb-4">
-            Genera claves API para sincronizar automáticamente datos de{' '}
-            {teacher.editorial === 'richmond' ? 'Richmond LP' : teacher.editorial} con la extensión
-            de Chrome.
+          <p className="text-sm text-text-secondary mb-6">
+            La extensión de Chrome captura automáticamente las calificaciones de Richmond cuando
+            abres el libro de calificaciones en richmondlp.com.
           </p>
-          <ApiKeyManager
-            apiKeys={apiKeys}
-            onGenerate={handleGenerateApiKey}
-            onRevoke={handleRevokeApiKey}
-            generatedKey={generatedKey}
-            loading={loading}
-          />
+
+          {/* Step-by-step install guide */}
+          <div className="mb-6 space-y-3">
+            <h3 className="text-sm font-semibold text-text-primary">Cómo instalar la extensión</h3>
+
+            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
+              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
+                1
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary flex items-center gap-1">
+                  <Download size={14} /> Descarga la extensión
+                </p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Pídele a tu administrador el archivo ZIP de la extensión MaestraAI, o descárgalo
+                  desde el enlace que te enviaron.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
+              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
+                2
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary flex items-center gap-1">
+                  <Settings size={14} /> Abre la pantalla de extensiones en Chrome
+                </p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  En Chrome, ve a{' '}
+                  <span className="font-mono bg-bg px-1 rounded">chrome://extensions</span> y activa
+                  el <strong>Modo desarrollador</strong> (esquina superior derecha).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
+              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
+                3
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">Carga la extensión</p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Haz clic en <strong>Cargar descomprimida</strong> y selecciona la carpeta de la
+                  extensión (la carpeta que contiene el archivo{' '}
+                  <span className="font-mono bg-bg px-1 rounded">manifest.json</span>).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
+              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
+                4
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary flex items-center gap-1">
+                  <Plug size={14} /> Conecta tu clave API
+                </p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Genera una clave abajo, cópiala. Luego haz clic en el ícono de la extensión{' '}
+                  <strong>MaestraAI Sync</strong> en Chrome, pégala y guarda. La extensión se
+                  conectará automáticamente a tus grupos.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
+              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
+                5
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">
+                  Abre el libro de calificaciones
+                </p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  Ve a <strong>richmondlp.com</strong>, abre cualquier curso y entra al{' '}
+                  <strong>Markbook</strong>. La extensión captura las calificaciones en ese momento
+                  y las sincroniza con MaestraAI automáticamente.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <h3 className="text-sm font-semibold text-text-primary mb-3">Tu clave API</h3>
+            <ApiKeyManager
+              apiKeys={apiKeys}
+              onGenerate={handleGenerateApiKey}
+              onRevoke={handleRevokeApiKey}
+              generatedKey={generatedKey}
+              loading={loading}
+            />
+          </div>
         </Card>
       )}
     </div>

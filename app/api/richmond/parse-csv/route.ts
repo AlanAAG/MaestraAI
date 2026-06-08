@@ -5,7 +5,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { validateFile } from '@/lib/file-validation'
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Check auth
   const {
@@ -71,34 +71,41 @@ export async function POST(req: NextRequest) {
     // Get all teacher's groups to match students
     const { data: groups, error: groupsError } = await supabase
       .from('groups')
-      .select('id, name')
+      .select('id, name, richmond_class_code')
       .eq('titular_teacher_id', teacherId)
 
-    if (groupsError || !groups || groups.length === 0) {
-      return NextResponse.json({ error: 'No groups found for teacher' }, { status: 404 })
+    if (groupsError) {
+      return NextResponse.json({ error: 'Failed to fetch groups' }, { status: 500 })
     }
 
-    const typedGroups = groups as { id: string; name: string }[]
+    const typedGroups = (groups || []) as {
+      id: string
+      name: string
+      richmond_class_code: string | null
+    }[]
 
-    // Fetch all students from teacher's groups
-    const { data: dbStudents, error: studentsError } = await supabase
-      .from('students')
-      .select('id, group_id, first_name_encrypted, last_name_encrypted')
-      .in(
-        'group_id',
-        typedGroups.map((g) => g.id)
-      )
-
-    if (studentsError) {
-      return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 })
-    }
-
-    const typedStudents = (dbStudents || []) as {
+    // Fetch all students from teacher's groups (empty if no groups yet)
+    const typedStudents: {
       id: string
       group_id: string
       first_name_encrypted: string
       last_name_encrypted: string
-    }[]
+    }[] = []
+
+    if (typedGroups.length > 0) {
+      const { data: dbStudents, error: studentsError } = await supabase
+        .from('students')
+        .select('id, group_id, first_name_encrypted, last_name_encrypted')
+        .in(
+          'group_id',
+          typedGroups.map((g) => g.id)
+        )
+
+      if (studentsError) {
+        return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 })
+      }
+      typedStudents.push(...((dbStudents || []) as typeof typedStudents))
+    }
 
     // Match parsed students to DB students
     const matchedStudents = matchStudents(parsedData.students, typedStudents)
@@ -107,10 +114,8 @@ export async function POST(req: NextRequest) {
     const studentsByGroup = new Map<string, typeof matchedStudents>()
     for (const matched of matchedStudents) {
       if (!matched.matchedStudentId) continue
-
       const dbStudent = typedStudents.find((s) => s.id === matched.matchedStudentId)
       if (!dbStudent) continue
-
       if (!studentsByGroup.has(dbStudent.group_id)) {
         studentsByGroup.set(dbStudent.group_id, [])
       }
@@ -126,6 +131,14 @@ export async function POST(req: NextRequest) {
       }))
       .filter((g) => g.matchedCount > 0)
 
+    // Detect classes in CSV that have no matching DB group
+    const existingClassCodes = new Set(
+      typedGroups.map((g) => g.richmond_class_code).filter(Boolean)
+    )
+    const unmatchedClasses = parsedData.detectedClasses.filter(
+      ({ classCode }) => !existingClassCodes.has(classCode)
+    )
+
     const totalMatched = matchedStudents.filter((s) => s.matchedStudentId).length
     const totalUnmatched = matchedStudents.length - totalMatched
 
@@ -137,6 +150,7 @@ export async function POST(req: NextRequest) {
         matchedStudents: totalMatched,
         unmatchedStudents: totalUnmatched,
         groups: groupBreakdown,
+        unmatchedClasses,
       },
       data: {
         assignments: parsedData.assignments,

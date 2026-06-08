@@ -9,13 +9,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleAssignmentScores(groupId, groupSlug, data) {
   try {
     // Get settings from storage
-    const { ingestToken, apiUrl } = await chrome.storage.sync.get([
-      'ingestToken',
+    const { apiKey, apiUrl } = await chrome.storage.sync.get([
+      'apiKey',
       'apiUrl',
     ])
 
-    if (!ingestToken) {
-      console.error('[MaestraAI] No ingest token configured')
+    if (!apiKey) {
+      console.error('[MaestraAI] No API key configured')
       return
     }
 
@@ -26,7 +26,7 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${ingestToken}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         group_id: groupId,

@@ -10,7 +10,7 @@ interface Group {
   name: string
   grade: string
   academic_year: string
-  richmond_group_slug: string | null
+  richmond_class_code: string | null
   student_count: number
 }
 
@@ -51,10 +51,10 @@ export function GroupList({ groups, onEdit, onViewStudents, onDelete }: GroupLis
                   {group.student_count} estudiantes
                 </span>
               </div>
-              {group.richmond_group_slug && (
+              {group.richmond_class_code && (
                 <div className="mt-2">
                   <span className="inline-block px-2 py-0.5 rounded text-xs bg-primary-light text-primary font-mono">
-                    Richmond: {group.richmond_group_slug}
+                    Richmond: {group.richmond_class_code}
                   </span>
                 </div>
               )}

@@ -36,7 +36,14 @@
       "Bash(open *)",
       "Bash(curl -s http://localhost:37701)",
       "mcp__plugin_claude-mem_mcp-search__observation_add",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(wait)",
+      "Bash(./node_modules/.bin/tsc *)",
+      "Bash(node_modules/.bin/tsc *)",
+      "Bash(/Users/alan/Desktop/MaestraAI/node_modules/.bin/tsc --noEmit)",
+      "Bash(PATH=\"$PWD/node_modules/.bin:$PATH\" tsc *)",
+      "Bash(bash *)",
+      "Bash(file \"$\\(pwd\\)/node_modules/.bin/tsc\")"
     ]
   }
 }

@@ -5,6 +5,7 @@ export type ParsedStudent = {
   name: string
   firstName: string
   lastName: string
+  classCode?: string
   matchedStudentId?: string
   matchConfidence?: number
 }
@@ -23,6 +24,7 @@ export type ParsedCSVData = {
   assignments: ParsedAssignment[]
   students: ParsedStudent[]
   groupAssignments: Map<string, ParsedAssignment[]>
+  detectedClasses: { classCode: string; studentCount: number }[]
 }
 
 type CSVRow = Record<string, string | number | null>
@@ -65,7 +67,7 @@ export async function parseRichmondCSV(
     }
 
     // Extract data
-    const studentsSet = new Set<string>()
+    const studentClassMap = new Map<string, string>() // name → classCode
     const assignmentMap = new Map<string, ParsedAssignment>()
 
     // Find all assignment columns (any column that's not student name, group, etc.)
@@ -81,7 +83,17 @@ export async function parseRichmondCSV(
       const studentName = normalizeStudentName(String(row[columnMap.studentName] || ''))
       if (!studentName) continue
 
-      studentsSet.add(studentName)
+      // Capture class code from the group column if present
+      const classCode = columnMap.group
+        ? normalizeStudentName(String(row[columnMap.group] || ''))
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+        : undefined
+      if (classCode) {
+        studentClassMap.set(studentName, classCode)
+      } else if (!studentClassMap.has(studentName)) {
+        studentClassMap.set(studentName, '')
+      }
 
       // Process each assignment column
       for (const assignmentCol of assignmentColumns) {
@@ -112,13 +124,31 @@ export async function parseRichmondCSV(
       }
     }
 
-    const students = Array.from(studentsSet).map((name) => parseStudentName(name))
+    const students = Array.from(studentClassMap.entries()).map(([name, classCode]) => ({
+      ...parseStudentName(name),
+      classCode: classCode || undefined,
+    }))
+
+    // Aggregate detected classes with student counts
+    const classCountMap = new Map<string, number>()
+    for (const classCode of Array.from(studentClassMap.values())) {
+      if (classCode) {
+        classCountMap.set(classCode, (classCountMap.get(classCode) || 0) + 1)
+      }
+    }
+    const detectedClasses = Array.from(classCountMap.entries()).map(
+      ([classCode, studentCount]) => ({
+        classCode,
+        studentCount,
+      })
+    )
 
     return {
       data: {
         assignments: Array.from(assignmentMap.values()),
         students,
         groupAssignments: new Map(), // Will be populated after matching
+        detectedClasses,
       },
     }
   } catch (error) {
@@ -229,5 +259,6 @@ function emptyData(): ParsedCSVData {
     assignments: [],
     students: [],
     groupAssignments: new Map(),
+    detectedClasses: [],
   }
 }
