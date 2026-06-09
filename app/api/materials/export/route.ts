@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      case 'game': {
+      case 'memory_game': {
         const pairs = material.content.pairs || []
         const gameType = material.content.game_type || 'memory_match'
         const props = {

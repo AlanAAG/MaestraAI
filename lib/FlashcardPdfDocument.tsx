@@ -4,10 +4,11 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 
 type FlashcardContent = {
   cards: Array<{
-    front: string
-    back: string
+    word: string
+    definition: string
     color: string
-    sentence: string
+    example: string
+    phonetic?: string
   }>
 }
 
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   card: {
-    width: '48%',
+    width: '31%',
     aspectRatio: 1,
     border: '2px dashed #D1D5DB',
     borderRadius: 8,
@@ -116,10 +117,10 @@ const styles = StyleSheet.create({
 })
 
 export function FlashcardPdfDocument({ cards, letter, generatedAt }: FlashcardPdfProps) {
-  // Split cards into groups of 4 (2x2 grid per page)
+  // Split cards into groups of 6 (2x3 grid per page)
   const pages: (typeof cards)[] = []
-  for (let i = 0; i < cards.length; i += 4) {
-    pages.push(cards.slice(i, i + 4))
+  for (let i = 0; i < cards.length; i += 6) {
+    pages.push(cards.slice(i, i + 6))
   }
 
   return (
@@ -141,16 +142,16 @@ export function FlashcardPdfDocument({ cards, letter, generatedAt }: FlashcardPd
           <View style={styles.grid}>
             {pageCards.map((card, cardIndex) => (
               <View key={cardIndex}>
-                {/* Front side (word + sentence) */}
+                {/* Front side (word + example) */}
                 <View style={[styles.card, styles.cardFront]}>
-                  <Text style={styles.cardWord}>{card.front}</Text>
+                  <Text style={styles.cardWord}>{card.word}</Text>
                   {card.color && <Text style={styles.cardColor}>{card.color}</Text>}
-                  <Text style={styles.cardSentence}>{card.sentence}</Text>
+                  <Text style={styles.cardSentence}>{card.example}</Text>
                 </View>
 
                 {/* Back side (definition) */}
                 <View style={[styles.card, styles.cardBack, { marginTop: 10 }]}>
-                  <Text style={styles.cardDefinition}>{card.back}</Text>
+                  <Text style={styles.cardDefinition}>{card.definition}</Text>
                 </View>
               </View>
             ))}
