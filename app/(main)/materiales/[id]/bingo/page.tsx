@@ -4,7 +4,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ArrowLeft, Download, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Projector } from 'lucide-react'
+import { BingoCallerMode } from '@/components/games/BingoCallerMode'
 
 export default function BingoRedownloadPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,6 +17,7 @@ export default function BingoRedownloadPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
+  const [callerMode, setCallerMode] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -76,6 +78,16 @@ export default function BingoRedownloadPage() {
     )
   }
 
+  if (callerMode && material) {
+    return (
+      <BingoCallerMode
+        vocabulary={material.content.vocabulary ?? []}
+        title="Bingo"
+        onExit={() => setCallerMode(false)}
+      />
+    )
+  }
+
   return (
     <div className="max-w-lg mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -109,22 +121,30 @@ export default function BingoRedownloadPage() {
               </span>
             ))}
           </div>
-          <Button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="w-full bg-purple-600 hover:bg-purple-700 mt-2"
-          >
-            {downloading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generando PDF...
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" /> Descargar {material.content.card_count}{' '}
-                tarjetas
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2 mt-2">
+            <Button
+              onClick={() => setCallerMode(true)}
+              variant="outline"
+              className="flex-1 border-purple-300 text-purple-700 hover:bg-purple-50"
+            >
+              <Projector className="mr-2 h-4 w-4" /> Proyectar Bingo
+            </Button>
+            <Button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex-1 bg-purple-600 hover:bg-purple-700"
+            >
+              {downloading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generando...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" /> Descargar PDF
+                </>
+              )}
+            </Button>
+          </div>
           <p className="text-xs text-gray-500 text-center">
             Incluye tarjetas de jugadores y una página de tarjetas del maestro para llamar palabras
           </p>
