@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
-import React from 'react'
-import { FlashcardPdfDocument } from '@/lib/FlashcardPdfDocument'
-import { WorksheetPdfDocument } from '@/lib/WorksheetPdfDocument'
-import { GameCardsPdfDocument } from '@/lib/GameCardsPdfDocument'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { renderMaterialPdf } from '@/lib/pdf/render-material'
 
 const ExportInputSchema = z.object({
   material_id: z.string().uuid(),
@@ -82,71 +78,21 @@ export async function POST(req: NextRequest) {
       year: 'numeric',
     })
 
-    let pdfBuffer: Buffer
-    let filename: string
+    const result = await renderMaterialPdf(material, generatedAt)
 
-    // Generate appropriate PDF based on material type
-    switch (material.type) {
-      case 'flashcards': {
-        const cards = material.content.cards || []
-        const props = {
-          cards,
-          letter: material.letter || undefined,
-          generatedAt,
-        }
-        pdfBuffer = await renderToBuffer(
-          React.createElement(FlashcardPdfDocument, props) as React.ReactElement<DocumentProps>
-        )
-        filename = `Flashcards_${material.letter || 'Vocabulario'}.pdf`
-        break
-      }
-
-      case 'worksheets': {
-        const activities = material.content.activities || []
-        const vocabulary = material.vocabulary || []
-        const props = {
-          activities,
-          letter: material.letter || undefined,
-          vocabulary,
-          generatedAt,
-        }
-        pdfBuffer = await renderToBuffer(
-          React.createElement(WorksheetPdfDocument, props) as React.ReactElement<DocumentProps>
-        )
-        filename = `Worksheet_${material.letter || 'Actividades'}.pdf`
-        break
-      }
-
-      case 'memory_game': {
-        const pairs = material.content.pairs || []
-        const gameType = material.content.game_type || 'memory_match'
-        const props = {
-          pairs,
-          gameType,
-          generatedAt,
-        }
-        pdfBuffer = await renderToBuffer(
-          React.createElement(GameCardsPdfDocument, props) as React.ReactElement<DocumentProps>
-        )
-        filename = `Game_Cards_${gameType}.pdf`
-        break
-      }
-
-      default:
-        return NextResponse.json(
-          { error: 'Tipo de material no soportado para exportar' },
-          { status: 400 }
-        )
+    if (!result) {
+      return NextResponse.json(
+        { error: 'Tipo de material no soportado para exportar' },
+        { status: 400 }
+      )
     }
 
-    // Convert to Uint8Array
-    const uint8 = new Uint8Array(pdfBuffer)
+    const uint8 = new Uint8Array(result.buffer)
 
-    // Return PDF with proper headers
     return new NextResponse(uint8, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': `attachment; filename="${result.filename}"`,
         'Cache-Control': 'no-store',
       },
     })

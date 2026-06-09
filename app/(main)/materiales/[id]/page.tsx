@@ -16,12 +16,40 @@ type Material = {
   created_at: string
 }
 
+async function downloadPdf(materialId: string, filename: string): Promise<string | null> {
+  const res = await fetch('/api/materials/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ material_id: materialId }),
+  })
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}))
+    return (d as { error?: string }).error || 'Error al generar PDF'
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+  return null
+}
+
 export default function MaterialDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [material, setMaterial] = useState<Material | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async (filename: string) => {
+    setDownloading(true)
+    const err = await downloadPdf(id, filename)
+    if (err) setError(err)
+    setDownloading(false)
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -157,6 +185,18 @@ export default function MaterialDetailPage() {
       {/* Word Search */}
       {material.type === 'word_search' && (
         <Card className="p-6 space-y-4">
+          <Button
+            onClick={() => handleDownload('SopaDeLetras.pdf')}
+            disabled={downloading}
+            className="bg-yellow-600 hover:bg-yellow-700"
+          >
+            {downloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Descargar PDF
+          </Button>
           <div className="overflow-auto">
             <table className="border-collapse font-mono text-sm">
               <tbody>
@@ -205,6 +245,18 @@ export default function MaterialDetailPage() {
       {/* Song Worksheet */}
       {material.type === 'song_worksheet' && (
         <div className="space-y-4">
+          <Button
+            onClick={() => handleDownload('HojaCancion.pdf')}
+            disabled={downloading}
+            className="bg-pink-600 hover:bg-pink-700"
+          >
+            {downloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Descargar PDF
+          </Button>
           {material.content?.lyric_worksheet && (
             <Card className="p-6">
               <h2 className="font-semibold text-gray-900 mb-3">
@@ -281,6 +333,18 @@ export default function MaterialDetailPage() {
       {material.type === 'letter_recognition' && (
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Actividades de Reconocimiento</h2>
+          <Button
+            onClick={() => handleDownload('Reconocimiento.pdf')}
+            disabled={downloading}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {downloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Descargar PDF
+          </Button>
           <div className="space-y-3">
             {material.content?.items?.map(
               (
@@ -323,6 +387,18 @@ export default function MaterialDetailPage() {
       {material.type === 'matching' && (
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Pares de Matching</h2>
+          <Button
+            onClick={() => handleDownload('Matching.pdf')}
+            disabled={downloading}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {downloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Descargar PDF
+          </Button>
           <div className="space-y-3">
             {material.content?.pairs?.map(
               (
