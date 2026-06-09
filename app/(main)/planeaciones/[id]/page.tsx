@@ -15,9 +15,23 @@ import {
   Edit2,
   Package,
 } from 'lucide-react'
+import Link from 'next/link'
 import { LoadingGeneration } from '@/components/app/LoadingGeneration'
 import { LessonPlanEditor } from '@/components/app/LessonPlanEditor'
 import { MaterialGenerator } from '@/components/app/MaterialGenerator'
+
+const TYPE_LABELS: Record<string, string> = {
+  flashcards: 'Flashcards',
+  memory_game: 'Memorama',
+  bingo: 'Bingo',
+  word_search: 'Sopa de Letras',
+  song_worksheet: 'Canción',
+  letter_recognition: 'Reconoc. Letras',
+  matching: 'Matching',
+  youtube: 'Videos YouTube',
+  worksheet: 'Hoja de Trabajo',
+  worksheets: 'Hoja de Trabajo',
+}
 
 type LessonBlock = {
   time: string
@@ -74,6 +88,10 @@ export default function PlaneacionDetailPage() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [showMaterialGenerator, setShowMaterialGenerator] = useState(false)
   const [selectedLessonPlanId, setSelectedLessonPlanId] = useState<string | null>(null)
+  const [materialsByPlan, setMaterialsByPlan] = useState<
+    Record<string, { id: string; type: string }[]>
+  >({})
+  const [fortnightMaterials, setFortnightMaterials] = useState<{ id: string; type: string }[]>([])
 
   useEffect(() => {
     loadData()
@@ -127,6 +145,33 @@ export default function PlaneacionDetailPage() {
       }
 
       setLessonPlans(plansData || [])
+
+      // Fetch materials linked to lesson plans
+      const planIds = (plansData || []).map((p: { id: string }) => p.id)
+      if (planIds.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: planMats } = await (supabase as any)
+          .from('materials')
+          .select('id, type, lesson_plan_id')
+          .in('lesson_plan_id', planIds)
+        const byPlan: Record<string, { id: string; type: string }[]> = {}
+        for (const m of planMats ?? []) {
+          if (m.lesson_plan_id) {
+            byPlan[m.lesson_plan_id] ??= []
+            byPlan[m.lesson_plan_id].push({ id: m.id, type: m.type })
+          }
+        }
+        setMaterialsByPlan(byPlan)
+      }
+
+      // Fetch fortnight-level materials (bingo, word_search — no lesson_plan_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: fMats } = await (supabase as any)
+        .from('materials')
+        .select('id, type')
+        .eq('fortnight_id', params.id)
+        .is('lesson_plan_id', null)
+      setFortnightMaterials(fMats ?? [])
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: vocabData } = await (supabase as any)
@@ -331,6 +376,18 @@ export default function PlaneacionDetailPage() {
         </Card>
       ) : (
         <div className="space-y-3">
+          {fortnightMaterials.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pb-1">
+              <span className="text-xs text-gray-500 font-medium">Materiales de la quincena:</span>
+              {fortnightMaterials.map((m) => (
+                <Link key={m.id} href={`/materiales/${m.id}`}>
+                  <span className="px-2 py-1 text-xs rounded-full bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
+                    {TYPE_LABELS[m.type] ?? m.type}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
           {lessonPlans.map((plan) => {
             const isExpanded = expandedDay === plan.day_number
             const isEditing = editingPlanId === plan.id
@@ -460,7 +517,7 @@ export default function PlaneacionDetailPage() {
                       </div>
                     )}
 
-                    <div className="pt-4 border-t border-border">
+                    <div className="pt-4 border-t border-border space-y-3">
                       <Button
                         variant="outline"
                         className="w-full"
@@ -473,6 +530,21 @@ export default function PlaneacionDetailPage() {
                         <Package size={16} className="mr-2" />
                         Crear materiales
                       </Button>
+                      {materialsByPlan[plan.id]?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {materialsByPlan[plan.id].map((m) => (
+                            <Link
+                              key={m.id}
+                              href={`/materiales/${m.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
+                                {TYPE_LABELS[m.type] ?? m.type}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -493,9 +565,10 @@ export default function PlaneacionDetailPage() {
         </div>
       )}
 
-      {showMaterialGenerator && selectedLessonPlanId && (
+      {showMaterialGenerator && selectedLessonPlanId && fortnight && (
         <MaterialGenerator
           lessonPlanId={selectedLessonPlanId}
+          fortnightId={fortnight.id}
           onClose={() => {
             setShowMaterialGenerator(false)
             setSelectedLessonPlanId(null)

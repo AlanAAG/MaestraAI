@@ -1,6 +1,19 @@
 // lib/materials/youtube.ts
+// Call assertYoutubePublic(url) before any transcript fetch to enforce the
+// "solo videos públicos" policy (Aviso de Privacidad, Sección VII).
 import Anthropic from '@anthropic-ai/sdk'
 import { YOUTUBE_PROMPT } from '@/prompts/materials'
+
+export async function assertYoutubePublic(url: string): Promise<void> {
+  const oEmbed = await fetch(
+    `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+  )
+  if (!oEmbed.ok) {
+    throw new Error(
+      'Este video es privado o no está disponible. Solo se pueden procesar videos públicos.'
+    )
+  }
+}
 
 export type YoutubeVideo = {
   title: string
@@ -8,6 +21,8 @@ export type YoutubeVideo = {
   duration: string
   description: string
   keywords: string[]
+  has_subtitles?: boolean
+  verified?: boolean
 }
 
 export type YoutubeContent = {
@@ -42,14 +57,13 @@ Recomienda videos educativos de YouTube apropiados para este vocabulario y tema.
     throw new Error('Unexpected response type from Claude')
   }
 
+  const jsonMatch =
+    content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
+  const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
+  if (!raw) throw new Error('Claude no devolvió JSON válido')
   try {
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response')
-    }
-    return JSON.parse(jsonMatch[0]) as YoutubeContent
+    return JSON.parse(raw) as YoutubeContent
   } catch {
-    console.error('Failed to parse YouTube response:', content.text)
-    throw new Error('Failed to parse YouTube content')
+    throw new Error('Respuesta de Claude no es JSON válido')
   }
 }

@@ -57,7 +57,7 @@ export default function JugarMaterialPage() {
       }
 
       // Verify it's a game type material
-      if (materialData.type !== 'game') {
+      if (materialData.type !== 'memory_game') {
         setError('Este material no es un juego')
         setLoading(false)
         return

@@ -5,12 +5,16 @@ import { buildFlashcardContent } from '@/lib/materials/flashcards'
 import { buildWorksheetContent } from '@/lib/materials/worksheets'
 import { buildGameContent } from '@/lib/materials/games'
 import { buildYoutubeRecommendations } from '@/lib/materials/youtube'
+import { buildLetterRecognition } from '@/lib/materials/letter-recognition'
+import { buildMatching } from '@/lib/materials/matching'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const GenerateMaterialsSchema = z.object({
   lesson_plan_id: z.string().uuid(),
-  material_types: z.array(z.enum(['flashcards', 'worksheets', 'games', 'youtube'])),
+  material_types: z.array(
+    z.enum(['flashcards', 'worksheets', 'games', 'youtube', 'letter_recognition', 'matching'])
+  ),
 })
 
 export async function POST(req: NextRequest) {
@@ -113,6 +117,21 @@ export async function POST(req: NextRequest) {
             content = await buildYoutubeRecommendations(vocabulary, projectTheme)
             type = 'youtube_videos'
             isProjectable = true
+            break
+
+          case 'letter_recognition': {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const letter = (lessonPlan as any).fortnights?.letter_week1 || 'A'
+            content = await buildLetterRecognition(vocabulary, letter, 'hear_and_circle')
+            type = 'letter_recognition'
+            isProjectable = false
+            break
+          }
+
+          case 'matching':
+            content = await buildMatching(vocabulary, 'medio')
+            type = 'matching'
+            isProjectable = false
             break
 
           default:

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,11 +9,16 @@ import { GroupList } from '@/components/settings/GroupList'
 import { GroupEditor } from '@/components/settings/GroupEditor'
 import { StudentRoster } from '@/components/settings/StudentRoster'
 import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
-import { X, Download, Settings, Plug } from 'lucide-react'
+import { X, ExternalLink, Plug, CheckCircle2, Clock } from 'lucide-react'
+
+// Replace with the real Chrome Web Store URL after the extension is approved.
+// Format: https://chromewebstore.google.com/detail/maestraai-richmond-sync/[extension-id]
+const CHROME_STORE_URL = ''
 
 type ViewMode = 'list' | 'create' | 'edit' | 'students'
 
 export default function ConfiguracionPage() {
+  const router = useRouter()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [teacher, setTeacher] = useState<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,10 +34,16 @@ export default function ConfiguracionPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [hasRichmondCredentials, setHasRichmondCredentials] = useState(false)
+  const [revokingCredentials, setRevokingCredentials] = useState(false)
 
   const [groupMode, setGroupMode] = useState<ViewMode>('list')
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [generatedKey, setGeneratedKey] = useState<{ key: string; key_prefix: string } | null>(null)
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -59,8 +71,10 @@ export default function ConfiguracionPage() {
 
       if (teacherData) {
         setTeacher(teacherData)
-        // Pre-fill name from teacher record, or use email username as fallback
         setFullName(teacherData.full_name || user.email?.split('@')[0] || '')
+        setHasRichmondCredentials(
+          !!(teacherData.richmond_email_encrypted || teacherData.richmond_password_encrypted)
+        )
 
         // Load school
         if (teacherData.school_id) {
@@ -241,6 +255,39 @@ export default function ConfiguracionPage() {
     }
   }
 
+  async function handleRevokeRichmondCredentials() {
+    if (
+      !confirm(
+        '¿Eliminar las credenciales de Richmond almacenadas? La sincronización automática dejará de funcionar hasta que las configures nuevamente.'
+      )
+    )
+      return
+
+    setRevokingCredentials(true)
+    try {
+      const response = await fetch('/api/richmond/credentials', { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to revoke')
+      setHasRichmondCredentials(false)
+      await loadData()
+    } catch {
+      alert('Error al eliminar las credenciales. Intenta de nuevo.')
+    } finally {
+      setRevokingCredentials(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeletingAccount(true)
+    try {
+      const response = await fetch('/api/account', { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete account')
+      router.push('/login?deleted=1')
+    } catch {
+      alert('Error al eliminar la cuenta. Intenta de nuevo.')
+      setDeletingAccount(false)
+    }
+  }
+
   const selectedGroup = groups.find((g) => g.id === selectedGroupId)
   const selectedGroupData =
     groupMode === 'edit' && selectedGroup
@@ -402,21 +449,103 @@ export default function ConfiguracionPage() {
             abres el libro de calificaciones en richmondlp.com.
           </p>
 
-          {/* Step-by-step install guide */}
-          <div className="mb-6 space-y-3">
-            <h3 className="text-sm font-semibold text-text-primary">Cómo instalar la extensión</h3>
+          {/* Richmond ToS consent notice */}
+          <div className="mb-6 p-4 rounded-lg border border-amber-200 bg-amber-50">
+            <p className="text-xs font-semibold text-amber-800 mb-1">
+              Aviso importante sobre el uso de datos de Richmond LP
+            </p>
+            <p className="text-xs text-amber-700">
+              MaestraAI no es proveedor afiliado ni autorizado de Richmond Publishing / Programas de
+              Innovación Educativa (Grupo Santillana). Al activar la sincronización confirmas que:{' '}
+              <strong>(a)</strong> tienes autorización de tu institución para el intercambio de
+              datos entre plataformas educativas, y <strong>(b)</strong> cumplirás los términos de
+              uso de Richmond LP aplicables a tu licencia institucional. El uso de esta función es
+              bajo tu responsabilidad y la de tu centro escolar.{' '}
+              <a href="/privacidad" className="underline hover:text-amber-900">
+                Aviso de Privacidad
+              </a>
+            </p>
+          </div>
 
+          {/* Stored credential status (LFPDPPP transparency) */}
+          {hasRichmondCredentials && (
+            <div className="mb-6 p-4 rounded-lg border border-blue-200 bg-blue-50 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-blue-800 mb-1">
+                  Credenciales de Richmond almacenadas
+                </p>
+                <p className="text-xs text-blue-700">
+                  Tu correo y contraseña de Richmond LP están almacenados cifrados (AES-256-GCM)
+                  para la sincronización automática. Puedes eliminarlos en cualquier momento.
+                </p>
+              </div>
+              <Button
+                onClick={handleRevokeRichmondCredentials}
+                disabled={revokingCredentials}
+                variant="outline"
+                className="shrink-0 text-xs border-blue-300 text-blue-700 hover:bg-blue-100 min-h-[36px]"
+              >
+                {revokingCredentials ? 'Eliminando...' : 'Eliminar credenciales'}
+              </Button>
+            </div>
+          )}
+
+          {/* Chrome Web Store install guide */}
+          <div className="mb-6 space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-semibold text-text-primary">
+                Cómo instalar la extensión
+              </h3>
+              {CHROME_STORE_URL ? (
+                <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 size={11} /> Disponible en Chrome Web Store
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  <Clock size={11} /> Próximamente en Chrome Web Store
+                </span>
+              )}
+            </div>
+
+            {/* Install button */}
+            <div className="p-4 rounded-lg bg-surface border border-border flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-text-primary">MaestraAI Richmond Sync</p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  {CHROME_STORE_URL
+                    ? 'Instala la extensión con un clic. No requiere configuración técnica.'
+                    : 'La extensión estará disponible en Chrome Web Store próximamente.'}
+                </p>
+              </div>
+              {CHROME_STORE_URL ? (
+                <a
+                  href={CHROME_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 inline-flex items-center gap-2 bg-primary text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <ExternalLink size={14} /> Instalar extensión
+                </a>
+              ) : (
+                <span className="shrink-0 inline-flex items-center gap-2 bg-muted text-text-secondary text-sm font-medium px-4 py-2 rounded-lg cursor-not-allowed">
+                  <Clock size={14} /> Próximamente
+                </span>
+              )}
+            </div>
+
+            {/* Steps */}
             <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
               <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
                 1
               </div>
               <div>
                 <p className="text-sm font-medium text-text-primary flex items-center gap-1">
-                  <Download size={14} /> Descarga la extensión
+                  <ExternalLink size={14} /> Instala desde Chrome Web Store
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  Pídele a tu administrador el archivo ZIP de la extensión MaestraAI, o descárgalo
-                  desde el enlace que te enviaron.
+                  Haz clic en el botón de arriba. Chrome te pedirá confirmar la instalación — haz
+                  clic en <strong>Agregar extensión</strong>. No se necesita modo desarrollador ni
+                  archivos ZIP.
                 </p>
               </div>
             </div>
@@ -427,12 +556,12 @@ export default function ConfiguracionPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-text-primary flex items-center gap-1">
-                  <Settings size={14} /> Abre la pantalla de extensiones en Chrome
+                  <Plug size={14} /> Conecta tu clave API
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  En Chrome, ve a{' '}
-                  <span className="font-mono bg-bg px-1 rounded">chrome://extensions</span> y activa
-                  el <strong>Modo desarrollador</strong> (esquina superior derecha).
+                  Genera una clave en la sección de abajo y cópiala. Luego haz clic en el ícono{' '}
+                  <strong>MaestraAI Sync</strong> en la barra de Chrome, pégala y guarda. La
+                  extensión se conecta automáticamente a tus grupos.
                 </p>
               </div>
             </div>
@@ -440,36 +569,6 @@ export default function ConfiguracionPage() {
             <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
               <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
                 3
-              </div>
-              <div>
-                <p className="text-sm font-medium text-text-primary">Carga la extensión</p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Haz clic en <strong>Cargar descomprimida</strong> y selecciona la carpeta de la
-                  extensión (la carpeta que contiene el archivo{' '}
-                  <span className="font-mono bg-bg px-1 rounded">manifest.json</span>).
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
-              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
-                4
-              </div>
-              <div>
-                <p className="text-sm font-medium text-text-primary flex items-center gap-1">
-                  <Plug size={14} /> Conecta tu clave API
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Genera una clave abajo, cópiala. Luego haz clic en el ícono de la extensión{' '}
-                  <strong>MaestraAI Sync</strong> en Chrome, pégala y guarda. La extensión se
-                  conectará automáticamente a tus grupos.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
-              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
-                5
               </div>
               <div>
                 <p className="text-sm font-medium text-text-primary">
@@ -495,6 +594,73 @@ export default function ConfiguracionPage() {
             />
           </div>
         </Card>
+      )}
+
+      {/* Danger Zone */}
+      <Card className="p-6 mt-6 border-red-200">
+        <h2 className="text-lg font-semibold text-red-700 mb-1">Zona de peligro</h2>
+        <p className="text-sm text-text-secondary mb-4">
+          Acciones irreversibles que afectan tu cuenta permanentemente.
+        </p>
+        <div className="flex items-center justify-between p-4 rounded-lg border border-red-200 bg-red-50">
+          <div>
+            <p className="text-sm font-medium text-text-primary">Eliminar mi cuenta</p>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Todos tus datos serán eliminados en 30 días. Esta acción no se puede deshacer.
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            className="ml-4 shrink-0"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            Eliminar cuenta
+          </Button>
+        </div>
+      </Card>
+
+      {/* Delete account confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">¿Eliminar tu cuenta?</h3>
+            <p className="text-sm text-text-secondary mb-4">
+              Todos tus datos (planeaciones, alumnos, materiales, credenciales) serán eliminados
+              permanentemente en 30 días. Esta acción no se puede deshacer.
+            </p>
+            <p className="text-sm font-medium text-text-primary mb-2">
+              Escribe <span className="font-mono bg-gray-100 px-1 rounded">ELIMINAR</span> para
+              confirmar:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="ELIMINAR"
+              className="mb-4 min-h-[44px]"
+            />
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeleteConfirmText('')
+                }}
+                disabled={deletingAccount}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                disabled={deleteConfirmText !== 'ELIMINAR' || deletingAccount}
+                onClick={handleDeleteAccount}
+              >
+                {deletingAccount ? 'Eliminando...' : 'Eliminar cuenta'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

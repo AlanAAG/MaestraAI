@@ -11,18 +11,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (apiUrl) {
     document.getElementById('apiUrl').value = apiUrl
   } else {
-    document.getElementById('apiUrl').value = 'https://maestraai.mx'
+    document.getElementById('apiUrl').value = 'https://maestraia.com'
   }
 
-  // Test connection on load if configured
-  if (apiKey && apiUrl) {
-    testConnection(apiKey, apiUrl)
+  // Test connection on load if API key is configured (URL falls back to default)
+  if (apiKey) {
+    testConnection(apiKey, apiUrl || 'https://maestraia.com')
   }
 
   // Save button
   document.getElementById('saveBtn').addEventListener('click', async () => {
     const key = document.getElementById('apiKey').value.trim()
-    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraai.mx'
+    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraia.com'
 
     if (!key) {
       showMessage('Por favor ingresa una clave API', 'error')
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Test connection button
   document.getElementById('testBtn').addEventListener('click', async () => {
     const key = document.getElementById('apiKey').value.trim()
-    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraai.mx'
+    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraia.com'
 
     if (!key) {
       showMessage('Por favor ingresa una clave API primero', 'error')

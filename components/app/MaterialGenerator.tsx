@@ -3,120 +3,194 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { X, Sparkles, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
-type MaterialType = 'flashcards' | 'worksheets' | 'games' | 'youtube'
+type GenerateMaterialType =
+  | 'flashcards'
+  | 'worksheets'
+  | 'games'
+  | 'youtube'
+  | 'letter_recognition'
+  | 'matching'
+type SpecialMaterialType = 'bingo' | 'word_search' | 'from_youtube'
+type MaterialType = GenerateMaterialType | SpecialMaterialType | 'fortnight_pack'
+
+type MaterialOption = {
+  id: MaterialType
+  label: string
+  eta: string
+  disabled?: boolean
+  needsUrl?: boolean
+  needsCardCount?: boolean
+}
+
+const MATERIAL_OPTIONS: MaterialOption[] = [
+  { id: 'flashcards', label: 'Flashcards', eta: '~2 min' },
+  { id: 'games', label: 'Memorama', eta: '~2 min' },
+  { id: 'bingo', label: 'Bingo', eta: '~1 min', needsCardCount: true },
+  { id: 'letter_recognition', label: 'Reconoc. Letras', eta: '~2 min' },
+  { id: 'matching', label: 'Matching', eta: '~2 min' },
+  { id: 'word_search', label: 'Sopa de Letras', eta: '~1 min' },
+  { id: 'youtube', label: 'Videos YouTube', eta: '~2 min' },
+  { id: 'from_youtube', label: 'Desde YouTube', eta: '~3 min', needsUrl: true },
+  { id: 'fortnight_pack', label: 'Paquete quincena', eta: 'Pronto', disabled: true },
+]
+
+const GENERATE_TYPES: GenerateMaterialType[] = [
+  'flashcards',
+  'worksheets',
+  'games',
+  'youtube',
+  'letter_recognition',
+  'matching',
+]
 
 type MaterialGeneratorProps = {
   lessonPlanId: string
+  fortnightId: string
   onClose: () => void
   onSuccess: () => void
 }
 
-const MATERIAL_OPTIONS: Array<{ id: MaterialType; label: string; description: string }> = [
-  {
-    id: 'flashcards',
-    label: 'Flashcards',
-    description: 'Tarjetas con vocabulario en inglés y definiciones',
-  },
-  {
-    id: 'worksheets',
-    label: 'Worksheets',
-    description: 'Actividades de trazado, asociación y ordenamiento',
-  },
-  {
-    id: 'games',
-    label: 'Memorama',
-    description: 'Juego de memoria con pares de tarjetas',
-  },
-  {
-    id: 'youtube',
-    label: 'Videos de YouTube',
-    description: 'Recomendaciones de videos educativos',
-  },
-]
-
-export function MaterialGenerator({ lessonPlanId, onClose, onSuccess }: MaterialGeneratorProps) {
-  const [selectedTypes, setSelectedTypes] = useState<MaterialType[]>([])
+export function MaterialGenerator({
+  lessonPlanId,
+  fortnightId,
+  onClose,
+  onSuccess,
+}: MaterialGeneratorProps) {
+  const [selectedTypes, setSelectedTypes] = useState<Set<MaterialType>>(new Set())
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [cardCount, setCardCount] = useState(30)
+  const [freeSpace, setFreeSpace] = useState(true)
   const [generating, setGenerating] = useState(false)
-  const [currentPhase, setCurrentPhase] = useState<string>('')
+  const [currentPhase, setCurrentPhase] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [progress, setProgress] = useState({ current: 0, total: 0 })
 
-  const handleToggle = (type: MaterialType) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    )
+  const toggle = (type: MaterialType) => {
+    if (MATERIAL_OPTIONS.find((o) => o.id === type)?.disabled) return
+    setSelectedTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(type)) {
+        next.delete(type)
+      } else {
+        next.add(type)
+      }
+      return next
+    })
   }
 
   const handleGenerate = async () => {
-    if (selectedTypes.length === 0) return
+    if (selectedTypes.size === 0) return
+    if (selectedTypes.has('from_youtube') && !youtubeUrl.trim()) {
+      setError('Ingresa una URL de YouTube para continuar')
+      return
+    }
 
     setGenerating(true)
     setError(null)
-    setProgress({ current: 0, total: selectedTypes.length })
 
     try {
-      // Simulate progress updates
-      for (let i = 0; i < selectedTypes.length; i++) {
-        const type = selectedTypes[i]
-        setCurrentPhase(getPhaseMessage(type))
-        setProgress({ current: i + 1, total: selectedTypes.length })
+      // 1. Generate-route types (flashcards, worksheets, games, youtube, letter_recognition, matching)
+      const generateTypes = Array.from(selectedTypes).filter((t): t is GenerateMaterialType =>
+        GENERATE_TYPES.includes(t as GenerateMaterialType)
+      )
 
-        // Small delay to show progress
-        await new Promise((resolve) => setTimeout(resolve, 500))
+      if (generateTypes.length > 0) {
+        setCurrentPhase('Creando materiales...')
+        const res = await fetch('/api/materials/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lesson_plan_id: lessonPlanId, material_types: generateTypes }),
+        })
+        if (!res.ok) {
+          const d = await res.json()
+          throw new Error(d.error || 'Error al generar materiales')
+        }
       }
 
-      const response = await fetch('/api/materials/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lesson_plan_id: lessonPlanId,
-          material_types: selectedTypes,
-        }),
-      })
+      // 2. Bingo → returns PDF download
+      if (selectedTypes.has('bingo')) {
+        setCurrentPhase('Generando tarjetas de bingo...')
+        const res = await fetch('/api/materials/bingo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fortnight_id: fortnightId,
+            lesson_plan_id: lessonPlanId,
+            card_count: cardCount,
+            free_space: freeSpace,
+          }),
+        })
+        if (!res.ok) {
+          const d = await res.json()
+          throw new Error(d.error || 'Error al generar bingo')
+        }
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `bingo-${cardCount}-tarjetas.pdf`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to generate materials')
+      // 3. Word search
+      if (selectedTypes.has('word_search')) {
+        setCurrentPhase('Generando sopa de letras...')
+        const res = await fetch('/api/materials/word-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fortnight_id: fortnightId, lesson_plan_id: lessonPlanId }),
+        })
+        if (!res.ok) {
+          const d = await res.json()
+          throw new Error(d.error || 'Error al generar sopa de letras')
+        }
+      }
+
+      // 4. From YouTube
+      if (selectedTypes.has('from_youtube')) {
+        setCurrentPhase('Analizando video de YouTube...')
+        const res = await fetch('/api/materials/from-youtube', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: youtubeUrl.trim(),
+            fortnight_id: fortnightId,
+            lesson_plan_id: lessonPlanId,
+          }),
+        })
+        if (!res.ok) {
+          const d = await res.json()
+          throw new Error(d.error || 'Error al procesar el video')
+        }
       }
 
       setSuccess(true)
       setCurrentPhase('¡Listo! Tus materiales están listos')
-
-      // Wait a moment before closing
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await new Promise((r) => setTimeout(r, 1500))
       onSuccess()
     } catch (err) {
-      console.error('Generation error:', err)
       setError(err instanceof Error ? err.message : 'Error al generar materiales')
     } finally {
       setGenerating(false)
     }
   }
 
-  const getPhaseMessage = (type: MaterialType): string => {
-    switch (type) {
-      case 'flashcards':
-        return 'Creando tus flashcards...'
-      case 'worksheets':
-        return 'Creando tus worksheets...'
-      case 'games':
-        return 'Preparando tu memorama...'
-      case 'youtube':
-        return 'Buscando videos para ti...'
-    }
-  }
+  const needsUrl = selectedTypes.has('from_youtube')
+  const needsCardConfig = selectedTypes.has('bingo')
+  const selectedCount = Array.from(selectedTypes).filter((t) => t !== 'fortnight_pack').length
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <Card className="w-full max-w-lg bg-white p-6">
+      <Card className="w-full max-w-lg bg-white p-6 max-h-[90vh] overflow-y-auto">
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Crear Materiales</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Selecciona qué materiales quieres crear para esta clase
+              Selecciona qué materiales crear para esta clase
             </p>
           </div>
           {!generating && (
@@ -132,23 +206,86 @@ export function MaterialGenerator({ lessonPlanId, onClose, onSuccess }: Material
 
         {!generating && !success && (
           <>
-            <div className="space-y-3 mb-6">
-              {MATERIAL_OPTIONS.map((option) => (
-                <label
-                  key={option.id}
-                  className="flex items-start space-x-3 cursor-pointer rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <Checkbox
-                    checked={selectedTypes.includes(option.id)}
-                    onCheckedChange={() => handleToggle(option.id)}
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{option.label}</div>
-                    <div className="text-sm text-gray-600">{option.description}</div>
-                  </div>
-                </label>
-              ))}
+            {/* 3×3 grid */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {MATERIAL_OPTIONS.map((option) => {
+                const checked = selectedTypes.has(option.id)
+                return (
+                  <label
+                    key={option.id}
+                    className={`flex flex-col gap-1 rounded-lg border p-3 cursor-pointer transition-colors ${
+                      option.disabled
+                        ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                        : checked
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggle(option.id)}
+                        disabled={option.disabled}
+                      />
+                      <span className="text-xs text-gray-400">{option.eta}</span>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 leading-tight">
+                      {option.label}
+                    </span>
+                  </label>
+                )
+              })}
             </div>
+
+            {/* YouTube URL input */}
+            {needsUrl && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  URL del video de YouTube
+                </label>
+                <Input
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="min-h-[44px]"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Solo videos públicos con subtítulos disponibles
+                </p>
+              </div>
+            )}
+
+            {/* Bingo config */}
+            {needsCardConfig && (
+              <div className="mb-4 p-3 rounded-lg bg-gray-50 border border-gray-200 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Número de tarjetas: <strong>{cardCount}</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={35}
+                    value={cardCount}
+                    onChange={(e) => setCardCount(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>1</span>
+                    <span>35</span>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={freeSpace}
+                    onChange={(e) => setFreeSpace(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm text-gray-700">Casilla FREE en el centro</span>
+                </label>
+              </div>
+            )}
 
             {error && (
               <div className="mb-4 flex items-start space-x-2 rounded-lg bg-red-50 p-3 text-red-800">
@@ -163,51 +300,30 @@ export function MaterialGenerator({ lessonPlanId, onClose, onSuccess }: Material
               </Button>
               <Button
                 onClick={handleGenerate}
-                disabled={selectedTypes.length === 0}
+                disabled={selectedCount === 0}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Crear materiales ({selectedTypes.length})
+                Crear materiales ({selectedCount})
               </Button>
             </div>
           </>
         )}
 
         {generating && (
-          <div className="py-8">
-            <div className="flex flex-col items-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-              <div className="text-center">
-                <p className="font-medium text-gray-900">{currentPhase}</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  {progress.current} de {progress.total} materiales
-                </p>
-              </div>
-              <div className="w-full max-w-xs">
-                <div className="h-2 w-full rounded-full bg-gray-200">
-                  <div
-                    className="h-2 rounded-full bg-blue-600 transition-all duration-500"
-                    style={{
-                      width: `${(progress.current / progress.total) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+          <div className="py-8 flex flex-col items-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+            <p className="font-medium text-gray-900">{currentPhase}</p>
           </div>
         )}
 
         {success && (
-          <div className="py-8">
-            <div className="flex flex-col items-center space-y-4">
-              <div className="rounded-full bg-green-100 p-3">
-                <CheckCircle className="h-12 w-12 text-green-600" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium text-gray-900">{currentPhase}</p>
-                <p className="mt-1 text-sm text-gray-600">Los materiales están listos para usar</p>
-              </div>
+          <div className="py-8 flex flex-col items-center space-y-4">
+            <div className="rounded-full bg-green-100 p-3">
+              <CheckCircle className="h-12 w-12 text-green-600" />
             </div>
+            <p className="font-medium text-gray-900">{currentPhase}</p>
+            <p className="text-sm text-gray-600">Los materiales están listos para usar</p>
           </div>
         )}
       </Card>

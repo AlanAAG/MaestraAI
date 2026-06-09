@@ -14,10 +14,25 @@ export function createClient() {
           return cookieStore.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
+          try {
+            cookieStore.set({
+              name,
+              value,
+              ...options,
+              // Enforce Secure flag in production
+              secure: process.env.NODE_ENV === 'production' ? true : (options.secure ?? false),
+              sameSite: options.sameSite ?? 'lax',
+            })
+          } catch {
+            // Ignore — can't set cookies from RSC
+          }
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options })
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch {
+            // Ignore
+          }
         },
       },
     }

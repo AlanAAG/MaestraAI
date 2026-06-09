@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ProjectorControls } from './ProjectorControls'
 
 export type Flashcard = {
-  front: string
-  back: string
+  word: string
+  definition: string
   color: string
-  sentence: string
+  example: string
+  phonetic?: string
 }
 
 interface FlashcardProjectorProps {
@@ -32,11 +33,9 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
   const [autoAdvanceDelay, setAutoAdvanceDelay] = useState(3)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  const card = cards[currentIndex]
-  const colors = colorMap[card.color] || colorMap.blue
-
   // Handle keyboard navigation
   useEffect(() => {
+    if (!cards || cards.length === 0) return
     function handleKeyDown(e: KeyboardEvent) {
       switch (e.key) {
         case ' ':
@@ -72,7 +71,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
 
   // Auto-advance logic
   useEffect(() => {
-    if (!autoAdvance || isFlipped) return
+    if (!autoAdvance || isFlipped || !cards || cards.length === 0) return
 
     const timer = setTimeout(() => {
       if (currentIndex < cards.length - 1) {
@@ -83,7 +82,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
     }, autoAdvanceDelay * 1000)
 
     return () => clearTimeout(timer)
-  }, [autoAdvance, currentIndex, cards.length, autoAdvanceDelay, isFlipped])
+  }, [autoAdvance, currentIndex, cards, autoAdvanceDelay, isFlipped])
 
   // Fullscreen API
   useEffect(() => {
@@ -94,6 +93,17 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
+
+  if (!cards || cards.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
+        <p className="text-white text-2xl">No hay tarjetas disponibles.</p>
+      </div>
+    )
+  }
+
+  const card = cards[currentIndex]
+  const colors = colorMap[card.color] || colorMap.blue
 
   function handleNext() {
     setIsFlipped(false)
@@ -161,11 +171,19 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
                 {/* Main word */}
                 <div>
                   <h1
-                    className={`${colors.text} font-bold mb-6`}
-                    style={{ fontSize: '96px', lineHeight: '1.2' }}
+                    className={`${colors.text} font-bold mb-2`}
+                    style={{ fontSize: '96px', lineHeight: '1.1' }}
                   >
-                    {card.front}
+                    {card.word}
                   </h1>
+                  {card.phonetic && (
+                    <p
+                      className={`${colors.text} opacity-50 font-mono mb-4`}
+                      style={{ fontSize: '36px' }}
+                    >
+                      {card.phonetic}
+                    </p>
+                  )}
                 </div>
 
                 {/* Example sentence */}
@@ -174,7 +192,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
                     className={`${colors.text} font-semibold`}
                     style={{ fontSize: '40px', lineHeight: '1.4' }}
                   >
-                    &quot;{card.sentence}&quot;
+                    &quot;{card.example}&quot;
                   </p>
                 </div>
 
@@ -200,7 +218,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
                     className={`${colors.text} font-semibold`}
                     style={{ fontSize: '44px', lineHeight: '1.5' }}
                   >
-                    {card.back}
+                    {card.definition}
                   </p>
                 </div>
 

@@ -37,14 +37,13 @@ Genera actividades de worksheet apropiadas para este vocabulario.
     throw new Error('Unexpected response type from Claude')
   }
 
+  const jsonMatch =
+    content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
+  const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
+  if (!raw) throw new Error('Claude no devolvió JSON válido')
   try {
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response')
-    }
-    return JSON.parse(jsonMatch[0]) as WorksheetContent
+    return JSON.parse(raw) as WorksheetContent
   } catch {
-    console.error('Failed to parse worksheet response:', content.text)
-    throw new Error('Failed to parse worksheet content')
+    throw new Error('Respuesta de Claude no es JSON válido')
   }
 }

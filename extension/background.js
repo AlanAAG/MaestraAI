@@ -19,7 +19,7 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
       return
     }
 
-    const targetUrl = apiUrl || 'https://maestraai.mx'
+    const targetUrl = apiUrl || 'https://maestraia.com'
 
     // Send to MaestraAI API
     const response = await fetch(`${targetUrl}/api/richmond/ingest`, {

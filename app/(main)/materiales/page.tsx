@@ -1,0 +1,187 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/browser'
+import { Card } from '@/components/ui/card'
+import {
+  Package,
+  Loader2,
+  Layers,
+  FileText,
+  Gamepad2,
+  PlayCircle,
+  Grid3X3,
+  Search,
+  AlignLeft,
+  Shuffle,
+} from 'lucide-react'
+import Link from 'next/link'
+
+type Material = {
+  id: string
+  type: string
+  created_at: string
+  lesson_plan_id: string | null
+  fortnight_id: string | null
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  flashcards: 'Flashcards',
+  memory_game: 'Memorama',
+  bingo: 'Bingo',
+  word_search: 'Sopa de Letras',
+  song_worksheet: 'Hoja de Canción',
+  letter_recognition: 'Reconoc. Letras',
+  matching: 'Matching',
+  youtube: 'Videos YouTube',
+  worksheet: 'Hoja de Trabajo',
+  worksheets: 'Hoja de Trabajo',
+}
+
+const TYPE_ICONS: Record<string, React.ElementType> = {
+  flashcards: Layers,
+  memory_game: Gamepad2,
+  bingo: Grid3X3,
+  word_search: Search,
+  song_worksheet: AlignLeft,
+  letter_recognition: FileText,
+  matching: Shuffle,
+  youtube: PlayCircle,
+  worksheet: FileText,
+  worksheets: FileText,
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  flashcards: 'bg-blue-50 text-blue-700 border-blue-200',
+  memory_game: 'bg-green-50 text-green-700 border-green-200',
+  bingo: 'bg-purple-50 text-purple-700 border-purple-200',
+  word_search: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  song_worksheet: 'bg-pink-50 text-pink-700 border-pink-200',
+  letter_recognition: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  matching: 'bg-orange-50 text-orange-700 border-orange-200',
+  youtube: 'bg-red-50 text-red-700 border-red-200',
+  worksheet: 'bg-gray-50 text-gray-700 border-gray-200',
+  worksheets: 'bg-gray-50 text-gray-700 border-gray-200',
+}
+
+function groupByDate(materials: Material[]): Record<string, Material[]> {
+  const groups: Record<string, Material[]> = {}
+  for (const m of materials) {
+    const date = new Date(m.created_at).toLocaleDateString('es-MX', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+    groups[date] ??= []
+    groups[date].push(m)
+  }
+  return groups
+}
+
+export default function MaterialesPage() {
+  const router = useRouter()
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: teacher } = await (supabase as any)
+        .from('teachers')
+        .select('id')
+        .eq('auth_id', user.id)
+        .single()
+      if (!teacher) {
+        router.push('/onboarding')
+        return
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from('materials')
+        .select('id, type, created_at, lesson_plan_id, fortnight_id')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .eq('teacher_id', (teacher as any).id)
+        .order('generated_at', { ascending: false })
+
+      setMaterials(data ?? [])
+      setLoading(false)
+    }
+    load()
+  }, [router])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  const groups = groupByDate(materials)
+  const dates = Object.keys(groups)
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">Mis Materiales</h1>
+        <p className="text-sm text-gray-600 mt-1">Todos los materiales que has creado</p>
+      </div>
+
+      {materials.length === 0 ? (
+        <Card className="p-12 text-center">
+          <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" strokeWidth={1.5} />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Aún no has creado materiales</h2>
+          <p className="text-sm text-gray-600">
+            Ve a una planeación y usa el botón <strong>&ldquo;Crear materiales&rdquo;</strong> para
+            generar flashcards, bingo, sopas de letras y más.
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-8">
+          {dates.map((date) => (
+            <div key={date}>
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                {date}
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {groups[date].map((m) => {
+                  const Icon = TYPE_ICONS[m.type] ?? Package
+                  const colorClass =
+                    TYPE_COLORS[m.type] ?? 'bg-gray-50 text-gray-700 border-gray-200'
+                  const label = TYPE_LABELS[m.type] ?? m.type
+                  return (
+                    <Link key={m.id} href={`/materiales/${m.id}`}>
+                      <Card
+                        className={`p-4 border cursor-pointer hover:shadow-md transition-shadow ${colorClass}`}
+                      >
+                        <Icon className="h-6 w-6 mb-2" />
+                        <p className="text-sm font-semibold">{label}</p>
+                        <p className="text-xs opacity-70 mt-0.5">
+                          {new Date(m.created_at).toLocaleTimeString('es-MX', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </Card>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

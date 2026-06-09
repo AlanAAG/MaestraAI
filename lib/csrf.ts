@@ -1,113 +1,70 @@
 /**
- * CSRF (Cross-Site Request Forgery) Protection
+ * CSRF Protection — double-submit HMAC token pattern.
  *
- * Generates and verifies CSRF tokens for form submissions
- * Prevents malicious websites from making unauthorized requests
+ * NOTE: The primary CSRF defense is the Origin-header host-match check in
+ * middleware.ts (applied to every state-mutating /api/* request).
+ * This module provides an additional token-based layer for forms that
+ * want an extra guarantee.
+ *
+ * CSRF_SECRET is REQUIRED in production. Generate one with:
+ *   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
  */
 
-import Tokens from 'csrf'
 import crypto from 'crypto'
 
-const tokens = new Tokens()
+const secret = process.env.CSRF_SECRET
 
-// Secret should be a long random string stored in environment variables
-const secret = process.env.CSRF_SECRET || 'fallback-secret-change-in-production'
-
-if (!process.env.CSRF_SECRET) {
-  console.warn('WARNING: CSRF_SECRET not set in environment variables')
+if (!secret && process.env.NODE_ENV === 'production') {
+  // Fail loudly in production rather than silently using a predictable fallback
+  throw new Error('[CSRF] CSRF_SECRET environment variable is required in production.')
 }
 
-/**
- * Generate a CSRF token
- *
- * Usage in server components:
- * ```typescript
- * const csrfToken = generateCsrfToken()
- * return <form>
- *   <input type="hidden" name="csrf_token" value={csrfToken} />
- * </form>
- * ```
- */
+// Ephemeral random secret for development (regenerated each cold-start, that's fine)
+const _secret = secret ?? crypto.randomBytes(32).toString('hex')
+
 export function generateCsrfToken(): string {
-  return tokens.create(secret)
+  const nonce = crypto.randomBytes(32).toString('hex')
+  const sig = crypto.createHmac('sha256', _secret).update(nonce).digest('hex')
+  return `${nonce}.${sig}`
 }
 
-/**
- * Verify a CSRF token from form submission
- *
- * Usage in API routes:
- * ```typescript
- * const formData = await req.formData()
- * const token = formData.get('csrf_token') as string
- *
- * if (!verifyCsrfToken(token)) {
- *   return new Response('Invalid CSRF token', { status: 403 })
- * }
- * ```
- */
 export function verifyCsrfToken(token: string): boolean {
   if (!token) return false
-
   try {
-    return tokens.verify(secret, token)
+    const dotIdx = token.lastIndexOf('.')
+    if (dotIdx === -1) return false
+    const nonce = token.slice(0, dotIdx)
+    const sig = token.slice(dotIdx + 1)
+    const expected = crypto.createHmac('sha256', _secret).update(nonce).digest('hex')
+    const expectedBuf = Buffer.from(expected, 'hex')
+    const sigBuf = Buffer.from(sig, 'hex')
+    if (expectedBuf.length !== sigBuf.length) return false
+    return crypto.timingSafeEqual(expectedBuf, sigBuf)
   } catch {
     return false
   }
 }
 
-/**
- * Middleware helper to verify CSRF token from request
- *
- * Usage in API routes:
- * ```typescript
- * const csrfValid = await verifyCsrfFromRequest(req)
- * if (!csrfValid) {
- *   return new Response('CSRF validation failed', { status: 403 })
- * }
- * ```
- */
 export async function verifyCsrfFromRequest(req: Request): Promise<boolean> {
-  // Check for token in header (for AJAX requests)
   const headerToken = req.headers.get('x-csrf-token')
-  if (headerToken && verifyCsrfToken(headerToken)) {
-    return true
-  }
-
-  // Check for token in form data (for form submissions)
-  // Clone the request so the body can be read again by the API route
+  if (headerToken && verifyCsrfToken(headerToken)) return true
   try {
-    const clonedReq = req.clone()
-    const contentType = clonedReq.headers.get('content-type')
-
-    if (contentType?.includes('application/json')) {
-      const body = await clonedReq.json()
-      const token = body.csrf_token
-      return verifyCsrfToken(token)
+    const cloned = req.clone()
+    const ct = cloned.headers.get('content-type') ?? ''
+    if (ct.includes('application/json')) {
+      const body = await cloned.json()
+      return verifyCsrfToken(body.csrf_token)
     }
-
-    if (
-      contentType?.includes('multipart/form-data') ||
-      contentType?.includes('application/x-www-form-urlencoded')
-    ) {
-      const formData = await clonedReq.formData()
-      const token = formData.get('csrf_token') as string
-      return verifyCsrfToken(token)
+    if (ct.includes('multipart/form-data') || ct.includes('application/x-www-form-urlencoded')) {
+      const fd = await cloned.formData()
+      return verifyCsrfToken(fd.get('csrf_token') as string)
     }
-
-    return false
   } catch {
-    return false
+    // ignore
   }
+  return false
 }
 
-/**
- * Generate a secure random secret for CSRF token generation
- *
- * Run this once to generate a secret for your .env file:
- * ```
- * node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
- * ```
- */
 export function generateCsrfSecret(): string {
   return crypto.randomBytes(32).toString('hex')
 }

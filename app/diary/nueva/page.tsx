@@ -30,7 +30,7 @@ const QUESTIONS = [
   {
     id: 'q5' as const,
     label: '¿Hay algo sobre algún alumno que quieras recordar?',
-    placeholder: 'Por ejemplo: Luis F. mostró interés especial en...',
+    placeholder: 'Por ejemplo: Un alumno mostró interés especial en...',
     optional: true,
   },
 ]
@@ -101,6 +101,11 @@ export default function NuevaPage() {
 
   return (
     <main className="max-w-xl mx-auto px-4 sm:px-8 py-12">
+      {/* Privacy tip — persistent across all questions */}
+      <div className="mb-6 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+        Tip: evita incluir nombres completos de alumnos en tus respuestas.
+      </div>
+
       {/* Progress */}
       <div className="mb-10 space-y-3">
         <div className="flex justify-between text-sm text-text-secondary">

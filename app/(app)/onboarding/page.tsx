@@ -109,6 +109,23 @@ export default function OnboardingPage() {
       return false
     }
 
+    // Record the consents the teacher gave on the registration page
+    try {
+      const raw = localStorage.getItem('pendingConsents')
+      if (raw) {
+        const pending = JSON.parse(raw)
+        localStorage.removeItem('pendingConsents') // remove before fetch — prevents duplicate on retry
+        await fetch('/api/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pending),
+        })
+      }
+    } catch {
+      // Non-blocking — consent recording failure should not block onboarding
+      console.warn('Failed to record registration consents')
+    }
+
     return true
   }
 
@@ -147,6 +164,7 @@ export default function OnboardingPage() {
     grade: string
     academic_year: string
     richmond_class_code?: string
+    consentStudentData: boolean
   }) {
     if (!schoolId) {
       setError('Debes seleccionar una escuela primero')
@@ -203,6 +221,19 @@ export default function OnboardingPage() {
       setGroupsCreated((n) => n + 1)
       setShowGroupChoice(true)
       setError('')
+
+      // Record student data transfer consent (first group creation triggers this)
+      if (groupsCreated === 0) {
+        try {
+          await fetch('/api/consent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ consentStudentData: data.consentStudentData }),
+          })
+        } catch {
+          // Non-blocking
+        }
+      }
     } catch (err) {
       console.error('Failed to create group:', err)
       setError('Error al crear el grupo')

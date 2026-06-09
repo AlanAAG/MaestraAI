@@ -135,10 +135,16 @@ export const AUDIT_ACTIONS = {
   GROUP_DELETE: 'group.delete',
   STUDENT_DATA_EXPORT: 'student.data_export',
 
+  // Account lifecycle
+  ACCOUNT_DELETE: 'account.delete',
+
   // Admin Actions
   ANNOUNCEMENT_CREATE: 'announcement.create',
   ANNOUNCEMENT_DELETE: 'announcement.delete',
   TEACHER_ROLE_CHANGE: 'teacher.role_change',
+
+  // Richmond credentials
+  RICHMOND_CREDENTIALS_REVOKE: 'richmond.credentials_revoke',
 } as const
 
 /**

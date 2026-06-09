@@ -10,6 +10,8 @@ export default function RegisterPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [consentPrimary, setConsentPrimary] = useState(false)
+  const [consentSecondary, setConsentSecondary] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -23,6 +25,22 @@ export default function RegisterPage() {
       setLoading(false)
       return
     }
+
+    if (!consentPrimary) {
+      setError('Debes aceptar el tratamiento de tus datos para continuar')
+      setLoading(false)
+      return
+    }
+
+    // Store consent choices for recording after teacher record is created in onboarding
+    localStorage.setItem(
+      'pendingConsents',
+      JSON.stringify({
+        consentPrimary,
+        consentSecondary,
+        userAgent: navigator.userAgent,
+      })
+    )
 
     const supabase = createClient()
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -97,10 +115,40 @@ export default function RegisterPage() {
             />
           </div>
 
+          <div className="space-y-3 pt-2">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentPrimary}
+                onChange={(e) => setConsentPrimary(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm text-text-secondary">
+                Acepto el tratamiento de mis datos para usar MaestraAI conforme al{' '}
+                <Link href="/privacidad" className="text-primary hover:underline" target="_blank">
+                  Aviso de Privacidad
+                </Link>{' '}
+                <span className="text-red-500">*</span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentSecondary}
+                onChange={(e) => setConsentSecondary(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm text-text-secondary">
+                Acepto análisis anónimo para mejora del servicio (opcional)
+              </span>
+            </label>
+          </div>
+
           <Button
             type="submit"
-            disabled={loading}
-            className="w-full min-h-[44px] bg-primary hover:bg-primary-dark"
+            disabled={loading || !consentPrimary}
+            className="w-full min-h-[44px] bg-primary hover:bg-primary-dark disabled:opacity-50"
           >
             {loading ? 'Creando cuenta...' : 'Crear cuenta'}
           </Button>

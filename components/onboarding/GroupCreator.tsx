@@ -5,12 +5,14 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 
 interface GroupData {
   name: string
   grade: string
   academic_year: string
   richmond_class_code?: string
+  consentStudentData: boolean
 }
 
 interface GroupCreatorProps {
@@ -27,6 +29,7 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
     grade: '',
     academic_year: `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
     richmond_class_code: '',
+    consentStudentData: false,
   })
 
   function handleSubmit(e: React.FormEvent) {
@@ -98,10 +101,28 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
         </p>
       </div>
 
+      <div className="pt-1">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.consentStudentData}
+            onChange={(e) => setFormData({ ...formData, consentStudentData: e.target.checked })}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <span className="text-sm text-text-secondary">
+            Acepto que los datos de mis alumnos sean tratados conforme al{' '}
+            <Link href="/privacidad" className="text-primary hover:underline" target="_blank">
+              Aviso de Privacidad
+            </Link>{' '}
+            y transferidos a los proveedores indicados <span className="text-red-500">*</span>
+          </span>
+        </label>
+      </div>
+
       <Button
         type="submit"
-        disabled={loading || !formData.name || !formData.grade}
-        className="w-full min-h-[44px] bg-primary hover:bg-primary-dark"
+        disabled={loading || !formData.name || !formData.grade || !formData.consentStudentData}
+        className="w-full min-h-[44px] bg-primary hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? 'Creando grupo...' : 'Crear grupo'}
       </Button>
