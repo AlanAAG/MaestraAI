@@ -13,8 +13,8 @@ import { SongWorksheetPdfDocument } from '@/lib/pdf/song-worksheet'
 
 export type RenderResult = { buffer: Buffer; filename: string }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function renderMaterialPdf(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   material: any,
   generatedAt: string
 ): Promise<RenderResult | null> {
@@ -55,7 +55,7 @@ export async function renderMaterialPdf(
     }
 
     case 'bingo': {
-      const { vocabulary = [], card_count = 10, free_space = true } = material.content
+      const { vocabulary = [], card_count = 10, free_space = true } = material.content || {}
       const result = generateAllCards(vocabulary, card_count, free_space)
       const buffer = await renderToBuffer(
         React.createElement(BingoPdfDocument, {
@@ -72,7 +72,7 @@ export async function renderMaterialPdf(
         (material.vocabulary as string[] | null)?.slice(0, 3).join(', ') || 'Vocabulario'
       const buffer = await renderToBuffer(
         React.createElement(WordSearchPdfDocument, {
-          content: material.content,
+          content: material.content || {},
           title,
           generatedAt,
         }) as React.ReactElement<DocumentProps>
@@ -85,7 +85,7 @@ export async function renderMaterialPdf(
         (material.vocabulary as string[] | null)?.slice(0, 3).join(', ') || 'Vocabulario'
       const buffer = await renderToBuffer(
         React.createElement(MatchingPdfDocument, {
-          content: material.content,
+          content: material.content || {},
           title,
           generatedAt,
         }) as React.ReactElement<DocumentProps>

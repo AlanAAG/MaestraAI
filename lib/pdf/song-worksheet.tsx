@@ -169,7 +169,7 @@ export function SongWorksheetPdfDocument({ content, title, generatedAt }: SongWo
           <Text style={styles.subtitle}>Escucha y escribe la palabra que falta en cada linea</Text>
         </View>
 
-        {lyric_worksheet.lines.map((line, i) => (
+        {(lyric_worksheet.lines ?? []).map((line, i) => (
           <View key={i} style={styles.lyricLine}>
             <Text style={styles.lyricText}>
               {line.text.replace(line.missing_word, '_________')}
