@@ -71,6 +71,8 @@ function buildKinderWordSearch(vocabulary: string[]): WordSearchResult {
   return { grid, words: placed, gridSize: SIZE, wordPaths }
 }
 
+type WsWord = { word: string; clean: string; path: Array<{ x: number; y: number }> }
+
 export function buildWordSearch(
   vocabulary: string[],
   difficulty: 'kinder' | 'standard' = 'kinder'
@@ -82,5 +84,9 @@ export function buildWordSearch(
   if (words.length === 0) throw new Error('Sin vocabulario para sopa de letras')
 
   const ws = new WordSearch({ cols: SIZE, rows: SIZE, dictionary: words })
-  return { grid: ws.data.grid as string[][], words: vocabulary.slice(0, 20), gridSize: SIZE }
+  const wsWords = ws.data.words as WsWord[]
+  const placedWords = wsWords.map((w) => w.clean)
+  const wordPaths = wsWords.map((w) => w.path)
+
+  return { grid: ws.data.grid as string[][], words: placedWords, gridSize: SIZE, wordPaths }
 }

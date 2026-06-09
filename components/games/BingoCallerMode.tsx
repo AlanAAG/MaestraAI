@@ -112,7 +112,9 @@ export function BingoCallerMode({ vocabulary, title, onExit }: BingoCallerModePr
             <>
               <p
                 className="text-white font-bold text-center leading-none tracking-tight"
-                style={{ fontSize: '96px' }}
+                style={{
+                  fontSize: `${Math.max(40, 96 - Math.max(0, currentWord.length - 6) * 6)}px`,
+                }}
               >
                 {currentWord}
               </p>

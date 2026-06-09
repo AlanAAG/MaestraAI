@@ -41,16 +41,11 @@ export default function BingoRedownloadPage() {
     if (!material) return
     setDownloading(true)
     try {
-      const res = await fetch('/api/materials/bingo', {
+      // Use export route — no new DB record created on re-download
+      const res = await fetch('/api/materials/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fortnight_id: material.fortnight_id,
-          lesson_plan_id: material.lesson_plan_id,
-          card_count: material.content.card_count,
-          free_space: material.content.free_space,
-          vocabulary: material.content.vocabulary,
-        }),
+        body: JSON.stringify({ material_id: id }),
       })
       if (!res.ok) {
         const d = await res.json()

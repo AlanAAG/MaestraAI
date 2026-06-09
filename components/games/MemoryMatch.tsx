@@ -28,6 +28,7 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
   const [matched, setMatched] = useState<string[]>([])
   const [isChecking, setIsChecking] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
+  const [moves, setMoves] = useState(0)
 
   // Initialize cards on mount
   useEffect(() => {
@@ -71,6 +72,7 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
 
     // If two cards are flipped, check for match
     if (newFlipped.length === 2) {
+      setMoves((m) => m + 1)
       setIsChecking(true)
       const [first, second] = newFlipped
       const firstCard = cards.find((c) => c.id === first)
@@ -96,7 +98,8 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
     setMatched([])
     setIsChecking(false)
     setIsComplete(false)
-    setCards(cards.sort(() => Math.random() - 0.5))
+    setMoves(0)
+    setCards((prev) => [...prev].sort(() => Math.random() - 0.5))
   }
 
   function isCardFlipped(cardId: string): boolean {
@@ -113,10 +116,11 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
       <div className="mb-8 text-center">
         <h2 className="text-3xl font-bold text-text-primary mb-2">Memory Match</h2>
         <p className="text-text-secondary">Encuentra las parejas de palabras e imágenes</p>
-        <div className="mt-4 flex items-center justify-center gap-4">
+        <div className="mt-4 flex items-center justify-center gap-6">
           <span className="text-sm text-text-secondary">
-            Parejas encontradas: {matched.length} / {pairs.length}
+            Parejas: {matched.length} / {pairs.length}
           </span>
+          <span className="text-sm text-text-secondary tabular-nums">Intentos: {moves}</span>
         </div>
       </div>
 
@@ -196,7 +200,8 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
         >
           <Trophy size={64} className="text-success mb-4" />
           <h3 className="text-4xl font-bold text-text-primary mb-2">¡Felicidades!</h3>
-          <p className="text-text-secondary mb-8">Encontraste todas las parejas</p>
+          <p className="text-text-secondary mb-2">Encontraste todas las parejas</p>
+          <p className="text-text-secondary mb-8 tabular-nums">en {moves} intentos</p>
           <Button onClick={handleReset} className="min-h-[44px] bg-primary hover:bg-primary-dark">
             <RotateCcw size={18} className="mr-2" />
             Jugar de nuevo
