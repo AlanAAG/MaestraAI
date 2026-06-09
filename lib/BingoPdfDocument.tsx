@@ -128,6 +128,11 @@ function BingoCardPage({
   studentNumber: number
   title: string
 }) {
+  const cols = card[0]?.length ?? 3
+  const cellWidth = cols === 3 ? 140 : 104
+  const cellHeight = cols === 3 ? 100 : 78
+  const wordFontSize = cols === 3 ? 14 : 10
+
   return (
     <Page size="LETTER" style={styles.page}>
       <View style={styles.header}>
@@ -138,8 +143,19 @@ function BingoCardPage({
         {card.map((row, ri) => (
           <View key={ri} style={styles.row}>
             {row.map((word, ci) => (
-              <View key={ci} style={word === 'FREE' ? styles.cellFree : styles.cell}>
-                <Text style={word === 'FREE' ? styles.cellFreeText : styles.cellWord}>
+              <View
+                key={ci}
+                style={[
+                  word === 'FREE' ? styles.cellFree : styles.cell,
+                  { width: cellWidth, height: cellHeight },
+                ]}
+              >
+                <Text
+                  style={[
+                    word === 'FREE' ? styles.cellFreeText : styles.cellWord,
+                    { fontSize: wordFontSize },
+                  ]}
+                >
                   {word === 'FREE' ? '★ FREE' : word}
                 </Text>
               </View>

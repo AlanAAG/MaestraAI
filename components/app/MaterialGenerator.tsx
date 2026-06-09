@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { X, Sparkles, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { DifficultySelector, type Difficulty } from '@/components/app/materials/DifficultySelector'
 
 type GenerateMaterialType =
   | 'flashcards'
@@ -63,6 +64,7 @@ export function MaterialGenerator({
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [cardCount, setCardCount] = useState(30)
   const [freeSpace, setFreeSpace] = useState(true)
+  const [difficulty, setDifficulty] = useState<Difficulty>('kinder')
   const [generating, setGenerating] = useState(false)
   const [currentPhase, setCurrentPhase] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -121,6 +123,7 @@ export function MaterialGenerator({
             lesson_plan_id: lessonPlanId,
             card_count: cardCount,
             free_space: freeSpace,
+            difficulty,
           }),
         })
         if (!res.ok) {
@@ -142,7 +145,11 @@ export function MaterialGenerator({
         const res = await fetch('/api/materials/word-search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fortnight_id: fortnightId, lesson_plan_id: lessonPlanId }),
+          body: JSON.stringify({
+            fortnight_id: fortnightId,
+            lesson_plan_id: lessonPlanId,
+            difficulty,
+          }),
         })
         if (!res.ok) {
           const d = await res.json()
@@ -181,6 +188,7 @@ export function MaterialGenerator({
 
   const needsUrl = selectedTypes.has('from_youtube')
   const needsCardConfig = selectedTypes.has('bingo')
+  const needsDifficulty = selectedTypes.has('bingo') || selectedTypes.has('word_search')
   const selectedCount = Array.from(selectedTypes).filter((t) => t !== 'fortnight_pack').length
 
   return (
@@ -252,6 +260,14 @@ export function MaterialGenerator({
                 <p className="text-xs text-gray-500 mt-1">
                   Solo videos públicos con subtítulos disponibles
                 </p>
+              </div>
+            )}
+
+            {/* Difficulty selector (bingo + word search) */}
+            {needsDifficulty && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dificultad</label>
+                <DifficultySelector value={difficulty} onChange={setDifficulty} />
               </div>
             )}
 

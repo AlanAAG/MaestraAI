@@ -13,6 +13,7 @@ const Schema = z.object({
   card_count: z.number().int().min(1).max(35).default(30),
   free_space: z.boolean().default(true),
   vocabulary: z.array(z.string()).optional(),
+  difficulty: z.enum(['kinder', 'standard']).default('kinder'),
 })
 
 export async function POST(req: NextRequest) {
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     free_space,
     lesson_plan_id,
     vocabulary: vocabOverride,
+    difficulty,
   } = parsed.data
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,7 +88,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No hay vocabulario en esta quincena' }, { status: 400 })
   }
 
-  const result = generateAllCards(vocabulary, card_count, free_space)
+  const gridSize: 3 | 5 = difficulty === 'standard' ? 5 : 3
+  if (gridSize === 5 && vocabulary.length < 24) {
+    return NextResponse.json(
+      { error: 'Bingo estándar necesita al menos 24 palabras en el vocabulario' },
+      { status: 400 }
+    )
+  }
+
+  const result = generateAllCards(vocabulary, card_count, free_space, gridSize)
 
   // Render PDF
   const pdfBuffer = await renderToBuffer(
@@ -105,8 +115,9 @@ export async function POST(req: NextRequest) {
     fortnight_id,
     lesson_plan_id: lesson_plan_id || null,
     type: 'bingo',
-    content: { card_count, free_space, vocabulary },
+    content: { card_count, free_space, vocabulary, grid_size: gridSize },
     vocabulary,
+    difficulty_level: difficulty,
     is_projectable: false,
   })
 

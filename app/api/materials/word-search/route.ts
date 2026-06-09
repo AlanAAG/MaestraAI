@@ -7,7 +7,7 @@ import { buildWordSearch } from '@/lib/materials/word-search'
 const Schema = z.object({
   fortnight_id: z.string().uuid(),
   lesson_plan_id: z.string().uuid().optional(),
-  grid_size: z.number().int().min(8).max(20).optional().default(12),
+  difficulty: z.enum(['kinder', 'standard']).default('kinder'),
 })
 
 export async function POST(req: NextRequest) {
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     .single()
   if (!teacher) return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
 
-  const { fortnight_id, lesson_plan_id, grid_size } = parsed.data
+  const { fortnight_id, lesson_plan_id, difficulty } = parsed.data
 
   // Fetch vocabulary from fortnight's lesson plans
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No hay vocabulario en esta quincena' }, { status: 400 })
   }
 
-  const content = buildWordSearch(vocabulary, grid_size)
+  const content = buildWordSearch(vocabulary, difficulty)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: material, error: insertError } = await (supabase as any)
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
       type: 'word_search',
       content,
       vocabulary,
+      difficulty_level: difficulty,
       is_projectable: false,
     })
     .select('id')

@@ -55,8 +55,13 @@ export async function renderMaterialPdf(
     }
 
     case 'bingo': {
-      const { vocabulary = [], card_count = 10, free_space = true } = material.content || {}
-      const result = generateAllCards(vocabulary, card_count, free_space)
+      const {
+        vocabulary = [],
+        card_count = 10,
+        free_space = true,
+        grid_size = 3,
+      } = material.content || {}
+      const result = generateAllCards(vocabulary, card_count, free_space, grid_size as 3 | 5)
       const buffer = await renderToBuffer(
         React.createElement(BingoPdfDocument, {
           cards: result.cards,
@@ -70,9 +75,11 @@ export async function renderMaterialPdf(
     case 'word_search': {
       const title =
         (material.vocabulary as string[] | null)?.slice(0, 3).join(', ') || 'Vocabulario'
+      const wsContent = material.content || {}
       const buffer = await renderToBuffer(
         React.createElement(WordSearchPdfDocument, {
-          content: material.content || {},
+          content: wsContent,
+          wordPaths: wsContent.wordPaths,
           title,
           generatedAt,
         }) as React.ReactElement<DocumentProps>
