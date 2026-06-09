@@ -29,7 +29,6 @@ async function loadGroupMappings() {
     GROUP_UUID_MAP = data.groupMap || {}
     isInitialized = true
 
-    console.log('[MaestraAI] Loaded group mappings:', GROUP_UUID_MAP)
     console.log('[MaestraAI] Connected as:', data.teacherName)
     console.log('[MaestraAI] Syncing', data.totalGroups, 'groups')
   } catch (error) {
@@ -41,6 +40,14 @@ async function loadGroupMappings() {
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && (changes.apiKey || changes.apiUrl)) {
     console.log('[MaestraAI] API configuration changed, reloading groups...')
+    loadGroupMappings()
+  }
+})
+
+// Handle messages from popup (e.g. reload after successful connection test)
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'RELOAD_MAPPINGS') {
+    console.log('[MaestraAI] Reloading group mappings on popup request...')
     loadGroupMappings()
   }
 })

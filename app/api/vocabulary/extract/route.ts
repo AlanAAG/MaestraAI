@@ -8,7 +8,7 @@ import { validateBase64Image } from '@/lib/file-validation'
 const ExtractInputSchema = z.object({
   text: z.string().min(1).max(10000).optional(),
   imageBase64: z.string().optional(),
-  imageMimeType: z.string().optional(),
+  imageMimeType: z.enum(['image/jpeg', 'image/png', 'image/jpg', 'image/webp']).optional(),
 })
 
 export async function POST(req: NextRequest) {

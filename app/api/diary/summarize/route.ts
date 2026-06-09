@@ -33,7 +33,10 @@ export async function POST(req: NextRequest) {
 
   // Rate limiting - strict tier (10/hour for AI generation)
   // Use IP address as identifier since this is a public endpoint
-  const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+  const ip =
+    req.headers.get('x-real-ip') ||
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    'unknown'
   const { success, headers } = await checkRateLimit(ip, 'strict')
   if (!success) {
     return NextResponse.json(
@@ -43,25 +46,36 @@ export async function POST(req: NextRequest) {
   }
 
   const { q1, q2, q3, q4, q5, teacherName, weekStart, weekEnd } = parsed.data
+  const sanitizedName = teacherName.replace(/[\r\n]/g, ' ')
+
+  // Heuristic strip of likely student names before sending to Anthropic.
+  // The diary is a public endpoint so we can't query the teacher's student list;
+  // this regex catches capitalized proper-name sequences (2–3 words) as a best-effort guard.
+  function stripProperNames(text: string): string {
+    return text.replace(
+      /\b[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]+(?:\s+[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü.]*){1,2}\b/g,
+      '[alumno]'
+    )
+  }
 
   const userMessage = `
-Maestra: ${teacherName}
+Maestra: ${sanitizedName}
 Semana: ${weekStart} al ${weekEnd}
 
 1. ¿Qué funcionó bien esta semana?
-${q1 || '(no respondido)'}
+${stripProperNames(q1) || '(no respondido)'}
 
 2. ¿Qué fue retador?
-${q2 || '(no respondido)'}
+${stripProperNames(q2) || '(no respondido)'}
 
 3. ¿Cómo respondió el grupo a las actividades?
-${q3 || '(no respondido)'}
+${stripProperNames(q3) || '(no respondido)'}
 
 4. ¿Qué necesito ajustar para la próxima semana?
-${q4 || '(no respondido)'}
+${stripProperNames(q4) || '(no respondido)'}
 
 5. ¿Hay algo sobre algún alumno que quieras recordar?
-${q5 || '(no respondido)'}
+${stripProperNames(q5) || '(no respondido)'}
 `.trim()
 
   const stream = streamToReadable(DIARIO_SYSTEM_PROMPT, userMessage)

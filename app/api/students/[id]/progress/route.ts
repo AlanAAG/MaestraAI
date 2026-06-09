@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 // Map Richmond internal tracking to NEM qualitative bands
 // Richmond stores numeric data for platform compliance, but we display qualitative
@@ -100,6 +101,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .select('observed_date, lesson_plan_id')
       .eq('student_id', studentId)
       .order('observed_date', { ascending: false })
+
+    await logAudit({
+      teacher_id: teacher.id,
+      action: AUDIT_ACTIONS.STUDENT_DATA_EXPORT,
+      resource_type: 'student',
+      resource_id: studentId,
+      req,
+    })
 
     return NextResponse.json({
       assignments: assignments || [],

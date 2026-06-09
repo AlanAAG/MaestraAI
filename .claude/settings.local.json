@@ -43,7 +43,24 @@
       "Bash(/Users/alan/Desktop/MaestraAI/node_modules/.bin/tsc --noEmit)",
       "Bash(PATH=\"$PWD/node_modules/.bin:$PATH\" tsc *)",
       "Bash(bash *)",
-      "Bash(file \"$\\(pwd\\)/node_modules/.bin/tsc\")"
+      "Bash(file \"$\\(pwd\\)/node_modules/.bin/tsc\")",
+      "WebFetch(domain:richmondlp.com)",
+      "Skill(deep-research)",
+      "Workflow(deep-research)",
+      "WebSearch",
+      "WebFetch(domain:www.avallain.com)",
+      "WebFetch(domain:richmond.com.mx)",
+      "WebFetch(domain:www.capterra.co.uk)",
+      "WebFetch(domain:elearningindustry.com)",
+      "WebFetch(domain:pitchbook.com)",
+      "WebFetch(domain:richmondstudio.global)",
+      "WebFetch(domain:studio.richmondsolution.com)",
+      "WebFetch(domain:richmondpro.global)",
+      "Bash(sort -k5 -rn)",
+      "WebFetch(domain:richmondsolution.com)",
+      "WebFetch(domain:play.google.com)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 *)"
     ]
   }
 }

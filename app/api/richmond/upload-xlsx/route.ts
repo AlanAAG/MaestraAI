@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // File validation (MIME type, magic bytes, size)
-    const validation = await validateFile(file, 'csv')
+    const validation = await validateFile(file, 'xlsx')
     if (!validation.valid) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
@@ -206,9 +206,8 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ ok: true, synced: syncedCount, errors })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to process XLSX file'
-      return NextResponse.json({ error: message }, { status: 500 })
+    } catch {
+      return NextResponse.json({ error: 'Error al procesar el archivo XLSX' }, { status: 500 })
     }
   } catch (error) {
     console.error('Unexpected error in upload-xlsx:', error)

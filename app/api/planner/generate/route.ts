@@ -93,7 +93,27 @@ export async function POST(req: NextRequest) {
     const groupGrade = (fortnight as any).groups?.grade || ''
     const includeProni = isProniApplicable(groupGrade)
 
-    const prompt = buildPrompt(fortnight, neeStudents, observationStudents, includeProni)
+    // Anonymize student names before they reach Anthropic.
+    // Real names are restored server-side after parsing Claude's response.
+    const neeMap: Record<string, string> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    neeStudents.forEach((s: any, i: number) => {
+      neeMap[`ALUMNO_NEE_${i + 1}`] = s.display_name
+    })
+    const obsMap: Record<string, string> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    observationStudents.forEach((s: any, i: number) => {
+      obsMap[`ALUMNO_OBS_${i + 1}`] = s.display_name
+    })
+
+    const prompt = buildPrompt(
+      fortnight,
+      neeStudents,
+      observationStudents,
+      includeProni,
+      neeMap,
+      obsMap
+    )
 
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -131,7 +151,11 @@ export async function POST(req: NextRequest) {
             throw new Error('Unexpected response type')
           }
 
-          const lessonPlans = parseClaudeResponse(content.text, fortnight)
+          const lessonPlans = restoreStudentNames(
+            parseClaudeResponse(content.text, fortnight),
+            neeMap,
+            obsMap
+          )
 
           // Save to database
           for (const plan of lessonPlans) {
@@ -206,18 +230,26 @@ function buildPrompt(
   neeStudents: any[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   observationStudents: any[],
-  includeProni: boolean
+  includeProni: boolean,
+  neeMap: Record<string, string>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _obsMap: Record<string, string>
 ): string {
   const vocabList = ''
+  const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
+  const projectName = sanitize(fortnight.project_name)
+  const monthlyValue = sanitize(fortnight.monthly_value)
+  const letterWeek1 = sanitize(fortnight.letter_week1)
+  const letterWeek2 = sanitize(fortnight.letter_week2)
 
   return `Eres una asistente pedagógica experta en educación preescolar mexicana alineada al Nuevo Modelo Educativo (NEM).
 
 CONTEXTO:
 - Nivel: Kinder 3 (Preprimaria)
-- Quincena ${fortnight.number}: ${fortnight.project_name}
-- Valor del mes: ${fortnight.monthly_value}
+- Quincena ${fortnight.number}: ${projectName}
+- Valor del mes: ${monthlyValue}
 - Fechas: ${new Date(fortnight.start_date).toLocaleDateString('es-MX')} a ${new Date(fortnight.end_date).toLocaleDateString('es-MX')}
-- Letras: Semana 1 = "${fortnight.letter_week1}", Semana 2 = "${fortnight.letter_week2}"
+- Letras: Semana 1 = "${letterWeek1}", Semana 2 = "${letterWeek2}"
 - Vocabulario disponible: ${vocabList}
 
 CRONOGRAMA FIJO SEMANAL (INVIOLABLE):
@@ -228,16 +260,22 @@ Jueves: Cantos y Juegos, Números (SIEMPRE integrados)
 Viernes: Cuento con papás, Cierre de Proyecto mensual
 
 ELEMENTOS DIARIOS PERMANENTES:
-- Valor del mes (${fortnight.monthly_value})
+- Valor del mes (${monthlyValue})
 - Pausa activa
 - Estrategia comunitaria
 - Aventura lectora
 
 ALUMNOS CON NEE (${neeStudents.length}):
-${neeStudents.map((s) => `- ${s.display_name}`).join('\n')}
+${
+  Object.keys(neeMap).length > 0
+    ? Object.keys(neeMap)
+        .map((label) => `- ${label}`)
+        .join('\n')
+    : '(ninguno)'
+}
 
 ALUMNOS CON DÍA DE OBSERVACIÓN:
-${observationStudents.map((s) => `- ${s.display_name} (${s.observation_day})`).join('\n')}
+${observationStudents.length > 0 ? observationStudents.map((_s, i) => `- ALUMNO_OBS_${i + 1} (día: ${_s.observation_day})`).join('\n') : '(ninguno)'}
 
 ALINEACIÓN NEM:
 Campos Formativos: ${NEM_FIELDS.join(', ')}
@@ -302,6 +340,25 @@ IMPORTANTE:
 - Integra el inglés de forma natural (no como clase separada)
 
 Genera las 10 planeaciones ahora:`
+}
+
+function restoreStudentNames(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  plans: any[],
+  neeMap: Record<string, string>,
+  obsMap: Record<string, string>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any[] {
+  return plans.map((plan) => ({
+    ...plan,
+    observation_students: plan.observation_students.map((token: string) => obsMap[token] ?? token),
+    nee_reminders: plan.nee_reminders.map((reminder: string) => {
+      let r = reminder
+      for (const [token, name] of Object.entries(neeMap)) r = r.replaceAll(token, name)
+      for (const [token, name] of Object.entries(obsMap)) r = r.replaceAll(token, name)
+      return r
+    }),
+  }))
 }
 
 function parseClaudeResponse(

@@ -1,7 +1,7 @@
 // app/api/richmond/ingest/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
@@ -34,7 +34,10 @@ const IngestInputSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
+  const supabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   // Auth: Validate API key
   const authHeader = req.headers.get('authorization')
@@ -122,7 +125,8 @@ export async function POST(req: NextRequest) {
   const errors: string[] = []
 
   // Get students for this group
-  const { data: students, error: studentsError } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: students, error: studentsError } = await (supabase as any)
     .from('students')
     .select('id, richmond_student_id, first_name_encrypted, last_name_encrypted')
     .eq('group_id', group_id)

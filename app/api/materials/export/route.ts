@@ -71,27 +71,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
     }
 
-    // Check if material belongs to teacher via lesson_plans -> fortnights
-    if (material.lesson_plan_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: lessonPlan } = await (supabase as any)
-        .from('lesson_plans')
-        .select('fortnight_id')
-        .eq('id', material.lesson_plan_id)
-        .single()
-
-      if (lessonPlan) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: fortnight } = await (supabase as any)
-          .from('fortnights')
-          .select('teacher_id')
-          .eq('id', lessonPlan.fortnight_id)
-          .single()
-
-        if (!fortnight || fortnight.teacher_id !== teacher.id) {
-          return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-        }
-      }
+    // Direct ownership check via teacher_id column on materials table
+    if (material.teacher_id !== teacher.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
     }
 
     const generatedAt = new Date().toLocaleDateString('es-MX', {
