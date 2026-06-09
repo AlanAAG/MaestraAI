@@ -7,10 +7,10 @@ import { Card } from '@/components/ui/card'
 import { ArrowLeft, Download, Play, Monitor, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Material = {
   id: string
   type: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content: any
   vocabulary: string[] | null
   created_at: string
