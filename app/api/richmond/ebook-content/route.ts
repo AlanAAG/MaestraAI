@@ -6,7 +6,7 @@ import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
 const Schema = z.object({
   uuid: z.string().uuid(),
   title: z.string().max(200).nullable().optional(),
-  content: z.record(z.unknown()),
+  content: z.record(z.string(), z.unknown()),
 })
 
 export async function POST(req: NextRequest) {

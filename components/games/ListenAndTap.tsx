@@ -73,7 +73,7 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
         }, 700)
       }
     },
-    [selectState, options, target?.word, round, total, speak, onComplete]
+    [selectState, options, target, round, total, speak, onComplete]
   )
 
   if (total === 0 || !target) {

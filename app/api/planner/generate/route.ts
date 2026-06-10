@@ -109,13 +109,12 @@ export async function POST(req: NextRequest) {
     // Fetch vocabulary for the fortnight's letter weeks so Claude generates
     // lesson plans that use the actual words in the teacher's vocabulary bank.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fn = fortnight as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: vocabItems } = await (supabase as any)
       .from('vocabulary_items')
       .select('word')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .or(
-        `letter.eq.${(fortnight as any).letter_week1},letter.eq.${(fortnight as any).letter_week2}`
-      )
+      .or(`letter.eq.${fn.letter_week1},letter.eq.${fn.letter_week2}`)
     const vocabList = (vocabItems || [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((v: any) => v.word as string)
