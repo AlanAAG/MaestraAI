@@ -92,6 +92,9 @@ export default function PlaneacionDetailPage() {
     Record<string, { id: string; type: string }[]>
   >({})
   const [fortnightMaterials, setFortnightMaterials] = useState<{ id: string; type: string }[]>([])
+  const [youtubeInputPlanId, setYoutubeInputPlanId] = useState<string | null>(null)
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [addingYoutube, setAddingYoutube] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -297,6 +300,28 @@ export default function PlaneacionDetailPage() {
   function handleSavePlan(updatedPlan: LessonPlan) {
     setLessonPlans((prev) => prev.map((plan) => (plan.id === updatedPlan.id ? updatedPlan : plan)))
     setEditingPlanId(null)
+  }
+
+  async function handleAddYoutube(planId: string) {
+    const url = youtubeUrl.trim()
+    if (!url.includes('youtube.com') && !url.includes('youtu.be')) return
+    setAddingYoutube(true)
+    try {
+      const res = await fetch('/api/materials/from-youtube', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, lesson_plan_id: planId }),
+      })
+      if (res.ok) {
+        setYoutubeUrl('')
+        setYoutubeInputPlanId(null)
+        loadData()
+      }
+    } catch {
+      // silently fail — teacher can retry
+    } finally {
+      setAddingYoutube(false)
+    }
   }
 
   if (loading || !fortnight) {
@@ -544,6 +569,55 @@ export default function PlaneacionDetailPage() {
                             </Link>
                           ))}
                         </div>
+                      )}
+                      {/* YouTube quick-add */}
+                      {youtubeInputPlanId === plan.id ? (
+                        <div
+                          className="flex gap-2 items-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="url"
+                            placeholder="https://youtube.com/watch?v=..."
+                            value={youtubeUrl}
+                            onChange={(e) => setYoutubeUrl(e.target.value)}
+                            className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-primary min-h-[36px]"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            disabled={addingYoutube}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleAddYoutube(plan.id)
+                            }}
+                            className="min-h-[36px] text-xs"
+                          >
+                            Agregar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setYoutubeInputPlanId(null)
+                              setYoutubeUrl('')
+                            }}
+                            className="min-h-[36px] text-xs"
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setYoutubeInputPlanId(plan.id)
+                          }}
+                          className="text-xs text-text-secondary hover:text-primary transition-colors cursor-pointer"
+                        >
+                          + Agregar canción de YouTube
+                        </button>
                       )}
                     </div>
                   </div>

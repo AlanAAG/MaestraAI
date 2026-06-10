@@ -25,6 +25,7 @@ type ExtractedItem = {
 export default function VocabularioPage() {
   const router = useRouter()
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
+  const [wordUsageMap, setWordUsageMap] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'list' | 'add' | 'bulk' | 'extract'>('list')
   const [newWord, setNewWord] = useState('')
@@ -104,12 +105,27 @@ export default function VocabularioPage() {
         return
       }
 
-      const response = await fetch('/api/vocabulary')
-      const data = await response.json()
+      const [vocabResp, plansResp] = await Promise.all([
+        fetch('/api/vocabulary'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('lesson_plans').select('vocabulary'),
+      ])
 
-      if (data.vocabulary) {
-        setVocabulary(data.vocabulary)
+      const vocabData = await vocabResp.json()
+      if (vocabData.vocabulary) {
+        setVocabulary(vocabData.vocabulary)
       }
+
+      // Build word → plan count map
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const plans = (plansResp.data ?? []) as Array<{ vocabulary: string[] }>
+      const usageMap: Record<string, number> = {}
+      for (const plan of plans) {
+        for (const word of plan.vocabulary ?? []) {
+          usageMap[word.toLowerCase()] = (usageMap[word.toLowerCase()] ?? 0) + 1
+        }
+      }
+      setWordUsageMap(usageMap)
     } catch (error) {
       console.error('Load error:', error)
       toast.error('No pude cargar el vocabulario')
@@ -576,22 +592,32 @@ export default function VocabularioPage() {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {words.map((item) => {
                         const colorConfig = colors.find((c) => c.value === item.color)
+                        const usageCount = wordUsageMap[item.word.toLowerCase()] ?? 0
                         return (
                           <div
                             key={item.id}
-                            className={`p-3 rounded-lg border-2 flex items-center justify-between ${colorConfig?.bg} ${colorConfig?.border}`}
+                            className={`p-3 rounded-lg border-2 flex flex-col gap-1 ${colorConfig?.bg} ${colorConfig?.border}`}
                           >
-                            <span className={`text-sm font-medium ${colorConfig?.text}`}>
-                              {item.word}
+                            <div className="flex items-center justify-between">
+                              <span className={`text-sm font-medium ${colorConfig?.text}`}>
+                                {item.word}
+                              </span>
+                              {item.teacher_id && (
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="text-text-secondary hover:text-red-600 transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <span
+                              className={`text-xs ${usageCount > 0 ? colorConfig?.text : 'text-text-secondary'} opacity-75`}
+                            >
+                              {usageCount > 0
+                                ? `En ${usageCount} plan${usageCount === 1 ? '' : 'es'}`
+                                : 'Sin usar'}
                             </span>
-                            {item.teacher_id && (
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                className="text-text-secondary hover:text-red-600 transition-colors"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            )}
                           </div>
                         )
                       })}
