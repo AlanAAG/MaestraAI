@@ -1,4 +1,5 @@
 // app/layout.tsx
+import * as Sentry from '@sentry/nextjs'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
@@ -9,9 +10,14 @@ const inter = Inter({
   display: 'swap',
 })
 
-export const metadata: Metadata = {
-  title: 'MaestraAI',
-  description: 'Tu asistente para maestra de inglés en preescolar',
+export function generateMetadata(): Metadata {
+  return {
+    title: 'MaestraAI',
+    description: 'Tu asistente para maestra de inglés en preescolar',
+    other: {
+      ...Sentry.getTraceData(),
+    },
+  }
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
