@@ -1,0 +1,223 @@
+// app/api/richmond/ingest/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { encrypt } from '@/lib/encryption'
+
+// Proper schema for Richmond assignment data (matches RichmondAssignment interface)
+const RichmondStudentScoreSchema = z.object({
+  richmond_student_id: z.string(),
+  first_name: z.string(),
+  last_name: z.string(),
+  progress: z.enum(['completed', 'not_started', 'started']),
+  total_score: z.number().nullable(),
+  done: z.boolean(),
+})
+
+const RichmondAssignmentSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  instructions: z.string().nullable(),
+  assigned_at: z.string(),
+  due_at: z.string(),
+  total_students: z.number(),
+  total_submitted: z.number(),
+  class_avg_score: z.number().nullable(),
+  students: z.array(RichmondStudentScoreSchema),
+})
+
+const IngestInputSchema = z.object({
+  group_id: z.string().uuid(),
+  data: z.array(RichmondAssignmentSchema),
+})
+
+export async function POST(req: NextRequest) {
+  const supabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  // Auth: Validate API key
+  const authHeader = req.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+
+  if (!token) {
+    return NextResponse.json({ error: 'Missing API key' }, { status: 401 })
+  }
+
+  // Get API key from database by prefix
+  const keyPrefix = extractKeyPrefix(token)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: apiKey, error: keyError } = await (supabase as any)
+    .from('api_keys')
+    .select('teacher_id, key_hash')
+    .eq('key_prefix', keyPrefix)
+    .is('revoked_at', null)
+    .single()
+
+  if (keyError || !apiKey) {
+    return NextResponse.json({ error: 'Invalid API key' }, { status: 401 })
+  }
+
+  // Verify API key hash
+  const isValid = await verifyApiKey(token, apiKey.key_hash)
+  if (!isValid) {
+    return NextResponse.json({ error: 'Invalid API key' }, { status: 401 })
+  }
+
+  // Update last_used_at timestamp
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any)
+    .from('api_keys')
+    .update({ last_used_at: new Date().toISOString() })
+    .eq('key_prefix', keyPrefix)
+
+  // Rate limiting - standard tier (50/hour for bulk data ingest)
+  // Use teacher_id from API key as identifier
+  const { success, headers } = await checkRateLimit(apiKey.teacher_id, 'standard')
+  if (!success) {
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429, headers }
+    )
+  }
+
+  // Parse input
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const parsed = IngestInputSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 }
+    )
+  }
+
+  const { group_id, data: assignments } = parsed.data
+
+  // Verify group ownership (prevent cross-tenant injection)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: group, error: groupError } = await (supabase as any)
+    .from('groups')
+    .select('titular_teacher_id')
+    .eq('id', group_id)
+    .single()
+
+  if (groupError || !group) {
+    return NextResponse.json({ error: 'Group not found' }, { status: 404 })
+  }
+
+  if (group.titular_teacher_id !== apiKey.teacher_id) {
+    return NextResponse.json(
+      { error: 'Forbidden: You do not have access to this group' },
+      { status: 403 }
+    )
+  }
+
+  let syncedCount = 0
+  const errors: string[] = []
+
+  // Get students for this group
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: students, error: studentsError } = await (supabase as any)
+    .from('students')
+    .select('id, richmond_student_id, first_name_encrypted, last_name_encrypted')
+    .eq('group_id', group_id)
+
+  if (studentsError || !students) {
+    return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 })
+  }
+
+  type Student = {
+    id: string
+    richmond_student_id: string | null
+    first_name_encrypted: string
+    last_name_encrypted: string
+  }
+  const typedStudents = students as unknown as Student[]
+
+  // Process each assignment
+  for (const assignment of assignments) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: dbAssignment, error: assignmentError } = await (supabase as any)
+      .from('richmond_assignments')
+      .upsert(
+        {
+          group_id,
+          richmond_id: assignment.id,
+          title: assignment.title,
+          instructions: assignment.instructions,
+          assigned_at: assignment.assigned_at,
+          due_at: assignment.due_at,
+          total_students: assignment.total_students,
+          total_submitted: assignment.total_submitted,
+          class_avg_score: assignment.class_avg_score,
+          synced_at: new Date().toISOString(),
+        },
+        { onConflict: 'group_id,richmond_id' }
+      )
+      .select()
+      .single()
+
+    if (assignmentError || !dbAssignment) {
+      errors.push(`Failed to upsert assignment ${assignment.title}`)
+      continue
+    }
+
+    // Process scores
+    for (const score of assignment.students) {
+      const matchedStudent = typedStudents.find(
+        (s) => s.richmond_student_id === score.richmond_student_id
+      )
+
+      // Name-based fallback is omitted: first_name_encrypted is ciphertext,
+      // cannot be compared to incoming plaintext. Match by richmond_student_id only.
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dbAssignmentTyped = dbAssignment as any as { id: string }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: scoreError } = await (supabase as any).from('richmond_scores').upsert(
+        {
+          assignment_id: dbAssignmentTyped.id,
+          student_id: matchedStudent?.id ?? null,
+          richmond_student_id: score.richmond_student_id,
+          first_name_encrypted: await encrypt(score.first_name),
+          last_name_encrypted: await encrypt(score.last_name),
+          progress: score.progress,
+          total_score: score.total_score,
+          done: score.done,
+          synced_at: new Date().toISOString(),
+        },
+        { onConflict: 'assignment_id,richmond_student_id' }
+      )
+
+      if (!scoreError) {
+        syncedCount++
+      }
+    }
+  }
+
+  // Audit log - Richmond data ingest (Chrome extension)
+  await logAudit({
+    teacher_id: apiKey.teacher_id,
+    action: AUDIT_ACTIONS.RICHMOND_CSV_IMPORT,
+    resource_type: 'richmond_ingest',
+    resource_id: group_id,
+    metadata: {
+      synced_count: syncedCount,
+      error_count: errors.length,
+      assignments_count: assignments.length,
+    },
+    req,
+  })
+
+  return NextResponse.json({ ok: true, synced: syncedCount, errors })
+}
