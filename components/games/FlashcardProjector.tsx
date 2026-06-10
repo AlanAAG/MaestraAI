@@ -1,14 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Volume2 } from 'lucide-react'
 import { ProjectorControls } from './ProjectorControls'
+import { useSpeech } from '@/hooks/useSpeech'
 
 export type Flashcard = {
   word: string
   definition: string
   color: string
-  example: string
   phonetic?: string
+  image_url?: string
+  // kept for backward compat with older stored content
+  example?: string
 }
 
 interface FlashcardProjectorProps {
@@ -32,6 +36,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
   const [autoAdvance, setAutoAdvance] = useState(false)
   const [autoAdvanceDelay, setAutoAdvanceDelay] = useState(3)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const { speak, stop } = useSpeech()
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -68,6 +73,15 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFlipped, autoAdvance])
+
+  // Speak word aloud whenever card advances (teacher projection aid)
+  useEffect(() => {
+    if (!cards || cards.length === 0) return
+    const card = cards[currentIndex]
+    if (card) speak(card.word, 'en-US')
+    return () => stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex])
 
   // Auto-advance logic
   useEffect(() => {
@@ -154,54 +168,49 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
             }}
           >
             {!isFlipped ? (
-              <div className="text-center space-y-8 w-full">
-                {/* Color badge */}
-                <div className="flex justify-center">
-                  <div
-                    className={`${colors.text} font-bold px-6 py-2 rounded-full text-2xl`}
-                    style={{
-                      backgroundColor: `${colors.bg}`,
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {card.color}
+              <div className="flex flex-col items-center justify-center h-full w-full gap-4">
+                {/* Image (when available) */}
+                {card.image_url && (
+                  <div className="flex-shrink-0" style={{ maxHeight: '40%' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={card.image_url}
+                      alt={card.word}
+                      className="h-full max-h-56 w-auto object-contain rounded-2xl"
+                    />
                   </div>
-                </div>
+                )}
 
-                {/* Main word */}
-                <div>
+                {/* Main word + speaker */}
+                <div className="flex items-center gap-4">
                   <h1
-                    className={`${colors.text} font-bold mb-2`}
-                    style={{ fontSize: '96px', lineHeight: '1.1' }}
+                    className={`${colors.text} font-bold`}
+                    style={{ fontSize: card.image_url ? '72px' : '96px', lineHeight: '1.1' }}
                   >
                     {card.word}
                   </h1>
-                  {card.phonetic && (
-                    <p
-                      className={`${colors.text} opacity-50 font-mono mb-4`}
-                      style={{ fontSize: '36px' }}
-                    >
-                      {card.phonetic}
-                    </p>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      speak(card.word, 'en-US')
+                    }}
+                    className={`${colors.text} opacity-60 hover:opacity-100 transition-opacity cursor-pointer`}
+                    aria-label="Pronunciar"
+                  >
+                    <Volume2 size={card.image_url ? 40 : 52} />
+                  </button>
                 </div>
 
-                {/* Example sentence */}
-                <div className="max-w-4xl">
-                  <p
-                    className={`${colors.text} font-semibold`}
-                    style={{ fontSize: '40px', lineHeight: '1.4' }}
-                  >
-                    &quot;{card.example}&quot;
+                {card.phonetic && (
+                  <p className={`${colors.text} opacity-50 font-mono`} style={{ fontSize: '32px' }}>
+                    {card.phonetic}
                   </p>
-                </div>
+                )}
 
                 {/* Flip hint */}
-                <div className="text-text-secondary mt-8">
-                  <p style={{ fontSize: '24px' }} className="opacity-60">
-                    Presiona ESPACIO o haz clic para voltear
-                  </p>
-                </div>
+                <p style={{ fontSize: '22px' }} className="opacity-40 mt-4">
+                  Presiona ESPACIO o haz clic para voltear
+                </p>
               </div>
             ) : (
               <div className="text-center space-y-8 w-full">

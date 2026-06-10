@@ -1,14 +1,16 @@
 // lib/FlashcardPdfDocument.tsx
 // SERVER-ONLY: import only from API routes, never from 'use client' components.
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 
 type FlashcardContent = {
   cards: Array<{
     word: string
     definition: string
     color: string
-    example: string
     phonetic?: string
+    image_url?: string
+    // kept for backward compat with older stored content
+    example?: string
   }>
 }
 
@@ -142,11 +144,21 @@ export function FlashcardPdfDocument({ cards, letter, generatedAt }: FlashcardPd
           <View style={styles.grid}>
             {pageCards.map((card, cardIndex) => (
               <View key={cardIndex}>
-                {/* Front side (word + example) */}
+                {/* Front side (image + word) */}
                 <View style={[styles.card, styles.cardFront]}>
+                  {card.image_url && (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <Image
+                      src={card.image_url}
+                      style={{ width: 56, height: 56, objectFit: 'contain', marginBottom: 6 }}
+                    />
+                  )}
                   <Text style={styles.cardWord}>{card.word}</Text>
-                  {card.color && <Text style={styles.cardColor}>{card.color}</Text>}
-                  <Text style={styles.cardSentence}>{card.example}</Text>
+                  {card.phonetic && (
+                    <Text style={[styles.cardSentence, { fontFamily: 'Helvetica-Oblique' }]}>
+                      {card.phonetic}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Back side (definition) */}

@@ -1,11 +1,12 @@
 // lib/GameCardsPdfDocument.tsx
 // SERVER-ONLY: import only from API routes, never from 'use client' components.
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 
 type GamePair = {
   id: string
   word: string
   visual_hint: string
+  image_url?: string
 }
 
 interface GameCardsPdfProps {
@@ -92,9 +93,21 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'center',
   },
-  hintText: {
-    fontSize: 10,
-    color: '#111827',
+  hintImageBox: {
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderStyle: 'dashed',
+    borderRadius: 4,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
+    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  hintImageDesc: {
+    fontSize: 9,
+    color: '#065F46',
     textAlign: 'center',
     lineHeight: 1.4,
   },
@@ -148,10 +161,24 @@ export function GameCardsPdfDocument({ pairs, gameType, generatedAt }: GameCards
                   <Text style={styles.cardText}>{pair.word}</Text>
                 </View>
 
-                {/* Hint card */}
+                {/* Hint card — real image when available, else description */}
                 <View style={[styles.card, styles.hintCard]}>
-                  <Text style={styles.cardLabel}>PISTA</Text>
-                  <Text style={styles.hintText}>{pair.visual_hint}</Text>
+                  {pair.image_url ? (
+                    <>
+                      {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                      <Image
+                        src={pair.image_url}
+                        style={{ width: 64, height: 64, objectFit: 'contain' }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.cardLabel}>IMAGEN — PEGA AQUI</Text>
+                      <View style={styles.hintImageBox}>
+                        <Text style={styles.hintImageDesc}>{pair.visual_hint}</Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             ))}

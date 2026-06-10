@@ -7,6 +7,13 @@ import { Input } from '@/components/ui/input'
 import { X, Sparkles, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { DifficultySelector, type Difficulty } from '@/components/app/materials/DifficultySelector'
 
+type LetterActivityType = 'hear_and_circle' | 'match_to_letter' | 'trace_and_say'
+const LETTER_ACTIVITY_OPTIONS: { id: LetterActivityType; label: string; sub: string }[] = [
+  { id: 'hear_and_circle', label: 'Escuchar', sub: 'encerrar letra' },
+  { id: 'match_to_letter', label: 'Unir', sub: 'imagen → letra' },
+  { id: 'trace_and_say', label: 'Trazar', sub: 'y decir' },
+]
+
 type GenerateMaterialType =
   | 'flashcards'
   | 'worksheets'
@@ -14,6 +21,8 @@ type GenerateMaterialType =
   | 'youtube'
   | 'letter_recognition'
   | 'matching'
+  | 'picture_word_match'
+  | 'sorting_game'
 type SpecialMaterialType = 'bingo' | 'word_search' | 'from_youtube'
 type MaterialType = GenerateMaterialType | SpecialMaterialType | 'fortnight_pack'
 
@@ -35,6 +44,8 @@ const MATERIAL_OPTIONS: MaterialOption[] = [
   { id: 'word_search', label: 'Sopa de Letras', eta: '~1 min' },
   { id: 'youtube', label: 'Videos YouTube', eta: '~2 min' },
   { id: 'from_youtube', label: 'Desde YouTube', eta: '~3 min', needsUrl: true },
+  { id: 'picture_word_match', label: '¿Cuál es la palabra?', eta: '~2 min' },
+  { id: 'sorting_game', label: 'Ordena y clasifica', eta: '~2 min' },
   { id: 'fortnight_pack', label: 'Paquete quincena', eta: 'Pronto', disabled: true },
 ]
 
@@ -45,6 +56,8 @@ const GENERATE_TYPES: GenerateMaterialType[] = [
   'youtube',
   'letter_recognition',
   'matching',
+  'picture_word_match',
+  'sorting_game',
 ]
 
 type MaterialGeneratorProps = {
@@ -65,6 +78,8 @@ export function MaterialGenerator({
   const [cardCount, setCardCount] = useState(30)
   const [freeSpace, setFreeSpace] = useState(true)
   const [difficulty, setDifficulty] = useState<Difficulty>('kinder')
+  const [letterActivityType, setLetterActivityType] =
+    useState<LetterActivityType>('hear_and_circle')
   const [generating, setGenerating] = useState(false)
   const [currentPhase, setCurrentPhase] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -104,7 +119,13 @@ export function MaterialGenerator({
         const res = await fetch('/api/materials/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lesson_plan_id: lessonPlanId, material_types: generateTypes }),
+          body: JSON.stringify({
+            lesson_plan_id: lessonPlanId,
+            material_types: generateTypes,
+            options: selectedTypes.has('letter_recognition')
+              ? { letter_activity_type: letterActivityType }
+              : undefined,
+          }),
         })
         if (!res.ok) {
           const d = await res.json()
@@ -268,6 +289,32 @@ export function MaterialGenerator({
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Dificultad</label>
                 <DifficultySelector value={difficulty} onChange={setDifficulty} />
+              </div>
+            )}
+
+            {/* Letter recognition activity type */}
+            {selectedTypes.has('letter_recognition') && (
+              <div className="mb-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+                <label className="block text-sm font-medium text-indigo-900 mb-2">
+                  Actividad — Reconocimiento de Letras
+                </label>
+                <div className="flex gap-1.5">
+                  {LETTER_ACTIVITY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setLetterActivityType(opt.id)}
+                      className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors text-center ${
+                        letterActivityType === opt.id
+                          ? 'border-indigo-500 bg-indigo-100 text-indigo-900 font-semibold'
+                          : 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50'
+                      }`}
+                    >
+                      <div className="font-medium">{opt.label}</div>
+                      <div className="text-indigo-400 text-xs mt-0.5">{opt.sub}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 

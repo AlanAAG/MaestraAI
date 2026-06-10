@@ -4,8 +4,20 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ArrowLeft, Download, Play, Monitor, Loader2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Download,
+  Play,
+  Monitor,
+  Loader2,
+  Share2,
+  Copy,
+  Check,
+  X,
+  Headphones,
+} from 'lucide-react'
 import Link from 'next/link'
+import { ListenAndTap, type ListenPair } from '@/components/games/ListenAndTap'
 
 type Material = {
   id: string
@@ -14,6 +26,9 @@ type Material = {
   content: any
   vocabulary: string[] | null
   created_at: string
+  lesson_plan_id: string | null
+  lesson_plans: { day_number: number } | null
+  fortnights: { project_name: string } | null
 }
 
 async function downloadPdf(materialId: string, filename: string): Promise<string | null> {
@@ -43,6 +58,37 @@ export default function MaterialDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [playUrl, setPlayUrl] = useState<string | null>(null)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [listenPairs, setListenPairs] = useState<ListenPair[] | null>(null)
+
+  async function handleShare() {
+    if (playUrl) {
+      setShowShareModal(true)
+      return
+    }
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/materials/${id}/play-token`, { method: 'POST' })
+      if (!res.ok) throw new Error()
+      const { play_url } = (await res.json()) as { play_url: string }
+      setPlayUrl(play_url)
+      setShowShareModal(true)
+    } catch {
+      setError('No se pudo crear el enlace de compartir')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  async function handleCopy() {
+    if (!playUrl) return
+    await navigator.clipboard.writeText(playUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const handleDownload = async (filename: string) => {
     setDownloading(true)
@@ -56,7 +102,9 @@ export default function MaterialDetailPage() {
     supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('materials' as any)
-      .select('id, type, content, vocabulary, created_at')
+      .select(
+        'id, type, content, vocabulary, created_at, lesson_plan_id, lesson_plans(day_number), fortnights(project_name)'
+      )
       .eq('id', id)
       .single()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,8 +143,11 @@ export default function MaterialDetailPage() {
     letter_recognition: 'Reconocimiento de Letras',
     matching: 'Matching',
     youtube: 'Videos YouTube',
+    youtube_videos: 'Videos YouTube',
     worksheets: 'Hoja de Trabajo',
     worksheet: 'Hoja de Trabajo',
+    picture_word_match: '¿Cuál es la palabra?',
+    sorting_game: 'Ordena y clasifica',
   }
 
   return (
@@ -105,9 +156,16 @@ export default function MaterialDetailPage() {
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Volver
         </Button>
-        <h1 className="text-xl font-semibold text-gray-900">
-          {typeLabels[material.type] ?? material.type}
-        </h1>
+        <div>
+          {material.fortnights && material.lesson_plans && (
+            <p className="text-xs text-gray-400 mb-0.5">
+              {material.fortnights.project_name} · Día {material.lesson_plans.day_number}
+            </p>
+          )}
+          <h1 className="text-xl font-semibold text-gray-900">
+            {typeLabels[material.type] ?? material.type}
+          </h1>
+        </div>
       </div>
 
       {/* Flashcards */}
@@ -116,12 +174,30 @@ export default function MaterialDetailPage() {
           <p className="text-sm text-gray-600">
             {material.content?.cards?.length ?? 0} tarjetas generadas
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <Link href={`/materiales/${id}/proyectar`}>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700 min-h-[44px]">
                 <Monitor className="mr-2 h-4 w-4" /> Proyectar en clase
               </Button>
             </Link>
+            {(() => {
+              const imagePairs: ListenPair[] = (material.content?.cards ?? [])
+                .filter((c: { word: string; image_url?: string }) => c.image_url)
+                .map((c: { word: string; image_url: string }) => ({
+                  word: c.word,
+                  image_url: c.image_url,
+                }))
+              if (imagePairs.length < 2) return null
+              return (
+                <Button
+                  variant="outline"
+                  className="min-h-[44px]"
+                  onClick={() => setListenPairs(imagePairs)}
+                >
+                  <Headphones className="mr-2 h-4 w-4" /> Modo Escucha
+                </Button>
+              )
+            })()}
           </div>
           <div className="grid grid-cols-2 gap-3 pt-2">
             {material.content?.cards
@@ -142,11 +218,44 @@ export default function MaterialDetailPage() {
           <p className="text-sm text-gray-600">
             {material.content?.pairs?.length ?? 0} pares de tarjetas
           </p>
-          <Link href={`/materiales/${id}/jugar`}>
-            <Button className="bg-green-600 hover:bg-green-700">
-              <Play className="mr-2 h-4 w-4" /> Jugar en clase
+          <div className="flex gap-3 flex-wrap">
+            <Link href={`/materiales/${id}/jugar`}>
+              <Button className="bg-green-600 hover:bg-green-700 min-h-[44px]">
+                <Play className="mr-2 h-4 w-4" /> Jugar en clase
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-2 h-4 w-4" />
+              )}
+              Compartir con alumnos
             </Button>
-          </Link>
+            {(() => {
+              const imagePairs: ListenPair[] = (material.content?.pairs ?? [])
+                .filter((p: { word: string; image_url?: string }) => p.image_url)
+                .map((p: { word: string; image_url: string }) => ({
+                  word: p.word,
+                  image_url: p.image_url,
+                }))
+              if (imagePairs.length < 2) return null
+              return (
+                <Button
+                  variant="outline"
+                  className="min-h-[44px]"
+                  onClick={() => setListenPairs(imagePairs)}
+                >
+                  <Headphones className="mr-2 h-4 w-4" /> Modo Escucha
+                </Button>
+              )
+            })()}
+          </div>
         </Card>
       )}
 
@@ -157,11 +266,26 @@ export default function MaterialDetailPage() {
             {material.content?.card_count ?? '?'} tarjetas únicas •{' '}
             {material.content?.vocabulary?.length ?? 0} palabras de vocabulario
           </p>
-          <Link href={`/materiales/${id}/bingo`}>
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              <Download className="mr-2 h-4 w-4" /> Descargar PDF de Bingo
+          <div className="flex gap-3 flex-wrap">
+            <Link href={`/materiales/${id}/bingo`}>
+              <Button className="bg-purple-600 hover:bg-purple-700 min-h-[44px]">
+                <Download className="mr-2 h-4 w-4" /> Descargar PDF de Bingo
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-2 h-4 w-4" />
+              )}
+              Compartir con alumnos
             </Button>
-          </Link>
+          </div>
           {material.content?.vocabulary && (
             <div className="pt-2">
               <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
@@ -185,18 +309,33 @@ export default function MaterialDetailPage() {
       {/* Word Search */}
       {material.type === 'word_search' && (
         <Card className="p-6 space-y-4">
-          <Button
-            onClick={() => handleDownload('SopaDeLetras.pdf')}
-            disabled={downloading}
-            className="bg-yellow-600 hover:bg-yellow-700"
-          >
-            {downloading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-2 h-4 w-4" />
-            )}
-            Descargar PDF
-          </Button>
+          <div className="flex gap-3 flex-wrap">
+            <Button
+              onClick={() => handleDownload('SopaDeLetras.pdf')}
+              disabled={downloading}
+              className="bg-yellow-600 hover:bg-yellow-700 min-h-[44px]"
+            >
+              {downloading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Descargar PDF
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-2 h-4 w-4" />
+              )}
+              Compartir con alumnos
+            </Button>
+          </div>
           <div className="overflow-auto">
             <table className="border-collapse font-mono text-sm">
               <tbody>
@@ -402,18 +541,32 @@ export default function MaterialDetailPage() {
           <div className="space-y-3">
             {material.content?.pairs?.map(
               (
-                pair: { left: string; right: string; left_type: string; right_type: string },
+                pair: {
+                  word: string
+                  translation: string
+                  image_description: string
+                  image_url?: string
+                },
                 i: number
               ) => (
                 <div key={i} className="flex items-center gap-4 rounded-lg bg-gray-50 p-3">
                   <div className="flex-1 text-center rounded border border-blue-200 bg-blue-50 p-2">
-                    <p className="text-xs text-blue-500 mb-1">{pair.left_type}</p>
-                    <p className="font-medium text-blue-900">{pair.left}</p>
+                    <p className="text-xs text-blue-500 mb-1">palabra</p>
+                    <p className="font-medium text-blue-900">{pair.word}</p>
+                    <p className="text-xs text-blue-400 mt-1">{pair.translation}</p>
                   </div>
                   <span className="text-gray-400">↔</span>
                   <div className="flex-1 text-center rounded border border-green-200 bg-green-50 p-2">
-                    <p className="text-xs text-green-500 mb-1">{pair.right_type}</p>
-                    <p className="font-medium text-green-900">{pair.right}</p>
+                    {pair.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={pair.image_url}
+                        alt={pair.word}
+                        className="w-16 h-16 object-contain mx-auto rounded"
+                      />
+                    ) : (
+                      <p className="font-medium text-green-900 text-sm">{pair.image_description}</p>
+                    )}
                   </div>
                 </div>
               )
@@ -423,7 +576,7 @@ export default function MaterialDetailPage() {
       )}
 
       {/* YouTube recommendations */}
-      {material.type === 'youtube' && (
+      {(material.type === 'youtube_videos' || material.type === 'youtube') && (
         <Card className="p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">Videos Recomendados</h2>
           <div className="space-y-3">
@@ -462,6 +615,193 @@ export default function MaterialDetailPage() {
             )}
           </div>
         </Card>
+      )}
+
+      {/* Picture Word Match */}
+      {material.type === 'picture_word_match' && (
+        <Card className="p-6 space-y-4">
+          <p className="text-sm text-gray-600">
+            {material.content?.items?.length ?? 0} palabras con opciones
+          </p>
+          <div className="flex gap-3 flex-wrap">
+            <Button
+              className="bg-violet-600 hover:bg-violet-700 min-h-[44px]"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-2 h-4 w-4" />
+              )}
+              Compartir con alumnos
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            {material.content?.items
+              ?.slice(0, 6)
+              .map((item: { word: string; image_url?: string; foils: string[] }, i: number) => (
+                <div key={i} className="rounded-lg border border-gray-200 p-3 space-y-1">
+                  <p className="font-semibold text-gray-900">{item.word}</p>
+                  {item.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.image_url}
+                      alt={item.word}
+                      className="w-12 h-12 object-contain rounded"
+                    />
+                  )}
+                  <p className="text-xs text-gray-400">Foils: {item.foils?.join(', ')}</p>
+                </div>
+              ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Sorting Game */}
+      {material.type === 'sorting_game' && (
+        <Card className="p-6 space-y-4">
+          <p className="text-sm text-gray-600">
+            {material.content?.categories?.length ?? 0} categorías ·{' '}
+            {material.content?.items?.length ?? 0} palabras
+          </p>
+          <div className="flex gap-3 flex-wrap">
+            <Button
+              className="bg-teal-600 hover:bg-teal-700 min-h-[44px]"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-2 h-4 w-4" />
+              )}
+              Compartir con alumnos
+            </Button>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            {material.content?.categories?.map(
+              (cat: { name: string; color: string }, i: number) => (
+                <span
+                  key={i}
+                  className="px-4 py-2 rounded-xl border-2 text-sm font-medium bg-gray-50 border-gray-200 text-gray-700"
+                >
+                  {cat.name}
+                </span>
+              )
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {material.content?.items?.map(
+              (item: { word: string; category: string; image_url?: string }, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-sm"
+                >
+                  {item.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.image_url}
+                      alt={item.word}
+                      className="w-5 h-5 object-contain rounded-full"
+                    />
+                  )}
+                  <span>{item.word}</span>
+                  <span className="text-xs text-gray-400">→ {item.category}</span>
+                </div>
+              )
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Listen & Tap modal */}
+      {listenPairs && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Headphones className="h-5 w-5 text-indigo-600" />
+                <h2 className="font-semibold text-gray-900">Modo Escucha</h2>
+              </div>
+              <button
+                onClick={() => setListenPairs(null)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <ListenAndTap pairs={listenPairs} onComplete={() => setListenPairs(null)} />
+          </div>
+        </div>
+      )}
+
+      {/* Share modal */}
+      {showShareModal && playUrl && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900">Compartir con alumnos</h2>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* QR code */}
+            <div className="flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(playUrl)}&ecc=L`}
+                alt="QR code para el juego"
+                width={180}
+                height={180}
+                className="rounded-xl border border-gray-200"
+              />
+            </div>
+
+            {/* URL copy */}
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={playUrl}
+                className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-600 truncate"
+              />
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer min-w-[80px] justify-center"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 text-emerald-500" /> ¡Listo!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" /> Copiar
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* WhatsApp */}
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`¡A jugar! Entra aquí: ${playUrl}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-green-500 hover:bg-green-400 text-white font-medium text-sm transition-colors"
+            >
+              Enviar por WhatsApp
+            </a>
+
+            <p className="text-xs text-gray-400 text-center">
+              Los alumnos no necesitan cuenta para jugar
+            </p>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -61,22 +61,32 @@ const styles = StyleSheet.create({
   optionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 6,
+    gap: 8,
+    marginTop: 8,
   },
-  optionChip: {
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 3,
-    paddingBottom: 3,
+  optionImageBox: {
+    width: 76,
+    height: 68,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
+    borderColor: '#9CA3AF',
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
     backgroundColor: '#F9FAFB',
   },
-  optionChipText: {
-    fontSize: 9,
+  optionImageLabel: {
+    fontSize: 6,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  optionImageDesc: {
+    fontSize: 7,
     color: '#374151',
+    textAlign: 'center',
+    lineHeight: 1.3,
   },
   tprHeaderRow: {
     flexDirection: 'row',
@@ -177,8 +187,9 @@ export function SongWorksheetPdfDocument({ content, title, generatedAt }: SongWo
             {line.options && line.options.length > 0 ? (
               <View style={styles.optionsRow}>
                 {line.options.map((opt, j) => (
-                  <View key={j} style={styles.optionChip}>
-                    <Text style={styles.optionChipText}>{opt.image_description}</Text>
+                  <View key={j} style={styles.optionImageBox}>
+                    <Text style={styles.optionImageLabel}>IMAGEN</Text>
+                    <Text style={styles.optionImageDesc}>{opt.image_description}</Text>
                   </View>
                 ))}
               </View>

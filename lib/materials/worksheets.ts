@@ -1,6 +1,7 @@
 // lib/materials/worksheets.ts
 import Anthropic from '@anthropic-ai/sdk'
 import { WORKSHEETS_PROMPT } from '@/prompts/materials'
+import type { FortnightContext } from './types'
 
 export type WorksheetActivity = {
   type: 'tracing' | 'matching' | 'coloring' | 'circling' | 'sequencing'
@@ -14,15 +15,20 @@ export type WorksheetContent = {
   activities: WorksheetActivity[]
 }
 
-export async function buildWorksheetContent(vocabulary: string[]): Promise<WorksheetContent> {
+export async function buildWorksheetContent(
+  vocabulary: string[],
+  context?: FortnightContext
+): Promise<WorksheetContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const userMessage = `
-Vocabulario para las actividades:
+  const contextBlock = context
+    ? `Contexto de clase:\n- Proyecto: ${context.project_name}\n- Unidad Richmond: ${context.richmond_unit ?? 'N/A'}\n- Valor del mes: ${context.monthly_value ?? 'N/A'}\n\n`
+    : ''
+
+  const userMessage = `${contextBlock}Vocabulario para las actividades:
 ${vocabulary.map((word) => `- ${word}`).join('\n')}
 
-Genera actividades de worksheet apropiadas para este vocabulario.
-`.trim()
+Genera actividades de worksheet apropiadas para este vocabulario.`
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5',

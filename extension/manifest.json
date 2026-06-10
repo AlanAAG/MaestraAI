@@ -13,6 +13,11 @@
       "matches": ["https://richmondlp.com/courses/*/markbook*"],
       "js": ["content.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["https://richmondlp.com/api/interactives/*"],
+      "js": ["ebook-scraper.js"],
+      "run_at": "document_idle"
     }
   ],
   "action": {

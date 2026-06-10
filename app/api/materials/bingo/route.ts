@@ -65,7 +65,10 @@ export async function POST(req: NextRequest) {
     .from('fortnights')
     .select('project_name')
     .eq('id', fortnight_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('teacher_id', (teacher as any).id)
     .single()
+  if (!fortnight) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
   // Use stored vocabulary if provided (re-download), otherwise fetch from lesson plans
   let vocabulary: string[]
@@ -75,12 +78,12 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: plans } = await (supabase as any)
       .from('lesson_plans')
-      .select('blocks')
+      .select('vocabulary')
       .eq('fortnight_id', fortnight_id)
 
     vocabulary = (plans || [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .flatMap((p: any) => p.blocks?.flatMap((b: any) => b.vocabulary || []) || [])
+      .flatMap((p: any) => p.vocabulary ?? [])
       .filter((w: string, i: number, a: string[]) => a.indexOf(w) === i)
   }
 

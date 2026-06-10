@@ -106,13 +106,78 @@ export async function POST(req: NextRequest) {
       obsMap[`ALUMNO_OBS_${i + 1}`] = s.display_name
     })
 
+    // Fetch vocabulary for the fortnight's letter weeks so Claude generates
+    // lesson plans that use the actual words in the teacher's vocabulary bank.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: vocabItems } = await (supabase as any)
+      .from('vocabulary_items')
+      .select('word')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .or(
+        `letter.eq.${(fortnight as any).letter_week1},letter.eq.${(fortnight as any).letter_week2}`
+      )
+    const vocabList = (vocabItems || [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((v: any) => v.word as string)
+      .join(', ')
+
+    // Fetch Richmond unit context when set on the fortnight
+    let richmondInstructions = ''
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const richmondUnit = (fortnight as any).richmond_unit as string | null | undefined
+    if (richmondUnit) {
+      const escapedUnit = richmondUnit.replace(/[%_]/g, '\\$&')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [{ data: assignment }, { data: interactive }] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from('richmond_assignments')
+          .select('instructions')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .eq('group_id', (fortnight as any).group_id)
+          .ilike('title', `%${escapedUnit}%`)
+          .order('due_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        // Also check for richer e-book content captured by the Chrome extension
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from('richmond_interactive_content')
+          .select('content_raw, title')
+          .eq('teacher_id', teacherId)
+          .ilike('title', `%${escapedUnit}%`)
+          .limit(1)
+          .maybeSingle(),
+      ])
+      if (assignment?.instructions) {
+        richmondInstructions = String(assignment.instructions).slice(0, 400)
+      }
+      // E-book content enriches the prompt with actual lesson activities/themes
+      if (interactive?.content_raw) {
+        const raw = interactive.content_raw as Record<string, unknown>
+        const extra = Object.entries(raw)
+          .filter(([, v]) => typeof v === 'string' && (v as string).length > 3)
+          .map(([k, v]) => `${k}: ${v}`)
+          .slice(0, 8)
+          .join('\n')
+        if (extra) {
+          richmondInstructions = richmondInstructions
+            ? `${richmondInstructions}\nContenido del libro digital:\n${extra}`
+            : `Contenido del libro digital:\n${extra}`
+        }
+      }
+    }
+
     const prompt = buildPrompt(
       fortnight,
       neeStudents,
       observationStudents,
       includeProni,
       neeMap,
-      obsMap
+      obsMap,
+      vocabList,
+      richmondUnit ?? '',
+      richmondInstructions
     )
 
     const anthropic = new Anthropic({
@@ -233,9 +298,11 @@ function buildPrompt(
   includeProni: boolean,
   neeMap: Record<string, string>,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _obsMap: Record<string, string>
+  _obsMap: Record<string, string>,
+  vocabList: string = '',
+  richmondUnit: string = '',
+  richmondInstructions: string = ''
 ): string {
-  const vocabList = ''
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
   const projectName = sanitize(fortnight.project_name)
   const monthlyValue = sanitize(fortnight.monthly_value)
@@ -298,7 +365,13 @@ IMPORTANTE: Integra el inglés de forma natural en las actividades, NO como clas
 `
     : ''
 }
-INSTRUCCIONES:
+${
+  richmondUnit
+    ? `UNIDAD RICHMOND ACTUAL: "${richmondUnit}"
+${richmondInstructions ? `Contexto de la unidad: ${richmondInstructions}\n` : ''}El vocabulario de inglés del Martes (bloque PRONI) debe estar alineado con esta unidad de Richmond LRP.
+`
+    : ''
+}INSTRUCCIONES:
 Genera 10 días de planeaciones (2 semanas × 5 días). Para cada día:
 
 1. Respeta el cronograma fijo

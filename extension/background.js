@@ -4,7 +4,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'ASSIGNMENT_SCORES_INTERCEPTED') {
     handleAssignmentScores(message.groupId, message.groupSlug, message.data)
   }
+  if (message.type === 'EBOOK_CONTENT_INTERCEPTED') {
+    handleEbookContent(message.uuid, message.title, message.content)
+  }
 })
+
+async function handleEbookContent(uuid, title, content) {
+  try {
+    const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
+    if (!apiKey) return
+    const targetUrl = apiUrl || 'https://maestraia.com'
+    const response = await fetch(`${targetUrl}/api/richmond/ebook-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ uuid, title, content }),
+    })
+    if (response.ok) {
+      console.log('[MaestraAI] E-book content synced:', uuid, title)
+    } else {
+      console.error('[MaestraAI] E-book sync failed:', response.status)
+    }
+  } catch (error) {
+    console.error('[MaestraAI] E-book sync error:', error)
+  }
+}
 
 async function handleAssignmentScores(groupId, groupSlug, data) {
   try {

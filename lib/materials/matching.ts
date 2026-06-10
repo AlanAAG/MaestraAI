@@ -1,36 +1,37 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { MATCHING_PROMPT } from '@/prompts/materials'
-
-export type MatchingLevel = 'bajo' | 'medio' | 'alto'
+import type { FortnightContext } from './types'
 
 export type MatchingPair = {
-  left: string
-  right: string
-  left_type: 'word' | 'image_description'
-  right_type: 'image_description' | 'sentence'
+  word: string
+  image_description: string
+  image_query: string
+  translation: string
+  image_url?: string
 }
 
 export type MatchingContent = {
-  level: MatchingLevel
   pairs: MatchingPair[]
   teacher_note: string
 }
 
 export async function buildMatching(
   vocabulary: string[],
-  level: MatchingLevel = 'medio'
+  context?: FortnightContext,
+  imageMap?: Record<string, string>
 ): Promise<MatchingContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const prompt = MATCHING_PROMPT.replace('{vocabulary}', vocabulary.join(', ')).replace(
-    '{level}',
-    level
-  )
+  const contextBlock = context
+    ? `Contexto de clase:\n- Proyecto: ${context.project_name}\n- Unidad Richmond: ${context.richmond_unit ?? 'N/A'}\n- Valor del mes: ${context.monthly_value ?? 'N/A'}\n\n`
+    : ''
+
+  const prompt = contextBlock + MATCHING_PROMPT.replace('{vocabulary}', vocabulary.join(', '))
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
     max_tokens: 1024,
-    temperature: 0.5,
+    temperature: 0.3,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -41,9 +42,15 @@ export async function buildMatching(
     content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
   const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
   if (!raw) throw new Error('Claude no devolvió JSON válido')
-  try {
-    return JSON.parse(raw) as MatchingContent
-  } catch {
-    throw new Error('Respuesta de Claude no es JSON válido')
+
+  const result = JSON.parse(raw) as MatchingContent
+
+  if (imageMap && Object.keys(imageMap).length > 0) {
+    result.pairs = result.pairs.map((pair) => ({
+      ...pair,
+      image_url: imageMap[pair.word.toLowerCase()] ?? pair.image_url,
+    }))
   }
+
+  return result
 }

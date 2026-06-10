@@ -20,7 +20,9 @@ function seededShuffle(arr: string[], seed: number): string[] {
 }
 
 export function BingoCallerMode({ vocabulary, title, onExit }: BingoCallerModeProps) {
-  const [words, setWords] = useState<string[]>(() => seededShuffle(vocabulary, Date.now()))
+  const [words, setWords] = useState<string[]>(() =>
+    seededShuffle(vocabulary, Math.floor(Math.random() * 10_000_000))
+  )
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showSidebar, setShowSidebar] = useState(false)
 
@@ -40,7 +42,8 @@ export function BingoCallerMode({ vocabulary, title, onExit }: BingoCallerModePr
         case 's':
         case 'S':
           e.preventDefault()
-          setWords(seededShuffle(vocabulary, Date.now()))
+          const newSeed = Math.floor(Math.random() * 10_000_000)
+          setWords(seededShuffle(vocabulary, newSeed))
           setCurrentIndex(0)
           break
         case 'Escape':

@@ -1,161 +1,146 @@
 // prompts/materials.ts
 
 export const FLASHCARDS_PROMPT = `
-Eres el asistente de MaestraAI, especializado en crear flashcards para preescolar (Kinder 3).
+Creas flashcards para maestros de Kinder 3 en México (inglés como idioma extranjero).
 
-CONTEXTO:
-- Nivel: Kinder 3, estudiantes aprendiendo inglés
-- Uso: Las flashcards se proyectan o imprimen
-- Formato: palabra en inglés al frente, definición simple + oración ejemplo al reverso
-- Color: asigna colores temáticos (rojo=colores, azul=animales, verde=naturaleza, amarillo=objetos, morado=acciones)
+CONTEXTO CRÍTICO:
+- Los niños tienen 5-6 años y NO saben leer
+- El docente lee y pronuncia — los niños solo escuchan, repiten y observan la imagen
+- Cada tarjeta: frente (imagen + palabra en inglés), reverso (traducción española corta)
 
 REGLAS:
-1. Definición: máximo 8 palabras, español mexicano simple
-2. Oración de ejemplo: usar contexto familiar mexicano (casa, escuela, familia, juegos)
-3. Una oración por flashcard, máximo 10 palabras
-4. Color debe ser consistente con la categoría semántica
-5. NO usar vocabulario complejo en las definiciones
+1. "definition": traducción al español, máximo 3 palabras, sin artículos si es posible ("manzana", no "una manzana")
+2. "phonetic": pronunciación silabificada para docentes no nativos — MAYÚSCULAS y guiones (ÆP-ul, KÆT, BLU, TRES)
+3. "image_query": 4-6 palabras en inglés para buscar una ilustración clara en Google/Unsplash — siempre incluir "illustration" o "clipart" y "white background"
+4. "color": categoría del concepto — rojo=colores, azul=animales, verde=naturaleza/comida, amarillo=objetos, morado=acciones
+5. NO incluir oraciones de ejemplo — son para lectores, no para preescolar
 
-FORMATO DE SALIDA (JSON):
+FORMATO JSON exacto (sin texto adicional):
 {
   "cards": [
     {
       "word": "apple",
-      "definition": "Fruta roja o verde que crece en árboles",
-      "example": "I eat an apple for breakfast.",
+      "definition": "manzana",
       "color": "verde",
-      "phonetic": "ÆP-ul"
+      "phonetic": "ÆP-ul",
+      "image_query": "red apple fruit illustration clipart white background"
     }
   ]
 }
-
-El campo "phonetic" es pronunciación simplificada en sílabas con mayúsculas y guiones (ej. "ÆP-ul", "KÆT", "BLU", "TRI"). Ayuda a docentes no nativos.
-
-Genera flashcards para el vocabulario proporcionado.
 `.trim()
 
 export const WORKSHEETS_PROMPT = `
-Eres el asistente de MaestraAI, especializado en crear worksheets para preescolar (Kinder 3).
+Creas worksheets imprimibles para Kinder 3 en México (5-6 años, inglés como idioma extranjero).
 
-CONTEXTO:
-- Nivel: Kinder 3, estudiantes aprendiendo inglés
-- Habilidades: trazado de letras, asociación imagen-palabra, ordenamiento
-- Formato: actividades imprimibles con instrucciones claras
+CRÍTICO — LOS NIÑOS NO SABEN LEER NI ESCRIBIR:
+- PROHIBIDO: fill-in-the-blank con escritura, copiar palabras, trazar letras individuales
+- PERMITIDO: encerrar con círculo, trazar una línea, colorear, señalar, pegar
+- El docente lee TODAS las instrucciones y palabras en voz alta
+- Las actividades usan IMÁGENES como estímulo principal, no texto
+
+TIPOS DE ACTIVIDADES VÁLIDAS:
+- circling: el docente dice la palabra, los niños encierran la imagen correcta entre 3 opciones
+- matching: trazar una línea de la palabra (que el docente lee) a su imagen
+- coloring: colorear la imagen según la instrucción del docente (ej. "el gato es café")
+- sequencing: ordenar 3 imágenes en la secuencia correcta (rutinas, cuentos, ciclos)
 
 REGLAS:
-1. Máximo 3 actividades por worksheet
-2. Instrucciones en español mexicano, vocabulario simple
-3. Actividades apropiadas para motricidad fina de preescolar
-4. Incluir variedad: tracing (trazado), matching (asociación), sequencing (ordenar)
-5. Mantener diseño simple y claro
+1. Exactamente 2-3 actividades por worksheet
+2. Instrucciones en español para el DOCENTE (1 oración clara)
+3. "image_query": 4-6 palabras en inglés para buscar ilustración — incluir "cartoon" o "illustration" + "white background"
+4. Para "matching" y "circling": 3-5 ítems máximo
 
-TIPOS DE ACTIVIDADES:
-- tracing: trazar las letras de la palabra (punteado)
-- matching: unir imagen con palabra
-- coloring: colorear según instrucción
-- circling: encerrar la palabra correcta
-- sequencing: ordenar imágenes según secuencia
-
-FORMATO DE SALIDA (JSON):
+FORMATO JSON exacto (sin texto adicional):
 {
   "activities": [
     {
-      "type": "tracing",
-      "title": "Traza las palabras",
-      "instructions": "Sigue las líneas punteadas para escribir cada palabra.",
-      "items": ["apple", "banana", "orange"]
+      "type": "circling",
+      "title": "Escucha y encierra",
+      "teacher_instruction": "Di cada palabra en inglés. Los alumnos encierran la imagen correcta.",
+      "items": [
+        {
+          "word": "apple",
+          "correct_image_query": "red apple cartoon illustration white background",
+          "foil_image_queries": [
+            "yellow banana cartoon illustration white background",
+            "orange fruit cartoon illustration white background"
+          ]
+        }
+      ]
     },
     {
       "type": "matching",
-      "title": "Une con líneas",
-      "instructions": "Une cada imagen con su palabra en inglés.",
+      "title": "Une con una línea",
+      "teacher_instruction": "Lee cada palabra en voz alta. Los alumnos trazan la línea a la imagen.",
       "pairs": [
-        { "word": "apple", "description": "manzana roja" },
-        { "word": "banana", "description": "plátano amarillo" }
+        {
+          "word": "cat",
+          "image_query": "cat sitting cartoon illustration white background",
+          "translation": "gato"
+        }
       ]
     }
   ]
 }
-
-Genera actividades para el vocabulario proporcionado.
 `.trim()
 
 export const GAMES_PROMPT = `
-Eres el asistente de MaestraAI, especializado en crear juegos educativos para preescolar (Kinder 3).
+Creas juegos de Memory Match (Memorama) para Kinder 3 en México.
 
-CONTEXTO:
-- Nivel: Kinder 3, estudiantes aprendiendo inglés
-- Juego: Memory Match (Memorama) - emparejar tarjetas idénticas
-- Formato: tarjetas imprimibles o proyectables
+CONTEXTO CRÍTICO:
+- Los niños tienen 5-6 años, NO saben leer
+- El juego se proyecta digitalmente o se imprime con imágenes reales
+- Una tarjeta muestra la PALABRA en inglés, la otra muestra una IMAGEN del concepto
+- Los niños emparejan palabra con imagen — el docente lee la palabra en voz alta
 
 REGLAS:
-1. MÁXIMO 6 pares — Kinder 3 tiene memoria de trabajo limitada (12 tarjetas en mesa es suficiente)
-2. Cada par tiene: palabra en inglés + pista visual descriptiva en español
-3. Pista visual: descripción simple de cómo se ve la imagen (para que el docente la imprima o proyecte)
-4. Usar contexto familiar mexicano
-5. Agregar "pair_type": "word_to_picture" para vocabulario nuevo, "word_to_word" (inglés↔español) para repaso
-6. "image_description" describe la imagen visual con detalle suficiente para buscarla en internet
+1. MÁXIMO 6 pares — memoria de trabajo limitada en preescolar
+2. "visual_hint": descripción breve en español de lo que muestra la imagen (docente la menciona si ayuda)
+3. "image_query": 4-6 palabras en inglés para buscar la ilustración — incluir "cartoon" o "illustration" + "white background"
+4. Usar objetos, animales y alimentos concretos y familiares para niños mexicanos
+5. "pair_type": siempre "word_to_picture" para Kinder 3
 
-FORMATO DE SALIDA (JSON):
+FORMATO JSON exacto:
 {
   "game_type": "memory_match",
   "pairs": [
     {
       "id": 1,
       "word": "apple",
-      "visual_hint": "manzana roja brillante con hoja verde",
+      "visual_hint": "manzana roja",
       "pair_type": "word_to_picture",
-      "image_description": "manzana roja brillante con hoja verde, fondo blanco"
-    },
-    {
-      "id": 2,
-      "word": "banana",
-      "visual_hint": "plátano amarillo curvado",
-      "pair_type": "word_to_picture",
-      "image_description": "plátano amarillo curvado, fondo blanco"
+      "image_query": "red apple cartoon illustration white background"
     }
   ]
 }
-
-Genera pares de memoria para el vocabulario proporcionado.
 `.trim()
 
 export const YOUTUBE_PROMPT = `
-Eres el asistente de MaestraAI, especializado en recomendar videos educativos para preescolar (Kinder 3).
-
-CONTEXTO:
-- Nivel: Kinder 3, estudiantes aprendiendo inglés
-- Canal preferido: Super Simple Songs, Dream English Kids, Maple Leaf Learning
-- Duración ideal: corta, apropiada para preescolar
-- Contenido: canciones, chants, historias animadas con el vocabulario
+Recomiendas videos de YouTube para maestros de Kinder 3 en México (inglés como idioma extranjero).
 
 REGLAS:
-1. Máximo 5 videos por recomendación
-2. SOLO recomendar de estos canales verificados: Super Simple Songs, Dream English Kids, Maple Leaf Learning, Blippi (Kids), Cocomelon — ningún otro canal
-3. Duración MÁXIMA 5 minutos — Kinder 3 tiene atención de 10-12 minutos y el video es solo parte de la clase
-4. Contenido en inglés con contexto visual claro (sin diálogos rápidos ni vocabulario avanzado)
-5. Todos los videos llevan "verified": false — el docente DEBE verificar antes de usar en clase
-6. Incluir si el video tiene subtítulos disponibles ("has_subtitles": true/false)
+1. Máximo 4 videos
+2. SOLO de estos canales: Super Simple Songs, Dream English Kids, Maple Leaf Learning, Blippi, Cocomelon
+3. Duración MÁXIMA 5 minutos (atención kinder = 10-12 min total, el video es una parte)
+4. "verified": false siempre — el docente debe confirmar que el video existe y es apropiado
+5. "search_url": URL de búsqueda en YouTube para que el docente encuentre el video directamente
+   Formato: https://www.youtube.com/results?search_query=TITULO+CANAL+kids (palabras separadas por +)
 
-FORMATO DE SALIDA (JSON):
+FORMATO JSON exacto:
 {
   "videos": [
     {
       "title": "Apple Song for Kids",
       "channel": "Super Simple Songs",
       "duration": "2:30",
-      "description": "Canción animada sobre manzanas con vocabulario de colores y frutas. Ritmo lento, ideal para TPR.",
-      "keywords": ["apple", "fruit", "colors"],
+      "description": "Canción animada sobre manzanas, vocabulario de frutas y colores. Ritmo lento, ideal para TPR.",
+      "keywords": ["apple", "fruit"],
       "has_subtitles": true,
-      "verified": false
+      "verified": false,
+      "search_url": "https://www.youtube.com/results?search_query=Apple+Song+Super+Simple+Songs+kids"
     }
   ]
 }
-
-IMPORTANTE: Solo recomendar videos, NO incluir URLs. El docente los buscará manualmente en YouTube.
-⚠ "verified": false siempre — indica al docente que debe revisar el video antes de proyectarlo.
-
-Recomienda videos para el vocabulario y tema del proyecto proporcionado.
 `.trim()
 
 export const YOUTUBE_CLASSIFIER_PROMPT = `
@@ -180,70 +165,78 @@ No agregues explicación. Solo el JSON.
 `.trim()
 
 export const LETTER_RECOGNITION_PROMPT = `
-Eres un generador de actividades de reconocimiento de letras para niños de 5-6 años
-en preescolar mexicano (Kinder 3). Los niños están en etapa emergente de lecto-escritura.
+Genera actividad de reconocimiento de letras para Kinder 3 (preescolar mexicano, 5-6 años).
 
 VOCABULARIO: {vocabulary}
-LETRA: {letter}
-TIPO DE ACTIVIDAD: {activity_type}
+LETRA FOCO: {letter}
+TIPO: {activity_type}
 
-TIPOS DISPONIBLES:
-- hear_and_circle: escucha la palabra, encierra la letra inicial entre 4 opciones
-- match_to_letter: une con línea la imagen a su letra inicial
-- trace_and_say: traza la letra, di la palabra en voz alta
+CONTEXTO: Los niños NO leen ni escriben todavía. El docente guía todo verbalmente.
+El docente muestra la imagen, dice la palabra en inglés, los niños responden con el gesto o señal del tipo de actividad.
+
+TIPOS:
+- hear_and_circle: el docente dice la palabra, los niños encierran la letra inicial entre 4 opciones
+- match_to_letter: los niños trazan una línea de la imagen a la letra inicial correcta
+- trace_and_say: los niños trazan la letra con el dedo mientras el docente dice la palabra
+
+LETRAS VISUALMENTE CONFUNDIBLES — úsalas como distractores (foil_letters):
+A→H,V,N | B→D,P,R | C→G,O,Q | D→B,O,P | E→F,B,P | F→E,P,T
+G→C,Q,O | H→M,N,K | I→J,L,T | L→I,J,T | M→N,W,H | N→M,H,U
+O→C,G,Q | P→B,D,R | R→B,P,K | S→Z,C,G | T→I,F,J | U→V,W,N
+V→U,W,Y | W→M,V,U | X→K,Y,Z | Y→V,X,T | Z→S,X,N
 
 REGLAS:
-- Instrucciones en español para el docente, inglés simple para el alumno
-- Máximo 5 ítems por actividad (atención kinder)
-- Los distractores (foil_letters) deben ser letras visualmente similares
+- Exactamente 3 foil_letters del mapa de arriba para la letra foco
+- Máximo 5 ítems
+- "teacher_instructions": qué hace el docente (en español, 1-2 oraciones)
+- "image_query": 4-6 palabras en inglés para buscar ilustración simple — incluir "illustration" + "white background"
+- NO incluir student_instructions — el docente guía verbalmente
 
 Responde SOLO con JSON:
 {
-  "activity_type": "string",
-  "teacher_instructions": "string",
-  "student_instructions": "string",
+  "activity_type": "hear_and_circle",
+  "teacher_instructions": "Muestra cada imagen, di la palabra en inglés. Los alumnos encierran la letra inicial correcta.",
   "items": [
     {
-      "word": "string",
-      "target_letter": "string",
-      "image_description": "string",
-      "foil_letters": ["string"]
+      "word": "apple",
+      "target_letter": "A",
+      "image_description": "manzana roja",
+      "image_query": "apple fruit cartoon illustration white background",
+      "foil_letters": ["H", "V", "N"]
     }
   ]
 }
 `.trim()
 
 export const MATCHING_PROMPT = `
-Genera una actividad de unir con línea para Kinder 3 (inglés, preescolar mexicano).
+Genera actividad de unir con línea para Kinder 3 (inglés, preescolar mexicano).
 
 VOCABULARIO: {vocabulary}
-NIVEL: {level}
 
-NIVELES (alumnos de Kinder 3 que NO leen todavía):
-- bajo: imagen ↔ imagen (sin texto — dos representaciones del mismo objeto; apto para no lectores)
-- medio: imagen + etiqueta en ESPAÑOL ↔ imagen + etiqueta en INGLÉS (puente L1→L2, no requiere leer inglés)
-- alto: palabra en inglés ↔ descripción de imagen (solo para vocabulario ya conocido, no oraciones completas)
-
-NUNCA usar oraciones completas — requieren lectura que Kinder 3 no tiene.
-El campo "left" y "right" deben ser palabras cortas o frases de máximo 3 palabras.
+DISEÑO PARA NO LECTORES:
+- Columna izquierda: PALABRA en inglés grande (el docente la lee en voz alta — no requiere que el niño lea)
+- Columna derecha: IMAGEN del concepto (los niños buscan la imagen que corresponde)
+- Los niños trazan una línea del papel de la palabra a su imagen
 
 REGLAS:
-- MÁXIMO 6 pares por hoja
-- Orden aleatorio en columnas (no alineados)
-- Instrucciones en español para docente
+- Exactamente entre 4 y 6 pares
+- "word": la palabra en inglés tal como aparece en el vocabulario
+- "image_description": descripción visual en español de la imagen (qué se ve)
+- "image_query": 4-6 palabras en inglés para buscar la ilustración — incluir "cartoon" o "illustration" + "white background"
+- "translation": traducción al español corta (1-2 palabras) — el docente la dice en español también
+- "teacher_note": instrucción de 1 oración para el docente
 
 Responde SOLO con JSON:
 {
-  "level": "string",
   "pairs": [
     {
-      "left": "string",
-      "right": "string",
-      "left_type": "word|image_description",
-      "right_type": "image_description|sentence"
+      "word": "cat",
+      "image_description": "gato gris sentado",
+      "image_query": "cat cartoon illustration white background",
+      "translation": "gato"
     }
   ],
-  "teacher_note": "string"
+  "teacher_note": "Señala cada palabra y dila en voz alta en inglés y español. Los alumnos trazan una línea a la imagen correcta."
 }
 `.trim()
 
@@ -254,21 +247,23 @@ TRANSCRIPCIÓN: {transcript}
 TÍTULO: {song_title}
 VOCABULARIO DETECTADO: {key_vocabulary}
 
-IMPORTANTE: Los alumnos de Kinder 3 NO saben leer ni escribir.
-NO usar fill-in-the-blank con escritura. En su lugar, usar SELECCIÓN DE IMAGEN (circle the picture).
+CRÍTICO: Los alumnos NO saben leer ni escribir.
+- No fill-in-the-blank con escritura
+- Los alumnos SEÑALAN o ENCIERRAN imágenes — nunca escriben
+- El docente canta/dice la línea, los alumnos señalan la imagen correcta entre 3 opciones
 
 Genera TRES componentes:
 
-1. LYRIC_WORKSHEET: toma el coro o estrofa más repetida (máx 6 líneas).
-   Para cada palabra clave (1 por línea), ofrece 3 opciones de imagen descriptiva.
-   El alumno encierra con un círculo la imagen correcta — SIN escribir.
+1. LYRIC_WORKSHEET: el coro o estrofa más repetida, máx 6 líneas.
+   Por línea: 1 palabra clave con 3 opciones de imagen.
+   "image_query": 4-6 palabras en inglés para buscar la imagen (incluir "cartoon" o "illustration" + "white background")
 
-2. TPR_GUIDE: para cada palabra de vocabulario clave,
-   sugiere un gesto físico simple que los niños puedan hacer.
-   Máximo 6 gestos. Descripción del gesto en español, palabra en inglés.
+2. TPR_GUIDE: máx 6 gestos físicos simples para palabras clave.
+   Cada gesto: UN movimiento corporal simple que un niño de 5 años puede imitar.
+   Describir en español. Evitar gestos abstractos o complejos.
 
-3. VOCAB_CARDS: extrae las 5-8 palabras más importantes de la canción.
-   Para cada una: palabra en inglés + descripción de imagen simple para que el docente la imprima.
+3. VOCAB_CARDS: 5-8 palabras importantes de la canción.
+   "image_query": para buscar la ilustración de cada palabra.
 
 Responde SOLO con JSON:
 {
@@ -279,9 +274,9 @@ Responde SOLO con JSON:
         "text": "string",
         "missing_word": "string",
         "options": [
-          { "word": "string", "image_description": "string", "correct": true },
-          { "word": "string", "image_description": "string", "correct": false },
-          { "word": "string", "image_description": "string", "correct": false }
+          { "word": "string", "image_description": "string", "image_query": "string", "correct": true },
+          { "word": "string", "image_description": "string", "image_query": "string", "correct": false },
+          { "word": "string", "image_description": "string", "image_query": "string", "correct": false }
         ]
       }
     ]
@@ -290,7 +285,7 @@ Responde SOLO con JSON:
     { "word": "string", "gesture": "string" }
   ],
   "vocab_cards": [
-    { "word": "string", "image_description": "string" }
+    { "word": "string", "image_description": "string", "image_query": "string" }
   ]
 }
 `.trim()

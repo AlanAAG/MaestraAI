@@ -1,5 +1,5 @@
 // SERVER-ONLY: import only from API routes, never from 'use client' components.
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
 import { WatermarkFooter, PAGE_SIZE, PAGE_PADDING } from './base'
 import type { MatchingContent } from '@/lib/materials/matching'
@@ -111,10 +111,9 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 
 export function MatchingPdfDocument({ content, title, generatedAt }: MatchingPdfProps) {
   const { pairs, teacher_note } = content
-  // Shuffle right column so items don't align with left — seed from vocab content
-  const seed = pairs.map((p) => p.left).join('').length * 17 + pairs.length
+  const seed = pairs.map((p) => p.word).join('').length * 17 + pairs.length
   const rightItems = seededShuffle(
-    pairs.map((p) => ({ text: p.right, label: p.right_type })),
+    pairs.map((p) => ({ image_url: p.image_url, image_description: p.image_description })),
     seed
   )
 
@@ -122,9 +121,9 @@ export function MatchingPdfDocument({ content, title, generatedAt }: MatchingPdf
     <Document title={`Matching - ${title}`}>
       <Page size={PAGE_SIZE} style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.title}>{title} — Matching</Text>
+          <Text style={styles.title}>{title} — Une con una linea</Text>
           <Text style={styles.subtitle}>
-            Dibuja una linea conectando cada palabra con su imagen o descripcion
+            El docente lee cada palabra. Los alumnos trazan una linea a la imagen correcta.
           </Text>
         </View>
 
@@ -132,8 +131,8 @@ export function MatchingPdfDocument({ content, title, generatedAt }: MatchingPdf
           <View style={styles.column}>
             {pairs.map((pair, i) => (
               <View key={i} style={[styles.item, styles.leftItem]}>
-                <Text style={styles.itemLabel}>{pair.left_type}</Text>
-                <Text style={styles.itemText}>{pair.left}</Text>
+                <Text style={styles.itemText}>{pair.word}</Text>
+                <Text style={styles.itemLabel}>{pair.translation}</Text>
               </View>
             ))}
           </View>
@@ -147,12 +146,21 @@ export function MatchingPdfDocument({ content, title, generatedAt }: MatchingPdf
           </View>
 
           <View style={styles.column}>
-            {rightItems.map((item, i) => (
-              <View key={i} style={[styles.item, styles.rightItem]}>
-                <Text style={styles.itemLabel}>{item.label}</Text>
-                <Text style={styles.itemText}>{item.text}</Text>
-              </View>
-            ))}
+            {rightItems.map((item, i) =>
+              item.image_url ? (
+                <View key={i} style={[styles.item, styles.rightItem]}>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image
+                    src={item.image_url}
+                    style={{ width: '100%', height: 44, objectFit: 'contain' }}
+                  />
+                </View>
+              ) : (
+                <View key={i} style={[styles.item, styles.rightItem]}>
+                  <Text style={styles.itemText}>{item.image_description}</Text>
+                </View>
+              )
+            )}
           </View>
         </View>
 

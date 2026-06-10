@@ -3,11 +3,13 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Trophy, RotateCcw } from 'lucide-react'
+import { seededShuffle } from '@/lib/utils/shuffle'
 
 type CardPair = {
   id: string
   word: string
   visual_hint: string
+  image_url?: string
 }
 
 type Card = {
@@ -30,7 +32,7 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
   const [isComplete, setIsComplete] = useState(false)
   const [moves, setMoves] = useState(0)
 
-  // Initialize cards on mount
+  // Initialize cards on mount with a deterministic seed derived from pair IDs
   useEffect(() => {
     const gameCards: Card[] = []
     pairs.forEach((pair) => {
@@ -47,8 +49,8 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
         type: 'hint',
       })
     })
-    // Shuffle cards
-    setCards(gameCards.sort(() => Math.random() - 0.5))
+    const seed = pairs.reduce((acc, p) => acc + p.id.charCodeAt(0), 0) * 17
+    setCards(seededShuffle(gameCards, seed))
   }, [pairs])
 
   // Check for completion
@@ -99,7 +101,8 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
     setIsChecking(false)
     setIsComplete(false)
     setMoves(0)
-    setCards((prev) => [...prev].sort(() => Math.random() - 0.5))
+    // Fresh random seed on reset so the game feels different each play
+    setCards((prev) => seededShuffle(prev, Math.floor(Math.random() * 1_000_000)))
   }
 
   function isCardFlipped(cardId: string): boolean {
@@ -159,20 +162,34 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
                       initial={{ rotateY: 90 }}
                       animate={{ rotateY: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="text-center"
+                      className="text-center w-full px-1"
                     >
-                      <p
-                        className={`
-                        ${card.type === 'word' ? 'text-2xl font-bold text-text-primary' : 'text-base text-text-secondary'}
-                      `}
-                      >
-                        {card.content}
-                      </p>
-                      {card.type === 'word' && (
-                        <span className="text-xs text-primary mt-2 block">palabra</span>
-                      )}
-                      {card.type === 'hint' && (
-                        <span className="text-xs text-accent mt-2 block">pista</span>
+                      {card.type === 'word' ? (
+                        <>
+                          <p className="text-2xl font-bold text-text-primary">{card.content}</p>
+                          <span className="text-xs text-primary mt-2 block">palabra</span>
+                        </>
+                      ) : (
+                        (() => {
+                          const pair = pairs.find((p) => p.id === card.pairId)
+                          return pair?.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={pair.image_url}
+                              alt={pair.word}
+                              className="w-full h-full object-contain p-1 rounded-lg"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="w-10 h-10 rounded-lg border-2 border-dashed border-emerald-300 flex items-center justify-center bg-emerald-50">
+                                <span className="text-emerald-500 text-lg">🖼</span>
+                              </div>
+                              <p className="text-xs text-emerald-700 font-medium text-center leading-tight mt-1">
+                                {card.content}
+                              </p>
+                            </div>
+                          )
+                        })()
                       )}
                     </motion.div>
                   ) : (

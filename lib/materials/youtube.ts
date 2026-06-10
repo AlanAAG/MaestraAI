@@ -3,6 +3,7 @@
 // "solo videos públicos" policy (Aviso de Privacidad, Sección VII).
 import Anthropic from '@anthropic-ai/sdk'
 import { YOUTUBE_PROMPT } from '@/prompts/materials'
+import type { FortnightContext } from './types'
 
 export async function assertYoutubePublic(url: string): Promise<void> {
   const oEmbed = await fetch(
@@ -31,18 +32,24 @@ export type YoutubeContent = {
 
 export async function buildYoutubeRecommendations(
   vocabulary: string[],
-  projectTheme: string
+  context: FortnightContext | string
 ): Promise<YoutubeContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const userMessage = `
-Vocabulario del tema:
+  const projectTheme = typeof context === 'string' ? context : context.project_name
+  const contextBlock =
+    typeof context === 'string'
+      ? ''
+      : context.richmond_unit
+        ? `Unidad Richmond: ${context.richmond_unit}\n`
+        : ''
+
+  const userMessage = `Vocabulario del tema:
 ${vocabulary.map((word) => `- ${word}`).join('\n')}
 
 Tema del proyecto: ${projectTheme}
-
-Recomienda videos educativos de YouTube apropiados para este vocabulario y tema.
-`.trim()
+${contextBlock}
+Recomienda videos educativos de YouTube apropiados para este vocabulario y tema.`
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
