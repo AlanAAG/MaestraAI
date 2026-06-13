@@ -56,7 +56,7 @@ Return ONLY valid JSON with no markdown or explanation:
 Assign EVERY vocabulary word to exactly one category. Use at most 3 categories.`
 
   const response = await client.messages.create({
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     temperature: 0.3,
     messages: [{ role: 'user', content: prompt }],

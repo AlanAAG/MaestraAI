@@ -29,7 +29,7 @@ export async function buildMatching(
   const prompt = contextBlock + MATCHING_PROMPT.replace('{vocabulary}', vocabulary.join(', '))
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     temperature: 0.3,
     messages: [{ role: 'user', content: prompt }],

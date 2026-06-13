@@ -29,7 +29,7 @@ export async function buildLetterRecognition(
     .replace('{activity_type}', activityType)
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     temperature: 0.5,
     messages: [{ role: 'user', content: prompt }],

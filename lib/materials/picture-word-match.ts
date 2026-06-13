@@ -38,7 +38,7 @@ Return ONLY valid JSON with no markdown or explanation:
 Include ALL ${vocabulary.length} vocabulary words.`
 
   const response = await client.messages.create({
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     temperature: 0.3,
     messages: [{ role: 'user', content: prompt }],

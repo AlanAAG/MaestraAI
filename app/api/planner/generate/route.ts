@@ -6,6 +6,8 @@ import { isProniApplicable } from '@/lib/nem-official-data'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
+export const maxDuration = 120
+
 const GenerateInputSchema = z.object({
   fortnight_id: z.string().uuid(),
 })
@@ -199,7 +201,7 @@ export async function POST(req: NextRequest) {
 
         try {
           const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-5',
+            model: 'claude-sonnet-4-6',
             max_tokens: 4096,
             temperature: 0.7,
             messages: [

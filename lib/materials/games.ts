@@ -35,7 +35,7 @@ Tipo de juego: ${gameType}
 Genera pares de memoria para este vocabulario.`
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
     temperature: 0.4,
     system: GAMES_PROMPT,

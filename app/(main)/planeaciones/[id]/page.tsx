@@ -236,12 +236,17 @@ export default function PlaneacionDetailPage() {
             const parsed = JSON.parse(data)
             if (parsed.phase) {
               setGenerationPhase(parsed.phase)
+            } else if (parsed.error) {
+              throw new Error(parsed.error)
             }
-          } catch {
-            // Skip malformed JSON
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) continue
+            throw parseErr
           }
         }
       }
+      // Stream closed without [DONE] — treat as failure
+      throw new Error('Stream ended unexpectedly')
     } catch (error) {
       console.error('Generation error:', error)
       setGenerating(false)
