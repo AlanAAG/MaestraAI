@@ -5,6 +5,7 @@ import { ZeroState } from '@/components/app/ZeroState'
 import { Card } from '@/components/ui/card'
 import { BookOpen, Database, FileText, Calendar, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getEditorialConfig } from '@/lib/editorial/registry'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -130,28 +131,23 @@ export default function DashboardPage() {
           <p className="text-sm text-text-secondary">Genera boletas cualitativas</p>
         </Card>
 
-        {teacher?.editorial && (
-          <Card
-            className="p-6 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => router.push('/dashboard/richmond')}
-          >
-            <Database size={32} className="text-primary mb-3" strokeWidth={1.5} />
-            <h3 className="text-lg font-semibold text-text-primary mb-1">
-              {teacher.editorial === 'richmond'
-                ? 'Richmond LP'
-                : teacher.editorial === 'macmillan'
-                  ? 'Macmillan'
-                  : teacher.editorial === 'pearson'
-                    ? 'Pearson'
-                    : teacher.editorial.charAt(0).toUpperCase() + teacher.editorial.slice(1)}
-            </h3>
-            <p className="text-sm text-text-secondary">
-              {lastSync
-                ? `Última sincronización: ${formatDate(lastSync.started_at)}`
-                : 'Sin sincronizar'}
-            </p>
-          </Card>
-        )}
+        {(() => {
+          const ec = getEditorialConfig(teacher?.editorial)
+          return ec.has_lms_sync && ec.sync_path ? (
+            <Card
+              className="p-6 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => router.push(ec.sync_path!)}
+            >
+              <Database size={32} className="text-primary mb-3" strokeWidth={1.5} />
+              <h3 className="text-lg font-semibold text-text-primary mb-1">{ec.label}</h3>
+              <p className="text-sm text-text-secondary">
+                {lastSync
+                  ? `Última sincronización: ${formatDate(lastSync.started_at)}`
+                  : 'Sin sincronizar'}
+              </p>
+            </Card>
+          ) : null
+        })()}
       </div>
     </div>
   )

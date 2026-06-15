@@ -11,6 +11,7 @@ import { StudentRoster } from '@/components/settings/StudentRoster'
 import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
 import { X, ExternalLink, CheckCircle2, Clock } from 'lucide-react'
 import { RichmondExtensionGuide } from '@/components/app/RichmondExtensionGuide'
+import { getEditorialConfig } from '@/lib/editorial/registry'
 
 // Replace with the real Chrome Web Store URL after the extension is approved.
 // Format: https://chromewebstore.google.com/detail/maestraai-richmond-sync/[extension-id]
@@ -439,11 +440,11 @@ export default function ConfiguracionPage() {
         )}
       </Card>
 
-      {/* Richmond Sync Section */}
-      {teacher?.editorial?.toLowerCase().includes('richmond') && (
+      {/* LMS Sync Section — shown only for editorials that support it */}
+      {getEditorialConfig(teacher?.editorial).has_lms_sync && (
         <Card className="p-6">
           <h2 className="text-lg font-semibold text-text-primary mb-1">
-            Sincronización Richmond LP
+            Sincronización {getEditorialConfig(teacher?.editorial).label}
           </h2>
           <p className="text-sm text-text-secondary mb-6">
             La extensión de Chrome captura automáticamente las calificaciones de Richmond cuando

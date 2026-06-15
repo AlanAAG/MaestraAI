@@ -9,6 +9,7 @@ import { SchoolSelector } from '@/components/onboarding/SchoolSelector'
 import { SchoolCreator } from '@/components/onboarding/SchoolCreator'
 import { GroupCreator } from '@/components/onboarding/GroupCreator'
 import { Check } from 'lucide-react'
+import { EDITORIAL_OPTIONS } from '@/lib/editorial/registry'
 
 const STEPS = [
   { question: '¿Cómo te llamas?', field: 'full_name', placeholder: 'Ej: María García' },
@@ -283,12 +284,12 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {/* Step 1-2: Basic info */}
-            {step < 2 && (
+            {/* Step 0: Name (free text) */}
+            {step === 0 && (
               <>
                 <Input
-                  value={answers[currentStep.field as keyof typeof answers]}
-                  onChange={(e) => setAnswers({ ...answers, [currentStep.field]: e.target.value })}
+                  value={answers.full_name}
+                  onChange={(e) => setAnswers({ ...answers, full_name: e.target.value })}
                   placeholder={currentStep.placeholder}
                   className="mb-6 min-h-[44px]"
                   autoFocus
@@ -296,10 +297,36 @@ export default function OnboardingPage() {
                     if (e.key === 'Enter') handleNext()
                   }}
                 />
-
                 <Button
                   onClick={handleNext}
-                  disabled={!answers[currentStep.field as keyof typeof answers]}
+                  disabled={!answers.full_name}
+                  className="w-full min-h-[44px] bg-primary hover:bg-primary-dark"
+                >
+                  Siguiente
+                </Button>
+              </>
+            )}
+
+            {/* Step 1: Editorial (select from registry) */}
+            {step === 1 && (
+              <>
+                <select
+                  value={answers.editorial}
+                  onChange={(e) => setAnswers({ ...answers, editorial: e.target.value })}
+                  className="w-full mb-6 h-11 px-3 rounded-lg border border-input bg-background text-sm
+                    focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoFocus
+                >
+                  <option value="">Selecciona tu editorial...</option>
+                  {EDITORIAL_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  onClick={handleNext}
+                  disabled={!answers.editorial}
                   className="w-full min-h-[44px] bg-primary hover:bg-primary-dark"
                 >
                   Siguiente
