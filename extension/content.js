@@ -1,10 +1,11 @@
-// content.js - Intercepts Richmond API calls for assignment scores
+// content.js - Intercepts Richmond API calls for assignment scores and e-book content
 
-// Dynamic GROUP_UUID_MAP loaded from /api/richmond/groups
 let GROUP_UUID_MAP = {}
 let isInitialized = false
+// Payloads that arrive before group mappings are loaded are queued here and
+// replayed once loadGroupMappings() resolves.
+const pendingPayloads = []
 
-// Load group mappings from MaestraAI API
 async function loadGroupMappings() {
   try {
     const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
@@ -15,9 +16,7 @@ async function loadGroupMappings() {
     }
 
     const response = await fetch(`${apiUrl}/api/richmond/groups`, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { Authorization: `Bearer ${apiKey}` },
     })
 
     if (!response.ok) {
@@ -29,91 +28,108 @@ async function loadGroupMappings() {
     GROUP_UUID_MAP = data.groupMap || {}
     isInitialized = true
 
-    console.log('[MaestraAI] Connected as:', data.teacherName)
-    console.log('[MaestraAI] Syncing', data.totalGroups, 'groups')
+    console.log('[MaestraAI] Connected as:', data.teacherName, '—', data.totalGroups, 'groups')
+
+    // Drain any payloads that arrived before mappings were ready
+    if (pendingPayloads.length > 0) {
+      console.log('[MaestraAI] Draining', pendingPayloads.length, 'queued payload(s)')
+      pendingPayloads.splice(0).forEach(({ groupSlug, data: scoreData }) => {
+        sendAssignmentScores(groupSlug, scoreData)
+      })
+    }
   } catch (error) {
     console.error('[MaestraAI] Failed to load group mappings:', error)
   }
 }
 
-// Listen for storage changes (when API key is updated)
+function sendAssignmentScores(groupSlug, data) {
+  const groupId = GROUP_UUID_MAP[groupSlug]
+  if (!groupId) {
+    console.warn('[MaestraAI] No mapping for slug:', groupSlug, 'Known:', Object.keys(GROUP_UUID_MAP))
+    return
+  }
+  if (!Array.isArray(data)) return
+  console.log('[MaestraAI] Sending', data.length, 'assignments for', groupSlug)
+  chrome.runtime.sendMessage({ type: 'ASSIGNMENT_SCORES_INTERCEPTED', groupId, groupSlug, data })
+}
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && (changes.apiKey || changes.apiUrl)) {
-    console.log('[MaestraAI] API configuration changed, reloading groups...')
+    console.log('[MaestraAI] Config changed, reloading group mappings...')
+    isInitialized = false
     loadGroupMappings()
   }
 })
 
-// Handle messages from popup (e.g. reload after successful connection test)
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'RELOAD_MAPPINGS') {
-    console.log('[MaestraAI] Reloading group mappings on popup request...')
+    isInitialized = false
     loadGroupMappings()
   }
 })
 
-// Load mappings on script initialization
 loadGroupMappings()
 
-// Override XMLHttpRequest to intercept API calls
+// Override XMLHttpRequest to intercept Richmond API responses
 const OriginalXHR = window.XMLHttpRequest
 const CustomXHR = function () {
   const xhr = new OriginalXHR()
   const originalOpen = xhr.open
 
   xhr.open = function (method, url, ...args) {
-    // Detect assignment_scores API calls
-    if (
-      url.includes('/api/course_modules/') &&
-      url.includes('/assignment_scores.json')
-    ) {
-      const originalOnLoad = xhr.onload
+    const urlStr = String(url)
 
+    // --- Assignment scores ---
+    if (urlStr.includes('/api/course_modules/') && urlStr.includes('/assignment_scores.json')) {
+      const originalOnLoad = xhr.onload
       xhr.onload = function () {
         if (xhr.status === 200) {
           try {
             const data = JSON.parse(xhr.responseText)
-
-            // Extract group slug from page URL
-            const pageUrl = window.location.pathname
-            const groupMatch = pageUrl.match(/\/courses\/(grupo-[a-z0-9]+)\//)
-            const groupSlug = groupMatch ? groupMatch[1] : null
-            const groupId = groupSlug ? GROUP_UUID_MAP[groupSlug] : null
+            // Extract group slug from the current page URL — broaden to capture any slug format
+            const slugMatch = window.location.pathname.match(/\/courses\/([^/]+)\//)
+            const groupSlug = slugMatch ? slugMatch[1] : null
+            if (!groupSlug) return
 
             if (!isInitialized) {
-              console.warn('[MaestraAI] Group mappings not loaded yet, skipping sync')
-              return
-            }
-
-            if (!groupId) {
-              console.warn(
-                '[MaestraAI] No group mapping found for slug:',
-                groupSlug,
-                'Available groups:',
-                Object.keys(GROUP_UUID_MAP)
-              )
-              return
-            }
-
-            if (groupId && Array.isArray(data)) {
-              console.log('[MaestraAI] Intercepted assignment scores:', data.length, 'assignments for', groupSlug)
-
-              // Send to background script
-              chrome.runtime.sendMessage({
-                type: 'ASSIGNMENT_SCORES_INTERCEPTED',
-                groupId,
-                groupSlug,
-                data,
-              })
+              pendingPayloads.push({ groupSlug, data })
+              console.log('[MaestraAI] Queued assignment payload (groups not loaded yet)')
+            } else {
+              sendAssignmentScores(groupSlug, data)
             }
           } catch (error) {
             console.error('[MaestraAI] Failed to parse assignment scores:', error)
           }
         }
+        if (originalOnLoad) originalOnLoad.apply(this, arguments)
+      }
+    }
 
-        if (originalOnLoad) {
-          originalOnLoad.apply(this, arguments)
+    // --- E-book interactive content ---
+    if (urlStr.includes('/api/interactives/')) {
+      const originalOnLoad = xhr.onload
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          try {
+            const content = JSON.parse(xhr.responseText)
+            const uuidMatch = urlStr.match(/\/api\/interactives\/([^/?#]+)/)
+            const uuid = uuidMatch ? uuidMatch[1] : null
+            if (!uuid) return
+            const title =
+              content.title || content.name || content.unit_name ||
+              content.lessonName || content.lesson_title || content.unitTitle || null
+            console.log('[MaestraAI] Captured e-book content — UUID:', uuid, 'Title:', title)
+            chrome.runtime.sendMessage({
+              type: 'EBOOK_CONTENT_INTERCEPTED',
+              uuid,
+              title: title ? String(title) : null,
+              content,
+            })
+          } catch (error) {
+            console.error('[MaestraAI] Failed to parse interactive content:', error)
+          }
         }
+        if (originalOnLoad) originalOnLoad.apply(this, arguments)
       }
     }
 
@@ -125,4 +141,4 @@ const CustomXHR = function () {
 
 window.XMLHttpRequest = CustomXHR
 
-console.log('[MaestraAI] Content script loaded - waiting for group mappings...')
+console.log('[MaestraAI] Content script loaded — waiting for group mappings...')

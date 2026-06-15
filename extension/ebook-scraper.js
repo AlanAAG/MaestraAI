@@ -1,7 +1,8 @@
 // ebook-scraper.js
-// Captures Richmond LRP interactive (e-book) unit content when the teacher opens a unit.
-// Runs on: https://richmondlp.com/api/interactives/*
-// The browser navigates directly to the API URL which returns JSON.
+// NOTE: This file is no longer active. E-book XHR interception was moved into
+// content.js so it fires on all Richmond course pages, not just when the browser
+// navigates directly to the raw API URL (which teachers never do).
+// Kept for reference; not listed in manifest.json content_scripts.
 
 ;(function () {
   const uuid = window.location.pathname.split('/').pop()
