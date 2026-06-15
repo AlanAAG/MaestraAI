@@ -14,6 +14,7 @@ import {
   Search,
   AlignLeft,
   Shuffle,
+  Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -120,6 +121,14 @@ export default function MaterialesPage() {
     load()
   }, [router])
 
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm('¿Eliminar este material?')) return
+    const res = await fetch(`/api/materials/${id}`, { method: 'DELETE' })
+    if (res.ok) setMaterials((prev) => prev.filter((m) => m.id !== id))
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -161,7 +170,7 @@ export default function MaterialesPage() {
                     TYPE_COLORS[m.type] ?? 'bg-gray-50 text-gray-700 border-gray-200'
                   const label = TYPE_LABELS[m.type] ?? m.type
                   return (
-                    <Link key={m.id} href={`/materiales/${m.id}`}>
+                    <Link key={m.id} href={`/materiales/${m.id}`} className="relative group">
                       <Card
                         className={`p-4 border cursor-pointer hover:shadow-md transition-shadow ${colorClass}`}
                       >
@@ -174,6 +183,13 @@ export default function MaterialesPage() {
                           })}
                         </p>
                       </Card>
+                      <button
+                        onClick={(e) => handleDelete(e, m.id)}
+                        className="absolute top-1.5 right-1.5 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-red-50 text-gray-400 hover:text-red-600"
+                        aria-label="Eliminar material"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </Link>
                   )
                 })}

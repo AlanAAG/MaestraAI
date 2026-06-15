@@ -249,7 +249,7 @@ export default function ConfiguracionPage() {
 
       if (!response.ok) throw new Error('Failed to revoke key')
 
-      await loadData()
+      setApiKeys((prev) => prev.filter((k) => k.id !== keyId))
       setGeneratedKey(null)
     } catch (err) {
       console.error('Failed to revoke API key:', err)

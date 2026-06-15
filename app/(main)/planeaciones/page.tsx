@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ZeroState } from '@/components/app/ZeroState'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Calendar, Plus, AlertCircle } from 'lucide-react'
+import { Calendar, Plus, AlertCircle, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface Fortnight {
@@ -87,6 +87,13 @@ export default function PlaneacionesPage() {
         error: 'Algo salió mal. Por favor intenta de nuevo más tarde.',
       })
     }
+  }
+
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    if (!confirm('¿Eliminar esta planeación? Se borrarán también sus materiales.')) return
+    const res = await fetch(`/api/planner/${id}`, { method: 'DELETE' })
+    if (res.ok) setFortnights((prev) => prev.filter((f) => f.id !== id))
   }
 
   // Loading skeleton
@@ -210,8 +217,15 @@ export default function PlaneacionesPage() {
                     {formatDate(fortnight.start_date)} - {formatDate(fortnight.end_date)}
                   </p>
                 </div>
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 flex items-center gap-2">
                   <StatusBadge status={fortnight.status} />
+                  <button
+                    onClick={(e) => handleDelete(e, fortnight.id)}
+                    className="p-1.5 rounded-md text-text-disabled hover:text-red-600 hover:bg-red-50 transition-colors"
+                    aria-label="Eliminar planeación"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
             </Card>

@@ -87,12 +87,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Extract vocabulary from lesson plan blocks
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const vocabulary: string[] = (lessonPlan as any).blocks
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .flatMap((block: any) => block.vocabulary || [])
-      .filter((word: string, index: number, self: string[]) => self.indexOf(word) === index)
+    const lp = lessonPlan as any
+    // Vocabulary lives at top-level lesson_plans.vocabulary, not inside blocks
+    const vocabulary: string[] =
+      Array.isArray(lp.vocabulary) && lp.vocabulary.length > 0
+        ? lp.vocabulary
+        : (lp.blocks ?? []).flatMap((b: any) => b.vocabulary ?? []) // eslint-disable-line @typescript-eslint/no-explicit-any
 
     if (vocabulary.length === 0) {
       return NextResponse.json({ error: 'No vocabulary found in lesson plan' }, { status: 400 })

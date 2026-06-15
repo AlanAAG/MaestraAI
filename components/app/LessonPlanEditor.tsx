@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { X, Plus, Loader2 } from 'lucide-react'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { CAMPOS_FORMATIVOS, EJES_ARTICULADORES } from '@/lib/nem-official-data'
 
 const LessonBlockSchema = z.object({
   time: z.string().min(1, 'Hora requerida'),
@@ -270,23 +271,35 @@ export function LessonPlanEditor({
                 <label className="text-xs font-medium text-text-secondary mb-1 block">
                   Campo Formativo
                 </label>
-                <Input
+                <select
                   value={block.nem_field}
                   onChange={(e) => updateBlock(blockIndex, 'nem_field', e.target.value)}
-                  placeholder="Lenguajes"
-                  className="h-9"
-                />
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Selecciona...</option>
+                  {CAMPOS_FORMATIVOS.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-text-secondary mb-1 block">
                   Eje Articulador
                 </label>
-                <Input
+                <select
                   value={block.nem_axis}
                   onChange={(e) => updateBlock(blockIndex, 'nem_axis', e.target.value)}
-                  placeholder="Lectura y escritura"
-                  className="h-9"
-                />
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Selecciona...</option>
+                  {EJES_ARTICULADORES.map((e) => (
+                    <option key={e} value={e}>
+                      {e}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
