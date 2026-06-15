@@ -19,7 +19,14 @@ async function loadGroupMappings() {
     // Route through background service worker — content scripts are subject to CORS,
     // the service worker bypasses it for URLs in host_permissions.
     const result = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, resolve)
+      chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[MaestraAI] Service worker inactive:', chrome.runtime.lastError.message)
+          resolve({ ok: false, error: 'service_worker_inactive' })
+        } else {
+          resolve(response)
+        }
+      })
     })
 
     if (!result?.ok) {
@@ -80,7 +87,8 @@ const CustomXHR = function () {
   xhr.open = function (method, url, ...args) {
     const urlStr = String(url)
 
-    if (urlStr.includes('/api/course_modules/') && urlStr.includes('/assignment_scores.json')) {
+    // Match both page-1 (.json suffix) and page-2+ (no suffix) URLs
+    if (urlStr.includes('/api/course_modules/') && urlStr.includes('assignment_scores')) {
       const originalOnLoad = xhr.onload
       xhr.onload = function () {
         if (xhr.status === 200) {

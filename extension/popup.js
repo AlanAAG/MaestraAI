@@ -91,8 +91,17 @@ async function testConnection(apiKey, apiUrl) {
 
   // Route through background service worker — extension popup pages are subject to CORS,
   // but the service worker bypasses it for URLs in host_permissions.
+  // Check chrome.runtime.lastError to suppress "Receiving end does not exist" when
+  // the MV3 service worker was terminated by Chrome while idle.
   const result = await new Promise((resolve) => {
-    chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, resolve)
+    chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('[MaestraAI] Service worker inactive:', chrome.runtime.lastError.message)
+        resolve({ ok: false, error: 'service_worker_inactive' })
+      } else {
+        resolve(response)
+      }
+    })
   })
 
   if (result?.ok) {
@@ -114,9 +123,13 @@ async function testConnection(apiKey, apiUrl) {
 
     statusDetails.innerHTML = detailsHTML
 
-    // Reload mappings in the active Richmond tab
+    // Reload mappings in the active Richmond tab — ignore silently if the tab
+    // has no content script (i.e. teacher is not on a Richmond course page).
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: 'RELOAD_MAPPINGS' })
+      if (!tabs[0]) return
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'RELOAD_MAPPINGS' }, () => {
+        void chrome.runtime.lastError // suppress "Receiving end does not exist"
+      })
     })
   } else {
     statusBox.className = 'status error'
