@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { parseClaudeResponse } from '@/lib/planner/parse-response'
 
 export const maxDuration = 120
 
@@ -220,7 +221,8 @@ export async function POST(req: NextRequest) {
           }
 
           const lessonPlans = restoreStudentNames(
-            parseClaudeResponse(content.text, fortnight),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            parseClaudeResponse(content.text, (fortnight as any).start_date as string),
             neeMap,
             obsMap
           )
@@ -402,53 +404,4 @@ function restoreStudentNames(
       return r
     }),
   }))
-}
-
-function parseClaudeResponse(
-  text: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fortnight: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any[] {
-  try {
-    // Extract JSON from markdown code blocks if present
-    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\[[\s\S]*\]/)
-    const jsonText = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text
-
-    const parsed = JSON.parse(jsonText)
-    if (!Array.isArray(parsed)) throw new Error('Claude response is not a JSON array')
-
-    // Calculate dates
-    const startDate = new Date(fortnight.start_date)
-    const plans = []
-
-    for (let i = 0; i < 10; i++) {
-      const dayData = Array.isArray(parsed) ? parsed[i] : parsed
-      const currentDate = new Date(startDate)
-
-      // Skip weekends
-      let daysToAdd = i
-      const weekendDays = Math.floor(i / 5) * 2
-      daysToAdd += weekendDays
-      currentDate.setDate(startDate.getDate() + daysToAdd)
-
-      const dayOfWeek = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes'][i % 5]
-
-      plans.push({
-        day_number: i + 1,
-        date: currentDate.toISOString().split('T')[0],
-        day_of_week: dayOfWeek,
-        methodology: dayData?.methodology || 'project_based',
-        blocks: dayData?.blocks || [],
-        vocabulary: dayData?.vocabulary || [],
-        observation_students: dayData?.observation_students || [],
-        nee_reminders: dayData?.nee_reminders || [],
-      })
-    }
-
-    return plans
-  } catch (error) {
-    console.error('Parse error:', error)
-    throw new Error('Failed to parse Claude response')
-  }
 }

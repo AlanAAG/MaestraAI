@@ -88,6 +88,13 @@ Always validate API inputs with Zod before touching DB or calling Claude.
 
 Always run typecheck after modifying TypeScript files.
 
+Always end each implementation session with a visible acceptance step:
+
+1. Run `git diff --stat HEAD` — review every changed file listed
+2. Run `npm run typecheck && npm run test` — state the result explicitly, not just "passes"
+3. State ship/no-ship decision before ending the session
+4. Update docs/PROGRESS.md
+
 NEM constraints (apply to all pedagogical outputs)
 Official SEP alignment (2024):
 

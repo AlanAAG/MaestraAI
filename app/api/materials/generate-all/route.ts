@@ -12,6 +12,7 @@ import { buildSortingGame } from '@/lib/materials/sorting'
 import { deriveFortnightContext } from '@/lib/materials/types'
 import { fetchVocabImages } from '@/lib/images'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { extractVocabulary } from '@/lib/materials/vocab-utils'
 
 const Schema = z.object({
   lesson_plan_id: z.string().uuid(),
@@ -74,10 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawVocab: unknown[] = (lessonPlan as any).vocabulary ?? []
-  const vocabulary: string[] = rawVocab
-    .filter((w): w is string => typeof w === 'string' && w.length > 0)
-    .filter((w, i, a) => a.indexOf(w) === i)
+  const vocabulary = extractVocabulary((lessonPlan as any).vocabulary)
 
   if (vocabulary.length === 0) {
     return NextResponse.json({ error: 'Sin vocabulario en esta planeación' }, { status: 400 })
