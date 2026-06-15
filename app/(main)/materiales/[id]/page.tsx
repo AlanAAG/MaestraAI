@@ -63,6 +63,8 @@ export default function MaterialDetailPage() {
   const [showShareModal, setShowShareModal] = useState(false)
   const [copied, setCopied] = useState(false)
   const [listenPairs, setListenPairs] = useState<ListenPair[] | null>(null)
+  const [sharingSchool, setSharingSchool] = useState(false)
+  const [shareSchoolSuccess, setShareSchoolSuccess] = useState(false)
 
   async function handleShare() {
     if (playUrl) {
@@ -95,6 +97,42 @@ export default function MaterialDetailPage() {
     const err = await downloadPdf(id, filename)
     if (err) setError(err)
     setDownloading(false)
+  }
+
+  async function handleShareWithSchool() {
+    if (!material) return
+    const resourceTypeMap: Record<string, string> = {
+      flashcards: 'flashcard',
+      memory_game: 'game',
+      bingo: 'game',
+      matching: 'game',
+      picture_word_match: 'game',
+      sorting_game: 'game',
+      word_search: 'worksheet',
+      song_worksheet: 'worksheet',
+      letter_recognition: 'worksheet',
+      worksheets: 'worksheet',
+      worksheet: 'worksheet',
+    }
+    setSharingSchool(true)
+    try {
+      const res = await fetch('/api/school/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: typeLabels[material.type] ?? material.type,
+          file_url: window.location.href,
+          resource_type: resourceTypeMap[material.type] ?? 'other',
+        }),
+      })
+      if (!res.ok) throw new Error()
+      setShareSchoolSuccess(true)
+      setTimeout(() => setShareSchoolSuccess(false), 3000)
+    } catch {
+      setError('No se pudo compartir con la escuela')
+    } finally {
+      setSharingSchool(false)
+    }
   }
 
   useEffect(() => {
@@ -156,7 +194,7 @@ export default function MaterialDetailPage() {
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Volver
         </Button>
-        <div>
+        <div className="flex-1">
           {material.fortnights && material.lesson_plans && (
             <p className="text-xs text-gray-400 mb-0.5">
               {material.fortnights.project_name} · Día {material.lesson_plans.day_number}
@@ -166,6 +204,20 @@ export default function MaterialDetailPage() {
             {typeLabels[material.type] ?? material.type}
           </h1>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleShareWithSchool}
+          disabled={sharingSchool || shareSchoolSuccess}
+          className="gap-2 shrink-0"
+        >
+          <Share2 className="h-4 w-4" />
+          {shareSchoolSuccess
+            ? '¡Compartido!'
+            : sharingSchool
+              ? 'Compartiendo...'
+              : 'Compartir con escuela'}
+        </Button>
       </div>
 
       {/* Flashcards */}

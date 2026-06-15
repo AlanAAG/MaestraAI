@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ArrowLeft, Download, AlertCircle, Users } from 'lucide-react'
+import { ArrowLeft, Download, AlertCircle, Users, MessageCircle } from 'lucide-react'
 import { StudentProgressChart } from '@/components/app/StudentProgressChart'
 import { StudentScoreTable } from '@/components/app/StudentScoreTable'
 
@@ -15,6 +15,7 @@ interface Student {
   group_id: string
   observation_day?: string
   richmond_student_id?: string
+  parent_contact_encrypted?: string | null
   groups?: {
     name: string
     grade: string
@@ -58,6 +59,7 @@ export default function StudentDetailPage() {
   const [progressData, setProgressData] = useState<ProgressData | null>(null)
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'loading' })
   const [downloadingReport, setDownloadingReport] = useState(false)
+  const [contactLoading, setContactLoading] = useState(false)
 
   useEffect(() => {
     if (studentId) {
@@ -153,6 +155,19 @@ export default function StudentDetailPage() {
     }
   }
 
+  async function handleWhatsApp() {
+    setContactLoading(true)
+    try {
+      const res = await fetch(`/api/students/${studentId}/contact`)
+      if (res.ok) {
+        const { wa_url } = await res.json()
+        window.open(wa_url, '_blank')
+      }
+    } finally {
+      setContactLoading(false)
+    }
+  }
+
   function getCurrentTrimester(): number {
     const month = new Date().getMonth() + 1
     if (month >= 8 && month <= 11) return 1
@@ -245,10 +260,23 @@ export default function StudentDetailPage() {
               )}
             </div>
           </div>
-          <Button onClick={downloadReport} disabled={downloadingReport} className="gap-2">
-            <Download size={18} />
-            {downloadingReport ? 'Generando...' : 'Descargar Reporte'}
-          </Button>
+          <div className="flex gap-2">
+            {student.parent_contact_encrypted && (
+              <Button
+                variant="outline"
+                onClick={handleWhatsApp}
+                disabled={contactLoading}
+                className="gap-2"
+              >
+                <MessageCircle size={18} />
+                {contactLoading ? 'Abriendo...' : 'WhatsApp'}
+              </Button>
+            )}
+            <Button onClick={downloadReport} disabled={downloadingReport} className="gap-2">
+              <Download size={18} />
+              {downloadingReport ? 'Generando...' : 'Descargar Reporte'}
+            </Button>
+          </div>
         </div>
       </Card>
 

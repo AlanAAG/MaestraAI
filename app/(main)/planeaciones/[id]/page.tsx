@@ -14,6 +14,7 @@ import {
   Heart,
   Edit2,
   Package,
+  Share2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { LoadingGeneration } from '@/components/app/LoadingGeneration'
@@ -93,6 +94,8 @@ export default function PlaneacionDetailPage() {
   >({})
   const [fortnightMaterials, setFortnightMaterials] = useState<{ id: string; type: string }[]>([])
   const [youtubeInputPlanId, setYoutubeInputPlanId] = useState<string | null>(null)
+  const [sharingPlan, setSharingPlan] = useState(false)
+  const [sharePlanSuccess, setSharePlanSuccess] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [addingYoutube, setAddingYoutube] = useState(false)
 
@@ -253,6 +256,26 @@ export default function PlaneacionDetailPage() {
     }
   }
 
+  async function handleShareWithSchool() {
+    if (!fortnight) return
+    setSharingPlan(true)
+    try {
+      await fetch('/api/school/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Quincena ${fortnight.number}: ${fortnight.project_name}`,
+          file_url: window.location.href,
+          resource_type: 'guide',
+        }),
+      })
+      setSharePlanSuccess(true)
+      setTimeout(() => setSharePlanSuccess(false), 3000)
+    } finally {
+      setSharingPlan(false)
+    }
+  }
+
   async function handleExportPdf() {
     if (!fortnight) return
 
@@ -364,15 +387,30 @@ export default function PlaneacionDetailPage() {
           </div>
           <div className="flex gap-3">
             {lessonPlans.length > 0 && (
-              <Button
-                variant="outline"
-                className="min-h-[44px]"
-                onClick={handleExportPdf}
-                disabled={exportingPdf}
-              >
-                <Download size={16} className="mr-2" />
-                {exportingPdf ? 'Descargando...' : 'Descargar PDF'}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="min-h-[44px]"
+                  onClick={handleExportPdf}
+                  disabled={exportingPdf}
+                >
+                  <Download size={16} className="mr-2" />
+                  {exportingPdf ? 'Descargando...' : 'Descargar PDF'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="min-h-[44px]"
+                  onClick={handleShareWithSchool}
+                  disabled={sharingPlan}
+                >
+                  <Share2 size={16} className="mr-2" />
+                  {sharePlanSuccess
+                    ? '¡Compartido!'
+                    : sharingPlan
+                      ? 'Compartiendo...'
+                      : 'Compartir con escuela'}
+                </Button>
+              </>
             )}
             {lessonPlans.length === 0 && (
               <Button

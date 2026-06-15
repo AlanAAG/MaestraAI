@@ -6,7 +6,7 @@ import { ZeroState } from '@/components/app/ZeroState'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Users, Search, AlertCircle } from 'lucide-react'
+import { Users, Search, AlertCircle, MessageCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface Student {
@@ -20,6 +20,7 @@ interface Student {
   }
   richmond_student_id?: string
   observation_day?: string
+  parent_contact_encrypted?: string | null
 }
 
 interface Group {
@@ -41,6 +42,7 @@ export default function AlumnosPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'loading' })
+  const [contactLoading, setContactLoading] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -113,7 +115,7 @@ export default function AlumnosPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: studentsData, error: studentsError } = await (supabase as any)
         .from('students')
-        .select('*, groups(name, grade)')
+        .select('*, groups(name, grade), parent_contact_encrypted')
         .in('group_id', groupIds)
         .order('display_name')
 
@@ -133,6 +135,20 @@ export default function AlumnosPage() {
         status: 'error',
         error: 'Algo salió mal. Por favor intenta de nuevo más tarde.',
       })
+    }
+  }
+
+  async function handleWhatsApp(e: React.MouseEvent, studentId: string) {
+    e.stopPropagation()
+    setContactLoading(studentId)
+    try {
+      const res = await fetch(`/api/students/${studentId}/contact`)
+      if (res.ok) {
+        const { wa_url } = await res.json()
+        window.open(wa_url, '_blank')
+      }
+    } finally {
+      setContactLoading(null)
     }
   }
 
@@ -318,6 +334,16 @@ export default function AlumnosPage() {
                       </div>
                     )}
                   </div>
+                  {student.parent_contact_encrypted && (
+                    <button
+                      onClick={(e) => handleWhatsApp(e, student.id)}
+                      disabled={contactLoading === student.id}
+                      className="flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 transition-colors mt-1"
+                    >
+                      <MessageCircle size={13} />
+                      {contactLoading === student.id ? 'Abriendo...' : 'WhatsApp'}
+                    </button>
+                  )}
                 </div>
               </Card>
             </motion.div>

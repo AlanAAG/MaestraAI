@@ -9,7 +9,8 @@ import { GroupList } from '@/components/settings/GroupList'
 import { GroupEditor } from '@/components/settings/GroupEditor'
 import { StudentRoster } from '@/components/settings/StudentRoster'
 import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
-import { X, ExternalLink, Plug, CheckCircle2, Clock } from 'lucide-react'
+import { X, ExternalLink, CheckCircle2, Clock } from 'lucide-react'
+import { RichmondExtensionGuide } from '@/components/app/RichmondExtensionGuide'
 
 // Replace with the real Chrome Web Store URL after the extension is approved.
 // Format: https://chromewebstore.google.com/detail/maestraai-richmond-sync/[extension-id]
@@ -533,54 +534,8 @@ export default function ConfiguracionPage() {
               )}
             </div>
 
-            {/* Steps */}
-            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
-              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
-                1
-              </div>
-              <div>
-                <p className="text-sm font-medium text-text-primary flex items-center gap-1">
-                  <ExternalLink size={14} /> Instala desde Chrome Web Store
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Haz clic en el botón de arriba. Chrome te pedirá confirmar la instalación — haz
-                  clic en <strong>Agregar extensión</strong>. No se necesita modo desarrollador ni
-                  archivos ZIP.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
-              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
-                2
-              </div>
-              <div>
-                <p className="text-sm font-medium text-text-primary flex items-center gap-1">
-                  <Plug size={14} /> Conecta tu clave API
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Genera una clave en la sección de abajo y cópiala. Luego haz clic en el ícono{' '}
-                  <strong>MaestraAI Sync</strong> en la barra de Chrome, pégala y guarda. La
-                  extensión se conecta automáticamente a tus grupos.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 p-3 rounded-lg bg-surface border border-border">
-              <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
-                3
-              </div>
-              <div>
-                <p className="text-sm font-medium text-text-primary">
-                  Abre el libro de calificaciones
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Ve a <strong>richmondlp.com</strong>, abre cualquier curso y entra al{' '}
-                  <strong>Markbook</strong>. La extensión captura las calificaciones en ese momento
-                  y las sincroniza con MaestraAI automáticamente.
-                </p>
-              </div>
-            </div>
+            {/* 4-step illustrated guide */}
+            <RichmondExtensionGuide />
           </div>
 
           <div className="border-t border-border pt-6">

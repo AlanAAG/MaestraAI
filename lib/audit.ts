@@ -145,6 +145,11 @@ export const AUDIT_ACTIONS = {
 
   // Richmond credentials
   RICHMOND_CREDENTIALS_REVOKE: 'richmond.credentials_revoke',
+
+  // Profile & school network
+  TEACHER_PROFILE_UPDATE: 'teacher.profile_update',
+  STUDENT_CONTACT_VIEW: 'student.contact_view',
+  RESOURCE_SHARE: 'resource.share',
 } as const
 
 /**

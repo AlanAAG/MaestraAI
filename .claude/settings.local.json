@@ -60,7 +60,9 @@
       "WebFetch(domain:richmondsolution.com)",
       "WebFetch(domain:play.google.com)",
       "Bash(python3 -c ' *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Skill(claude-api)",
+      "mcp__plugin_claude-mem_mcp-search__get_observations"
     ]
   }
 }

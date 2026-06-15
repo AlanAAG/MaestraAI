@@ -2,7 +2,17 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BookOpen, CalendarDays, Home, Lock, Users, BookA, Package } from 'lucide-react'
+import {
+  BookOpen,
+  CalendarDays,
+  Home,
+  Lock,
+  Users,
+  BookA,
+  Package,
+  Network,
+  UserCircle,
+} from 'lucide-react'
 import Link from 'next/link'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -13,6 +23,8 @@ const NAV_ITEMS = [
   { href: '/vocabulario', icon: BookA, label: 'Vocabulario', pro: false },
   { href: '/materiales', icon: Package, label: 'Materiales', pro: false },
   { href: '/alumnos', icon: Users, label: 'Alumnos', pro: false },
+  { href: '/red', icon: Network, label: 'Mi Escuela', pro: false },
+  { href: '/perfil', icon: UserCircle, label: 'Mi Perfil', pro: false },
   { href: '/configuracion', icon: Lock, label: 'Configuración', pro: false },
 ]
 
