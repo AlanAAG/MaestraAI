@@ -7,27 +7,33 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 import { encrypt } from '@/lib/encryption'
 
-// Proper schema for Richmond assignment data (matches RichmondAssignment interface)
-const RichmondStudentScoreSchema = z.object({
-  richmond_student_id: z.string(),
-  first_name: z.string(),
-  last_name: z.string(),
-  progress: z.enum(['completed', 'not_started', 'started']),
-  total_score: z.number().nullable(),
-  done: z.boolean(),
-})
+// Lenient schema: passthrough allows extra fields Richmond may add without breaking sync.
+// progress is z.string() not enum — Richmond may introduce new status values.
+// nullish() instead of nullable() — handles both null and absent fields.
+const RichmondStudentScoreSchema = z
+  .object({
+    richmond_student_id: z.string(),
+    first_name: z.string().default(''),
+    last_name: z.string().default(''),
+    progress: z.string().default('not_started'),
+    total_score: z.number().nullish(),
+    done: z.boolean().default(false),
+  })
+  .passthrough()
 
-const RichmondAssignmentSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  instructions: z.string().nullable(),
-  assigned_at: z.string(),
-  due_at: z.string(),
-  total_students: z.number(),
-  total_submitted: z.number(),
-  class_avg_score: z.number().nullable(),
-  students: z.array(RichmondStudentScoreSchema),
-})
+const RichmondAssignmentSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    instructions: z.string().nullish(),
+    assigned_at: z.string(),
+    due_at: z.string(),
+    total_students: z.number().default(0),
+    total_submitted: z.number().default(0),
+    class_avg_score: z.number().nullish(),
+    students: z.array(RichmondStudentScoreSchema).default([]),
+  })
+  .passthrough()
 
 const IngestInputSchema = z.object({
   group_id: z.string().uuid(),
@@ -172,35 +178,39 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    // Process scores
-    for (const score of assignment.students) {
-      const matchedStudent = typedStudents.find(
-        (s) => s.richmond_student_id === score.richmond_student_id
-      )
-
-      // Name-based fallback is omitted: first_name_encrypted is ciphertext,
-      // cannot be compared to incoming plaintext. Match by richmond_student_id only.
-
+    // Batch upsert all student records for this assignment in a single round trip.
+    // Encrypt names in parallel, then send one upsert call instead of one per student.
+    if (assignment.students.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dbAssignmentTyped = dbAssignment as any as { id: string }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: scoreError } = await (supabase as any).from('richmond_scores').upsert(
-        {
-          assignment_id: dbAssignmentTyped.id,
-          student_id: matchedStudent?.id ?? null,
-          richmond_student_id: score.richmond_student_id,
-          first_name_encrypted: await encrypt(score.first_name),
-          last_name_encrypted: await encrypt(score.last_name),
-          progress: score.progress,
-          total_score: score.total_score,
-          done: score.done,
-          synced_at: new Date().toISOString(),
-        },
-        { onConflict: 'assignment_id,richmond_student_id' }
+      const rows = await Promise.all(
+        assignment.students.map(async (student) => {
+          const matchedStudent = typedStudents.find(
+            (s) => s.richmond_student_id === student.richmond_student_id
+          )
+          return {
+            assignment_id: dbAssignmentTyped.id,
+            student_id: matchedStudent?.id ?? null,
+            richmond_student_id: student.richmond_student_id,
+            first_name_encrypted: await encrypt(student.first_name || ''),
+            last_name_encrypted: await encrypt(student.last_name || ''),
+            progress: student.progress ?? 'not_started',
+            total_score: student.total_score ?? null,
+            done: student.done ?? false,
+            synced_at: new Date().toISOString(),
+          }
+        })
       )
 
-      if (!scoreError) {
-        syncedCount++
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: batchError } = await (supabase as any)
+        .from('richmond_scores')
+        .upsert(rows, { onConflict: 'assignment_id,richmond_student_id' })
+
+      if (!batchError) {
+        syncedCount += rows.length
+      } else {
+        errors.push(`Failed to upsert students for "${assignment.title}": ${batchError.message}`)
       }
     }
   }

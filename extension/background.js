@@ -1,6 +1,6 @@
 // background.js - Service worker for MaestraAI extension
 // All fetch() calls live here — the service worker bypasses CORS for host_permissions URLs.
-// popup.js and content.js never fetch directly; they message the service worker instead.
+// popup.js and content.js never fetch directly; they send messages to this worker instead.
 
 const PRODUCTION_URL = 'https://www.maestraia.com'
 
@@ -12,13 +12,9 @@ async function getApiUrl() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'ASSIGNMENT_SCORES_INTERCEPTED') {
     handleAssignmentScores(message.groupId, message.groupSlug, message.data)
-  } else if (message.type === 'EBOOK_CONTENT_INTERCEPTED') {
-    handleEbookContent(message.uuid, message.title, message.content)
   } else if (message.type === 'FETCH_GROUPS') {
-    // Used by both popup (connection test) and content.js (load group mappings).
-    // Runs in service worker → no CORS restriction.
     fetchGroups(message.apiKey, message.apiUrl).then(sendResponse)
-    return true // keep message channel open for async response
+    return true // keep channel open for async response
   }
 })
 
@@ -33,26 +29,6 @@ async function fetchGroups(apiKey, apiUrl) {
     return { ok: true, data }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
-  }
-}
-
-async function handleEbookContent(uuid, title, content) {
-  try {
-    const { apiKey } = await chrome.storage.sync.get('apiKey')
-    if (!apiKey) return
-    const targetUrl = await getApiUrl()
-    const response = await fetch(`${targetUrl}/api/richmond/ebook-content`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ uuid, title, content }),
-    })
-    if (response.ok) {
-      console.log('[MaestraAI] E-book content synced:', uuid, title)
-    } else {
-      console.error('[MaestraAI] E-book sync failed:', response.status)
-    }
-  } catch (error) {
-    console.error('[MaestraAI] E-book sync error:', error)
   }
 }
 
@@ -86,11 +62,13 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
         lastSyncGroup: groupSlug,
       })
 
+      const scoreCount = result.synced ?? 0
+      const assignmentCount = Array.isArray(data) ? data.length : 0
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icon128.png',
         title: 'MaestraAI Sync',
-        message: `${groupSlug}: ${result.synced ?? data.length} calificaciones sincronizadas`,
+        message: `${groupSlug}: ${assignmentCount} actividades, ${scoreCount} alumnos sincronizados`,
       })
     } else {
       const errorText = await response.text().catch(() => response.status.toString())

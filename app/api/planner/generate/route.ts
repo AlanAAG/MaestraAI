@@ -130,43 +130,17 @@ export async function POST(req: NextRequest) {
     if (richmondUnit) {
       const escapedUnit = richmondUnit.replace(/[%_]/g, '\\$&')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [{ data: assignment }, { data: interactive }] = await Promise.all([
+      const { data: assignment } = await (supabase as any)
+        .from('richmond_assignments')
+        .select('instructions')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any)
-          .from('richmond_assignments')
-          .select('instructions')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .eq('group_id', (fortnight as any).group_id)
-          .ilike('title', `%${escapedUnit}%`)
-          .order('due_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        // Also check for richer e-book content captured by the Chrome extension
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase as any)
-          .from('richmond_interactive_content')
-          .select('content_raw, title')
-          .eq('teacher_id', teacherId)
-          .ilike('title', `%${escapedUnit}%`)
-          .limit(1)
-          .maybeSingle(),
-      ])
+        .eq('group_id', (fortnight as any).group_id)
+        .ilike('title', `%${escapedUnit}%`)
+        .order('due_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
       if (assignment?.instructions) {
         richmondInstructions = String(assignment.instructions).slice(0, 400)
-      }
-      // E-book content enriches the prompt with actual lesson activities/themes
-      if (interactive?.content_raw) {
-        const raw = interactive.content_raw as Record<string, unknown>
-        const extra = Object.entries(raw)
-          .filter(([, v]) => typeof v === 'string' && (v as string).length > 3)
-          .map(([k, v]) => `${k}: ${v}`)
-          .slice(0, 8)
-          .join('\n')
-        if (extra) {
-          richmondInstructions = richmondInstructions
-            ? `${richmondInstructions}\nContenido del libro digital:\n${extra}`
-            : `Contenido del libro digital:\n${extra}`
-        }
       }
     }
 
