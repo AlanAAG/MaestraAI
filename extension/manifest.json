@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Sincroniza calificaciones de Richmond a MaestraAI automáticamente",
   "permissions": ["storage", "notifications"],
-  "host_permissions": ["https://richmondlp.com/*", "https://maestraia.com/*"],
+  "host_permissions": ["https://richmondlp.com/*", "https://*.maestraia.com/*"],
   "background": {
     "service_worker": "background.js"
   },

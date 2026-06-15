@@ -13,7 +13,7 @@ async function handleEbookContent(uuid, title, content) {
   try {
     const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
     if (!apiKey) return
-    const targetUrl = apiUrl || 'https://maestraai.mx'
+    const targetUrl = apiUrl || 'https://www.maestraia.com'
     const response = await fetch(`${targetUrl}/api/richmond/ebook-content`, {
       method: 'POST',
       headers: {
@@ -41,7 +41,7 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
       return
     }
 
-    const targetUrl = apiUrl || 'https://maestraai.mx'
+    const targetUrl = apiUrl || 'https://www.maestraia.com'
 
     const response = await fetch(`${targetUrl}/api/richmond/ingest`, {
       method: 'POST',

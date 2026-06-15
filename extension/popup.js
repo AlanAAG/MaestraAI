@@ -1,65 +1,53 @@
 // popup.js - UI logic for extension popup
 
+const PRODUCTION_URL = 'https://www.maestraia.com'
+
+// Resolve the API URL: devs can override via chrome.storage.sync; teachers always
+// get the production URL without any UI field to confuse them.
+async function getApiUrl() {
+  const { apiUrl } = await chrome.storage.sync.get('apiUrl')
+  return apiUrl || PRODUCTION_URL
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
-
+  const { apiKey } = await chrome.storage.sync.get('apiKey')
   if (apiKey) document.getElementById('apiKey').value = apiKey
-  document.getElementById('apiUrl').value = apiUrl || 'https://maestraai.mx'
 
-  // Show last sync status while connection test runs
   await showLastSyncStatus()
 
   if (apiKey) {
-    testConnection(apiKey, apiUrl || 'https://maestraai.mx')
+    const url = await getApiUrl()
+    testConnection(apiKey, url)
   }
 
-  // Save button
+  // Save button — just saves the key, then tests in the background
   document.getElementById('saveBtn').addEventListener('click', async () => {
     const key = document.getElementById('apiKey').value.trim()
-    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraai.mx'
 
     if (!key) {
       showMessage('Por favor ingresa una clave API', 'error')
       return
     }
 
-    if (!isValidApiUrl(url)) {
-      showMessage('La URL debe comenzar con https:// (o http://localhost para desarrollo)', 'error')
-      return
-    }
-
-    // Test connection before saving to prevent pointing extension at a wrong server
-    const ok = await testConnection(key, url)
-    if (!ok) {
-      showMessage('No se pudo guardar — verifica la URL y la clave API', 'error')
-      return
-    }
-
+    const url = await getApiUrl()
     await chrome.storage.sync.set({ apiKey: key, apiUrl: url })
     showMessage('Configuración guardada', 'success')
+
+    // Test after saving — don't block save on result
+    testConnection(key, url)
   })
 
   // Test connection button
   document.getElementById('testBtn').addEventListener('click', async () => {
     const key = document.getElementById('apiKey').value.trim()
-    const url = document.getElementById('apiUrl').value.trim() || 'https://maestraai.mx'
-
     if (!key) {
       showMessage('Por favor ingresa una clave API primero', 'error')
       return
     }
-
-    await testConnection(key, url)
+    const url = await getApiUrl()
+    testConnection(key, url)
   })
 })
-
-function isValidApiUrl(url) {
-  return (
-    url.startsWith('https://') ||
-    url.startsWith('http://localhost') ||
-    url.startsWith('http://127.0.0.1')
-  )
-}
 
 async function showLastSyncStatus() {
   const { lastSyncStatus, lastSyncTime, lastSyncGroup, lastSyncError } =
@@ -67,8 +55,8 @@ async function showLastSyncStatus() {
 
   if (!lastSyncTime) return
 
-  const statusDetails = document.getElementById('statusDetails')
   const when = formatRelativeTime(lastSyncTime)
+  const statusDetails = document.getElementById('statusDetails')
 
   if (lastSyncStatus === 'ok') {
     statusDetails.innerHTML = `
@@ -90,7 +78,6 @@ async function showLastSyncStatus() {
   }
 }
 
-// Returns true if connection succeeds, false otherwise
 async function testConnection(apiKey, apiUrl) {
   const statusBox = document.getElementById('statusBox')
   const statusDot = document.getElementById('statusDot')
@@ -118,28 +105,12 @@ async function testConnection(apiKey, apiUrl) {
     const groupCount = data.totalGroups || 0
     const groupNames = data.groups || []
 
-    let detailsHTML = ''
-    if (groupCount > 0) {
-      detailsHTML = `
-        <div class="status-item">
-          <span class="status-label">Grupos sincronizando</span>
-          <span class="status-value">${groupCount}</span>
-        </div>
-      `
-      if (groupNames.length > 0) {
-        detailsHTML += `
-          <div class="status-item">
-            <span class="status-label">Grupos</span>
-            <span class="status-value">${groupNames.join(', ')}</span>
-          </div>
-        `
-      }
-    } else {
-      detailsHTML = `
-        <div class="status-item">
-          <span class="status-label" style="color:#f59e0b">Sin grupos configurados</span>
-        </div>
-      `
+    let detailsHTML = groupCount > 0
+      ? `<div class="status-item"><span class="status-label">Grupos sincronizando</span><span class="status-value">${groupCount}</span></div>`
+      : `<div class="status-item"><span class="status-label" style="color:#f59e0b">Sin grupos configurados</span></div>`
+
+    if (groupNames.length > 0) {
+      detailsHTML += `<div class="status-item"><span class="status-label">Grupos</span><span class="status-value">${groupNames.join(', ')}</span></div>`
     }
 
     statusDetails.innerHTML = detailsHTML
@@ -148,8 +119,6 @@ async function testConnection(apiKey, apiUrl) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: 'RELOAD_MAPPINGS' })
     })
-
-    return true
   } catch (error) {
     statusBox.className = 'status error'
     statusDot.className = 'status-dot red'
@@ -157,16 +126,10 @@ async function testConnection(apiKey, apiUrl) {
 
     let errorMsg = 'No se pudo conectar al servidor'
     if (error.message.includes('401')) errorMsg = 'Clave API inválida o revocada'
-    else if (error.message.includes('404')) errorMsg = 'Endpoint no encontrado — verifica la URL'
-    else if (error.message.includes('Failed to fetch')) errorMsg = 'No se pudo conectar — verifica la URL'
+    else if (error.message.includes('404')) errorMsg = 'Endpoint no encontrado'
+    else if (error.message.includes('Failed to fetch')) errorMsg = 'Sin conexión a internet'
 
-    statusDetails.innerHTML = `
-      <div class="status-item">
-        <span class="status-label" style="color:#ef4444">${errorMsg}</span>
-      </div>
-    `
-
-    return false
+    statusDetails.innerHTML = `<div class="status-item"><span class="status-label" style="color:#ef4444">${errorMsg}</span></div>`
   }
 }
 
