@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+
+export const maxDuration = 120
+
 import { checkRateLimit } from '@/lib/rate-limit'
 import { assertYoutubePublic } from '@/lib/materials/youtube'
 import { classifyYoutubeTranscript } from '@/lib/materials/youtube-classify'

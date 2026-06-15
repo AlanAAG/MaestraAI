@@ -36,20 +36,21 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
   useEffect(() => {
     const gameCards: Card[] = []
     pairs.forEach((pair) => {
+      const pid = String(pair.id)
       gameCards.push({
-        id: `${pair.id}-word`,
-        pairId: pair.id,
+        id: `${pid}-word`,
+        pairId: pid,
         content: pair.word,
         type: 'word',
       })
       gameCards.push({
-        id: `${pair.id}-hint`,
-        pairId: pair.id,
+        id: `${pid}-hint`,
+        pairId: pid,
         content: pair.visual_hint,
         type: 'hint',
       })
     })
-    const seed = pairs.reduce((acc, p) => acc + p.id.charCodeAt(0), 0) * 17
+    const seed = pairs.reduce((acc, p) => acc + String(p.id).charCodeAt(0), 0) * 17
     setCards(seededShuffle(gameCards, seed))
   }, [pairs])
 
@@ -65,7 +66,11 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
 
   function handleCardClick(cardId: string) {
     // Ignore if already flipped, matched, or checking
-    if (flipped.includes(cardId) || matched.includes(cardId) || isChecking) {
+    if (
+      flipped.includes(cardId) ||
+      matched.some((pid) => cardId.startsWith(pid + '-')) ||
+      isChecking
+    ) {
       return
     }
 

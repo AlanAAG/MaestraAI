@@ -6,7 +6,7 @@ import type { FortnightContext } from './types'
 export type GameContent = {
   game_type: 'memory_match'
   pairs: Array<{
-    id: number
+    id: string
     word: string
     visual_hint: string
     pair_type?: 'word_to_picture' | 'word_to_word'

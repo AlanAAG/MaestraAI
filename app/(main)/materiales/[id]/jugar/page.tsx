@@ -3,9 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { GameContainer } from '@/components/games/GameContainer'
-import { MemoryMatch } from '@/components/games/MemoryMatch'
-import { PictureWordMatch } from '@/components/games/PictureWordMatch'
-import { SortingGame } from '@/components/games/SortingGame'
+import { GameShell } from '@/components/games/GameShell'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -56,7 +54,13 @@ export default function JugarMaterialPage() {
       }
 
       // Verify it's a playable material type
-      const playableTypes = ['memory_game', 'picture_word_match', 'sorting_game']
+      const playableTypes = [
+        'memory_game',
+        'picture_word_match',
+        'sorting_game',
+        'word_search',
+        'bingo',
+      ]
       if (!playableTypes.includes(materialData.type)) {
         setError('Este material no es un juego interactivo')
         setLoading(false)
@@ -70,11 +74,6 @@ export default function JugarMaterialPage() {
       setError('Error al cargar el juego')
       setLoading(false)
     }
-  }
-
-  function handleGameComplete() {
-    // Optional: track completion or show congratulations
-    // Future: could save completion to database
   }
 
   function handleExit() {
@@ -124,27 +123,7 @@ export default function JugarMaterialPage() {
 
   return (
     <GameContainer onExit={handleExit}>
-      {material.type === 'memory_game' && (
-        <MemoryMatch
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          pairs={(material.content as any).pairs ?? []}
-          onComplete={handleGameComplete}
-        />
-      )}
-      {material.type === 'picture_word_match' && (
-        <PictureWordMatch
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          content={material.content as any}
-          onComplete={handleGameComplete}
-        />
-      )}
-      {material.type === 'sorting_game' && (
-        <SortingGame
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          content={material.content as any}
-          onComplete={handleGameComplete}
-        />
-      )}
+      <GameShell type={material.type} content={material.content} vocabulary={[]} />
     </GameContainer>
   )
 }

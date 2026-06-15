@@ -202,8 +202,10 @@ export async function POST(req: NextRequest) {
         try {
           const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-6',
-            max_tokens: 4096,
-            temperature: 0.7,
+            max_tokens: 8192,
+            temperature: 0.3,
+            system:
+              'Eres una asistente pedagógica experta en educación preescolar mexicana alineada al Nuevo Modelo Educativo (NEM) 2024. Generas planeaciones didácticas de alta calidad para grupos de Kinder 3 (5-6 años). Respondes ÚNICAMENTE con un JSON array válido, sin texto adicional, sin markdown, sin explicaciones.',
             messages: [
               {
                 role: 'user',
@@ -259,7 +261,8 @@ export async function POST(req: NextRequest) {
 
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
         } catch (error) {
-          console.error('Claude API error:', error)
+          const errMsg = error instanceof Error ? error.message : String(error)
+          console.error('[planner/generate] Claude API error:', errMsg, error)
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ error: 'Generation failed' })}\n\n`)
           )
@@ -310,110 +313,76 @@ function buildPrompt(
   const letterWeek1 = sanitize(fortnight.letter_week1)
   const letterWeek2 = sanitize(fortnight.letter_week2)
 
-  return `Eres una asistente pedagógica experta en educación preescolar mexicana alineada al Nuevo Modelo Educativo (NEM).
+  const startStr = new Date(fortnight.start_date).toLocaleDateString('es-MX')
+  const endStr = new Date(fortnight.end_date).toLocaleDateString('es-MX')
 
-CONTEXTO:
-- Nivel: Kinder 3 (Preprimaria)
-- Quincena ${fortnight.number}: ${projectName}
-- Valor del mes: ${monthlyValue}
-- Fechas: ${new Date(fortnight.start_date).toLocaleDateString('es-MX')} a ${new Date(fortnight.end_date).toLocaleDateString('es-MX')}
-- Letras: Semana 1 = "${letterWeek1}", Semana 2 = "${letterWeek2}"
-- Vocabulario disponible: ${vocabList}
+  const neeSection =
+    Object.keys(neeMap).length > 0
+      ? `ALUMNOS CON NEE:\n${Object.keys(neeMap)
+          .map((label) => `- ${label}`)
+          .join('\n')}`
+      : 'NEE: (ninguno)'
 
-CRONOGRAMA FIJO SEMANAL (INVIOLABLE):
-Lunes: Honores (mañana), Proyecto mensual
-Martes: Computación, Letter & Number (SIEMPRE letra del día)
-Miércoles: Ed. Física, Proyecto mensual
-Jueves: Cantos y Juegos, Números (SIEMPRE integrados)
-Viernes: Cuento con papás, Cierre de Proyecto mensual
+  const obsSection =
+    observationStudents.length > 0
+      ? `OBSERVACIONES:\n${observationStudents.map((_s, i) => `- ALUMNO_OBS_${i + 1} → día ${_s.observation_day}`).join('\n')}`
+      : ''
 
-ELEMENTOS DIARIOS PERMANENTES:
-- Valor del mes (${monthlyValue})
-- Pausa activa
-- Estrategia comunitaria
-- Aventura lectora
-
-ALUMNOS CON NEE (${neeStudents.length}):
-${
-  Object.keys(neeMap).length > 0
-    ? Object.keys(neeMap)
-        .map((label) => `- ${label}`)
-        .join('\n')
-    : '(ninguno)'
-}
-
-ALUMNOS CON DÍA DE OBSERVACIÓN:
-${observationStudents.length > 0 ? observationStudents.map((_s, i) => `- ALUMNO_OBS_${i + 1} (día: ${_s.observation_day})`).join('\n') : '(ninguno)'}
-
-ALINEACIÓN NEM:
-Campos Formativos: ${NEM_FIELDS.join(', ')}
-Ejes Articuladores: ${NEM_AXES.join(', ')}
-
-${
-  includeProni
-    ? `INTEGRACIÓN PRONI (Kinder 3):
-Este grupo requiere integración del Programa Nacional de Inglés (PRONI 2024-2025).
-Integra al menos UNA de estas áreas de contenido PRONI por semana:
-- Familiarization with English (sonidos, ritmo, entonación)
-- Vocabulary development (palabras con apoyo visual)
-- Oral communication (frases simples, saludos, lenguaje de aula)
-- Written language awareness (reconocimiento de letras en inglés)
-- Cultural awareness (culturas de habla inglesa)
-- Multilingual identity (orgullo del bilingüismo)
-
-Marca las actividades PRONI con [PRONI: nombre_área] en el activity name.
-IMPORTANTE: Integra el inglés de forma natural en las actividades, NO como clase separada.
-`
+  const proniSection = includeProni
+    ? `PRONI (Kinder 3 — integrar de forma natural, NO como clase separada):
+Áreas: Familiarization with English | Vocabulary development | Oral communication | Written language awareness | Cultural awareness | Multilingual identity
+Mínimo 1 actividad PRONI por semana en el bloque del martes. Marca con [PRONI: área].`
     : ''
-}
-${
-  richmondUnit
-    ? `UNIDAD RICHMOND ACTUAL: "${richmondUnit}"
-${richmondInstructions ? `Contexto de la unidad: ${richmondInstructions}\n` : ''}El vocabulario de inglés del Martes (bloque PRONI) debe estar alineado con esta unidad de Richmond LRP.
-`
+
+  const richmondSection = richmondUnit
+    ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? `\n${richmondInstructions.slice(0, 300)}` : ''}\nBloque PRONI del martes debe alinearse a esta unidad.`
     : ''
-}INSTRUCCIONES:
-Genera 10 días de planeaciones (2 semanas × 5 días). Para cada día:
 
-1. Respeta el cronograma fijo
-2. Letter & Number SOLO el martes
-3. Números SOLO el jueves
-4. Incluye los 4 elementos permanentes diarios
-5. Integra el proyecto mensual los días indicados
-6. Usa vocabulario de la letra correspondiente
-7. Asigna observaciones según día de observación
-8. Incluye recordatorios NEE cuando sea relevante
-9. Alinea cada bloque a un Campo Formativo y un Eje Articulador
+  return `QUINCENA ${fortnight.number}: ${projectName}
+Nivel: Kinder 3 (5-6 años) | ${startStr} – ${endStr}
+Valor del mes: ${monthlyValue}
+Letras: Semana 1="${letterWeek1}" | Semana 2="${letterWeek2}"${vocabList ? `\nVocabulario: ${vocabList}` : ''}
 
-FORMATO DE SALIDA (JSON):
-Devuelve un array de 10 objetos, cada uno con:
-{
-  "day_number": 1-10,
-  "date": "2026-05-26",
-  "day_of_week": "lunes",
-  "methodology": "project_based" | "play_based" | "experiential",
-  "blocks": [
-    {
-      "time": "9:00-9:30",
-      "activity": "Nombre de la actividad",
-      "methodology": "project_based",
-      "materials": ["material1", "material2"],
-      "nem_field": "Lenguajes",
-      "nem_axis": "Lectura y escritura"
-    }
-  ],
-  "vocabulary": ["word1", "word2"],
-  "observation_students": ["Aitana R.", "Maria R."],
-  "nee_reminders": ["Recordatorio específico para alumno NEE"]
-}
+HORARIO FIJO (INVIOLABLE):
+Lun → Honores + Proyecto mensual
+Mar → Computación + Letter & Number (letra de la semana)
+Mié → Ed. Física + Proyecto mensual
+Jue → Cantos y Juegos + Números
+Vie → Cuento con papás + Cierre del Proyecto
 
-IMPORTANTE:
-- NO uses evaluación numérica, porcentajes, o calificaciones
-- Usa SOLO evaluación cualitativa: "Sí", "En proceso", "No"
-- Sé específica y concreta, no genérica
-- Integra el inglés de forma natural (no como clase separada)
+PRESENTES TODOS LOS DÍAS: Valor del mes (${monthlyValue}), pausa activa, aventura lectora, estrategia comunitaria.
 
-Genera las 10 planeaciones ahora:`
+${neeSection}
+${obsSection ? obsSection + '\n' : ''}${proniSection ? proniSection + '\n' : ''}${richmondSection ? richmondSection + '\n' : ''}
+Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con el JSON array (sin markdown, sin texto adicional):
+
+[
+  {
+    "day_number": 1,
+    "methodology": "project_based",
+    "blocks": [
+      {
+        "time": "9:00-9:30",
+        "activity": "Descripción concreta de la actividad (máx 80 caracteres)",
+        "methodology": "play_based",
+        "materials": ["material1", "material2"],
+        "nem_field": "Lenguajes",
+        "nem_axis": "Lectura y escritura"
+      }
+    ],
+    "vocabulary": ["word1", "word2"],
+    "observation_students": [],
+    "nee_reminders": []
+  }
+]
+
+REGLAS:
+- Letter & Number SOLO martes | Números SOLO jueves
+- 4-5 bloques por día | Máx 80 caracteres por actividad | Máx 3 materiales por bloque
+- Campos Formativos válidos: ${NEM_FIELDS.join(' | ')}
+- Ejes Articuladores válidos: ${NEM_AXES.join(' | ')}
+- Evaluación cualitativa únicamente: Logrado / En proceso / Requiere apoyo
+- Generar exactamente 10 objetos numerados del 1 al 10`
 }
 
 function restoreStudentNames(
@@ -447,6 +416,7 @@ function parseClaudeResponse(
     const jsonText = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text
 
     const parsed = JSON.parse(jsonText)
+    if (!Array.isArray(parsed)) throw new Error('Claude response is not a JSON array')
 
     // Calculate dates
     const startDate = new Date(fortnight.start_date)

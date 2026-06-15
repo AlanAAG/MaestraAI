@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+
+export const maxDuration = 120
+
 import { buildFlashcardContent } from '@/lib/materials/flashcards'
 import { buildGameContent } from '@/lib/materials/games'
 import { buildMatching } from '@/lib/materials/matching'
@@ -71,10 +74,10 @@ export async function POST(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const vocabulary: string[] = ((lessonPlan as any).blocks ?? [])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .flatMap((b: any) => b.vocabulary ?? [])
-    .filter((w: string, i: number, a: string[]) => a.indexOf(w) === i)
+  const rawVocab: unknown[] = (lessonPlan as any).vocabulary ?? []
+  const vocabulary: string[] = rawVocab
+    .filter((w): w is string => typeof w === 'string' && w.length > 0)
+    .filter((w, i, a) => a.indexOf(w) === i)
 
   if (vocabulary.length === 0) {
     return NextResponse.json({ error: 'Sin vocabulario en esta planeación' }, { status: 400 })

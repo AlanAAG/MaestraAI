@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+
+export const maxDuration = 120
+
 import { buildFlashcardContent } from '@/lib/materials/flashcards'
 import { buildWorksheetContent } from '@/lib/materials/worksheets'
 import { buildGameContent } from '@/lib/materials/games'

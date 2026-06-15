@@ -258,7 +258,7 @@ export default function PlaneacionDetailPage() {
 
     setExportingPdf(true)
     try {
-      const response = await fetch('/api/planner/export-pdf', {
+      const response = await fetch('/api/planner/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

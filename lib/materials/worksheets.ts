@@ -33,7 +33,7 @@ Genera actividades de worksheet apropiadas para este vocabulario.`
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
-    temperature: 0.7,
+    temperature: 0.3,
     system: WORKSHEETS_PROMPT,
     messages: [{ role: 'user', content: userMessage }],
   })

@@ -97,7 +97,7 @@ export function StudentBingoCard({ content }: Props) {
     const next = new Set(marked)
     if (next.has(key)) {
       next.delete(key)
-      setHasBingo(false)
+      setHasBingo(checkBingo(next, size))
     } else {
       next.add(key)
       if (checkBingo(next, size)) setHasBingo(true)
