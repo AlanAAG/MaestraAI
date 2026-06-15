@@ -89,15 +89,14 @@ async function testConnection(apiKey, apiUrl) {
   statusTitle.textContent = 'Probando conexión...'
   statusDetails.innerHTML = ''
 
-  try {
-    const response = await fetch(`${apiUrl}/api/richmond/groups`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
+  // Route through background service worker — extension popup pages are subject to CORS,
+  // but the service worker bypasses it for URLs in host_permissions.
+  const result = await new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, resolve)
+  })
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-
-    const data = await response.json()
-
+  if (result?.ok) {
+    const data = result.data
     statusBox.className = 'status connected'
     statusDot.className = 'status-dot green'
     statusTitle.textContent = `Conectada como ${data.teacherName}`
@@ -119,15 +118,14 @@ async function testConnection(apiKey, apiUrl) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) chrome.tabs.sendMessage(tabs[0].id, { type: 'RELOAD_MAPPINGS' })
     })
-  } catch (error) {
+  } else {
     statusBox.className = 'status error'
     statusDot.className = 'status-dot red'
     statusTitle.textContent = 'Error de conexión'
 
     let errorMsg = 'No se pudo conectar al servidor'
-    if (error.message.includes('401')) errorMsg = 'Clave API inválida o revocada'
-    else if (error.message.includes('404')) errorMsg = 'Endpoint no encontrado'
-    else if (error.message.includes('Failed to fetch')) errorMsg = 'Sin conexión a internet'
+    if (result?.statusCode === 401) errorMsg = 'Clave API inválida o revocada'
+    else if (result?.statusCode === 404) errorMsg = 'Endpoint no encontrado'
 
     statusDetails.innerHTML = `<div class="status-item"><span class="status-label" style="color:#ef4444">${errorMsg}</span></div>`
   }

@@ -10,25 +10,26 @@ async function loadGroupMappings() {
   try {
     const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
 
-    if (!apiKey || !apiUrl) {
-      console.warn('[MaestraAI] API key or URL not configured')
+    if (!apiKey) {
+      console.warn('[MaestraAI] API key not configured')
       return
     }
 
-    const response = await fetch(`${apiUrl}/api/richmond/groups`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    // Route through background service worker — it bypasses CORS for host_permissions URLs.
+    // Direct fetch() from content scripts is subject to CORS and would be blocked.
+    const result = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, resolve)
     })
 
-    if (!response.ok) {
-      console.error('[MaestraAI] Failed to fetch groups:', response.status)
+    if (!result?.ok) {
+      console.error('[MaestraAI] Failed to load groups:', result?.statusCode, result?.error)
       return
     }
 
-    const data = await response.json()
-    GROUP_UUID_MAP = data.groupMap || {}
+    GROUP_UUID_MAP = result.data.groupMap || {}
     isInitialized = true
 
-    console.log('[MaestraAI] Connected as:', data.teacherName, '—', data.totalGroups, 'groups')
+    console.log('[MaestraAI] Connected as:', result.data.teacherName, '—', result.data.totalGroups, 'groups')
 
     // Drain any payloads that arrived before mappings were ready
     if (pendingPayloads.length > 0) {
