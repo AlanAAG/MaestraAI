@@ -23,6 +23,7 @@ export async function GET() {
         { status: 403 }
       )
     }
+    if (!requester.school_id) return NextResponse.json({ teachers: [] }, { status: 200 })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)

@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!teacher.school_id)
+      return NextResponse.json({ error: 'Sin escuela asignada' }, { status: 400 })
 
     const body = PostSchema.safeParse(await req.json())
     if (!body.success) return NextResponse.json({ error: body.error.flatten() }, { status: 400 })

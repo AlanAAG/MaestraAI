@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
 
     const teacher = await getTeacher(supabase, user.id)
     if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!teacher.school_id)
+      return NextResponse.json({ error: 'Sin escuela asignada' }, { status: 400 })
 
     if (!['admin', 'coordinator'].includes(teacher.role_type)) {
       return NextResponse.json(
