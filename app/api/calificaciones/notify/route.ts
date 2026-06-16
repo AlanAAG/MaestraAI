@@ -38,14 +38,43 @@ export async function POST(req: NextRequest) {
 
     const { group_id, assignment_title, due_date, student_ids } = body.data
 
-    // Fetch parent contacts for the incomplete students
+    // Fetch scores for incomplete students to get their names (for name-based contact matching)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: contacts } = await (supabase as any)
+    const { data: scoreRows } = await (supabase as any)
+      .from('richmond_scores')
+      .select('richmond_student_id, first_name, last_name')
+      .in('richmond_student_id', student_ids)
+
+    // Build a set of normalized names from incomplete students
+    const incompleteNames = new Set(
+      (scoreRows ?? []).map((s: { first_name: string; last_name: string }) =>
+        `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim().toLowerCase()
+      )
+    )
+
+    // Fetch all contacts for this group, then filter by name match
+    // (AI-extracted contacts use a name-derived ID, not the real richmond_student_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: allContacts } = await (supabase as any)
       .from('parent_contacts')
       .select('*')
       .eq('teacher_id', teacher.id)
       .eq('group_id', group_id)
-      .in('richmond_student_id', student_ids)
+
+    // Match by richmond_student_id (manual entry) OR by normalized full name (AI-extracted)
+    const contacts = (allContacts ?? []).filter(
+      (c: {
+        richmond_student_id: string
+        student_first_name: string | null
+        student_last_name: string | null
+      }) => {
+        if (student_ids.includes(c.richmond_student_id)) return true
+        const contactName = `${c.student_first_name ?? ''} ${c.student_last_name ?? ''}`
+          .trim()
+          .toLowerCase()
+        return contactName.length > 0 && incompleteNames.has(contactName)
+      }
+    )
 
     if (!contacts || contacts.length === 0)
       return NextResponse.json({
@@ -79,6 +108,7 @@ export async function POST(req: NextRequest) {
       try {
         await resend.emails.send({
           from: `${fromName} <notificaciones@maestraia.com>`,
+          replyTo: teacher.email ?? undefined,
           to: contact.parent_email,
           subject: `Recordatorio: tarea pendiente de ${studentName}`,
           html: `
