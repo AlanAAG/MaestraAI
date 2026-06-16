@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -43,6 +43,7 @@ export default function ConfiguracionPage() {
   )
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const templateFileRef = useRef<HTMLInputElement>(null)
   const [hasRichmondCredentials, setHasRichmondCredentials] = useState(false)
   const [revokingCredentials, setRevokingCredentials] = useState(false)
 
@@ -176,6 +177,44 @@ export default function ConfiguracionPage() {
       alert('No pude analizar el formato. Intenta con más texto.')
       setTemplateStatus('idle')
     }
+  }
+
+  async function handleTemplateFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setTemplateStatus('analyzing')
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string
+      const [header, imageBase64] = dataUrl.split(',')
+      const imageMimeType = (header.match(/:(.*?);/)?.[1] ?? 'image/jpeg') as
+        | 'image/jpeg'
+        | 'image/png'
+        | 'image/jpg'
+        | 'image/webp'
+      try {
+        const res = await fetch('/api/teachers/template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64, imageMimeType }),
+        })
+        if (!res.ok) throw new Error((await res.json()).error)
+        const { plan_template } = await res.json()
+        setPlanTemplate(plan_template)
+        setTemplateStatus('saved')
+        setTimeout(() => setTemplateStatus('idle'), 3000)
+      } catch (err) {
+        alert(
+          err instanceof Error
+            ? err.message
+            : 'No pude analizar la imagen. Intenta con una foto más clara.'
+        )
+        setTemplateStatus('idle')
+      }
+    }
+    reader.readAsDataURL(file)
+    // reset so same file can be re-selected
+    e.target.value = ''
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -423,14 +462,35 @@ export default function ConfiguracionPage() {
               rows={5}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
             />
-            <Button
-              onClick={handleAnalyzeTemplate}
-              disabled={templateStatus === 'analyzing' || templateText.length < 50}
-              variant="outline"
-              className="min-h-[44px]"
-            >
-              {templateStatus === 'analyzing' ? 'Analizando...' : 'Analizar formato'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleAnalyzeTemplate}
+                disabled={templateStatus === 'analyzing' || templateText.length < 50}
+                variant="outline"
+                className="min-h-[44px]"
+              >
+                {templateStatus === 'analyzing' ? 'Analizando...' : 'Analizar formato'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-[44px]"
+                disabled={templateStatus === 'analyzing'}
+                onClick={() => templateFileRef.current?.click()}
+              >
+                {templateStatus === 'analyzing' ? 'Analizando...' : '📷 Subir foto'}
+              </Button>
+            </div>
+            <input
+              ref={templateFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleTemplateFile}
+            />
+            <p className="text-xs text-text-secondary">
+              Toma una foto del formato impreso de tu escuela y súbela directamente.
+            </p>
             {templateStatus === 'saved' && (
               <p className="text-sm text-green-600">✓ Formato guardado</p>
             )}
