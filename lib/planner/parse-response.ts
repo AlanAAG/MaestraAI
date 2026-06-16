@@ -13,14 +13,27 @@ const DAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes']
 
 export function parseClaudeResponse(text: string, startDate: string): DayPlan[] {
   // Extract JSON from markdown code blocks if present
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\[[\s\S]*\]/)
-  const jsonText = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text
-
+  // Try direct parse first — handles clean JSON from both GPT-4o-mini and Claude
   let parsed: unknown
   try {
-    parsed = JSON.parse(jsonText)
+    parsed = JSON.parse(text.trim())
   } catch {
-    throw new Error('Failed to parse Claude response')
+    // Fall back to regex extraction for markdown-wrapped or prefixed responses
+    const jsonMatch =
+      text.match(/```json\s*([\s\S]*?)\s*```/) ||
+      text.match(/\{"days"[\s\S]*\}/) ||
+      text.match(/\[[\s\S]*\]/)
+    const jsonText = jsonMatch ? jsonMatch[1] || jsonMatch[0] : text
+    try {
+      parsed = JSON.parse(jsonText)
+    } catch {
+      throw new Error('Failed to parse Claude response')
+    }
+  }
+
+  // GPT-4o-mini wraps the array in an object: { "days": [...] }
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'days' in parsed) {
+    parsed = (parsed as Record<string, unknown>).days
   }
 
   if (!Array.isArray(parsed)) throw new Error('Claude response is not a JSON array')

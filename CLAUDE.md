@@ -39,9 +39,11 @@ Components: components/
 Diary microsite: app/diary/
 
 Claude API usage patterns
-claude-haiku-4-5 → diary summaries, flashcards, quick validations
+claude-haiku-4-5 → diary summaries, flashcards, quick validations, template extraction
 
-claude-sonnet-4-5 → lesson plans, report cards, complex generation
+claude-sonnet-4-6 → lesson plan fallback (when OPENAI_API_KEY missing/fails), report cards, complex generation
+
+gpt-4o-mini (OpenAI) → lesson plans (primary, json_object mode — guaranteed valid JSON)
 
 Always stream — never await full response, never return buffered text
 

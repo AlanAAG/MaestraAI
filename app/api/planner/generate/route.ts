@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
@@ -29,6 +30,23 @@ const NEM_AXES = [
   'Lectura y escritura',
   'Artes',
 ]
+
+const SYSTEM_PROMPT =
+  'Eres una asistente pedagógica experta en educación preescolar mexicana alineada al Nuevo Modelo Educativo (NEM) 2024. Generas planeaciones didácticas de alta calidad para grupos de Kinder 3 (5-6 años). Respondes ÚNICAMENTE con un objeto JSON válido con clave "days" que contiene el array de planeaciones, sin texto adicional, sin markdown, sin explicaciones.'
+
+async function callSonnet(prompt: string): Promise<string> {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+  const resp = await anthropic.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 8192,
+    temperature: 0.3,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  })
+  const content = resp.content[0]
+  if (content.type !== 'text') throw new Error('Unexpected response type')
+  return content.text
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -179,10 +197,6 @@ export async function POST(req: NextRequest) {
       physicalMaterials
     )
 
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY!,
-    })
-
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
       async start(controller) {
@@ -198,28 +212,32 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`))
 
         try {
-          const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 8192,
-            temperature: 0.3,
-            system:
-              'Eres una asistente pedagógica experta en educación preescolar mexicana alineada al Nuevo Modelo Educativo (NEM) 2024. Generas planeaciones didácticas de alta calidad para grupos de Kinder 3 (5-6 años). Respondes ÚNICAMENTE con un JSON array válido, sin texto adicional, sin markdown, sin explicaciones.',
-            messages: [
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-          })
-
-          const content = response.content[0]
-          if (content.type !== 'text') {
-            throw new Error('Unexpected response type')
+          let responseText: string
+          if (process.env.OPENAI_API_KEY) {
+            try {
+              const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+              const resp = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                max_tokens: 8192,
+                temperature: 0.3,
+                response_format: { type: 'json_object' },
+                messages: [
+                  { role: 'system', content: SYSTEM_PROMPT },
+                  { role: 'user', content: prompt },
+                ],
+              })
+              responseText = resp.choices[0]?.message?.content ?? ''
+            } catch (openaiErr) {
+              console.error('[planner] GPT-4o-mini failed, falling back to Sonnet:', openaiErr)
+              responseText = await callSonnet(prompt)
+            }
+          } else {
+            responseText = await callSonnet(prompt)
           }
 
           const lessonPlans = restoreStudentNames(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            parseClaudeResponse(content.text, (fortnight as any).start_date as string),
+            parseClaudeResponse(responseText, (fortnight as any).start_date as string),
             neeMap,
             obsMap
           )
@@ -367,9 +385,9 @@ PRESENTES TODOS LOS DÍAS: Valor del mes (${monthlyValue}), pausa activa, aventu
 ${materialsSection}
 ${neeSection}
 ${obsSection ? obsSection + '\n' : ''}${proniSection ? proniSection + '\n' : ''}${richmondSection ? richmondSection + '\n' : ''}${templateSection ? templateSection + '\n' : ''}
-Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con el JSON array (sin markdown, sin texto adicional):
+Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con un objeto JSON con clave "days" que contiene el array (sin markdown, sin texto adicional):
 
-[
+{"days": [
   {
     "day_number": 1,
     "methodology": "project_based",
@@ -387,7 +405,7 @@ Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con el JSON ar
     "observation_students": [],
     "nee_reminders": []
   }
-]
+]}
 
 REGLAS:
 - Letter & Number SOLO martes | Números SOLO jueves
