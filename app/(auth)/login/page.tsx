@@ -1,13 +1,15 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const params = useSearchParams()
+  const fromDiary = params.get('from') === 'diary'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -48,7 +50,21 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    if (fromDiary) {
+      const pending = sessionStorage.getItem('pending_diary')
+      if (pending) {
+        const data = JSON.parse(pending)
+        sessionStorage.removeItem('pending_diary')
+        await fetch('/api/diary/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+      }
+      router.push('/dashboard?diary=saved')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (
@@ -116,5 +132,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

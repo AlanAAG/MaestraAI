@@ -12,6 +12,7 @@ import {
   Package,
   Network,
   UserCircle,
+  ClipboardList,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Toaster } from '@/components/ui/sonner'
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/vocabulario', icon: BookA, label: 'Vocabulario', pro: false },
   { href: '/materiales', icon: Package, label: 'Materiales', pro: false },
   { href: '/alumnos', icon: Users, label: 'Alumnos', pro: false },
+  { href: '/calificaciones-richmond', icon: ClipboardList, label: 'Calificaciones', pro: false },
   { href: '/red', icon: Network, label: 'Mi Escuela', pro: false },
   { href: '/perfil', icon: UserCircle, label: 'Mi Perfil', pro: false },
   { href: '/configuracion', icon: Lock, label: 'Configuración', pro: false },

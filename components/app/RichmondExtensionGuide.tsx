@@ -8,28 +8,28 @@ const STEPS = [
     title: 'Abre el panel de Richmond → haz clic en tu grupo',
     description:
       'Inicia sesión en richmondlp.com. En el panel principal verás tus grupos. Haz clic en el nombre del grupo que quieres sincronizar.',
-    imageSrc: '/images/extension-guide/step1.png',
+    imageSrc: '/images/extension-guide/richmond_1.jpg',
   },
   {
     number: 2,
     title: 'Dentro del grupo → pestaña Markbook',
     description:
       'Una vez dentro del grupo verás varias pestañas en la parte superior. Selecciona "Markbook" para abrir el libro de calificaciones.',
-    imageSrc: '/images/extension-guide/step2.png',
+    imageSrc: '/images/extension-guide/richmond_2.jpg',
   },
   {
     number: 3,
     title: 'En Markbook → navega a la sección Scores',
     description:
       'Dentro del Markbook encontrarás la sección "Scores". Ábrela para ver las calificaciones individuales de cada tarea. La extensión captura los datos en este momento.',
-    imageSrc: '/images/extension-guide/step3.png',
+    imageSrc: '/images/extension-guide/richmond_3.jpg',
   },
   {
     number: 4,
     title: 'Listo — regresa a MaestraAI y selecciona otro grupo',
     description:
       'La extensión detecta la carga de Scores y sincroniza automáticamente. Regresa al dashboard de MaestraAI para ver los resultados o repite el proceso con otro grupo.',
-    imageSrc: '/images/extension-guide/step4.png',
+    imageSrc: '/images/extension-guide/richmond_4.jpg',
   },
 ] as const
 

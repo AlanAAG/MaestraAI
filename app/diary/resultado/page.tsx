@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { BookOpen } from 'lucide-react'
 import { StreamingOutput } from '@/components/app/StreamingOutput'
 import { ZeroState } from '@/components/app/ZeroState'
+import { createClient } from '@/lib/supabase/browser'
 
 const LS_KEY = 'maestraai_diary_draft'
 
@@ -89,12 +90,32 @@ function ResultadoContent() {
     }
   }
 
-  function handleSave() {
-    sessionStorage.setItem(
-      'pending_diary',
-      JSON.stringify({ q1, q2, q3, q4, q5, weekStart, weekEnd, summaryText: streamedText })
-    )
-    router.push(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/register?from=diary`)
+  async function handleSave() {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (user) {
+      // Already logged in — save directly
+      const res = await fetch('/api/diary/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q1, q2, q3, q4, q5, weekStart, weekEnd, summaryText: streamedText }),
+      })
+      if (res.ok) {
+        router.push('/dashboard?diary=saved')
+      } else {
+        alert('No se pudo guardar. Intenta de nuevo.')
+      }
+    } else {
+      // Not logged in — stash draft and send to login
+      sessionStorage.setItem(
+        'pending_diary',
+        JSON.stringify({ q1, q2, q3, q4, q5, weekStart, weekEnd, summaryText: streamedText })
+      )
+      router.push('/login?from=diary')
+    }
   }
 
   if (!weekStart) {
@@ -136,9 +157,9 @@ function ResultadoContent() {
 
       {streamedText && (
         <p className="mt-6 text-sm text-center text-text-secondary">
-          ¿Quieres guardar tu historial y acceder desde cualquier dispositivo?{' '}
+          ¿Quieres guardar tu historial?{' '}
           <button onClick={handleSave} className="text-primary underline underline-offset-2">
-            Crea tu cuenta gratis
+            Inicia sesión o crea tu cuenta
           </button>
         </p>
       )}
