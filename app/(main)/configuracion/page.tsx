@@ -34,6 +34,13 @@ export default function ConfiguracionPage() {
 
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [periodMinutes, setPeriodMinutes] = useState(45)
+  const [templateText, setTemplateText] = useState('')
+  const [templateStatus, setTemplateStatus] = useState<'idle' | 'analyzing' | 'saved'>('idle')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [planTemplate, setPlanTemplate] = useState<{ sections?: string[]; notes?: string } | null>(
+    null
+  )
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [hasRichmondCredentials, setHasRichmondCredentials] = useState(false)
@@ -74,6 +81,8 @@ export default function ConfiguracionPage() {
       if (teacherData) {
         setTeacher(teacherData)
         setFullName(teacherData.full_name || user.email?.split('@')[0] || '')
+        setPeriodMinutes(teacherData.english_period_minutes ?? 45)
+        setPlanTemplate(teacherData.plan_template ?? null)
         setHasRichmondCredentials(
           !!(teacherData.richmond_email_encrypted || teacherData.richmond_password_encrypted)
         )
@@ -135,13 +144,37 @@ export default function ConfiguracionPage() {
     const supabase = createClient()
     if (teacher) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('teachers').update({ full_name: fullName }).eq('id', teacher.id)
+      await (supabase as any)
+        .from('teachers')
+        .update({ full_name: fullName, english_period_minutes: periodMinutes })
+        .eq('id', teacher.id)
     }
 
     setLoading(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
     await loadData()
+  }
+
+  async function handleAnalyzeTemplate() {
+    if (templateText.trim().length < 50) return alert('Pega al menos 50 caracteres del formato')
+    setTemplateStatus('analyzing')
+    try {
+      const res = await fetch('/api/teachers/template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_text: templateText }),
+      })
+      if (!res.ok) throw new Error()
+      const { plan_template } = await res.json()
+      setPlanTemplate(plan_template)
+      setTemplateText('')
+      setTemplateStatus('saved')
+      setTimeout(() => setTemplateStatus('idle'), 3000)
+    } catch {
+      alert('No pude analizar el formato. Intenta con más texto.')
+      setTemplateStatus('idle')
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -331,6 +364,23 @@ export default function ConfiguracionPage() {
               El email no se puede cambiar porque es tu identificador de cuenta
             </p>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Duración del período de inglés (minutos)
+            </label>
+            <input
+              type="number"
+              min={15}
+              max={120}
+              step={5}
+              value={periodMinutes}
+              onChange={(e) => setPeriodMinutes(Number(e.target.value))}
+              className="h-10 w-32 rounded-md border border-input bg-background px-3 text-sm"
+            />
+            <p className="text-xs text-text-secondary mt-1">
+              El AI distribuirá las actividades para ocupar exactamente este tiempo
+            </p>
+          </div>
           <Button
             onClick={handleSaveProfile}
             disabled={loading || !fullName}
@@ -340,6 +390,51 @@ export default function ConfiguracionPage() {
           </Button>
           {saved && <p className="text-sm text-green-600">✓ Cambios guardados</p>}
         </div>
+      </Card>
+
+      {/* Plan Template Section */}
+      <Card className="p-6 mb-6">
+        <h2 className="text-lg font-semibold text-text-primary mb-1">Formato de planeación</h2>
+        <p className="text-sm text-text-secondary mb-4">
+          Pega el formato que usa tu escuela y el AI lo adoptará en tus planeaciones
+        </p>
+        {planTemplate?.sections?.length ? (
+          <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200">
+            <p className="text-xs font-medium text-green-700 mb-1">✓ Formato guardado</p>
+            <p className="text-sm text-green-800">{planTemplate.sections.join(' → ')}</p>
+            {planTemplate.notes && (
+              <p className="text-xs text-green-600 mt-1">{planTemplate.notes}</p>
+            )}
+            <button
+              onClick={() => setPlanTemplate(null)}
+              className="text-xs text-green-600 underline mt-2"
+            >
+              Reemplazar
+            </button>
+          </div>
+        ) : null}
+        {(!planTemplate || !planTemplate.sections?.length) && (
+          <div className="space-y-3">
+            <textarea
+              value={templateText}
+              onChange={(e) => setTemplateText(e.target.value)}
+              placeholder="Pega aquí el formato de planeación de tu escuela (al menos 50 caracteres)..."
+              rows={5}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+            />
+            <Button
+              onClick={handleAnalyzeTemplate}
+              disabled={templateStatus === 'analyzing' || templateText.length < 50}
+              variant="outline"
+              className="min-h-[44px]"
+            >
+              {templateStatus === 'analyzing' ? 'Analizando...' : 'Analizar formato'}
+            </Button>
+            {templateStatus === 'saved' && (
+              <p className="text-sm text-green-600">✓ Formato guardado</p>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* School Section */}

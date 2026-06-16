@@ -68,6 +68,18 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teacherId = (teacher as any).id as string
 
+    // Fetch teacher-level planning context (period duration + school template)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teacherCtx } = await (supabase as any)
+      .from('teachers')
+      .select('english_period_minutes, plan_template')
+      .eq('id', teacherId)
+      .single()
+    const periodMinutes: number = teacherCtx?.english_period_minutes ?? 45
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const planTemplate: { sections?: string[]; notes?: string } | null =
+      teacherCtx?.plan_template ?? null
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fortnight } = await (supabase as any)
       .from('fortnights')
@@ -111,6 +123,10 @@ export async function POST(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fn = fortnight as any
+    const physicalMaterials: string[] = Array.isArray(fn.physical_materials)
+      ? (fn.physical_materials as string[])
+      : []
+
     // Teacher-selected vocab takes priority; fall back to letter-based lookup
     let vocabList: string
     if (Array.isArray(fn.vocabulary) && fn.vocabulary.length > 0) {
@@ -157,7 +173,10 @@ export async function POST(req: NextRequest) {
       obsMap,
       vocabList,
       richmondUnit ?? '',
-      richmondInstructions
+      richmondInstructions,
+      periodMinutes,
+      planTemplate,
+      physicalMaterials
     )
 
     const anthropic = new Anthropic({
@@ -285,7 +304,10 @@ function buildPrompt(
   _obsMap: Record<string, string>,
   vocabList: string = '',
   richmondUnit: string = '',
-  richmondInstructions: string = ''
+  richmondInstructions: string = '',
+  periodMinutes: number = 45,
+  planTemplate: { sections?: string[]; notes?: string } | null = null,
+  physicalMaterials: string[] = []
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
   const projectName = sanitize(fortnight.project_name)
@@ -318,10 +340,20 @@ Mínimo 1 actividad PRONI por semana en el bloque del martes. Marca con [PRONI: 
     ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? `\n${richmondInstructions.slice(0, 300)}` : ''}\nBloque PRONI del martes debe alinearse a esta unidad.`
     : ''
 
+  const materialsBaseline =
+    'pizarrón, crayones, hojas, proyector, tijeras, pegamento, flashcards MaestraAI'
+  const materialsExtra = physicalMaterials.length > 0 ? `, ${physicalMaterials.join(', ')}` : ''
+  const materialsSection = `MATERIALES DISPONIBLES: ${materialsBaseline}${materialsExtra}. Usa solo estos en el campo "materials" de cada bloque.`
+
+  const templateSection = planTemplate?.sections?.length
+    ? `FORMATO DE TU ESCUELA: ${planTemplate.sections.join(' → ')}${planTemplate.notes ? `. ${planTemplate.notes}` : ''}. Usa esta terminología en las actividades.`
+    : ''
+
   return `QUINCENA ${fortnight.number}: ${projectName}
 Nivel: Kinder 3 (5-6 años) | ${startStr} – ${endStr}
 Valor del mes: ${monthlyValue}
 Letras: Semana 1="${letterWeek1}" | Semana 2="${letterWeek2}"${vocabList ? `\nVocabulario: ${vocabList}` : ''}
+Período de inglés: ${periodMinutes} min.
 
 HORARIO FIJO (INVIOLABLE):
 Lun → Honores + Proyecto mensual
@@ -332,8 +364,9 @@ Vie → Cuento con papás + Cierre del Proyecto
 
 PRESENTES TODOS LOS DÍAS: Valor del mes (${monthlyValue}), pausa activa, aventura lectora, estrategia comunitaria.
 
+${materialsSection}
 ${neeSection}
-${obsSection ? obsSection + '\n' : ''}${proniSection ? proniSection + '\n' : ''}${richmondSection ? richmondSection + '\n' : ''}
+${obsSection ? obsSection + '\n' : ''}${proniSection ? proniSection + '\n' : ''}${richmondSection ? richmondSection + '\n' : ''}${templateSection ? templateSection + '\n' : ''}
 Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con el JSON array (sin markdown, sin texto adicional):
 
 [

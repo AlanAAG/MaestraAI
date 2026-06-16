@@ -40,6 +40,8 @@ export default function NuevaPlaneacionPage() {
   const [richmondUnit, setRichmondUnit] = useState('')
   const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter: string }[]>([])
   const [selectedVocab, setSelectedVocab] = useState<string[]>([])
+  const [extraMaterials, setExtraMaterials] = useState<string[]>([])
+  const [manualMaterial, setManualMaterial] = useState('')
 
   useEffect(() => {
     loadGroups()
@@ -159,6 +161,7 @@ export default function NuevaPlaneacionPage() {
           ...validated,
           status: 'draft',
           vocabulary: selectedVocab.length > 0 ? selectedVocab : null,
+          physical_materials: extraMaterials.length > 0 ? extraMaterials : null,
           ...(richmondUnit ? { richmond_unit: richmondUnit } : {}),
         })
         .select()
@@ -535,6 +538,52 @@ export default function NuevaPlaneacionPage() {
             )}
           </Card>
         )}
+
+        {/* Materials Card */}
+        <Card className="p-6 border-2">
+          <h3 className="text-sm font-semibold text-text-primary mb-1">
+            Materiales extras <span className="font-normal text-text-secondary">(opcional)</span>
+          </h3>
+          <p className="text-xs text-text-secondary mb-3">
+            Base siempre disponible: pizarrón, crayones, hojas, proyector, tijeras, pegamento,
+            flashcards MaestraAI. Agrega lo que tienes de más esta quincena.
+          </p>
+          <div className="flex gap-2 mb-3">
+            <Input
+              value={manualMaterial}
+              onChange={(e) => setManualMaterial(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && manualMaterial.trim()) {
+                  e.preventDefault()
+                  const w = manualMaterial.trim()
+                  setExtraMaterials((p) => (p.includes(w) ? p : [...p, w]))
+                  setManualMaterial('')
+                }
+              }}
+              placeholder="Ej: plastilina, dados, ruleta"
+              className="h-9 text-sm"
+            />
+          </div>
+          {extraMaterials.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {extraMaterials.map((m) => (
+                <span
+                  key={m}
+                  className="flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-primary/10 text-primary border border-primary/20"
+                >
+                  {m}
+                  <button
+                    type="button"
+                    onClick={() => setExtraMaterials((p) => p.filter((x) => x !== m))}
+                    className="ml-1 hover:text-red-500"
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Actions */}
         <div className="flex gap-3">

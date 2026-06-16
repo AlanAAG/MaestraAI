@@ -5,6 +5,7 @@ import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const PatchSchema = z.object({
   full_name: z.string().min(2).max(100),
+  english_period_minutes: z.number().int().min(15).max(120).optional(),
 })
 
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
     const { data: teacher, error } = await (supabase as any)
       .from('teachers')
       .select(
-        'id, full_name, email, role_type, subject, editorial, school_id, created_at, schools(name, city, plan)'
+        'id, full_name, email, role_type, subject, editorial, school_id, created_at, english_period_minutes, plan_template, schools(name, city, plan)'
       )
       .eq('auth_id', user.id)
       .single()
@@ -62,7 +63,12 @@ export async function PATCH(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('teachers')
-      .update({ full_name: body.data.full_name })
+      .update({
+        full_name: body.data.full_name,
+        ...(body.data.english_period_minutes !== undefined
+          ? { english_period_minutes: body.data.english_period_minutes }
+          : {}),
+      })
       .eq('auth_id', user.id)
       .select('id, full_name')
       .single()
