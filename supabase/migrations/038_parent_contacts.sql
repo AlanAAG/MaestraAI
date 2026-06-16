@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS parent_contacts (
   parent_email text NOT NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
-  UNIQUE(teacher_id, richmond_student_id)
+  UNIQUE(teacher_id, group_id, richmond_student_id)
 );
 
 ALTER TABLE parent_contacts ENABLE ROW LEVEL SECURITY;

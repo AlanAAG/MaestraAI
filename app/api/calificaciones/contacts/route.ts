@@ -103,7 +103,8 @@ export async function POST(req: NextRequest) {
       messages: [{ role: 'user', content: userContent }],
     })
 
-    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
+    const first = response.content[0]
+    const text = first?.type === 'text' ? first.text.trim() : ''
     try {
       const result = JSON.parse(text.replace(/^```json\n?/, '').replace(/\n?```$/, ''))
       return NextResponse.json(result)
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('parent_contacts')
-    .upsert(rows, { onConflict: 'teacher_id,richmond_student_id' })
+    .upsert(rows, { onConflict: 'teacher_id,group_id,richmond_student_id' })
 
   if (error) {
     console.error('Contacts upsert error:', error)

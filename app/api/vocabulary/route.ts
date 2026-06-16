@@ -202,9 +202,10 @@ export async function PATCH(req: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Vocab PATCH error:', error)
-      return NextResponse.json({ error: 'No se pudo actualizar la palabra' }, { status: 500 })
+      const status = error.code === 'PGRST116' ? 404 : 500
+      return NextResponse.json({ error: 'No se pudo actualizar la palabra' }, { status })
     }
+    if (!data) return NextResponse.json({ error: 'Palabra no encontrada' }, { status: 404 })
 
     return NextResponse.json({ item: data })
   } catch (error) {

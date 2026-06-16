@@ -229,6 +229,13 @@ export default function CalificacionesRichmondPage() {
     }
   }
 
+  function closeContacts() {
+    setShowContacts(false)
+    setExtracted([])
+    setPasteText('')
+    setContactTab('paste')
+  }
+
   async function handleManualSave() {
     if (!manualEmail || !manualStudentId) return
     setSaving(true)
@@ -463,11 +470,11 @@ export default function CalificacionesRichmondPage() {
       {/* Contacts panel */}
       {showContacts && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowContacts(false)} />
+          <div className="absolute inset-0 bg-black/40" onClick={closeContacts} />
           <div className="relative ml-auto w-full max-w-md bg-white h-full flex flex-col shadow-xl overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
               <h2 className="text-lg font-semibold">Contactos de padres</h2>
-              <button onClick={() => setShowContacts(false)}>
+              <button onClick={closeContacts}>
                 <X size={20} />
               </button>
             </div>
