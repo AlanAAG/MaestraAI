@@ -15,8 +15,12 @@ import {
   AlignLeft,
   Shuffle,
   Trash2,
+  Plus,
+  X,
 } from 'lucide-react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type Material = {
   id: string
@@ -80,10 +84,25 @@ function groupByDate(materials: Material[]): Record<string, Material[]> {
   return groups
 }
 
+const CREATABLE_TYPES = [
+  { key: 'flashcards', label: 'Flashcards' },
+  { key: 'games', label: 'Memorama' },
+  { key: 'worksheets', label: 'Hoja de trabajo' },
+  { key: 'matching', label: 'Matching' },
+  { key: 'picture_word_match', label: 'Imagen-Palabra' },
+]
+
 export default function MaterialesPage() {
   const router = useRouter()
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
+  const [showCreate, setShowCreate] = useState(false)
+  const [allVocab, setAllVocab] = useState<{ id: string; word: string }[]>([])
+  const [selectedVocab, setSelectedVocab] = useState<string[]>([])
+  const [manualWord, setManualWord] = useState('')
+  const [topic, setTopic] = useState('')
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(['flashcards'])
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -119,7 +138,37 @@ export default function MaterialesPage() {
       setLoading(false)
     }
     load()
+    fetch('/api/vocabulary')
+      .then((r) => r.json())
+      .then((d) => setAllVocab(d.items ?? []))
+      .catch(() => {})
   }, [router])
+
+  async function handleCreate() {
+    const vocab = selectedVocab.length > 0 ? selectedVocab : undefined
+    if (!vocab) return alert('Selecciona al menos una palabra')
+    if (selectedTypes.length === 0) return alert('Selecciona al menos un tipo')
+    setCreating(true)
+    try {
+      const res = await fetch('/api/materials/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vocabulary: vocab,
+          topic: topic || undefined,
+          material_types: selectedTypes,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      const { material_ids } = await res.json()
+      // Navigate to the first created material
+      if (material_ids?.length) router.push(`/materiales/${material_ids[0]}`)
+    } catch {
+      alert('Error al crear el material. Intenta de nuevo.')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   async function handleDelete(e: React.MouseEvent, id: string) {
     e.preventDefault()
@@ -142,10 +191,123 @@ export default function MaterialesPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Mis Materiales</h1>
-        <p className="text-sm text-gray-600 mt-1">Todos los materiales que has creado</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Mis Materiales</h1>
+          <p className="text-sm text-gray-600 mt-1">Todos los materiales que has creado</p>
+        </div>
+        <Button
+          onClick={() => setShowCreate((v) => !v)}
+          variant={showCreate ? 'outline' : 'default'}
+          className="min-h-[44px]"
+        >
+          {showCreate ? <X size={16} className="mr-2" /> : <Plus size={16} className="mr-2" />}
+          {showCreate ? 'Cancelar' : 'Crear material'}
+        </Button>
       </div>
+
+      {showCreate && (
+        <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-6 space-y-5">
+          <h2 className="text-sm font-semibold text-gray-900">Nuevo material</h2>
+
+          {/* Vocab selection */}
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-2">Vocabulario</p>
+            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto mb-2">
+              {allVocab.map((v) => {
+                const sel = selectedVocab.includes(v.word)
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedVocab((p) =>
+                        sel ? p.filter((w) => w !== v.word) : [...p, v.word]
+                      )
+                    }
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
+                  >
+                    {v.word}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={manualWord}
+                onChange={(e) => setManualWord(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && manualWord.trim()) {
+                    e.preventDefault()
+                    setSelectedVocab((p) =>
+                      p.includes(manualWord.trim()) ? p : [...p, manualWord.trim()]
+                    )
+                    setManualWord('')
+                  }
+                }}
+                placeholder="Agregar palabra manual y presionar Enter"
+                className="h-9 text-sm"
+              />
+            </div>
+            {selectedVocab.length > 0 && (
+              <p className="text-xs text-primary mt-1">
+                {selectedVocab.length} palabra{selectedVocab.length !== 1 ? 's' : ''} seleccionada
+                {selectedVocab.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+
+          {/* Topic */}
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-2">
+              Tema <span className="font-normal text-gray-500">(opcional)</span>
+            </p>
+            <Input
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="Ej: Los animales de la granja"
+              className="h-9 text-sm"
+            />
+          </div>
+
+          {/* Type selection */}
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-2">Tipo de material</p>
+            <div className="flex flex-wrap gap-2">
+              {CREATABLE_TYPES.map((t) => {
+                const sel = selectedTypes.includes(t.key)
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() =>
+                      setSelectedTypes((p) => (sel ? p.filter((k) => k !== t.key) : [...p, t.key]))
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-xs border font-medium transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <Button
+            onClick={handleCreate}
+            disabled={creating || selectedVocab.length === 0}
+            className="w-full min-h-[44px]"
+          >
+            {creating ? (
+              <>
+                <Loader2 size={16} className="mr-2 animate-spin" />
+                Creando...
+              </>
+            ) : (
+              'Crear material'
+            )}
+          </Button>
+        </div>
+      )}
 
       {materials.length === 0 ? (
         <Card className="p-12 text-center">

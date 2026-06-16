@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { z } from 'zod'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, X } from 'lucide-react'
 import { RichmondUnitSelector } from '@/components/app/RichmondUnitSelector'
 
 const FortnightSchema = z.object({
@@ -38,9 +38,15 @@ export default function NuevaPlaneacionPage() {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [richmondUnit, setRichmondUnit] = useState('')
+  const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter: string }[]>([])
+  const [selectedVocab, setSelectedVocab] = useState<string[]>([])
 
   useEffect(() => {
     loadGroups()
+    fetch('/api/vocabulary')
+      .then((r) => r.json())
+      .then((d) => setAllVocab(d.items ?? []))
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -152,6 +158,7 @@ export default function NuevaPlaneacionPage() {
           group_id: selectedGroupId,
           ...validated,
           status: 'draft',
+          vocabulary: selectedVocab.length > 0 ? selectedVocab : null,
           ...(richmondUnit ? { richmond_unit: richmondUnit } : {}),
         })
         .select()
@@ -486,6 +493,48 @@ export default function NuevaPlaneacionPage() {
             </div>
           </div>
         </Card>
+
+        {/* Vocabulary Card */}
+        {allVocab.length > 0 && (
+          <Card className="p-6 border-2">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">
+              Vocabulario <span className="font-normal text-text-secondary">(opcional)</span>
+            </h3>
+            <p className="text-xs text-text-secondary mb-3">
+              Selecciona las palabras que Claude usará al generar las actividades
+            </p>
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+              {allVocab.map((v) => {
+                const selected = selectedVocab.includes(v.word)
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedVocab((prev) =>
+                        selected ? prev.filter((w) => w !== v.word) : [...prev, v.word]
+                      )
+                    }
+                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                      selected
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-surface text-text-secondary border-border hover:border-primary'
+                    }`}
+                  >
+                    {selected && <X size={10} className="inline mr-1" />}
+                    {v.word}
+                  </button>
+                )
+              })}
+            </div>
+            {selectedVocab.length > 0 && (
+              <p className="text-xs text-primary mt-2">
+                {selectedVocab.length} palabra{selectedVocab.length !== 1 ? 's' : ''} seleccionada
+                {selectedVocab.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </Card>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3">

@@ -17,21 +17,27 @@ import { fetchVocabImages } from '@/lib/images'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
-const GenerateMaterialsSchema = z.object({
-  lesson_plan_id: z.string().uuid(),
-  material_types: z.array(
-    z.enum([
-      'flashcards',
-      'worksheets',
-      'games',
-      'youtube',
-      'letter_recognition',
-      'matching',
-      'picture_word_match',
-      'sorting_game',
-    ])
-  ),
-})
+const GenerateMaterialsSchema = z
+  .object({
+    lesson_plan_id: z.string().uuid().optional(),
+    vocabulary: z.array(z.string()).optional(),
+    topic: z.string().max(200).optional(),
+    material_types: z.array(
+      z.enum([
+        'flashcards',
+        'worksheets',
+        'games',
+        'youtube',
+        'letter_recognition',
+        'matching',
+        'picture_word_match',
+        'sorting_game',
+      ])
+    ),
+  })
+  .refine((d) => d.lesson_plan_id || (d.vocabulary && d.vocabulary.length > 0), {
+    message: 'Provide lesson_plan_id or vocabulary[]',
+  })
 
 export async function POST(req: NextRequest) {
   try {
@@ -72,39 +78,56 @@ export async function POST(req: NextRequest) {
     const teacherId = (teacher as any).id as string
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lessonPlan, error: lessonError } = await (supabase as any)
-      .from('lesson_plans')
-      .select('*, fortnights(*)')
-      .eq('id', input.lesson_plan_id)
-      .single()
-
-    if (lessonError || !lessonPlan) {
-      return NextResponse.json({ error: 'Lesson plan not found' }, { status: 404 })
-    }
-
+    let lessonPlan: any = null
+    let vocabulary: string[]
+    let projectTheme: string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((lessonPlan as any).teacher_id !== teacherId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    let fortnight_id_for_insert: string | null = null
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const lp = lessonPlan as any
-    // Vocabulary lives at top-level lesson_plans.vocabulary, not inside blocks
-    const vocabulary: string[] =
-      Array.isArray(lp.vocabulary) && lp.vocabulary.length > 0
-        ? lp.vocabulary
-        : (lp.blocks ?? []).flatMap((b: any) => b.vocabulary ?? []) // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (input.lesson_plan_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: lp, error: lessonError } = await (supabase as any)
+        .from('lesson_plans')
+        .select('*, fortnights(*)')
+        .eq('id', input.lesson_plan_id)
+        .single()
+
+      if (lessonError || !lp) {
+        return NextResponse.json({ error: 'Lesson plan not found' }, { status: 404 })
+      }
+      if (lp.teacher_id !== teacherId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
+      lessonPlan = lp
+      vocabulary =
+        Array.isArray(lp.vocabulary) && lp.vocabulary.length > 0
+          ? lp.vocabulary
+          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (lp.blocks ?? []).flatMap((b: any) => b.vocabulary ?? [])
+      projectTheme = lp.fortnights?.project_name || 'General English'
+      fortnight_id_for_insert = lp.fortnight_id ?? null
+    } else {
+      // Standalone generation — vocabulary provided directly
+      vocabulary = input.vocabulary!
+      projectTheme = input.topic || 'General English'
+    }
 
     if (vocabulary.length === 0) {
-      return NextResponse.json({ error: 'No vocabulary found in lesson plan' }, { status: 400 })
+      return NextResponse.json({ error: 'No vocabulary found' }, { status: 400 })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const projectTheme = (lessonPlan as any).fortnights?.project_name || 'General English'
-
     const imageMap = await fetchVocabImages(vocabulary)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ctx = deriveFortnightContext(lessonPlan as any)
+    const ctx = lessonPlan
+      ? deriveFortnightContext(lessonPlan)
+      : {
+          project_name: projectTheme,
+          monthly_value: null,
+          richmond_unit: null,
+          richmond_student_pages: null,
+          letter: vocabulary[0]?.[0]?.toUpperCase() ?? 'A',
+          grade: '',
+          methodology_types: null,
+        }
 
     const createdMaterials: string[] = []
 
@@ -177,9 +200,8 @@ export async function POST(req: NextRequest) {
           .from('materials')
           .insert({
             teacher_id: teacherId,
-            lesson_plan_id: input.lesson_plan_id,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            fortnight_id: (lessonPlan as any).fortnight_id,
+            lesson_plan_id: input.lesson_plan_id ?? null,
+            fortnight_id: fortnight_id_for_insert,
             type,
             content,
             vocabulary,

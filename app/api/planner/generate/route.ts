@@ -109,19 +109,23 @@ export async function POST(req: NextRequest) {
       obsMap[`ALUMNO_OBS_${i + 1}`] = s.display_name
     })
 
-    // Fetch vocabulary for the fortnight's letter weeks so Claude generates
-    // lesson plans that use the actual words in the teacher's vocabulary bank.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fn = fortnight as any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: vocabItems } = await (supabase as any)
-      .from('vocabulary_items')
-      .select('word')
-      .or(`letter.eq.${fn.letter_week1},letter.eq.${fn.letter_week2}`)
-    const vocabList = (vocabItems || [])
+    // Teacher-selected vocab takes priority; fall back to letter-based lookup
+    let vocabList: string
+    if (Array.isArray(fn.vocabulary) && fn.vocabulary.length > 0) {
+      vocabList = (fn.vocabulary as string[]).join(', ')
+    } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((v: any) => v.word as string)
-      .join(', ')
+      const { data: vocabItems } = await (supabase as any)
+        .from('vocabulary_items')
+        .select('word')
+        .or(`letter.eq.${fn.letter_week1},letter.eq.${fn.letter_week2}`)
+      vocabList = (vocabItems || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((v: any) => v.word as string)
+        .join(', ')
+    }
 
     // Fetch Richmond unit context when set on the fortnight
     let richmondInstructions = ''
