@@ -15,9 +15,14 @@ const Schema = z
     message: 'Provide template_text or imageBase64',
   })
 
-const SYSTEM = `Analiza este formato de planeación escolar y extrae su estructura. Responde ÚNICAMENTE con JSON válido, sin texto adicional:
+const SYSTEM = `Analiza este formato de planeación escolar. Responde ÚNICAMENTE con JSON válido, sin texto adicional:
 
-{"sections":["sección 1","sección 2"],"notes":"estilo y convenciones breves (máx 100 chars)"}`
+{"sections":["sección 1","sección 2"],"notes":"estilo y convenciones breves (máx 80 chars)","examples":["fragmento verbatim de una actividad real del formato","otro fragmento"]}
+
+Reglas:
+- sections: nombres exactos de las secciones del formato
+- notes: tono, nivel de detalle, convenciones (máx 80 chars)
+- examples: 2-3 fragmentos de descripciones de actividades copiados LITERALMENTE del formato (máx 120 chars c/u). Omite si no hay actividades específicas.`
 
 export async function POST(req: NextRequest) {
   try {
@@ -79,14 +84,14 @@ export async function POST(req: NextRequest) {
 
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 512,
+      max_tokens: 800,
       temperature: 0,
       system: SYSTEM,
       messages: [{ role: 'user', content: userContent }],
     })
 
     const text = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
-    let parsed: { sections?: string[]; notes?: string }
+    let parsed: { sections?: string[]; notes?: string; examples?: string[] }
     try {
       parsed = JSON.parse(text.replace(/^```json\n?/, '').replace(/\n?```$/, ''))
     } catch {

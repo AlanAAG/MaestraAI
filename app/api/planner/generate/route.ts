@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       .single()
     const periodMinutes: number = teacherCtx?.english_period_minutes ?? 45
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const planTemplate: { sections?: string[]; notes?: string } | null =
+    const planTemplate: { sections?: string[]; notes?: string; examples?: string[] } | null =
       teacherCtx?.plan_template ?? null
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -321,7 +321,7 @@ function buildPrompt(
   richmondUnit: string = '',
   richmondInstructions: string = '',
   periodMinutes: number = 45,
-  planTemplate: { sections?: string[]; notes?: string } | null = null,
+  planTemplate: { sections?: string[]; notes?: string; examples?: string[] } | null = null,
   physicalMaterials: string[] = []
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
@@ -361,7 +361,14 @@ Mínimo 1 actividad PRONI por semana en el bloque del martes. Marca con [PRONI: 
   const materialsSection = `MATERIALES DISPONIBLES: ${materialsBaseline}${materialsExtra}. Usa solo estos en el campo "materials" de cada bloque.`
 
   const templateSection = planTemplate?.sections?.length
-    ? `FORMATO DE TU ESCUELA: ${planTemplate.sections.join(' → ')}${planTemplate.notes ? `. ${planTemplate.notes}` : ''}. Usa esta terminología en las actividades.`
+    ? [
+        `FORMATO DE TU ESCUELA: ${planTemplate.sections.join(' → ')}${planTemplate.notes ? `. ${planTemplate.notes}` : ''}. Usa esta estructura y terminología en los bloques.`,
+        planTemplate.examples?.length
+          ? `VOZ DE LA MAESTRA — ejemplos reales de cómo escribe sus actividades:\n${planTemplate.examples.map((e) => `• ${e}`).join('\n')}\nAdopta exactamente este estilo, nivel de detalle y vocabulario en cada actividad.`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
     : ''
 
   return `QUINCENA ${fortnight.number}: ${projectName}
