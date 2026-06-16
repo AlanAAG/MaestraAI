@@ -150,6 +150,69 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const schema = z.object({
+      id: z.string().uuid(),
+      word: z.string().min(1).max(100).optional(),
+      letter: z.string().length(1).toUpperCase().optional(),
+      color: z.string().optional(),
+    })
+    const parsed = schema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Datos inválidos', fieldErrors: parsed.error.flatten().fieldErrors },
+        { status: 422 }
+      )
+    }
+    const { id, ...updates } = parsed.data
+
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { success, headers } = await checkRateLimit(user.id, 'standard')
+    if (!success) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes.' }, { status: 429, headers })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teacher } = await (supabase as any)
+      .from('teachers')
+      .select('id')
+      .eq('auth_id', user.id)
+      .single()
+    if (!teacher) return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+
+    const patch: Record<string, string> = {}
+    if (updates.word) patch.word = updates.word.toLowerCase()
+    if (updates.letter) patch.letter = updates.letter.toUpperCase()
+    if (updates.color) patch.color = updates.color
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from('vocabulary_items')
+      .update(patch)
+      .eq('id', id)
+      .eq('teacher_id', teacher.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Vocab PATCH error:', error)
+      return NextResponse.json({ error: 'No se pudo actualizar la palabra' }, { status: 500 })
+    }
+
+    return NextResponse.json({ item: data })
+  } catch (error) {
+    console.error('Vocabulary PATCH error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)

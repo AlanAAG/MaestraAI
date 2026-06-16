@@ -35,7 +35,6 @@ export default function ConfiguracionPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [periodMinutes, setPeriodMinutes] = useState(45)
-  const [templateText, setTemplateText] = useState('')
   const [templateStatus, setTemplateStatus] = useState<'idle' | 'analyzing' | 'saved'>('idle')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [planTemplate, setPlanTemplate] = useState<{ sections?: string[]; notes?: string } | null>(
@@ -158,45 +157,24 @@ export default function ConfiguracionPage() {
     await loadData()
   }
 
-  async function handleAnalyzeTemplate() {
-    if (templateText.trim().length < 50) return alert('Pega al menos 50 caracteres del formato')
-    setTemplateStatus('analyzing')
-    try {
-      const res = await fetch('/api/teachers/template', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template_text: templateText }),
-      })
-      if (!res.ok) throw new Error()
-      const { plan_template } = await res.json()
-      setPlanTemplate(plan_template)
-      setTemplateText('')
-      setTemplateStatus('saved')
-      setTimeout(() => setTemplateStatus('idle'), 3000)
-    } catch {
-      alert('No pude analizar el formato. Intenta con más texto.')
-      setTemplateStatus('idle')
-    }
-  }
-
   async function handleTemplateFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setTemplateStatus('analyzing')
+    const isImage = file.type.startsWith('image/')
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
-      const [header, imageBase64] = dataUrl.split(',')
-      const imageMimeType = (header.match(/:(.*?);/)?.[1] ?? 'image/jpeg') as
-        | 'image/jpeg'
-        | 'image/png'
-        | 'image/jpg'
-        | 'image/webp'
+      const [header, base64] = dataUrl.split(',')
+      const mimeType = header.match(/:(.*?);/)?.[1] ?? file.type
       try {
+        const body = isImage
+          ? { imageBase64: base64, imageMimeType: mimeType }
+          : { documentBase64: base64, documentMimeType: mimeType }
         const res = await fetch('/api/teachers/template', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64, imageMimeType }),
+          body: JSON.stringify(body),
         })
         if (!res.ok) throw new Error((await res.json()).error)
         const { plan_template } = await res.json()
@@ -204,16 +182,11 @@ export default function ConfiguracionPage() {
         setTemplateStatus('saved')
         setTimeout(() => setTemplateStatus('idle'), 3000)
       } catch (err) {
-        alert(
-          err instanceof Error
-            ? err.message
-            : 'No pude analizar la imagen. Intenta con una foto más clara.'
-        )
+        alert(err instanceof Error ? err.message : 'No pude analizar el archivo. Intenta con otro.')
         setTemplateStatus('idle')
       }
     }
     reader.readAsDataURL(file)
-    // reset so same file can be re-selected
     e.target.value = ''
   }
 
@@ -455,41 +428,26 @@ export default function ConfiguracionPage() {
         ) : null}
         {(!planTemplate || !planTemplate.sections?.length) && (
           <div className="space-y-3">
-            <textarea
-              value={templateText}
-              onChange={(e) => setTemplateText(e.target.value)}
-              placeholder="Pega aquí el formato de planeación de tu escuela (al menos 50 caracteres)..."
-              rows={5}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
-            />
-            <div className="flex gap-2">
-              <Button
-                onClick={handleAnalyzeTemplate}
-                disabled={templateStatus === 'analyzing' || templateText.length < 50}
-                variant="outline"
-                className="min-h-[44px]"
-              >
-                {templateStatus === 'analyzing' ? 'Analizando...' : 'Analizar formato'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-[44px]"
-                disabled={templateStatus === 'analyzing'}
-                onClick={() => templateFileRef.current?.click()}
-              >
-                {templateStatus === 'analyzing' ? 'Analizando...' : '📷 Subir foto'}
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px]"
+              disabled={templateStatus === 'analyzing'}
+              onClick={() => templateFileRef.current?.click()}
+            >
+              {templateStatus === 'analyzing'
+                ? 'Analizando...'
+                : '📄 Subir formato (foto, PDF o Word)'}
+            </Button>
             <input
               ref={templateFileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx"
               className="hidden"
               onChange={handleTemplateFile}
             />
             <p className="text-xs text-text-secondary">
-              Toma una foto del formato impreso de tu escuela y súbela directamente.
+              Sube una foto, PDF o archivo Word del formato de planeación de tu escuela.
             </p>
             {templateStatus === 'saved' && (
               <p className="text-sm text-green-600">✓ Formato guardado</p>

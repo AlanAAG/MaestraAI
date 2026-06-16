@@ -3,9 +3,48 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ZeroState } from '@/components/app/ZeroState'
 import { Card } from '@/components/ui/card'
-import { BookOpen, Database, FileText, Calendar, Users } from 'lucide-react'
+import { BookOpen, Database, FileText, Calendar, Users, Quote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getEditorialConfig } from '@/lib/editorial/registry'
+
+const PHRASES = [
+  'Enseñar es sembrar semillas que florecerán toda la vida.',
+  'Cada palabra que le enseñas a un niño es un escalón hacia su futuro.',
+  'No hay profesión más transformadora que la de quien forma mentes en sus primeros años.',
+  'Lo que haces hoy en ese salón importará dentro de veinte años.',
+  'Eres la primera gran maestra que muchos niños recordarán siempre.',
+  'Tu paciencia y dedicación están construyendo personas, no solo alumnos.',
+  'Educar en la infancia es moldear el mundo del mañana con las manos de hoy.',
+  'Cada niño que confía en ti lleva contigo una parte de su historia.',
+  'El amor con que enseñas es tan importante como lo que enseñas.',
+  'Ninguna planeación perfecta vale más que la maestra que la vive con entrega.',
+  'Hacer que un niño ame aprender es el logro más grande que existe.',
+  'Tu aula es un lugar donde los sueños aprenden a tomar forma.',
+  'La infancia no se repite — y tú estás justo ahí, cuidándola.',
+  'Cada "ya lo entendí" que escuchas es tuyo también.',
+  'Enseñar requiere corazón, y el tuyo está en el lugar correcto.',
+  'Los niños no recuerdan qué les enseñaste; recuerdan cómo los hiciste sentir.',
+  'Tu vocación es de las pocas que deja huella en todas las demás.',
+  'Hoy entras al salón y cambias el rumbo de alguien sin saberlo.',
+  'Ser maestra de preescolar es darle al mundo su mejor comienzo.',
+  'Lo que percibes como rutina es, para ellos, magia pura.',
+  'Tu trabajo no termina en el timbre — vive en cada alumno que sale de tu aula.',
+  'Elegiste una carrera que importa. Eso no es poca cosa.',
+  'La constancia de una buena maestra supera cualquier currículo.',
+  'Eres parte de la historia de cada familia que pasa por tu salón.',
+  'Los primeros maestros son los que más duran en la memoria del corazón.',
+  'Cada juego, cada canción, cada historia que compartes tiene un efecto enorme.',
+  'Tu presencia en ese salón es lo más valioso de su día.',
+  'Educar con amor es el acto más generoso que existe.',
+  'Gracias a ti, hay niños que hoy se atreven a levantar la mano.',
+  'No existe inversión más noble que formar a los más pequeños.',
+]
+
+function getDailyPhrase() {
+  const start = new Date(new Date().getFullYear(), 0, 0)
+  const dayOfYear = Math.floor((Date.now() - start.getTime()) / 86400000)
+  return PHRASES[dayOfYear % PHRASES.length]
+}
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -101,6 +140,11 @@ export default function DashboardPage() {
             day: 'numeric',
           })}
         </p>
+      </div>
+
+      <div className="flex items-start gap-2 mb-8 p-4 rounded-lg bg-surface border border-border">
+        <Quote size={16} className="text-primary mt-0.5 shrink-0" />
+        <p className="text-sm italic text-text-secondary">{getDailyPhrase()}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

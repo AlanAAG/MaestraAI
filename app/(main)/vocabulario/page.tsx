@@ -5,7 +5,17 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Plus, Upload, FileText, Image as ImageIcon, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Plus,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Trash2,
+  Pencil,
+  Check,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 type VocabularyItem = {
@@ -35,6 +45,10 @@ export default function VocabularioPage() {
   const [extracting, setExtracting] = useState(false)
   const [extractedItems, setExtractedItems] = useState<ExtractedItem[]>([])
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editWord, setEditWord] = useState('')
+  const [editLetter, setEditLetter] = useState('A')
+  const [editColor, setEditColor] = useState('blue')
 
   const colors = [
     {
@@ -258,6 +272,29 @@ export default function VocabularioPage() {
     } catch (error) {
       console.error('Save error:', error)
       toast.error('No pude guardar el vocabulario')
+    }
+  }
+
+  function startEdit(item: VocabularyItem) {
+    setEditingId(item.id)
+    setEditWord(item.word)
+    setEditLetter(item.letter)
+    setEditColor(item.color)
+  }
+
+  async function handleSaveEdit(id: string) {
+    try {
+      const res = await fetch('/api/vocabulary', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, word: editWord, letter: editLetter, color: editColor }),
+      })
+      if (!res.ok) throw new Error('Failed to update')
+      toast.success('Palabra actualizada')
+      setEditingId(null)
+      loadVocabulary()
+    } catch {
+      toast.error('No pude actualizar la palabra')
     }
   }
 
@@ -593,6 +630,62 @@ export default function VocabularioPage() {
                       {words.map((item) => {
                         const colorConfig = colors.find((c) => c.value === item.color)
                         const usageCount = wordUsageMap[item.word.toLowerCase()] ?? 0
+                        const isEditing = editingId === item.id
+
+                        if (isEditing) {
+                          return (
+                            <div
+                              key={item.id}
+                              className="p-3 rounded-lg border-2 border-primary bg-surface flex flex-col gap-2"
+                            >
+                              <Input
+                                value={editWord}
+                                onChange={(e) => setEditWord(e.target.value)}
+                                className="h-7 text-sm"
+                                autoFocus
+                              />
+                              <div className="flex gap-1">
+                                <select
+                                  value={editLetter}
+                                  onChange={(e) => setEditLetter(e.target.value)}
+                                  className="flex-1 text-xs border rounded px-1 py-0.5 bg-background"
+                                >
+                                  {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
+                                    <option key={l} value={l}>
+                                      {l}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={editColor}
+                                  onChange={(e) => setEditColor(e.target.value)}
+                                  className="flex-1 text-xs border rounded px-1 py-0.5 bg-background"
+                                >
+                                  {colors.map((c) => (
+                                    <option key={c.value} value={c.value}>
+                                      {c.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex gap-1 justify-end">
+                                <button
+                                  onClick={() => setEditingId(null)}
+                                  className="text-text-secondary hover:text-text-primary"
+                                >
+                                  <X size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleSaveEdit(item.id)}
+                                  className="text-primary hover:text-primary/80"
+                                >
+                                  <Check size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        }
+
                         return (
                           <div
                             key={item.id}
@@ -603,12 +696,20 @@ export default function VocabularioPage() {
                                 {item.word}
                               </span>
                               {item.teacher_id && (
-                                <button
-                                  onClick={() => handleDelete(item.id)}
-                                  className="text-text-secondary hover:text-red-600 transition-colors"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => startEdit(item)}
+                                    className="text-text-secondary hover:text-primary transition-colors"
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(item.id)}
+                                    className="text-text-secondary hover:text-red-600 transition-colors"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
                               )}
                             </div>
                             <span

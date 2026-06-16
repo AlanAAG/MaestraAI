@@ -26,9 +26,9 @@ const STEPS = [
   },
   {
     number: 4,
-    title: 'Listo — regresa a MaestraAI y selecciona otro grupo',
+    title: 'Listo — regresa al panel principal de Richmond y selecciona otro grupo',
     description:
-      'La extensión detecta la carga de Scores y sincroniza automáticamente. Regresa al dashboard de MaestraAI para ver los resultados o repite el proceso con otro grupo.',
+      'La extensión detecta la carga de Scores y sincroniza automáticamente. Para sincronizar otro grupo, regresa al panel principal de richmondlp.com y repite el proceso.',
     imageSrc: '/images/extension-guide/richmond_4.jpg',
   },
 ] as const
@@ -78,6 +78,12 @@ function ImageWithFallback({ src, number }: { src: string; number: number }) {
         fill
         className="object-cover"
         unoptimized
+        onLoad={(e) => {
+          const ph = (e.currentTarget as HTMLImageElement).parentElement?.querySelector(
+            '.placeholder'
+          )
+          if (ph) (ph as HTMLElement).style.display = 'none'
+        }}
         onError={(e) => {
           // Hide broken image, show placeholder via parent
           const target = e.currentTarget as HTMLImageElement
