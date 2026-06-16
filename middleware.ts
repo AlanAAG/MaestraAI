@@ -12,6 +12,7 @@ const PROTECTED_PATHS = [
   '/alumnos',
   '/richmond',
   '/onboarding',
+  '/diario',
 ]
 
 function applySecurityHeaders(response: NextResponse): NextResponse {
@@ -77,23 +78,7 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(redirect)
   }
 
-  // ── 5. Subdomain rewrite for diary microsite ──────────────────────────────
-  const hostname = req.headers.get('host') ?? ''
-  const isDiarySite =
-    hostname.startsWith('diario.') || process.env.NEXT_PUBLIC_FORCE_DIARY_SITE === 'true'
-
-  let response = supabaseResponse
-  if (isDiarySite) {
-    const rewritePath = pathname === '/' ? '/diary' : `/diary${pathname}`
-    const url = req.nextUrl.clone()
-    url.pathname = rewritePath
-    response = NextResponse.rewrite(url)
-    supabaseResponse.cookies
-      .getAll()
-      .forEach(({ name, value }) => response.cookies.set(name, value))
-  }
-
-  return applySecurityHeaders(response)
+  return applySecurityHeaders(supabaseResponse)
 }
 
 export const config = {

@@ -19,7 +19,7 @@ import { Toaster } from '@/components/ui/sonner'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio', pro: false },
-  { href: '/diary', icon: BookOpen, label: 'Mi Diario', pro: false },
+  { href: '/diario', icon: BookOpen, label: 'Mi Diario', pro: false },
   { href: '/planeaciones', icon: CalendarDays, label: 'Planeaciones', pro: false },
   { href: '/vocabulario', icon: BookA, label: 'Vocabulario', pro: false },
   { href: '/materiales', icon: Package, label: 'Materiales', pro: false },
