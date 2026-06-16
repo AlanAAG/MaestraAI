@@ -338,7 +338,7 @@ export default function PlaneacionDetailPage() {
       const res = await fetch('/api/materials/from-youtube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, fortnight_id: fortnight?.id, lesson_plan_id: planId }),
+        body: JSON.stringify({ url, fortnight_id: params.id as string, lesson_plan_id: planId }),
       })
       if (res.ok) {
         setYoutubeUrl('')

@@ -47,7 +47,7 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/onboarding`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/onboarding`,
       },
     })
 

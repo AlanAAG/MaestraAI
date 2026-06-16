@@ -99,11 +99,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
       }
       lessonPlan = lp
+      // Priority: lesson_plan.vocabulary → blocks vocabulary → fortnight.vocabulary
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const blockVocab = (lp.blocks ?? []).flatMap((b: any) => b.vocabulary ?? [])
       vocabulary =
         Array.isArray(lp.vocabulary) && lp.vocabulary.length > 0
           ? lp.vocabulary
-          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (lp.blocks ?? []).flatMap((b: any) => b.vocabulary ?? [])
+          : blockVocab.length > 0
+            ? blockVocab
+            : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              Array.isArray((lp.fortnights as any)?.vocabulary) &&
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (lp.fortnights as any).vocabulary.length > 0
+              ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (lp.fortnights as any).vocabulary
+              : []
       projectTheme = lp.fortnights?.project_name || 'General English'
       fortnight_id_for_insert = lp.fortnight_id ?? null
     } else {
@@ -113,7 +123,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (vocabulary.length === 0) {
-      return NextResponse.json({ error: 'No vocabulary found' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'No se encontró vocabulario. Agrega palabras a la quincena o a este día.' },
+        { status: 400 }
+      )
     }
 
     const imageMap = await fetchVocabImages(vocabulary)

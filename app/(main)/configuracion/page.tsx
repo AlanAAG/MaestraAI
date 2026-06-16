@@ -123,12 +123,13 @@ export default function ConfiguracionPage() {
           })) || []
         )
 
-        // Load API keys
+        // Load API keys — exclude revoked ones (soft-deleted)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: keysData } = await (supabase as any)
           .from('api_keys')
           .select('id, name, key_prefix, created_at, last_used_at, revoked_at')
           .eq('teacher_id', teacherData.id)
+          .is('revoked_at', null)
           .order('created_at', { ascending: false })
         setApiKeys(keysData || [])
       }
