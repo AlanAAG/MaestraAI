@@ -331,6 +331,7 @@ export default function PlaneacionDetailPage() {
   }
 
   async function handleAddYoutube(planId: string) {
+    if (!fortnight) return
     const url = youtubeUrl.trim()
     if (!url.includes('youtube.com') && !url.includes('youtu.be')) return
     setAddingYoutube(true)
@@ -338,7 +339,7 @@ export default function PlaneacionDetailPage() {
       const res = await fetch('/api/materials/from-youtube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, fortnight_id: params.id as string, lesson_plan_id: planId }),
+        body: JSON.stringify({ url, fortnight_id: fortnight.id, lesson_plan_id: planId }),
       })
       if (res.ok) {
         setYoutubeUrl('')
@@ -686,6 +687,11 @@ export default function PlaneacionDetailPage() {
         <MaterialGenerator
           lessonPlanId={selectedLessonPlanId}
           fortnightId={fortnight.id}
+          vocabulary={
+            lessonPlans.find((p) => p.id === selectedLessonPlanId)?.vocabulary?.length
+              ? lessonPlans.find((p) => p.id === selectedLessonPlanId)!.vocabulary
+              : vocabularyItems.map((v) => v.word)
+          }
           onClose={() => {
             setShowMaterialGenerator(false)
             setSelectedLessonPlanId(null)

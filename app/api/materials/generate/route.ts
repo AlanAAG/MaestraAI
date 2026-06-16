@@ -113,7 +113,9 @@ export async function POST(req: NextRequest) {
                 (lp.fortnights as any).vocabulary.length > 0
               ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (lp.fortnights as any).vocabulary
-              : []
+              : Array.isArray(input.vocabulary) && input.vocabulary.length > 0
+                ? input.vocabulary
+                : []
       projectTheme = lp.fortnights?.project_name || 'General English'
       fortnight_id_for_insert = lp.fortnight_id ?? null
     } else {

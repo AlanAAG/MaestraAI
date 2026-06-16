@@ -63,6 +63,7 @@ const GENERATE_TYPES: GenerateMaterialType[] = [
 type MaterialGeneratorProps = {
   lessonPlanId: string
   fortnightId: string
+  vocabulary?: string[]
   onClose: () => void
   onSuccess: () => void
 }
@@ -70,6 +71,7 @@ type MaterialGeneratorProps = {
 export function MaterialGenerator({
   lessonPlanId,
   fortnightId,
+  vocabulary,
   onClose,
   onSuccess,
 }: MaterialGeneratorProps) {
@@ -121,6 +123,7 @@ export function MaterialGenerator({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lesson_plan_id: lessonPlanId,
+            vocabulary: vocabulary?.length ? vocabulary : undefined,
             material_types: generateTypes,
             options: selectedTypes.has('letter_recognition')
               ? { letter_activity_type: letterActivityType }
