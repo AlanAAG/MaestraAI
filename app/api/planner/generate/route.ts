@@ -184,7 +184,6 @@ export async function POST(req: NextRequest) {
 
     const prompt = buildPrompt(
       fortnight,
-      neeStudents,
       observationStudents,
       includeProni,
       neeMap,
@@ -312,8 +311,6 @@ export async function POST(req: NextRequest) {
 function buildPrompt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fortnight: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  neeStudents: any[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   observationStudents: any[],
   includeProni: boolean,

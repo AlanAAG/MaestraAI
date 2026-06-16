@@ -44,7 +44,15 @@ describe('parseClaudeResponse', () => {
     expect(plans[0].methodology).toBe('play_based')
   })
 
-  it('throws when Claude returns an object instead of array (regression: Array.isArray guard)', () => {
+  it('unwraps GPT-4o-mini {"days":[...]} envelope', () => {
+    const wrapped = JSON.stringify({ days: makeDayArray() })
+    const plans = parseClaudeResponse(wrapped, MONDAY)
+    expect(plans).toHaveLength(10)
+    expect(plans[0].day_of_week).toBe('lunes')
+    expect(plans[5].date).toBe('2026-06-23')
+  })
+
+  it('throws when response is an object without a days key (regression: Array.isArray guard)', () => {
     const input = JSON.stringify({ day_number: 1, methodology: 'play_based' })
     expect(() => parseClaudeResponse(input, MONDAY)).toThrow('Claude response is not a JSON array')
   })
