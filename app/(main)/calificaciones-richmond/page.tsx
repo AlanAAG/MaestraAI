@@ -54,8 +54,9 @@ export default function CalificacionesRichmondPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedGroup) return
+    if (!selectedGroup || !groups.find((g) => g.id === selectedGroup)) return
     loadGroupData(selectedGroup)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGroup])
 
   async function loadGroupData(groupId: string) {

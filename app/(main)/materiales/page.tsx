@@ -141,7 +141,7 @@ export default function MaterialesPage() {
     fetch('/api/vocabulary')
       .then((r) => r.json())
       .then((d) => setAllVocab(d.items ?? []))
-      .catch(() => {})
+      .catch((err) => console.error('Failed to load vocabulary:', err))
   }, [router])
 
   async function handleCreate() {

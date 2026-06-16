@@ -51,15 +51,19 @@ function LoginForm() {
     }
 
     if (fromDiary) {
-      const pending = sessionStorage.getItem('pending_diary')
-      if (pending) {
-        const data = JSON.parse(pending)
-        sessionStorage.removeItem('pending_diary')
-        await fetch('/api/diary/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        })
+      try {
+        const pending = sessionStorage.getItem('pending_diary')
+        if (pending) {
+          const data = JSON.parse(pending)
+          sessionStorage.removeItem('pending_diary')
+          await fetch('/api/diary/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          })
+        }
+      } catch (e) {
+        console.error('Failed to restore diary draft:', e)
       }
       router.push('/dashboard?diary=saved')
     } else {

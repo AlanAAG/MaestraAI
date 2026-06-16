@@ -26,13 +26,22 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       .single()
     if (!fortnight) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // Delete materials that belong to this fortnight's lesson plans (no FK cascade)
+    // Fetch lesson plan IDs so we can delete their materials (no FK cascade on materials.lesson_plan_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from('materials')
-      .delete()
+    const { data: plans } = await (supabase as any)
+      .from('lesson_plans')
+      .select('id')
       .eq('fortnight_id', params.id)
-      .eq('teacher_id', teacher.id)
+    const planIds: string[] = (plans ?? []).map((p: { id: string }) => p.id)
+
+    // Delete all materials for this fortnight (by fortnight_id or lesson_plan_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const baseDelete = (supabase as any).from('materials').delete().eq('teacher_id', teacher.id)
+    if (planIds.length > 0) {
+      await baseDelete.or(`fortnight_id.eq.${params.id},lesson_plan_id.in.(${planIds.join(',')})`)
+    } else {
+      await baseDelete.eq('fortnight_id', params.id)
+    }
 
     // Delete fortnight — lesson_plans cascade automatically
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -46,7 +46,7 @@ export default function NuevaPlaneacionPage() {
     fetch('/api/vocabulary')
       .then((r) => r.json())
       .then((d) => setAllVocab(d.items ?? []))
-      .catch(() => {})
+      .catch((err) => console.error('Failed to load vocabulary:', err))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
