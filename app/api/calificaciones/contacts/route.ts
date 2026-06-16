@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { encrypt, decrypt } from '@/lib/encryption'
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'] as const
 
@@ -118,16 +119,22 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 })
 
   const { group_id, contacts } = parsed.data
-  const rows = contacts.map((c) => ({
-    teacher_id: teacher.id,
-    group_id,
-    richmond_student_id: c.richmond_student_id,
-    student_first_name: c.student_first_name ?? null,
-    student_last_name: c.student_last_name ?? null,
-    parent_name: c.parent_name ?? null,
-    parent_email: c.parent_email,
-    updated_at: new Date().toISOString(),
-  }))
+
+  // Encrypt all PII before storing (LFPDPPP 2025 Art. 9)
+  const rows = await Promise.all(
+    contacts.map(async (c) => ({
+      teacher_id: teacher.id,
+      group_id,
+      richmond_student_id: c.richmond_student_id,
+      student_first_name_encrypted: c.student_first_name
+        ? await encrypt(c.student_first_name)
+        : null,
+      student_last_name_encrypted: c.student_last_name ? await encrypt(c.student_last_name) : null,
+      parent_name_encrypted: c.parent_name ? await encrypt(c.parent_name) : null,
+      parent_email_encrypted: await encrypt(c.parent_email),
+      updated_at: new Date().toISOString(),
+    }))
+  )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
@@ -157,10 +164,36 @@ export async function GET(req: NextRequest) {
     .select('*')
     .eq('teacher_id', teacher.id)
     .eq('group_id', group_id)
-    .order('student_last_name')
+    .order('student_last_name_encrypted') // lexicographic by ciphertext — good enough for display order
 
   if (error) return NextResponse.json({ error: 'Error loading contacts.' }, { status: 500 })
-  return NextResponse.json({ contacts: data ?? [] })
+
+  // Decrypt PII before returning to frontend
+  const contacts = await Promise.all(
+    (data ?? []).map(
+      async (row: {
+        id: string
+        richmond_student_id: string
+        student_first_name_encrypted: string | null
+        student_last_name_encrypted: string | null
+        parent_name_encrypted: string | null
+        parent_email_encrypted: string
+      }) => ({
+        id: row.id,
+        richmond_student_id: row.richmond_student_id,
+        student_first_name: row.student_first_name_encrypted
+          ? await decrypt(row.student_first_name_encrypted)
+          : null,
+        student_last_name: row.student_last_name_encrypted
+          ? await decrypt(row.student_last_name_encrypted)
+          : null,
+        parent_name: row.parent_name_encrypted ? await decrypt(row.parent_name_encrypted) : null,
+        parent_email: await decrypt(row.parent_email_encrypted),
+      })
+    )
+  )
+
+  return NextResponse.json({ contacts })
 }
 
 // DELETE /api/calificaciones/contacts?id=...

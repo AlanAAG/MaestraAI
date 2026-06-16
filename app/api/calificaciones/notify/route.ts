@@ -3,12 +3,12 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { decrypt } from '@/lib/encryption'
 
 const Schema = z.object({
   group_id: z.string().uuid(),
   assignment_title: z.string().min(1),
   due_date: z.string(),
-  // richmond_student_ids of students who did NOT complete the assignment
   student_ids: z.array(z.string()).min(1),
 })
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // ponytail: strict rate limit — email sending is expensive and abuse-prone
+    // ponytail: strict rate limit — email sending is abuse-prone
     const { success, headers } = await checkRateLimit(user.id, 'strict')
     if (!success)
       return NextResponse.json({ error: 'Demasiadas solicitudes.' }, { status: 429, headers })
@@ -38,22 +38,30 @@ export async function POST(req: NextRequest) {
 
     const { group_id, assignment_title, due_date, student_ids } = body.data
 
-    // Fetch scores for incomplete students to get their names (for name-based contact matching)
+    // Decrypt richmond_scores names for incomplete students to enable name-based matching.
+    // richmond_scores.first_name/last_name are NULL after migration 030 — must use encrypted columns.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: scoreRows } = await (supabase as any)
       .from('richmond_scores')
-      .select('richmond_student_id, first_name, last_name')
+      .select('richmond_student_id, first_name_encrypted, last_name_encrypted')
       .in('richmond_student_id', student_ids)
 
-    // Build a set of normalized names from incomplete students
     const incompleteNames = new Set(
-      (scoreRows ?? []).map((s: { first_name: string; last_name: string }) =>
-        `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim().toLowerCase()
+      await Promise.all(
+        (scoreRows ?? []).map(
+          async (s: {
+            first_name_encrypted: string | null
+            last_name_encrypted: string | null
+          }) => {
+            const first = s.first_name_encrypted ? await decrypt(s.first_name_encrypted) : ''
+            const last = s.last_name_encrypted ? await decrypt(s.last_name_encrypted) : ''
+            return `${first} ${last}`.trim().toLowerCase()
+          }
+        )
       )
     )
 
-    // Fetch all contacts for this group, then filter by name match
-    // (AI-extracted contacts use a name-derived ID, not the real richmond_student_id)
+    // Fetch all contacts for the group — decrypt PII for matching and sending
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: allContacts } = await (supabase as any)
       .from('parent_contacts')
@@ -61,27 +69,8 @@ export async function POST(req: NextRequest) {
       .eq('teacher_id', teacher.id)
       .eq('group_id', group_id)
 
-    // Match by richmond_student_id (manual entry) OR by normalized full name (AI-extracted)
-    const contacts = (allContacts ?? []).filter(
-      (c: {
-        richmond_student_id: string
-        student_first_name: string | null
-        student_last_name: string | null
-      }) => {
-        if (student_ids.includes(c.richmond_student_id)) return true
-        const contactName = `${c.student_first_name ?? ''} ${c.student_last_name ?? ''}`
-          .trim()
-          .toLowerCase()
-        return contactName.length > 0 && incompleteNames.has(contactName)
-      }
-    )
-
-    if (!contacts || contacts.length === 0)
-      return NextResponse.json({
-        sent: 0,
-        failed: 0,
-        message: 'No hay contactos registrados para los alumnos seleccionados.',
-      })
+    if (!allContacts || allContacts.length === 0)
+      return NextResponse.json({ sent: 0, failed: 0, message: 'Sin contactos para este grupo.' })
 
     if (!process.env.RESEND_API_KEY)
       return NextResponse.json({ error: 'Email service not configured.' }, { status: 503 })
@@ -97,19 +86,44 @@ export async function POST(req: NextRequest) {
     let sent = 0
     let failed = 0
 
-    for (const contact of contacts) {
-      const studentName =
-        [contact.student_first_name, contact.student_last_name].filter(Boolean).join(' ') ||
-        'su hijo/a'
-      const parentGreeting = contact.parent_name
-        ? `Estimado/a ${contact.parent_name}`
+    for (const c of allContacts) {
+      // Decrypt PII for this contact
+      let parentEmail: string
+      try {
+        parentEmail = await decrypt(c.parent_email_encrypted)
+      } catch {
+        failed++
+        continue
+      }
+
+      const firstName = c.student_first_name_encrypted
+        ? await decrypt(c.student_first_name_encrypted).catch(() => '')
+        : ''
+      const lastName = c.student_last_name_encrypted
+        ? await decrypt(c.student_last_name_encrypted).catch(() => '')
+        : ''
+      const parentName = c.parent_name_encrypted
+        ? await decrypt(c.parent_name_encrypted).catch(() => null)
+        : null
+
+      const contactName = `${firstName} ${lastName}`.trim().toLowerCase()
+
+      // Match by exact richmond_student_id (manual entry) OR by decrypted name (AI-extracted)
+      const matches =
+        student_ids.includes(c.richmond_student_id) ||
+        (contactName.length > 0 && incompleteNames.has(contactName))
+      if (!matches) continue
+
+      const studentName = `${firstName} ${lastName}`.trim() || 'su hijo/a'
+      const parentGreeting = parentName
+        ? `Estimado/a ${parentName}`
         : 'Estimado/a padre/madre de familia'
 
       try {
         await resend.emails.send({
           from: `${fromName} <notificaciones@maestraia.com>`,
           replyTo: teacher.email ?? undefined,
-          to: contact.parent_email,
+          to: parentEmail,
           subject: `Recordatorio: tarea pendiente de ${studentName}`,
           html: `
             <p>${parentGreeting},</p>
@@ -126,7 +140,7 @@ export async function POST(req: NextRequest) {
         })
         sent++
       } catch (err) {
-        console.error(`Failed to send to ${contact.parent_email}:`, err)
+        console.error(`Failed to send to contact ${c.id}:`, err)
         failed++
       }
     }
