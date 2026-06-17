@@ -347,13 +347,15 @@ export default function CalificacionesRichmondPage() {
   const group = groups.find((g) => g.id === selectedGroup)
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 sm:p-6 max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Calificaciones Richmond</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Últimas 20 tareas sincronizadas por grupo</p>
+          <h1 className="text-2xl font-semibold text-text-primary">Calificaciones Richmond</h1>
+          <p className="text-sm text-text-secondary mt-0.5">
+            Últimas 20 tareas sincronizadas por grupo
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setShowContacts(true)} className="min-h-[44px]">
             <Users size={16} className="mr-2" />
             Contactos{contacts.length > 0 ? ` (${contacts.length})` : ''}
@@ -389,7 +391,7 @@ export default function CalificacionesRichmondPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : assignments.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
+        <div className="text-center py-16 text-text-secondary">
           <p className="font-medium">Sin tareas sincronizadas</p>
           <p className="text-sm mt-1">
             {group
@@ -402,7 +404,7 @@ export default function CalificacionesRichmondPage() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="bg-muted">
-                <th className="sticky left-0 bg-muted px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap border-r border-border">
+                <th className="sticky left-0 bg-muted px-4 py-3 text-left font-semibold text-text-primary whitespace-nowrap border-r border-border">
                   Alumno
                 </th>
                 {assignments.map((a) => {
@@ -411,12 +413,12 @@ export default function CalificacionesRichmondPage() {
                   return (
                     <th
                       key={a.id}
-                      className="px-3 py-3 text-center font-medium text-gray-600 max-w-[120px]"
+                      className="px-3 py-3 text-center font-medium text-text-secondary max-w-[120px]"
                     >
                       <div className="truncate max-w-[110px]" title={a.title}>
                         {a.title}
                       </div>
-                      <div className="text-xs font-normal text-gray-400">
+                      <div className="text-xs font-normal text-text-disabled">
                         {new Date(a.due_at).toLocaleDateString('es-MX', {
                           month: 'short',
                           day: 'numeric',
@@ -440,7 +442,7 @@ export default function CalificacionesRichmondPage() {
             <tbody className="divide-y divide-border">
               {students.map(([sid, { first, last }]) => (
                 <tr key={sid} className="hover:bg-muted/40">
-                  <td className="sticky left-0 bg-white hover:bg-muted/40 px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap border-r border-border">
+                  <td className="sticky left-0 bg-white hover:bg-muted/40 px-4 py-2.5 font-medium text-text-primary whitespace-nowrap border-r border-border">
                     {last}, {first}
                   </td>
                   {assignments.map((a) => {
@@ -448,7 +450,7 @@ export default function CalificacionesRichmondPage() {
                     const score = s?.total_score
                     const colorClass =
                       score == null
-                        ? 'text-gray-400'
+                        ? 'text-text-disabled'
                         : score >= 80
                           ? 'text-green-700 font-semibold'
                           : score >= 60
@@ -470,7 +472,7 @@ export default function CalificacionesRichmondPage() {
       {/* Contacts panel */}
       {showContacts && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/40" onClick={closeContacts} />
+          <div className="absolute inset-0 bg-black/40 cursor-pointer" onClick={closeContacts} />
           <div className="relative ml-auto w-full max-w-md bg-white h-full flex flex-col shadow-xl overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
               <h2 className="text-lg font-semibold">Contactos de padres</h2>
@@ -485,7 +487,7 @@ export default function CalificacionesRichmondPage() {
                 <button
                   key={tab}
                   onClick={() => setContactTab(tab)}
-                  className={`flex-1 py-2.5 ${contactTab === tab ? 'border-b-2 border-primary font-medium text-primary' : 'text-gray-500'}`}
+                  className={`flex-1 py-2.5 ${contactTab === tab ? 'border-b-2 border-primary font-medium text-primary' : 'text-text-secondary'}`}
                 >
                   {tab === 'paste' ? 'Pegar lista' : tab === 'photo' ? 'Foto' : 'Manual'}
                 </button>
@@ -495,7 +497,7 @@ export default function CalificacionesRichmondPage() {
             <div className="p-5 flex-1">
               {contactTab === 'paste' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-text-secondary">
                     Pega una lista con nombres y correos. Puede ser CSV, tabla, texto libre — la IA
                     extrae los datos.
                   </p>
@@ -519,15 +521,15 @@ export default function CalificacionesRichmondPage() {
 
                   {extracted.length > 0 && (
                     <div className="space-y-2 mt-3">
-                      <p className="text-xs font-medium text-gray-600">
+                      <p className="text-xs font-medium text-text-secondary">
                         {extracted.length} contacto{extracted.length === 1 ? '' : 's'} encontrado
                         {extracted.length === 1 ? '' : 's'}:
                       </p>
                       {extracted.map((c, i) => (
-                        <div key={i} className="text-xs border rounded p-2 bg-gray-50">
+                        <div key={i} className="text-xs border rounded p-2 bg-muted">
                           <span className="font-medium">{c.student_name}</span>
                           {c.parent_name && (
-                            <span className="text-gray-500"> · {c.parent_name}</span>
+                            <span className="text-text-secondary"> · {c.parent_name}</span>
                           )}
                           <br />
                           <span className="text-primary">{c.parent_email}</span>
@@ -548,7 +550,7 @@ export default function CalificacionesRichmondPage() {
 
               {contactTab === 'photo' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-text-secondary">
                     Toma una foto de tu lista de contactos impresa o en pantalla. La IA extrae los
                     correos.
                   </p>
@@ -570,15 +572,15 @@ export default function CalificacionesRichmondPage() {
 
                   {extracted.length > 0 && (
                     <div className="space-y-2 mt-3">
-                      <p className="text-xs font-medium text-gray-600">
+                      <p className="text-xs font-medium text-text-secondary">
                         {extracted.length} contacto{extracted.length === 1 ? '' : 's'} encontrado
                         {extracted.length === 1 ? '' : 's'}:
                       </p>
                       {extracted.map((c, i) => (
-                        <div key={i} className="text-xs border rounded p-2 bg-gray-50">
+                        <div key={i} className="text-xs border rounded p-2 bg-muted">
                           <span className="font-medium">{c.student_name}</span>
                           {c.parent_name && (
-                            <span className="text-gray-500"> · {c.parent_name}</span>
+                            <span className="text-text-secondary"> · {c.parent_name}</span>
                           )}
                           <br />
                           <span className="text-primary">{c.parent_email}</span>
@@ -599,7 +601,7 @@ export default function CalificacionesRichmondPage() {
 
               {contactTab === 'manual' && (
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500 mb-3">
+                  <p className="text-xs text-text-secondary mb-3">
                     Agrega contactos uno por uno. El ID del alumno debe coincidir con el que usa
                     Richmond.
                   </p>
@@ -645,14 +647,14 @@ export default function CalificacionesRichmondPage() {
               {/* Saved contacts list */}
               {contacts.length > 0 && (
                 <div className="mt-6">
-                  <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">
+                  <p className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-wide">
                     Contactos guardados ({contacts.length})
                   </p>
                   <div className="space-y-2">
                     {contacts.map((c) => (
                       <div
                         key={c.id}
-                        className="flex items-start justify-between text-xs border rounded p-2 bg-gray-50"
+                        className="flex items-start justify-between text-xs border rounded p-2 bg-muted"
                       >
                         <div>
                           <span className="font-medium">
@@ -661,14 +663,14 @@ export default function CalificacionesRichmondPage() {
                               .join(', ') || c.richmond_student_id}
                           </span>
                           {c.parent_name && (
-                            <span className="text-gray-500"> · {c.parent_name}</span>
+                            <span className="text-text-secondary"> · {c.parent_name}</span>
                           )}
                           <br />
                           <span className="text-primary">{c.parent_email}</span>
                         </div>
                         <button
                           onClick={() => handleDeleteContact(c.id)}
-                          className="text-gray-400 hover:text-red-600 ml-2 mt-0.5"
+                          className="text-text-disabled hover:text-red-600 ml-2 mt-0.5"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -690,8 +692,8 @@ export default function CalificacionesRichmondPage() {
             onClick={() => !sending && setNotifyingAssignment(null)}
           />
           <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Notificar padres</h3>
-            <p className="text-sm text-gray-600 mb-1">
+            <h3 className="font-semibold text-text-primary mb-2">Notificar padres</h3>
+            <p className="text-sm text-text-secondary mb-1">
               Tarea: <strong>{notifyingAssignment.title}</strong>
             </p>
             {(() => {
@@ -700,7 +702,7 @@ export default function CalificacionesRichmondPage() {
               const willNotify = incomplete.filter((id) => contactedIds.includes(id))
               return (
                 <>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-sm text-text-secondary mb-4">
                     Se enviará un correo a los padres de{' '}
                     <strong>
                       {willNotify.length} alumno{willNotify.length === 1 ? '' : 's'}

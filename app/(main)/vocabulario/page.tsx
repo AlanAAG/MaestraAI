@@ -318,7 +318,7 @@ export default function VocabularioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg p-6">
+      <div className="min-h-screen bg-bg p-4 sm:p-6">
         <div className="max-w-6xl mx-auto">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-surface rounded w-1/3"></div>
@@ -339,10 +339,10 @@ export default function VocabularioPage() {
   )
 
   return (
-    <div className="min-h-screen bg-bg p-6">
+    <div className="min-h-screen bg-bg p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
               <ArrowLeft size={16} />
@@ -356,7 +356,7 @@ export default function VocabularioPage() {
           </div>
 
           {mode === 'list' && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => setMode('add')} variant="outline" size="sm">
                 <Plus size={16} className="mr-2" />
                 Agregar palabra

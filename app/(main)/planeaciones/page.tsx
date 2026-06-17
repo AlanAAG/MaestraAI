@@ -99,7 +99,7 @@ export default function PlaneacionesPage() {
   // Loading skeleton
   if (loadingState.status === 'loading') {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="flex items-center justify-between mb-6">
           <div className="h-8 w-48 rounded-lg bg-muted animate-pulse" />
           <div className="h-10 w-40 rounded-lg bg-muted animate-pulse" />
@@ -125,7 +125,7 @@ export default function PlaneacionesPage() {
   // Error state
   if (loadingState.status === 'error') {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 flex items-start gap-4">
             <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-1" />
@@ -154,7 +154,7 @@ export default function PlaneacionesPage() {
   // Empty state
   if (fortnights.length === 0) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <ZeroState
           icon={Calendar}
           title="¡Comienza tu primera planeación!"
@@ -168,7 +168,7 @@ export default function PlaneacionesPage() {
 
   // Success state - list of fortnights
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="flex items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-text-primary">Mis Planeaciones</h1>

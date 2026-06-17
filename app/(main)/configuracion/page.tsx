@@ -348,7 +348,7 @@ export default function ConfiguracionPage() {
       : undefined
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 sm:p-8 max-w-4xl">
       <h1 className="text-2xl font-semibold text-text-primary mb-6">Configuración</h1>
 
       {/* Profile Section */}

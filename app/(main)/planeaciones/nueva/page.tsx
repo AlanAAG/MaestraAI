@@ -189,7 +189,7 @@ export default function NuevaPlaneacionPage() {
 
   if (loadingGroups) {
     return (
-      <div className="p-8 max-w-2xl">
+      <div className="p-4 sm:p-8 max-w-2xl">
         <Skeleton className="h-8 w-64 mb-6" />
         <Card className="p-6">
           <div className="space-y-6">
@@ -214,7 +214,7 @@ export default function NuevaPlaneacionPage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 sm:p-8 max-w-2xl">
       <h1 className="text-2xl font-semibold text-text-primary mb-6">Crear Nueva Planeación</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">

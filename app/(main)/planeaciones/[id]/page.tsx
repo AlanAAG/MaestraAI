@@ -355,7 +355,7 @@ export default function PlaneacionDetailPage() {
 
   if (loading || !fortnight) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <p className="text-text-secondary">Cargando...</p>
       </div>
     )
@@ -363,20 +363,20 @@ export default function PlaneacionDetailPage() {
 
   if (generating) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <LoadingGeneration phase={generationPhase} />
       </div>
     )
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
         <Button variant="ghost" onClick={() => router.push('/planeaciones')} className="mb-4 -ml-2">
           <ArrowLeft size={16} className="mr-2" />
           Volver a Planeaciones
         </Button>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-text-primary">
               Quincena {fortnight.number}: {fortnight.project_name}
@@ -386,7 +386,7 @@ export default function PlaneacionDetailPage() {
               {new Date(fortnight.end_date).toLocaleDateString('es-MX')}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             {lessonPlans.length > 0 && (
               <>
                 <Button
