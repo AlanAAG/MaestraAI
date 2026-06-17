@@ -34,7 +34,6 @@ export async function GET() {
       )
     }
 
-    // Get teacher's vocabulary items
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)
       .from('teachers')
@@ -46,11 +45,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
+    // Each teacher owns their vocabulary — seeded from system words on signup
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: vocabulary } = await (supabase as any)
       .from('vocabulary_items')
       .select('*')
-      .or(`teacher_id.eq.${teacher.id},teacher_id.is.null`)
+      .eq('teacher_id', teacher.id)
       .order('letter', { ascending: true })
       .order('word', { ascending: true })
 
@@ -253,17 +253,54 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
-    // Only allow deleting own vocabulary (teacher_id matches)
+    // Check if it's a system word (teacher_id is null) or teacher-owned
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { data: word } = await (supabase as any)
       .from('vocabulary_items')
-      .delete()
+      .select('id, teacher_id')
       .eq('id', id)
-      .eq('teacher_id', teacher.id)
+      .single()
 
-    if (error) {
-      console.error('Delete error:', error)
-      return NextResponse.json({ error: 'Failed to delete vocabulary item' }, { status: 500 })
+    if (!word) {
+      return NextResponse.json({ error: 'Vocabulary item not found' }, { status: 404 })
+    }
+
+    if (word.teacher_id === null) {
+      // System word — hide it for this teacher by adding to excluded list
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: teacherRecord } = await (supabase as any)
+        .from('teachers')
+        .select('excluded_vocabulary_ids')
+        .eq('id', teacher.id)
+        .single()
+
+      const current: string[] = teacherRecord?.excluded_vocabulary_ids ?? []
+      if (!current.includes(id)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any)
+          .from('teachers')
+          .update({ excluded_vocabulary_ids: [...current, id] })
+          .eq('id', teacher.id)
+        if (error) {
+          console.error('Exclude error:', error)
+          return NextResponse.json({ error: 'Failed to hide vocabulary item' }, { status: 500 })
+        }
+      }
+    } else if (word.teacher_id === teacher.id) {
+      // Teacher-owned word — delete it
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('vocabulary_items')
+        .delete()
+        .eq('id', id)
+        .eq('teacher_id', teacher.id)
+
+      if (error) {
+        console.error('Delete error:', error)
+        return NextResponse.json({ error: 'Failed to delete vocabulary item' }, { status: 500 })
+      }
+    } else {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Audit log - vocabulary deletion

@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [teacher, setTeacher] = useState<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [lastSync, setLastSync] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   // Increment localStorage counter on every mount — changes phrase each refresh
   const [phrase] = useState(() => {
@@ -53,56 +54,51 @@ export default function DashboardPage() {
   async function loadData() {
     try {
       const supabase = createClient()
-
       const {
         data: { user },
-        error: authError,
       } = await supabase.auth.getUser()
+      if (!user) return
 
-      if (authError) {
-        console.error('Auth error:', authError)
-        return
-      }
-
-      if (!user) {
-        console.error('No user found')
-        return
-      }
-
-      const { data: teacherData, error: teacherError } = await supabase
+      const { data: teacherData } = await supabase
         .from('teachers')
         .select('*')
         .eq('auth_id', user.id)
         .single()
 
-      if (teacherError) {
-        console.error('Teacher query error:', teacherError)
-        return
-      }
-
       setTeacher(teacherData)
+      setLoading(false)
 
+      // Non-blocking — loads after page is already visible
       if (teacherData) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const typedTeacher = teacherData as any
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: syncLog, error: syncError } = await (supabase as any)
+        ;(supabase as any)
           .from('richmond_sync_log')
           .select('*')
-          .eq('teacher_id', typedTeacher.id)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .eq('teacher_id', (teacherData as any).id)
           .order('started_at', { ascending: false })
           .limit(1)
           .single()
-
-        if (syncError) {
-          console.error('Sync log query error (non-critical):', syncError)
-        }
-
-        setLastSync(syncLog)
+          .then(({ data }: { data: unknown }) => setLastSync(data))
       }
     } catch (err) {
-      console.error('Unexpected error loading dashboard:', err)
+      console.error('Dashboard load error:', err)
+      setLoading(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-8 space-y-6">
+        <div className="h-7 w-48 bg-surface rounded animate-pulse" />
+        <div className="h-24 bg-surface rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-36 bg-surface rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
   }
 
   if (!teacher) {

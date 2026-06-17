@@ -299,20 +299,16 @@ export default function VocabularioPage() {
   }
 
   async function handleDelete(id: string) {
+    // Optimistic removal
+    setVocabulary((prev) => prev.filter((v) => v.id !== id))
     try {
-      const response = await fetch(`/api/vocabulary?id=${id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete')
-      }
-
+      const response = await fetch(`/api/vocabulary?id=${id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to delete')
       toast.success('Palabra eliminada')
-      loadVocabulary()
     } catch (error) {
       console.error('Delete error:', error)
       toast.error('No pude eliminar la palabra')
+      loadVocabulary() // restore on failure
     }
   }
 
@@ -695,22 +691,24 @@ export default function VocabularioPage() {
                               <span className={`text-sm font-medium ${colorConfig?.text}`}>
                                 {item.word}
                               </span>
-                              {item.teacher_id && (
-                                <div className="flex gap-1">
+                              <div className="flex gap-1">
+                                {item.teacher_id && (
                                   <button
                                     onClick={() => startEdit(item)}
                                     className="text-text-secondary hover:text-primary transition-colors"
+                                    aria-label="Editar"
                                   >
                                     <Pencil size={13} />
                                   </button>
-                                  <button
-                                    onClick={() => handleDelete(item.id)}
-                                    className="text-text-secondary hover:text-red-600 transition-colors"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              )}
+                                )}
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="text-text-secondary hover:text-red-600 transition-colors"
+                                  aria-label="Eliminar"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
                             <span
                               className={`text-xs ${usageCount > 0 ? colorConfig?.text : 'text-text-secondary'} opacity-75`}
