@@ -24,14 +24,22 @@ const Schema = z
     message: 'Provide imageBase64 or documentBase64',
   })
 
-const SYSTEM = `Analiza este formato de planeación escolar. Responde ÚNICAMENTE con JSON válido, sin texto adicional:
+const SYSTEM = `Analiza este formato de planeación escolar y extrae su estructura con precisión quirúrgica. Responde ÚNICAMENTE con JSON válido, sin texto adicional:
 
-{"sections":["sección 1","sección 2"],"notes":"estilo y convenciones breves (máx 80 chars)","examples":["fragmento verbatim de una actividad real del formato","otro fragmento"]}
+{
+  "sections": ["nombre exacto sección 1", "nombre exacto sección 2"],
+  "activity_blocks": ["Actividades Iniciales", "Desarrollo del Taller", "Pausas Activas"],
+  "block_descriptions": {"Actividades Iniciales": "qué va en esta sección", "Desarrollo del Taller": "qué va aquí"},
+  "notes": "tono y estilo en máx 120 chars — p.ej. 'Narrativo, detallado, enfoque constructivista, verbos en infinitivo'",
+  "examples": ["fragmento verbatim copiado EXACTO del formato", "otro fragmento"]
+}
 
-Reglas:
-- sections: nombres exactos de las secciones del formato
-- notes: tono, nivel de detalle, convenciones (máx 80 chars)
-- examples: 2-3 fragmentos de descripciones de actividades copiados LITERALMENTE del formato (máx 120 chars c/u). Omite si no hay actividades específicas.`
+Reglas estrictas:
+- sections: TODOS los encabezados/secciones en orden exacto tal como aparecen, con la ortografía exacta del documento
+- activity_blocks: SOLO las secciones que describen ACTIVIDADES que los alumnos realizan día a día (excluye encabezados de metadatos como "Datos Generales", "Campos Formativos", "Propósito" — esos son metadatos, no actividades). Máx 6 bloques.
+- block_descriptions: para cada activity_block, 1 frase corta de qué tipo de contenido va ahí
+- notes: captura el tono real del documento — si usa verbos en infinitivo, si es narrativo o de lista, si incluye tiempos, si integra valores/ODS, nivel de detalle
+- examples: 2-3 fragmentos copiados LITERALMENTE del documento que muestren cómo se redactan las actividades (máx 150 chars c/u). Si no hay ejemplos de actividades escritas, omite este campo.`
 
 export async function POST(req: NextRequest) {
   try {

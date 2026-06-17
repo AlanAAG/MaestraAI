@@ -321,7 +321,13 @@ function buildPrompt(
   richmondUnit: string = '',
   richmondInstructions: string = '',
   periodMinutes: number = 45,
-  planTemplate: { sections?: string[]; notes?: string; examples?: string[] } | null = null,
+  planTemplate: {
+    sections?: string[]
+    activity_blocks?: string[]
+    block_descriptions?: Record<string, string>
+    notes?: string
+    examples?: string[]
+  } | null = null,
   physicalMaterials: string[] = []
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
@@ -362,9 +368,13 @@ Mínimo 1 actividad PRONI por semana en el bloque del martes. Marca con [PRONI: 
 
   const templateSection = planTemplate?.sections?.length
     ? [
-        `FORMATO DE TU ESCUELA: ${planTemplate.sections.join(' → ')}${planTemplate.notes ? `. ${planTemplate.notes}` : ''}. Usa esta estructura y terminología en los bloques.`,
+        `FORMATO DE TU ESCUELA (secciones exactas): ${planTemplate.sections.join(' → ')}`,
+        planTemplate.notes ? `ESTILO REQUERIDO: ${planTemplate.notes}` : '',
+        planTemplate.activity_blocks?.length
+          ? `BLOQUES OBLIGATORIOS POR DÍA (en este orden exacto, usa estos nombres literalmente como campo "label"):\n${planTemplate.activity_blocks.map((b, i) => `${i + 1}. "${b}"${planTemplate.block_descriptions?.[b] ? ` — ${planTemplate.block_descriptions[b]}` : ''}`).join('\n')}`
+          : '',
         planTemplate.examples?.length
-          ? `VOZ DE LA MAESTRA — ejemplos reales de cómo escribe sus actividades:\n${planTemplate.examples.map((e) => `• ${e}`).join('\n')}\nAdopta exactamente este estilo, nivel de detalle y vocabulario en cada actividad.`
+          ? `VOZ DE LA MAESTRA — copia este estilo de redacción exactamente:\n${planTemplate.examples.map((e) => `• ${e}`).join('\n')}`
           : '',
       ]
         .filter(Boolean)
@@ -397,6 +407,7 @@ Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con un objeto 
     "methodology": "project_based",
     "blocks": [
       {
+        "label": "Nombre exacto del bloque según formato de la escuela (omitir si no hay formato)",
         "time": "9:00-9:30",
         "activity": "Descripción concreta de la actividad (máx 80 caracteres)",
         "methodology": "play_based",
