@@ -11,8 +11,11 @@ const PROTECTED_PATHS = [
   '/materiales',
   '/alumnos',
   '/richmond',
+  '/calificaciones-richmond',
   '/onboarding',
   '/diario',
+  '/perfil',
+  '/red',
 ]
 
 function applySecurityHeaders(response: NextResponse): NextResponse {

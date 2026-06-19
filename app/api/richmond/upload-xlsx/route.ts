@@ -4,10 +4,11 @@ import { read, utils } from 'xlsx'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateFile } from '@/lib/file-validation'
+import { encrypt } from '@/lib/encryption'
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Check auth
     const {
@@ -186,13 +187,17 @@ export async function POST(req: NextRequest) {
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const dbAssignmentTyped = dbAssignment as any as { id: string }
+          const [firstNameEnc, lastNameEnc] = await Promise.all([
+            encrypt(firstName),
+            encrypt(lastName || ''),
+          ])
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { error: scoreError } = await (supabase as any).from('richmond_scores').insert({
             assignment_id: dbAssignmentTyped.id,
             student_id: matchedStudent?.id ?? null,
             richmond_student_id: matchedStudent?.richmond_student_id ?? null,
-            first_name: firstName,
-            last_name: lastName,
+            first_name_encrypted: firstNameEnc,
+            last_name_encrypted: lastNameEnc,
             progress: scoreValue ? 'completed' : 'not_started',
             total_score: scoreValue ? parseFloat(scoreValue) : null,
             done: scoreValue != null,

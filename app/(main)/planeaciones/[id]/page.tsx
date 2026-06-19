@@ -15,11 +15,13 @@ import {
   Edit2,
   Package,
   Share2,
+  FileText,
 } from 'lucide-react'
 import Link from 'next/link'
 import { LoadingGeneration } from '@/components/app/LoadingGeneration'
 import { LessonPlanEditor } from '@/components/app/LessonPlanEditor'
 import { MaterialGenerator } from '@/components/app/MaterialGenerator'
+import { PlanDocumentViewer } from '@/components/planner/PlanDocumentViewer'
 
 const TYPE_LABELS: Record<string, string> = {
   flashcards: 'Flashcards',
@@ -55,6 +57,11 @@ type LessonPlan = {
   approved: boolean
 }
 
+type GroupSchedule = {
+  letter_number_day?: string
+  numeros_day?: string
+}
+
 type Fortnight = {
   id: string
   number: number
@@ -65,6 +72,12 @@ type Fortnight = {
   letter_week1: string
   letter_week2: string
   status: string
+  group_id: string
+  plan_type?: 'quincena' | 'taller'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  plan_document?: Record<string, any> | null
+  observation_calendar?: Record<string, string[]> | null
+  groups?: { fixed_weekly_schedule?: GroupSchedule | null } | null
 }
 
 type VocabularyItem = {
@@ -79,7 +92,7 @@ export default function PlaneacionDetailPage() {
   const [fortnight, setFortnight] = useState<Fortnight | null>(null)
   const [lessonPlans, setLessonPlans] = useState<LessonPlan[]>([])
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
-  const [generating, setGenerating] = useState(false)
+  const [generating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [generationPhase, setGenerationPhase] = useState<
@@ -98,6 +111,9 @@ export default function PlaneacionDetailPage() {
   const [sharePlanSuccess, setSharePlanSuccess] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [addingYoutube, setAddingYoutube] = useState(false)
+  const [activeTab, setActiveTab] = useState<'document' | 'days'>('document')
+  const [generatingDocument, setGeneratingDocument] = useState(false)
+  const [exportingDocx, setExportingDocx] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -127,7 +143,7 @@ export default function PlaneacionDetailPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: fortnightData, error: fortnightError } = await (supabase as any)
         .from('fortnights')
-        .select('*')
+        .select('*, groups(fixed_weekly_schedule)')
         .eq('id', params.id)
         .single()
 
@@ -193,69 +209,6 @@ export default function PlaneacionDetailPage() {
     }
   }
 
-  async function handleGenerate() {
-    if (!fortnight) return
-
-    setGenerating(true)
-    setGenerationPhase('preparing')
-
-    try {
-      const response = await fetch('/api/planner/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fortnight_id: fortnight.id,
-        }),
-      })
-
-      if (!response.ok) throw new Error('Generation failed')
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No reader')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.trim() || !line.startsWith('data: ')) continue
-
-          const data = line.slice(6)
-          if (data === '[DONE]') {
-            setGenerationPhase('done')
-            await loadData()
-            setTimeout(() => setGenerating(false), 1500)
-            return
-          }
-
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.phase) {
-              setGenerationPhase(parsed.phase)
-            } else if (parsed.error) {
-              throw new Error(parsed.error)
-            }
-          } catch (parseErr) {
-            if (parseErr instanceof SyntaxError) continue
-            throw parseErr
-          }
-        }
-      }
-      // Stream closed without [DONE] — treat as failure
-      throw new Error('Stream ended unexpectedly')
-    } catch (error) {
-      console.error('Generation error:', error)
-      setGenerating(false)
-    }
-  }
-
   async function handleShareWithSchool() {
     if (!fortnight) return
     setSharingPlan(true)
@@ -304,6 +257,81 @@ export default function PlaneacionDetailPage() {
       console.error('PDF export error:', error)
     } finally {
       setExportingPdf(false)
+    }
+  }
+
+  async function handleGenerateDocument() {
+    if (!fortnight) return
+    setGeneratingDocument(true)
+    setGenerationPhase('preparing')
+    try {
+      const response = await fetch('/api/planner/generate-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fortnight_id: fortnight.id }),
+      })
+      if (!response.ok) throw new Error('Generation failed')
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No reader')
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.trim() || !line.startsWith('data: ')) continue
+          const data = line.slice(6)
+          if (data === '[DONE]') {
+            setGenerationPhase('done')
+            await loadData()
+            setActiveTab('document')
+            setTimeout(() => setGeneratingDocument(false), 1200)
+            return
+          }
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.phase) setGenerationPhase(parsed.phase as typeof generationPhase)
+            else if (parsed.error) throw new Error(parsed.error)
+          } catch (e) {
+            if (e instanceof SyntaxError) continue
+            throw e
+          }
+        }
+      }
+      throw new Error('Stream ended unexpectedly')
+    } catch (err) {
+      console.error('[generate-document]', err)
+    } finally {
+      if (!fortnight?.plan_document) setGeneratingDocument(false)
+    }
+  }
+
+  async function handleExportDocx() {
+    if (!fortnight) return
+    setExportingDocx(true)
+    try {
+      const res = await fetch('/api/planner/export-docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fortnight_id: fortnight.id }),
+      })
+      if (!res.ok) throw new Error('DOCX export failed')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Planeacion_${fortnight.plan_type ?? 'quincena'}_${fortnight.number}.docx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err) {
+      console.error('DOCX export error:', err)
+    } finally {
+      setExportingDocx(false)
     }
   }
 
@@ -361,7 +389,7 @@ export default function PlaneacionDetailPage() {
     )
   }
 
-  if (generating) {
+  if (generating || generatingDocument) {
     return (
       <div className="p-4 sm:p-8">
         <LoadingGeneration phase={generationPhase} />
@@ -379,7 +407,8 @@ export default function PlaneacionDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-text-primary">
-              Quincena {fortnight.number}: {fortnight.project_name}
+              {fortnight.plan_type === 'taller' ? 'Taller' : 'Quincena'} {fortnight.number}:{' '}
+              {fortnight.project_name}
             </h1>
             <p className="text-text-secondary mt-1">
               {new Date(fortnight.start_date).toLocaleDateString('es-MX')} -{' '}
@@ -387,17 +416,30 @@ export default function PlaneacionDetailPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {lessonPlans.length > 0 && (
+            {(lessonPlans.length > 0 || fortnight.plan_document) && (
               <>
-                <Button
-                  variant="outline"
-                  className="min-h-[44px]"
-                  onClick={handleExportPdf}
-                  disabled={exportingPdf}
-                >
-                  <Download size={16} className="mr-2" />
-                  {exportingPdf ? 'Descargando...' : 'Descargar PDF'}
-                </Button>
+                {fortnight.plan_document && (
+                  <Button
+                    variant="outline"
+                    className="min-h-[44px]"
+                    onClick={handleExportDocx}
+                    disabled={exportingDocx}
+                  >
+                    <FileText size={16} className="mr-2" />
+                    {exportingDocx ? 'Descargando...' : 'Descargar Word'}
+                  </Button>
+                )}
+                {lessonPlans.length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="min-h-[44px]"
+                    onClick={handleExportPdf}
+                    disabled={exportingPdf}
+                  >
+                    <Download size={16} className="mr-2" />
+                    {exportingPdf ? 'Descargando...' : 'Descargar PDF'}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="min-h-[44px]"
@@ -413,9 +455,9 @@ export default function PlaneacionDetailPage() {
                 </Button>
               </>
             )}
-            {lessonPlans.length === 0 && (
+            {lessonPlans.length === 0 && !fortnight.plan_document && (
               <Button
-                onClick={handleGenerate}
+                onClick={handleGenerateDocument}
                 className="min-h-[44px] bg-primary hover:bg-primary-dark"
               >
                 <Sparkles size={16} className="mr-2" />
@@ -426,17 +468,18 @@ export default function PlaneacionDetailPage() {
         </div>
       </div>
 
-      {lessonPlans.length === 0 ? (
+      {/* Zero state */}
+      {lessonPlans.length === 0 && !fortnight.plan_document ? (
         <Card className="p-12 text-center">
           <Sparkles size={48} className="mx-auto mb-4 text-primary" strokeWidth={1.5} />
           <h2 className="text-xl font-semibold text-text-primary mb-2">
             Planeación lista para generar
           </h2>
           <p className="text-text-secondary mb-6">
-            La IA creará 10 días de planeaciones alineadas a NEM y tu cronograma fijo
+            La IA creará el documento completo alineado a NEM
           </p>
           <Button
-            onClick={handleGenerate}
+            onClick={handleGenerateDocument}
             className="min-h-[44px] bg-primary hover:bg-primary-dark"
           >
             <Sparkles size={16} className="mr-2" />
@@ -444,242 +487,296 @@ export default function PlaneacionDetailPage() {
           </Button>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {fortnightMaterials.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pb-1">
-              <span className="text-xs text-gray-500 font-medium">Materiales de la quincena:</span>
-              {fortnightMaterials.map((m) => (
-                <Link key={m.id} href={`/materiales/${m.id}`}>
-                  <span className="px-2 py-1 text-xs rounded-full bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
-                    {TYPE_LABELS[m.type] ?? m.type}
-                  </span>
-                </Link>
+        <div className="space-y-4">
+          {/* Tab toggle when both formats exist, or plan_document only */}
+          {fortnight.plan_document && lessonPlans.length > 0 && (
+            <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+              {(['document', 'days'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === tab
+                      ? 'bg-surface text-text-primary shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {tab === 'document' ? 'Documento completo' : 'Por día'}
+                </button>
               ))}
             </div>
           )}
-          {lessonPlans.map((plan) => {
-            const isExpanded = expandedDay === plan.day_number
-            const isEditing = editingPlanId === plan.id
-            return (
-              <Card key={plan.id} className="overflow-hidden transition-all duration-200">
-                <div
-                  className="p-4 flex items-center justify-between cursor-pointer hover:bg-bg/50"
-                  onClick={() => !isEditing && setExpandedDay(isExpanded ? null : plan.day_number)}
-                >
-                  <div>
-                    <h3 className="font-semibold text-text-primary">
-                      Día {plan.day_number} - {getDayLabel(plan.day_number)}
-                    </h3>
-                    <p className="text-sm text-text-secondary">
-                      {new Date(plan.date).toLocaleDateString('es-MX', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isExpanded && !isEditing && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setEditingPlanId(plan.id)
-                        }}
-                        className="h-8"
-                      >
-                        <Edit2 size={14} className="mr-1" />
-                        Modificar
-                      </Button>
-                    )}
-                    <div
-                      className={`transform transition-transform duration-200 ${
-                        isExpanded ? 'rotate-180' : ''
-                      }`}
-                    >
-                      <ChevronDown size={20} className="text-text-secondary" />
-                    </div>
-                  </div>
+
+          {/* Regenerate document button when only day-by-day exists */}
+          {!fortnight.plan_document && lessonPlans.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleGenerateDocument}>
+              <Sparkles size={14} className="mr-2" />
+              Generar documento completo
+            </Button>
+          )}
+
+          {/* Plan document view */}
+          {fortnight.plan_document && (activeTab === 'document' || lessonPlans.length === 0) && (
+            <PlanDocumentViewer
+              planDocument={fortnight.plan_document}
+              fortnightId={fortnight.id}
+              observationCalendar={fortnight.observation_calendar}
+              schedule={fortnight.groups?.fixed_weekly_schedule}
+              onReload={loadData}
+            />
+          )}
+
+          {/* Day-by-day view */}
+          {(activeTab === 'days' || (!fortnight.plan_document && lessonPlans.length > 0)) && (
+            <div className="space-y-3">
+              {fortnightMaterials.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pb-1">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Materiales de la quincena:
+                  </span>
+                  {fortnightMaterials.map((m) => (
+                    <Link key={m.id} href={`/materiales/${m.id}`}>
+                      <span className="px-2 py-1 text-xs rounded-full bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
+                        {TYPE_LABELS[m.type] ?? m.type}
+                      </span>
+                    </Link>
+                  ))}
                 </div>
-
-                {isExpanded && !isEditing && (
-                  <div className="border-t border-border p-6 bg-bg space-y-4 animate-in slide-in-from-top-2">
-                    {plan.blocks.map((block, idx) => (
-                      <div key={idx} className="bg-surface p-4 rounded-lg border border-border">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <p className="text-xs font-medium text-text-secondary">{block.time}</p>
-                            <h4 className="text-base font-semibold text-text-primary mt-1">
-                              {block.activity}
-                            </h4>
-                            {block.activity.includes('[PRONI:') && (
-                              <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700 border border-blue-200">
-                                PRONI
-                              </span>
-                            )}
-                          </div>
-                          <span
-                            className={`text-xs px-3 py-1 rounded-full font-medium ${getMethodologyColor(block.methodology)}`}
+              )}
+              {lessonPlans.map((plan) => {
+                const isExpanded = expandedDay === plan.day_number
+                const isEditing = editingPlanId === plan.id
+                return (
+                  <Card key={plan.id} className="overflow-hidden transition-all duration-200">
+                    <div
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-bg/50"
+                      onClick={() =>
+                        !isEditing && setExpandedDay(isExpanded ? null : plan.day_number)
+                      }
+                    >
+                      <div>
+                        <h3 className="font-semibold text-text-primary">
+                          Día {plan.day_number} - {getDayLabel(plan.day_number)}
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          {new Date(plan.date).toLocaleDateString('es-MX', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isExpanded && !isEditing && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingPlanId(plan.id)
+                            }}
+                            className="h-8"
                           >
-                            {block.methodology}
-                          </span>
+                            <Edit2 size={14} className="mr-1" />
+                            Modificar
+                          </Button>
+                        )}
+                        <div
+                          className={`transform transition-transform duration-200 ${
+                            isExpanded ? 'rotate-180' : ''
+                          }`}
+                        >
+                          <ChevronDown size={20} className="text-text-secondary" />
                         </div>
+                      </div>
+                    </div>
 
-                        {block.materials && block.materials.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-border">
-                            <p className="text-xs font-semibold text-text-secondary mb-1.5">
-                              Materiales
-                            </p>
-                            <p className="text-sm text-text-primary">
-                              {block.materials.join(', ')}
+                    {isExpanded && !isEditing && (
+                      <div className="border-t border-border p-6 bg-bg space-y-4 animate-in slide-in-from-top-2">
+                        {plan.blocks.map((block, idx) => (
+                          <div key={idx} className="bg-surface p-4 rounded-lg border border-border">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <p className="text-xs font-medium text-text-secondary">
+                                  {block.time}
+                                </p>
+                                <h4 className="text-base font-semibold text-text-primary mt-1">
+                                  {block.activity}
+                                </h4>
+                                {block.activity.includes('[PRONI:') && (
+                                  <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                                    PRONI
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`text-xs px-3 py-1 rounded-full font-medium ${getMethodologyColor(block.methodology)}`}
+                              >
+                                {block.methodology}
+                              </span>
+                            </div>
+
+                            {block.materials && block.materials.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-border">
+                                <p className="text-xs font-semibold text-text-secondary mb-1.5">
+                                  Materiales
+                                </p>
+                                <p className="text-sm text-text-primary">
+                                  {block.materials.join(', ')}
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="mt-3 pt-3 border-t border-border flex gap-6 text-xs">
+                              <div>
+                                <span className="font-semibold text-text-secondary">Campo: </span>
+                                <span className="text-text-primary">{block.nem_field}</span>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-text-secondary">Eje: </span>
+                                <span className="text-text-primary">{block.nem_axis}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {plan.vocabulary && plan.vocabulary.length > 0 && (
+                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <BookOpen size={16} className="text-blue-600" />
+                              <p className="text-xs font-semibold text-blue-900">
+                                Vocabulario del día
+                              </p>
+                            </div>
+                            <p className="text-sm text-blue-800">{plan.vocabulary.join(', ')}</p>
+                          </div>
+                        )}
+
+                        {plan.observation_students && plan.observation_students.length > 0 && (
+                          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Eye size={16} className="text-purple-600" />
+                              <p className="text-xs font-semibold text-purple-900">Observar hoy</p>
+                            </div>
+                            <p className="text-sm text-purple-800">
+                              {plan.observation_students.join(', ')}
                             </p>
                           </div>
                         )}
 
-                        <div className="mt-3 pt-3 border-t border-border flex gap-6 text-xs">
-                          <div>
-                            <span className="font-semibold text-text-secondary">Campo: </span>
-                            <span className="text-text-primary">{block.nem_field}</span>
+                        {plan.nee_reminders && plan.nee_reminders.length > 0 && (
+                          <div className="bg-rose-50 p-4 rounded-lg border border-rose-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Heart size={16} className="text-rose-600" />
+                              <p className="text-xs font-semibold text-rose-900">
+                                Recordatorios NEE
+                              </p>
+                            </div>
+                            <ul className="text-sm text-rose-800 space-y-1">
+                              {plan.nee_reminders.map((reminder, idx) => (
+                                <li key={idx}>• {reminder}</li>
+                              ))}
+                            </ul>
                           </div>
-                          <div>
-                            <span className="font-semibold text-text-secondary">Eje: </span>
-                            <span className="text-text-primary">{block.nem_axis}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                        )}
 
-                    {plan.vocabulary && plan.vocabulary.length > 0 && (
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <BookOpen size={16} className="text-blue-600" />
-                          <p className="text-xs font-semibold text-blue-900">Vocabulario del día</p>
-                        </div>
-                        <p className="text-sm text-blue-800">{plan.vocabulary.join(', ')}</p>
-                      </div>
-                    )}
-
-                    {plan.observation_students && plan.observation_students.length > 0 && (
-                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Eye size={16} className="text-purple-600" />
-                          <p className="text-xs font-semibold text-purple-900">Observar hoy</p>
-                        </div>
-                        <p className="text-sm text-purple-800">
-                          {plan.observation_students.join(', ')}
-                        </p>
-                      </div>
-                    )}
-
-                    {plan.nee_reminders && plan.nee_reminders.length > 0 && (
-                      <div className="bg-rose-50 p-4 rounded-lg border border-rose-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Heart size={16} className="text-rose-600" />
-                          <p className="text-xs font-semibold text-rose-900">Recordatorios NEE</p>
-                        </div>
-                        <ul className="text-sm text-rose-800 space-y-1">
-                          {plan.nee_reminders.map((reminder, idx) => (
-                            <li key={idx}>• {reminder}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <div className="pt-4 border-t border-border space-y-3">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedLessonPlanId(plan.id)
-                          setShowMaterialGenerator(true)
-                        }}
-                      >
-                        <Package size={16} className="mr-2" />
-                        Crear materiales
-                      </Button>
-                      {materialsByPlan[plan.id]?.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {materialsByPlan[plan.id].map((m) => (
-                            <Link
-                              key={m.id}
-                              href={`/materiales/${m.id}`}
+                        <div className="pt-4 border-t border-border space-y-3">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedLessonPlanId(plan.id)
+                              setShowMaterialGenerator(true)
+                            }}
+                          >
+                            <Package size={16} className="mr-2" />
+                            Crear materiales
+                          </Button>
+                          {materialsByPlan[plan.id]?.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {materialsByPlan[plan.id].map((m) => (
+                                <Link
+                                  key={m.id}
+                                  href={`/materiales/${m.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
+                                    {TYPE_LABELS[m.type] ?? m.type}
+                                  </span>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                          {/* YouTube quick-add */}
+                          {youtubeInputPlanId === plan.id ? (
+                            <div
+                              className="flex gap-2 items-center"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
-                                {TYPE_LABELS[m.type] ?? m.type}
-                              </span>
-                            </Link>
-                          ))}
+                              <input
+                                type="url"
+                                placeholder="https://youtube.com/watch?v=..."
+                                value={youtubeUrl}
+                                onChange={(e) => setYoutubeUrl(e.target.value)}
+                                className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-primary min-h-[36px]"
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                disabled={addingYoutube}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleAddYoutube(plan.id)
+                                }}
+                                className="min-h-[36px] text-xs"
+                              >
+                                Agregar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setYoutubeInputPlanId(null)
+                                  setYoutubeUrl('')
+                                }}
+                                className="min-h-[36px] text-xs"
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setYoutubeInputPlanId(plan.id)
+                              }}
+                              className="text-xs text-text-secondary hover:text-primary transition-colors cursor-pointer"
+                            >
+                              + Agregar canción de YouTube
+                            </button>
+                          )}
                         </div>
-                      )}
-                      {/* YouTube quick-add */}
-                      {youtubeInputPlanId === plan.id ? (
-                        <div
-                          className="flex gap-2 items-center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="url"
-                            placeholder="https://youtube.com/watch?v=..."
-                            value={youtubeUrl}
-                            onChange={(e) => setYoutubeUrl(e.target.value)}
-                            className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-primary min-h-[36px]"
-                            autoFocus
-                          />
-                          <Button
-                            size="sm"
-                            disabled={addingYoutube}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleAddYoutube(plan.id)
-                            }}
-                            className="min-h-[36px] text-xs"
-                          >
-                            Agregar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setYoutubeInputPlanId(null)
-                              setYoutubeUrl('')
-                            }}
-                            className="min-h-[36px] text-xs"
-                          >
-                            Cancelar
-                          </Button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setYoutubeInputPlanId(plan.id)
-                          }}
-                          className="text-xs text-text-secondary hover:text-primary transition-colors cursor-pointer"
-                        >
-                          + Agregar canción de YouTube
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    )}
 
-                {isEditing && (
-                  <div className="border-t border-border p-4 bg-bg">
-                    <LessonPlanEditor
-                      lessonPlan={plan}
-                      vocabularyItems={vocabularyItems}
-                      onSave={handleSavePlan}
-                      onCancel={() => setEditingPlanId(null)}
-                    />
-                  </div>
-                )}
-              </Card>
-            )
-          })}
+                    {isEditing && (
+                      <div className="border-t border-border p-4 bg-bg">
+                        <LessonPlanEditor
+                          lessonPlan={plan}
+                          vocabularyItems={vocabularyItems}
+                          onSave={handleSavePlan}
+                          onCancel={() => setEditingPlanId(null)}
+                        />
+                      </div>
+                    )}
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -80,9 +80,9 @@ Never show blank screen during AI processing — streaming UI always.
 
 Never numeric grades, percentages, or score-like language in any output.
 
-Never put Letter & Number activity outside Tuesday.
+Letter & Number day is configurable per group via `groups.fixed_weekly_schedule.letter_number_day` (default: martes). Never hardcode "martes" in prompts or UI — always read from group schedule.
 
-Never put number-sequence work outside Thursday.
+Números day is configurable per group via `groups.fixed_weekly_schedule.numeros_day` (default: jueves). Same rule.
 
 Never more than 4 fields visible at once in any form.
 
@@ -111,15 +111,15 @@ Official SEP alignment (2024):
 - All PDFs must cite: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024"
 - Evaluation: Logrado / En proceso / Requiere apoyo / Sin evaluar — qualitative only, NO numeric grades
 
-Fixed weekly schedule:
+Default weekly schedule (Alejandra's school — stored in groups.fixed_weekly_schedule, configurable per group):
 
 Lunes: Honores, Proyecto mensual
 
-Martes: Computación, Letter & Number ← ONLY Tuesday
+Martes: Computación, Letter & Number (default day — use group's letter_number_day)
 
 Miércoles: Ed. Física, Proyecto mensual
 
-Jueves: Cantos y Juegos, Números ← ONLY Thursday
+Jueves: Cantos y Juegos, Números (default day — use group's numeros_day)
 
 Viernes: Cuento con papás, cierre de Proyecto mensual
 

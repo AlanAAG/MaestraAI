@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function DELETE(req: NextRequest) {
   const supabase = await createClient()
@@ -11,6 +12,11 @@ export async function DELETE(req: NextRequest) {
   } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  }
+
+  const { success } = await checkRateLimit(user.id, 'strict')
+  if (!success) {
+    return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

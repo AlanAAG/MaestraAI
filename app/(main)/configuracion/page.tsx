@@ -35,14 +35,8 @@ export default function ConfiguracionPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [periodMinutes, setPeriodMinutes] = useState(45)
-  const [templateStatus, setTemplateStatus] = useState<'idle' | 'analyzing' | 'saved'>('idle')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [planTemplate, setPlanTemplate] = useState<{ sections?: string[]; notes?: string } | null>(
-    null
-  )
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
-  const templateFileRef = useRef<HTMLInputElement>(null)
   const [hasRichmondCredentials, setHasRichmondCredentials] = useState(false)
   const [revokingCredentials, setRevokingCredentials] = useState(false)
 
@@ -53,6 +47,16 @@ export default function ConfiguracionPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deletingAccount, setDeletingAccount] = useState(false)
+
+  // Multi-template manager
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [multiTemplates, setMultiTemplates] = useState<any[]>([])
+  const [showAddTemplate, setShowAddTemplate] = useState(false)
+  const [newTemplateLabel, setNewTemplateLabel] = useState('')
+  const [newTemplatePlanType, setNewTemplatePlanType] = useState<'quincena' | 'taller'>('quincena')
+  const [addingTemplate, setAddingTemplate] = useState<'idle' | 'analyzing' | 'saved'>('idle')
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null)
+  const multiTemplateFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadData()
@@ -82,7 +86,6 @@ export default function ConfiguracionPage() {
         setTeacher(teacherData)
         setFullName(teacherData.full_name || user.email?.split('@')[0] || '')
         setPeriodMinutes(teacherData.english_period_minutes ?? 45)
-        setPlanTemplate(teacherData.plan_template ?? null)
         setHasRichmondCredentials(
           !!(teacherData.richmond_email_encrypted || teacherData.richmond_password_encrypted)
         )
@@ -132,6 +135,12 @@ export default function ConfiguracionPage() {
           .is('revoked_at', null)
           .order('created_at', { ascending: false })
         setApiKeys(keysData || [])
+
+        // Load multi-templates
+        fetch('/api/teachers/templates')
+          .then((r) => r.json())
+          .then((d) => setMultiTemplates(d.templates ?? []))
+          .catch(() => {})
       }
     } catch (err) {
       console.error('Error loading data:', err)
@@ -157,37 +166,59 @@ export default function ConfiguracionPage() {
     await loadData()
   }
 
-  async function handleTemplateFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleMultiTemplateFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setTemplateStatus('analyzing')
-    const isImage = file.type.startsWith('image/')
+    if (!file || !newTemplateLabel.trim()) return
+    setAddingTemplate('analyzing')
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
       const [header, base64] = dataUrl.split(',')
       const mimeType = header.match(/:(.*?);/)?.[1] ?? file.type
+      const isImage = file.type.startsWith('image/')
       try {
         const body = isImage
-          ? { imageBase64: base64, imageMimeType: mimeType }
-          : { documentBase64: base64, documentMimeType: mimeType }
-        const res = await fetch('/api/teachers/template', {
+          ? {
+              label: newTemplateLabel,
+              plan_type: newTemplatePlanType,
+              imageBase64: base64,
+              imageMimeType: mimeType,
+            }
+          : {
+              label: newTemplateLabel,
+              plan_type: newTemplatePlanType,
+              documentBase64: base64,
+              documentMimeType: mimeType,
+            }
+        const res = await fetch('/api/teachers/templates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         })
         if (!res.ok) throw new Error((await res.json()).error)
-        const { plan_template } = await res.json()
-        setPlanTemplate(plan_template)
-        setTemplateStatus('saved')
-        setTimeout(() => setTemplateStatus('idle'), 3000)
+        const { template } = await res.json()
+        setMultiTemplates((prev) => [template, ...prev])
+        setAddingTemplate('saved')
+        setShowAddTemplate(false)
+        setNewTemplateLabel('')
+        setTimeout(() => setAddingTemplate('idle'), 2000)
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'No pude analizar el archivo. Intenta con otro.')
-        setTemplateStatus('idle')
+        alert(err instanceof Error ? err.message : 'No pude analizar el archivo.')
+        setAddingTemplate('idle')
       }
     }
     reader.readAsDataURL(file)
     e.target.value = ''
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    setDeletingTemplateId(id)
+    try {
+      await fetch(`/api/teachers/templates?id=${id}`, { method: 'DELETE' })
+      setMultiTemplates((prev) => prev.filter((t) => t.id !== id))
+    } finally {
+      setDeletingTemplateId(null)
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -203,6 +234,10 @@ export default function ConfiguracionPage() {
       grade: data.grade,
       academic_year: data.academic_year,
       richmond_class_code: data.richmond_class_code || null,
+      fixed_weekly_schedule: {
+        letter_number_day: data.letter_number_day ?? 'martes',
+        numeros_day: data.numeros_day ?? 'jueves',
+      },
     })
 
     setLoading(false)
@@ -225,6 +260,10 @@ export default function ConfiguracionPage() {
         grade: data.grade,
         academic_year: data.academic_year,
         richmond_class_code: data.richmond_class_code || null,
+        fixed_weekly_schedule: {
+          letter_number_day: data.letter_number_day ?? 'martes',
+          numeros_day: data.numeros_day ?? 'jueves',
+        },
       })
       .eq('id', selectedGroupId)
 
@@ -344,6 +383,8 @@ export default function ConfiguracionPage() {
           grade: selectedGroup.grade,
           academic_year: selectedGroup.academic_year,
           richmond_class_code: selectedGroup.richmond_class_code || '',
+          letter_number_day: selectedGroup.fixed_weekly_schedule?.letter_number_day ?? 'martes',
+          numeros_day: selectedGroup.fixed_weekly_schedule?.numeros_day ?? 'jueves',
         }
       : undefined
 
@@ -407,52 +448,110 @@ export default function ConfiguracionPage() {
 
       {/* Plan Template Section */}
       <Card className="p-6 mb-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-1">Formato de planeación</h2>
-        <p className="text-sm text-text-secondary mb-4">
-          Pega el formato que usa tu escuela y el AI lo adoptará en tus planeaciones
-        </p>
-        {planTemplate?.sections?.length ? (
-          <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200">
-            <p className="text-xs font-medium text-green-700 mb-1">✓ Formato guardado</p>
-            <p className="text-sm text-green-800">{planTemplate.sections.join(' → ')}</p>
-            {planTemplate.notes && (
-              <p className="text-xs text-green-600 mt-1">{planTemplate.notes}</p>
-            )}
-            <button
-              onClick={() => setPlanTemplate(null)}
-              className="text-xs text-green-600 underline mt-2"
-            >
-              Reemplazar
-            </button>
-          </div>
-        ) : null}
-        {(!planTemplate || !planTemplate.sections?.length) && (
-          <div className="space-y-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-[44px]"
-              disabled={templateStatus === 'analyzing'}
-              onClick={() => templateFileRef.current?.click()}
-            >
-              {templateStatus === 'analyzing'
-                ? 'Analizando...'
-                : '📄 Subir formato (foto, PDF o Word)'}
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-semibold text-text-primary">Formatos de planeación</h2>
+          {!showAddTemplate && multiTemplates.length < 5 && (
+            <Button variant="outline" size="sm" onClick={() => setShowAddTemplate(true)}>
+              + Agregar formato
             </Button>
+          )}
+        </div>
+        <p className="text-sm text-text-secondary mb-4">
+          Sube el formato de tu escuela (.docx recomendado) y el AI lo seguirá exactamente
+        </p>
+
+        {/* Template list */}
+        {multiTemplates.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {multiTemplates.map((t: any) => (
+              <div
+                key={t.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"
+              >
+                <div>
+                  <p className="text-sm font-medium text-green-800">{t.label}</p>
+                  <p className="text-xs text-green-600">
+                    {t.plan_type === 'taller' ? 'Taller' : 'Quincena'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDeleteTemplate(t.id)}
+                  disabled={deletingTemplateId === t.id}
+                  className="text-xs text-green-600 hover:text-red-500 cursor-pointer disabled:opacity-50"
+                >
+                  {deletingTemplateId === t.id ? '...' : 'Eliminar'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add template form */}
+        {showAddTemplate && (
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">
+                  Nombre del formato
+                </label>
+                <Input
+                  value={newTemplateLabel}
+                  onChange={(e) => setNewTemplateLabel(e.target.value)}
+                  placeholder="Ej: Formato Escuela Americana"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">Tipo</label>
+                <select
+                  value={newTemplatePlanType}
+                  onChange={(e) => setNewTemplatePlanType(e.target.value as 'quincena' | 'taller')}
+                  className="w-full h-9 px-2 rounded-md border border-border bg-surface text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="quincena">Quincena</option>
+                  <option value="taller">Taller</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-[40px] text-sm"
+                disabled={!newTemplateLabel.trim() || addingTemplate === 'analyzing'}
+                onClick={() => multiTemplateFileRef.current?.click()}
+              >
+                {addingTemplate === 'analyzing'
+                  ? 'Analizando...'
+                  : 'Subir archivo (.docx, PDF o foto)'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAddTemplate(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
             <input
-              ref={templateFileRef}
+              ref={multiTemplateFileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx"
+              accept=".doc,.docx,image/jpeg,image/png,image/webp,.pdf"
               className="hidden"
-              onChange={handleTemplateFile}
+              onChange={handleMultiTemplateFile}
             />
             <p className="text-xs text-text-secondary">
-              Sube una foto, PDF o archivo Word del formato de planeación de tu escuela.
+              Se recomienda .docx — es el formato más fácil de leer para la IA.
             </p>
-            {templateStatus === 'saved' && (
-              <p className="text-sm text-green-600">✓ Formato guardado</p>
-            )}
           </div>
+        )}
+
+        {multiTemplates.length === 0 && !showAddTemplate && (
+          <p className="text-sm text-text-secondary">
+            Sin formatos guardados. Agrega el formato de tu escuela para que el AI lo siga.
+          </p>
         )}
       </Card>
 

@@ -2,7 +2,7 @@
 // All fetch() calls live here — the service worker bypasses CORS for host_permissions URLs.
 // popup.js and content.js never fetch directly; they send messages to this worker instead.
 
-const PRODUCTION_URL = 'https://maestraia.com'
+const PRODUCTION_URL = 'https://www.maestraia.com'
 
 async function getApiUrl() {
   const { apiUrl } = await chrome.storage.sync.get('apiUrl')

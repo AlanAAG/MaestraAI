@@ -6,11 +6,21 @@ import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
+const DAY_OPTIONS = [
+  { value: 'lunes', label: 'Lunes' },
+  { value: 'martes', label: 'Martes' },
+  { value: 'miercoles', label: 'Miércoles' },
+  { value: 'jueves', label: 'Jueves' },
+  { value: 'viernes', label: 'Viernes' },
+]
+
 interface GroupData {
   name: string
   grade: string
   academic_year: string
   richmond_class_code?: string
+  letter_number_day?: string
+  numeros_day?: string
 }
 
 interface GroupEditorProps {
@@ -34,12 +44,18 @@ export function GroupEditor({
       grade: '',
       academic_year: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
       richmond_class_code: '',
+      letter_number_day: 'martes',
+      numeros_day: 'jueves',
     }
   )
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData)
+      setFormData({
+        letter_number_day: 'martes',
+        numeros_day: 'jueves',
+        ...initialData,
+      })
     }
   }, [initialData])
 
@@ -108,6 +124,46 @@ export function GroupEditor({
         <p className="text-xs text-text-disabled mt-1">
           El slug de la URL en richmondlp.com — necesario para sincronizar calificaciones
         </p>
+      </div>
+
+      <div className="pt-2 border-t border-border">
+        <p className="text-sm font-medium text-text-secondary mb-3">
+          Horario de actividades especiales
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-text-secondary mb-1">
+              Día de Letter &amp; Number
+            </label>
+            <select
+              value={formData.letter_number_day ?? 'martes'}
+              onChange={(e) => setFormData({ ...formData, letter_number_day: e.target.value })}
+              className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-surface text-text-primary text-sm
+                focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              {DAY_OPTIONS.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-text-secondary mb-1">Día de Números</label>
+            <select
+              value={formData.numeros_day ?? 'jueves'}
+              onChange={(e) => setFormData({ ...formData, numeros_day: e.target.value })}
+              className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-surface text-text-primary text-sm
+                focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              {DAY_OPTIONS.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-3 pt-2">

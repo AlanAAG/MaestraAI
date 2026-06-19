@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { DIARIO_SYSTEM_PROMPT } from '@/prompts/diario'
 import { streamToReadable } from '@/lib/claude'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { createClient } from '@/lib/supabase/server'
 
 const DiaryInputSchema = z.object({
   q1: z.string().max(2000).optional().default(''),
@@ -16,6 +17,12 @@ const DiaryInputSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   let body: unknown
   try {
     body = await req.json()
@@ -31,13 +38,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Rate limiting - strict tier (10/hour for AI generation)
-  // Use IP address as identifier since this is a public endpoint
-  const ip =
-    req.headers.get('x-real-ip') ||
-    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-    'unknown'
-  const { success, headers } = await checkRateLimit(ip, 'strict')
+  // Rate limiting scoped to authenticated user
+  const { success, headers } = await checkRateLimit(user.id, 'strict')
   if (!success) {
     return NextResponse.json(
       { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
