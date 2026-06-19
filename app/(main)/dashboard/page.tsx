@@ -147,9 +147,6 @@ export default function DashboardPage() {
         <p className="relative text-sm sm:text-base text-indigo-900 italic leading-relaxed pl-4 pr-2">
           {phrase}
         </p>
-        <p className="relative mt-3 pl-4 text-xs text-indigo-400 font-medium tracking-wide uppercase">
-          Frase para maestras
-        </p>
       </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
