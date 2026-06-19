@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
 Maestra: ${sanitizedName}
 Semana: ${weekStart} al ${weekEnd}
 
+<respuestas_maestra>
 1. ¿Qué funcionó bien esta semana?
 ${stripProperNames(q1) || '(no respondido)'}
 
@@ -78,6 +79,7 @@ ${stripProperNames(q4) || '(no respondido)'}
 
 5. ¿Hay algo sobre algún alumno que quieras recordar?
 ${stripProperNames(q5) || '(no respondido)'}
+</respuestas_maestra>
 `.trim()
 
   const stream = streamToReadable(DIARIO_SYSTEM_PROMPT, userMessage)

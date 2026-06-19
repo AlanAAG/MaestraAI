@@ -20,7 +20,7 @@ import Link from 'next/link'
 import { Toaster } from '@/components/ui/sonner'
 
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: Home, label: 'Inicio' },
+  { href: '/', icon: Home, label: 'Inicio' },
   { href: '/diario', icon: BookOpen, label: 'Mi Diario' },
   { href: '/planeaciones', icon: CalendarDays, label: 'Planeaciones' },
   { href: '/vocabulario', icon: BookA, label: 'Vocabulario' },
@@ -33,7 +33,7 @@ const NAV_ITEMS = [
 ]
 
 // First 4 items in bottom nav + "Más" as 5th
-const BOTTOM_PRIMARY = ['/dashboard', '/planeaciones', '/calificaciones-richmond', '/diario']
+const BOTTOM_PRIMARY = ['/', '/planeaciones', '/calificaciones-richmond', '/diario']
 const bottomPrimary = NAV_ITEMS.filter((n) => BOTTOM_PRIMARY.includes(n.href))
 const bottomMore = NAV_ITEMS.filter((n) => !BOTTOM_PRIMARY.includes(n.href))
 
@@ -87,7 +87,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   }
 
   function isActive(href: string) {
-    if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
   }
 

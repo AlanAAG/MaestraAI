@@ -70,7 +70,8 @@ export async function middleware(req: NextRequest) {
   const { supabaseResponse, user } = await createSupabaseMiddlewareClient(req)
 
   // ── 4. Auth guard: redirect unauthenticated users from protected paths ────
-  if (PROTECTED_PATHS.some((p) => pathname.startsWith(p)) && !user) {
+  const isProtected = pathname === '/' || PROTECTED_PATHS.some((p) => pathname.startsWith(p))
+  if (isProtected && !user) {
     const loginUrl = req.nextUrl.clone()
     loginUrl.pathname = '/login'
     const redirect = NextResponse.redirect(loginUrl)

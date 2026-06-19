@@ -140,7 +140,7 @@ export default function PlaneacionesPage() {
                 >
                   Intentar de nuevo
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => router.push('/dashboard')}>
+                <Button size="sm" variant="outline" onClick={() => router.push('/')}>
                   Volver al inicio
                 </Button>
               </div>
