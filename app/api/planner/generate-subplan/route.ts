@@ -46,8 +46,8 @@ async function callModel(system: string, user: string): Promise<string> {
   return c.text
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildSubplanPrompt(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: any,
   subType: 'letter_number' | 'numeros',
   vocabList: string,

@@ -321,8 +321,8 @@ export async function POST(req: NextRequest) {
       .eq('plan_type', planType)
       .order('created_at', { ascending: false })
       .limit(1)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const teacherTemplate: { sections?: string[]; notes?: string; examples?: string[] } | null =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (templates?.[0] as any)?.template ?? null
 
     // Fetch NEE students
