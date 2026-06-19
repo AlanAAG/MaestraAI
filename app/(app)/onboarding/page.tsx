@@ -244,7 +244,7 @@ export default function OnboardingPage() {
   }
 
   async function completeOnboarding() {
-    router.push('/')
+    router.push('/dashboard')
   }
 
   return (

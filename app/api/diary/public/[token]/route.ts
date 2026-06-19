@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // ponytail: service role bypasses RLS for public token lookup — no user session available
 const supabaseAdmin = createClient(
@@ -8,6 +9,17 @@ const supabaseAdmin = createClient(
 )
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const ip =
+    req.headers.get('x-real-ip') ||
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    'unknown'
+  const { success } = await checkRateLimit(ip, 'relaxed')
+  if (!success)
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429 }
+    )
+
   const { token } = await params
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

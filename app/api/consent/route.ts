@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const ConsentSchema = z
   .object({
@@ -14,6 +15,18 @@ const ConsentSchema = z
   })
 
 export async function POST(req: NextRequest) {
+  const { success: rateLimitOk } = await checkRateLimit(
+    req.headers.get('x-real-ip') ||
+      req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+      'unknown',
+    'standard'
+  )
+  if (!rateLimitOk)
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+      { status: 429 }
+    )
+
   let body: unknown
   try {
     body = await req.json()

@@ -106,9 +106,9 @@ function LoginForm() {
       } catch (e) {
         console.error('Failed to restore diary draft:', e)
       }
-      router.push('/?diary=saved')
+      router.push('/dashboard?diary=saved')
     } else {
-      router.push('/')
+      router.push('/dashboard')
     }
   }
 

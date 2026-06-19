@@ -340,7 +340,7 @@ export default function VocabularioPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
               <ArrowLeft size={16} />
             </Button>
             <div>

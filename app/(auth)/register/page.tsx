@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,8 +29,11 @@ function GoogleIcon() {
   )
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
+  const params = useSearchParams()
+  const type = params.get('type') === 'school' ? 'school' : 'teacher'
+  const isSchool = type === 'school'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [consentPrimary, setConsentPrimary] = useState(false)
@@ -42,7 +45,12 @@ export default function RegisterPage() {
   function storeConsent() {
     localStorage.setItem(
       'pendingConsents',
-      JSON.stringify({ consentPrimary, consentSecondary, userAgent: navigator.userAgent })
+      JSON.stringify({
+        consentPrimary,
+        consentSecondary,
+        userAgent: navigator.userAgent,
+        role: type,
+      })
     )
   }
 
@@ -111,7 +119,9 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-text-primary mb-2">MaestraAI</h1>
-          <p className="text-text-secondary">Crea tu cuenta</p>
+          <p className="text-text-secondary">
+            {isSchool ? 'Crea una cuenta institucional' : 'Crea tu cuenta de maestra'}
+          </p>
         </div>
 
         {error && (
@@ -223,5 +233,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   )
 }

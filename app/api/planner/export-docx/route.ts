@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { checkRateLimit } from '@/lib/rate-limit'
 import {
   Document,
   Paragraph,
@@ -256,6 +257,13 @@ export async function POST(req: NextRequest) {
       .eq('auth_id', user.id)
       .single()
     if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { success } = await checkRateLimit((teacher as { id: string }).id, 'standard')
+    if (!success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor intenta de nuevo más tarde.' },
+        { status: 429 }
+      )
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fn } = await (supabase as any)
