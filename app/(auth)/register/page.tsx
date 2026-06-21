@@ -108,7 +108,7 @@ function RegisterForm() {
     }
 
     if (data?.user && !data.session) {
-      router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`)
     } else {
       router.push('/onboarding')
     }

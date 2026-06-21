@@ -1,493 +1,153 @@
 MaestraAI — Project Progress
 Claude: update this file after every coding session before ending. Add what was built, what changed, and what's next. Keep it accurate — this is the single source of truth for project state.
 
-Current phase: Phase 5 — Game Engine: Images, Audio, Autonomous Generation
-What exists
-Infrastructure
-Next.js 14 App Router + Tailwind v3 + shadcn/ui + Inter font
-
-Design system tokens in place
-
-Subdomain middleware: diario.maestraai.mx → /diary/\*
-
-Supabase: 13 tables, RLS on all tables
-
-Dev tooling: Vitest, Prettier, Husky, typecheck script
-
-Supabase middleware client: lib/supabase/middleware.ts
-
-DB tables (17 + 4 pending migrations)
-Existing (17): schools, teachers, groups, group_teachers, students,
-vocabulary_items, fortnights, lesson_plans, materials,
-teacher_observations, report_cards, teacher_diary, usage_logs,
-richmond_credentials, richmond_sync_log, richmond_assignments, richmond_scores
-
-Pending migrations 010+011 (4 tables): school_announcements, teacher_resources, audit_logs, failed_auth_attempts
-
-Seeded data
-129 vocabulary words in vocabulary_items
-
-Diary microsite (diario.maestraai.mx)
-/ — landing page: hero, 3 feature cards, privacy note
-
-/nueva — 5-step wizard, framer-motion animations, localStorage autosave, ⌘+Enter nav
-
-/resultado — streams Claude summary (4 loading states), PDF download, "Guardar en MaestraAI" CTA
-
-Streaming API route: app/api/diary/summarize
-
-PDF generation API route: app/api/diary/pdf
-
-Both routes use Zod validation
-
-To go live
-Add .env.local values (Supabase URL/keys + Anthropic API key)
-
-Deploy to Vercel
-
-Run SQL migrations in Supabase SQL Editor in order: 001 → 002 → 003 → 004 → 005 → 006
-
-After migration 006, regenerate types: supabase gen types typescript --local > types/database.ts
-
-Run vocabulary seed
-
-Richmond Sync (Phase 1)
-Richmond API client with rate limiting and session management
-
-Crypto helpers for encrypting/decrypting Richmond session cookies
-
-Sync service with student matching (by richmond_student_id or name fuzzy match)
-
-API routes: /api/richmond/sync, /api/richmond/ingest, /api/richmond/upload-xlsx
-
-Chrome Extension for auto-sync from richmondlp.com
-
-Dashboard UI at /dashboard/richmond (tabs, stats, assignments table)
-
-Migration 006_richmond_sync.sql (4 new tables)
-
-Auth & Main App (Phase 1)
-Login/register pages (email + password only)
-
-Onboarding wizard (3 questions: name, grade, editorial)
-
-Main app layout with sidebar navigation
-
-Dashboard with zero-state and Richmond sync status
-
-Configuration page (profile settings, Richmond sync instructions)
-
-Lesson Planner (Phase 2)
-Fortnights list view at /planeaciones with zero-state
-
-New fortnight form at /planeaciones/nueva (Zod validation)
-
-Fortnight detail view at /planeaciones/[id] with expandable 10-day schedule
-
-Streaming AI generation endpoint at /api/planner/generate (Claude Sonnet 4.5)
-
-RubricEditor component for qualitative evaluation (Sí/En proceso/No)
-
-Integrated NEM alignment (4 Campos Formativos, 7 Ejes Articuladores)
-
-Fixed weekly schedule constraints enforced
-
-NEE student reminders and observation day tracking
-
-Multi-Tenant & Per-User API Keys (Phase 2.5 - COMPLETE)
-Migration 007_multi_tenant_setup.sql - Adds api_keys table, richmond_group_slug, teacher-scoped vocabulary, grade/editorial fields
-
-API key utilities (lib/api-keys.ts) - generateApiKey, hashApiKey, verifyApiKey with bcrypt
-
-API key management routes:
-
-- GET /api/keys - List teacher's API keys
-- POST /api/keys - Generate new key (returns plaintext once)
-- DELETE /api/keys - Revoke key (soft delete via revoked_at)
-
-Richmond groups endpoint (GET /api/richmond/groups) - Returns teacher's groups for extension auto-discovery
-
-Updated /api/richmond/ingest - Now validates per-user API keys instead of shared token, verifies group ownership
-
-Auth guard added to /(main) layout - Prevents unauthenticated access to dashboard/planeaciones/configuracion
-
-Enhanced 7-step onboarding wizard:
-
-- Name, grade, editorial (saved to teachers table)
-- School selection/creation (SchoolSelector, SchoolCreator components)
-- Group creation (GroupCreator component)
-- API key generation (ApiKeyDisplay component)
-- Confirmation screen
-
-Settings expansion with 4 sections:
-
-- Profile: edit name, view email
-- School: view school details
-- Group Management: CRUD interface (GroupList, GroupEditor, StudentRoster components)
-- Richmond Integration: API key manager, test connection (ApiKeyManager component)
-
-Dynamic group selection in planeaciones - Removed hardcoded UUID, loads teacher's groups
-
-Extension auto-discovery:
-
-- content.js fetches GROUP_UUID_MAP from /api/richmond/groups
-- popup.js shows connection status, teacher name, group count
-- Test connection button validates API key
-
-Material Generation System (Phase 3+5 - COMPLETE)
-AI-powered material generation with Claude Haiku for fast generation:
-
-- Flashcards: vocabulary cards with definitions, examples, color coding
-- Worksheets: tracing, matching, coloring activities
-- Memory Games (Memorama): matching pairs with visual hints
-- YouTube Recommendations: curated video suggestions by topic
-
-Implementation:
-
-- prompts/materials.ts - Four specialized prompts for each material type
-- lib/materials/\* - Builder functions (flashcards.ts, worksheets.ts, games.ts, youtube.ts)
-- POST /api/materials/generate - Validates auth, extracts vocabulary, generates sequentially
-- MaterialGenerator component - Modal UI with checkboxes, progress tracking, error handling
-- Checkbox component (components/ui/checkbox.tsx) - Simple checkbox without Radix dependency
-- Integrated into lesson plan detail page with "Generar Materiales" button per day
-
-Materials stored in existing materials table with proper JSONB content structure and is_projectable flag.
-
-Planeaciones Features (Phase 3 - COMPLETE)
-UI/UX Improvements:
-
-- Skeleton loading states (no more "Cargando..." text)
-- Error handling with friendly messages and retry buttons
-- Form validation with inline error messages per field
-- Visual card grouping for related fields
-- Accessibility (WCAG AAA, keyboard nav, ARIA labels)
-- Smooth animations with framer-motion
-- Icons for visual scanning (BookOpen, Eye, Heart, etc.)
-
-PDF Export:
-
-- Multi-page planeacion PDFs (cover + 10 lesson pages)
-- Professional layout with NEM alignment badges
-- Color-coded methodology blocks
-- Flashcard PDFs (4 per page, front/back, cut lines)
-- Worksheet PDFs (tracing, matching, writing activities)
-- Game card PDFs (memory match pairs, printable)
-- API: POST /api/planner/pdf, POST /api/materials/export
-
-Lesson Plan Editing:
-
-- Inline editor for blocks, vocabulary, materials
-- Vocabulary autocomplete from 129-word database
-- Student observations and NEE reminders management
-- Optimistic UI updates with toast notifications
-- API: PATCH /api/planner/update
-
-Material Generation:
-
-- AI-powered with Claude Haiku (fast generation)
-- Flashcards: vocabulary with definitions, colors, sentences
-- Worksheets: tracing, matching, writing activities
-- Memory Games: matching pairs with visual hints
-- YouTube: curated video recommendations by topic
-- Modal UI with progress tracking
-- API: POST /api/materials/generate
-
-Interactive Games:
-
-- Memory Match game with card flip animations
-- Full-screen projector mode
-- ESC key exit, completion screen
-- Progress tracking (pairs found)
-- Route: /materiales/[id]/jugar
-
-Richmond CSV Import System (Phase 2.5 Extension - COMPLETE)
-Complete CSV/Excel import workflow for Richmond markbook data:
-
-- lib/richmond/csv-parser.ts - Parser with flexible column detection, fuzzy name matching (Levenshtein distance)
-- POST /api/richmond/parse-csv - Upload, validate, parse CSV/XLSX, match students to groups
-- POST /api/richmond/import-batch - Batch import with transaction handling, sync log creation
-- /richmond/subir - Upload UI with drag-drop, file validation, preview screen, group breakdown
-- matchStudents() - Fuzzy matching algorithm with >60% confidence threshold
-- Supports CSV, XLS, XLSX up to 5MB
-- Shows preview: total students/assignments, matched/unmatched breakdown by group
-- Test coverage: lib/richmond/**tests**/csv-parser.test.ts (4 tests passing)
-- Dependencies: fastest-levenshtein for fuzzy matching, xlsx already installed
-- Updated dashboard with "Importar CSV" button linking to new flow
-
-Projectable Flashcard Viewer (Phase 3 Extension - COMPLETE)
-Full-screen classroom proyector interface for flashcards:
-
-- /materiales/[id]/proyectar - Proyector page with fullscreen support
-- FlashcardProjector component - Card flip animations, auto-advance, keyboard navigation
-- ProjectorControls component - Bottom control bar with nav, progress, settings
-- Large text (96px word, 44px definition, 40px example) for 2m+ viewing distance
-- Keyboard shortcuts: Space (flip), Arrows (nav), A (auto-advance), ESC (exit)
-- Auto-advance with configurable delay (2-5s)
-- Progress indicator and timeline
-- Color-coded by vocabulary color
-- Fullscreen API integration
-
-UX Improvements for Teacher Perspective (Phase 3 Extension - COMPLETE)
-Teacher-friendly language changes across planeaciones:
-
-- "Nueva Planeación" → "Crear Planeación" / "Crear mi primera planeación"
-- "Generar Planeación" → "Crear mi planeación"
-- "Generar Materiales" → "Crear materiales"
-- "Exportar PDF" → "Descargar PDF"
-- "Editar" → "Modificar"
-- Error messages now use natural language ("No encontré tu perfil" vs "No se encontró tu perfil de maestra")
-- Progress messages more personal ("Creando tu planeación..." vs "Generando...")
-- Zero state copy more encouraging and direct
-
-Student Progress Dashboard (Phase 3 Extension - COMPLETE)
-Complete Module D implementation for student tracking:
-
-- /alumnos/page.tsx - Student list view with search and group filters
-- /alumnos/[id]/page.tsx - Student detail page with progress charts and history
-- StudentProgressChart component - Bar chart showing qualitative progress distribution + timeline view
-- StudentScoreTable component - Sortable table with CSV export functionality
-- GET /api/students/[id]/progress - Progress data endpoint with fortnight aggregation
-- POST /api/students/[id]/report - Trimestral report generator for auditorías
-- Proper NEM alignment (qualitative labels only, no numeric grades visible)
-- Export to CSV functionality for record keeping
-
-NEM/PRONI Official Alignment (Phase 4 Priority - COMPLETE)
-Complete implementation of official SEP framework alignment:
-
-- lib/nem-official-data.ts - Official Campos Formativos, Ejes Articuladores, PRONI data structures, SEP citations
-- Verified 4 Campos Formativos match official SEP Programa Sintético Fase 2 (2024)
-- PRONI integration: applies ONLY to Kinder 3 (6 content areas from PRONI 2024-2025)
-- Updated PlaneacionPdfDocument.tsx - Official SEP citation footer on all pages
-- Updated lesson plan generation prompt - PRONI markers for Kinder 3 groups
-- Added PRONI badge display in planeaciones/[id]/page.tsx for activities with [PRONI:] marker
-- Updated CLAUDE.md with official NEM framework documentation
-- Official citations: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024"
-- Evaluation labels: Logrado, En proceso, Requiere apoyo, Sin evaluar (qualitative only)
-
-Vocabulary Management System (Phase 4 Extension - COMPLETE)
-Teacher-friendly vocabulary input with 3 methods (manual, bulk text, AI extraction):
-
-- GET/POST/DELETE /api/vocabulary - CRUD API for teacher vocabulary items
-- POST /api/vocabulary/extract - Claude Vision + text extraction endpoint
-- /vocabulario/page.tsx - Full vocabulary management UI with 3 input modes
-- Manual entry: add single words with letter/color assignment
-- Bulk text import: paste from notes/markdown/docs, Claude extracts vocabulary
-- Image upload: photo of books/notes/handwritten lists, Claude Vision extracts words
-- Grouped display by letter (A-Z) with color-coded cards
-- Delete functionality for teacher-created vocabulary (not system vocabulary)
-- Navigation link added to main sidebar
-- Handles messy teacher inputs: photos, PDFs, handwritten notes, markdown files
-
-Security Infrastructure (Phase 4 - IN PROGRESS)
-Database migrations prepared for diary integration and audit logging:
-
-- Migration 010_diary_school_network.sql - Adds diary sharing (share_token, visibility), school_announcements, teacher_resources, role_type (teacher/admin/coordinator)
-- Migration 011_audit_logging.sql - Adds audit_logs, failed_auth_attempts, cleanup function
-- Fixed: Removed duplicate RLS enable, added DROP POLICY IF EXISTS for clean migration
-
-Security libraries implemented (not yet applied to routes):
-
-- lib/rate-limit.ts - Upstash Redis-based rate limiting with 3 tiers (strict: 10/hr, standard: 50/hr, relaxed: 100/hr)
-- lib/file-validation.ts - Multi-layer validation (MIME type, magic bytes, image dimensions)
-- lib/audit.ts - Audit logging for sensitive actions with IP/user agent tracking
-- lib/csrf.ts - CSRF token generation and verification for forms and AJAX
-- All libraries pass TypeScript and ESLint checks
-- Comprehensive security review documented in docs/SECURITY_REVIEW.md
-
-Dependencies installed: @upstash/redis, @upstash/ratelimit, csrf
-
-What does NOT exist yet
-Diary integration UI (authenticated routes for history, detail, sharing)
-
-Admin dashboard routes (diaries, announcements, resources, analytics)
-
-School network pages (recursos, red)
-
-Security applied to API routes (rate limiting, audit logging, CSRF)
-
-CSP headers in middleware
-
-LFPDPPP compliance page
-
-Report cards generator (Phase 6)
+Current phase: Phase 6 — Quality & Polish (output quality, design, games, branding)
 
 ---
 
-## Production Deployment Status
+## What exists (current state)
 
-### ✅ READY TO DEPLOY
+### Infrastructure
 
-- All code passes ESLint and TypeScript checks
-- Security validated (RLS, auth, file uploads)
-- NEM/PRONI official alignment complete
-- Vocabulary management system complete
-- All critical features tested
+- Next.js 14 App Router + Tailwind v3 + shadcn/ui + Inter font
+- Supabase: ~26 tables, RLS on all tables, AES-256-GCM encryption on PII
+- Security: rate limiting (Upstash Redis), CSRF, CSP headers, audit logging, file validation
+- Dev tooling: Vitest (23 passing tests), Prettier, Husky, typecheck script, CI via .github/workflows/ci.yml
+- Deployment: Vercel, auto-deploy on push to main
 
-### 🚀 Deployment Checklist
+### Auth & Onboarding
 
-- [ ] Push to GitHub main branch
-- [ ] Vercel auto-deploys
-- [ ] Run migration 007_multi_tenant_setup.sql in Supabase
-- [ ] Run migration 008_lesson_plan_vocabulary.sql in Supabase
-- [ ] Run migration 010_diary_school_network.sql in Supabase (Phase 4)
-- [ ] Run migration 011_audit_logging.sql in Supabase (Phase 4)
-- [ ] Run migration 029_fortnight_packs_progress.sql in Supabase (Phase 5)
-- [ ] Run migration 042_plan_types_and_templates.sql in Supabase (document-style plans)
-- [ ] Add UNSPLASH_ACCESS_KEY to Vercel (free tier, 50 req/hr)
-- [ ] Set up Upstash Redis (add UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN to Vercel)
-- [ ] Generate and add CSRF_SECRET to Vercel (64-char hex)
-- [ ] Regenerate database types after migrations
-- [ ] Verify RLS active on all tables
-- [ ] Test production URL
-- [ ] Begin teacher testing with Alejandra
+- Email/password + Google OAuth
+- 7-step onboarding wizard (name → grade → editorial → school → group → API key → confirm)
+- Consent records, account soft-delete with 30-day cron hard-delete
 
----
+### Dashboard
 
-## Next Steps (Post-Deployment)
+- Motivational phrase card (30 phrases, rotates on refresh via localStorage counter)
+- LMS sync status card (gated on editorial has_lms_sync)
+- Mobile bottom nav with "Más" sheet for overflow items
 
-### Immediate (After Testing Validation)
+### Lesson Planner (`/planeaciones`)
 
-1. **Deploy to Production**
-   - Push to GitHub (triggers Vercel auto-deploy)
-   - Run migrations 007 and 008 in Supabase
-   - Verify RLS policies active
-   - Seed vocabulary database (129 words)
-   - Test production URL
+- Document-style plans: Quincena + Taller formats
+- GPT-4o-mini primary / claude-sonnet-4-6 fallback
+- Teacher voice fidelity: "VOZ DE LA MAESTRA" few-shot injection from uploaded template
+- Per-group schedule: letter_number_day + numeros_day from groups.fixed_weekly_schedule (no hardcoding)
+- Sub-plans: on-demand Letter & Number / Numeros generation (claude-haiku-4-5)
+- Inline section editing (PATCH /api/planner/update-document)
+- DOCX export
+- ObservationCalendar per group
+- Up to 5 plan templates per teacher (DOCX / PDF / image via Claude Vision)
+- NEM/PRONI official alignment: 4 Campos Formativos, 7 Ejes Articuladores, SEP 2024 citations
+- PRONI markers for Kinder 3 groups
 
-2. **Teacher Testing with Alejandra**
-   - Create fortnight → Generate plans → Export PDF
-   - Upload Richmond CSV → Import scores
-   - View student progress → Export reports
-   - Generate materials → Project flashcards
-   - Play Memory Match game
-   - Collect UX feedback
+### Materials & Games
 
-### Phase 4 - High Priority (Production Blockers)
+- Generation: flashcards, worksheets, memory game (memorama), bingo, word search, matching, sorting, picture-word-match, YouTube songs
+- All material types: shareable via play token -> /jugar/[token] (public, no-auth)
+- Projectable flashcard viewer (/materiales/[id]/proyectar): large text, auto-advance, keyboard nav
+- Memory Match: card flip animations, images, audio
+- Bingo: seeded LCG, up to 35 unique cards, PDF export
+- Word Search: tap-to-select, speaks found words
+- Sorting Game: tap-to-sort into category bins
+- Picture-Word Match + Listen and Tap: image + audio-first, no reading required
+- Autonomous generation (FortnightPackProgress): SSE -> sequential generate-all per day, DB-resumable
 
-**Target: Next 2 weeks**
+### Richmond Integration
 
-3. **✅ NEM/PRONI Official Alignment** (Task #15) - COMPLETE
-   - ✅ Research official SEP NEM documentation
-   - ✅ Verify Campos Formativos match official list
-   - ✅ Verify Ejes Articuladores match framework
-   - ✅ Add official citations to PDF exports
-   - ✅ Add PRONI alignment markers
+- Chrome Extension (Manifest V3): auto-sync scores from richmondlp.com
+- CSV/XLSX import with fuzzy student matching (Levenshtein)
+- Analytics dashboard: 4 views (todos / por-grupo / por-tarea / por-alumno), score distribution chart
+- Richmond unit linkage in lesson plans (injects unit context into prompt)
 
-4. **🔄 Security Implementation** (Task #18) - IN PROGRESS
-   - ✅ Database migrations (010, 011)
-   - ✅ Security libraries (rate-limit, file-validation, audit, csrf)
-   - ⏳ Apply rate limiting to 18 API routes
-   - ⏳ Apply audit logging to sensitive endpoints
-   - ⏳ Apply CSRF protection to forms
-   - ⏳ Add CSP headers to middleware
-   - ⏳ Create Aviso de Privacidad page (LFPDPPP 2025)
-   - Estimated remaining: 8-10 hours
+### Student & School
 
-5. **Richmond-Vocabulary-Lesson Integration** (Task #20)
-   - Link Richmond units → vocabulary_items
-   - Auto-populate vocabulary from Richmond unit
-   - Show Richmond context in lesson plans
-   - Bidirectional sync: scores ↔ plans
-   - Estimated: 4-5 hours
+- Student progress: bar charts, timeline, CSV export
+- Parent contacts: AI extraction (Claude Haiku) from text or photo, email notifications via Resend
+- School network: announcements feed, shared resources hub, team management (admin/coordinator roles)
+- WhatsApp links for parent contact (decrypted via service role)
 
-### Phase 5 - Medium Priority
+### Vocabulary
 
-**Target: Following 2 weeks**
+- 3-mode input: manual, bulk text paste, image upload (Claude Vision)
+- Inline edit (teacher-owned words only)
+- Usage count badges per word ("En N planes" / "Sin usar")
+- 129 system vocabulary words seeded
 
-6. **Integrate Diary into Main App** (Task #14)
-   - Move from subdomain to main navigation
-   - Friday notification system
-   - Link entries to fortnights
-   - Show insights on dashboard
-   - Estimated: 3-4 hours
+### Diary (`/diario`)
 
-7. **Memory Game Enhancements** (Task #19)
-   - Audio feedback (match/wrong/complete)
-   - Celebration animations (confetti, stars)
-   - Difficulty levels (4/6/8 pairs)
-   - Optional timer (challenge mode)
-   - Visual hints (color, category)
-   - Estimated: 4-5 hours
+- 5-step wizard -> streaming AI summary -> auto-save on completion
+- PDF download, 7-day share link (/compartir/[token])
+- List view with delete
 
-8. **Visual Testing** (Task #16)
-   - Print PDFs on actual printer
-   - Test on classroom proyector (2m distance)
-   - Verify colors in bright lighting
-   - Test Memory Match on large screen
-   - Estimated: 2-3 hours
+### Legal & Compliance
 
-### Phase 6 - Future Features
-
-**Post-Launch, based on teacher feedback**
-
-9. **Report Cards Generator**
-   - Trimestral reports (qualitative only)
-   - Export to PDF for parents
-   - Consolidate lesson plan observations
-   - NEM-compliant format
-   - Estimated: 8-10 hours
-
-10. **Additional Game Types**
-    - Bingo (vocabulary/numbers)
-    - Sorting Game (categories)
-    - Word Scramble (spelling)
-    - Simon Says (listening)
-    - Estimated: 6-8 hours per game
-
-### Success Metrics to Track
-
-- Usage: Fortnights created per week
-- Time saved: Planning time reduced to <1 hour
-- Error rate: Failed generations/imports
-- Teacher satisfaction: Would recommend to colleagues?
-- Student engagement: Kids enjoy games/flashcards?
+- Aviso de Privacidad (15 sections, LFPDPPP / SABG 2025)
+- Terminos de Servicio (13 sections, Mexican jurisdiction)
+- Disaggregated consent on register + onboarding
+- Student name redaction in diary summaries
 
 ---
 
-Session log
-Date What was shipped Files changed
-2026-06-16 Design audit + mobile header stacking + color token fixes (COMPLETE) — (1) 4 page headers now stack vertically on mobile (flex-col sm:flex-row): diario, vocabulario, calificaciones, planeaciones/[id]. (2) Calificaciones page: replaced all hardcoded gray colors with design tokens (text-gray-900→text-text-primary, text-gray-500/600→text-text-secondary, text-gray-400→text-text-disabled, bg-gray-50→bg-muted). (3) Bug: backdrop overlay div in calificaciones missing cursor-pointer — fixed. (4) Vocabulario + planeaciones/[id] button groups: flex-wrap so they don't overflow on small screens. Typecheck clean, 23/23 tests pass.
-2026-06-16 Legal pages — Aviso de Privacidad + Términos de Servicio (COMPLETE) — Created public standalone pages app/privacidad/page.tsx and app/terminos/page.tsx (no auth required, no sidebar). Privacy page: 15 sections covering all Art. 15 LFPDPPP requirements (identity, data collected, purposes, minors, Richmond integration, AI providers table, transfers, Chrome extension, security, ARCO rights, retention, cookies, changes, consent mechanism, supervisory authority). Updated to reference SABG (new authority per LFPDPPP DOF 20-03-2025) instead of defunct INAI. ToS: 13 sections covering eligibility, permitted/prohibited use, AI content disclaimer, NEM/PRONI alignment, Richmond LP ToS compliance disclaimer, student data obligations, IP, availability, liability limitation, Mexican jurisdiction. Deleted auth-gated app/(main)/privacidad/page.tsx. Footer updated with Términos de Servicio link. Typecheck clean.
-2026-06-16 Session K — Dashboard phrase redesign + full mobile responsiveness (COMPLETE) — (1) Dashboard phrase card: 20 motivational phrases, rotates on every page refresh via localStorage counter (not day-of-year), gradient card design (indigo-50→violet-50, decorative serif quote mark, framer-motion fade-in). (2) Layout mobile nav: added usePathname() active state on sidebar + bottom nav, pb-20 md:pb-0 on main to prevent content hiding behind bottom nav, replaced slice(0,4) with 4 fixed items (Inicio/Planeaciones/Calificaciones/Mi Diario) + "Más" button that opens bottom sheet (3-col grid, backdrop dismiss) exposing all remaining nav items. (3) Responsive padding on 8 pages: p-8→p-4 sm:p-8 on planeaciones/[id], planeaciones/page, planeaciones/nueva, configuracion; p-6→p-4 sm:p-6 on materiales/[id], vocabulario, calificaciones-richmond; diario outer div gets p-4 sm:p-6. Typecheck clean, 23/23 tests pass.
-2026-06-16 UX/config improvements (COMPLETE) — (1) Dashboard: daily motivational phrase card (30 Spanish phrases, picks by day-of-year, zero API calls). (2) Extension guide: Step 4 now says "regresa al panel principal de Richmond" instead of MaestraAI; added onLoad handler to hide SVG placeholder once image loads — images in public/images/extension-guide/ now display correctly. (3) Vocabulary: inline edit for teacher-owned words (pencil icon → inline form with word/letter/color inputs, Check/X to save/cancel); PATCH /api/vocabulary added with ownership guard. (4) Plan template: removed text paste textarea entirely; single "Subir formato (foto, PDF o Word)" button accepts images (Claude Vision), PDFs (Claude document API, zero new deps), and DOCX (mammoth, new dep); PPTX returns 422 with conversion message. mammoth@1.12.0 added. Typecheck clean, 23/23 tests pass. commit 17888a8
-2026-06-16 Diary migration to main app (COMPLETE) — Deleted public diario.maestraia.mx subdomain microsite. Moved all diary functionality into auth-gated main app. New pages: /diario (list with download+delete), /diario/nueva (5-step wizard → /diario/resultado), /diario/resultado (streams summary, auto-saves on completion, redirects to /diario/[id]), /diario/[id] (detail with PDF download, 7-day share link, delete). Public share page at /compartir/[token] (server component, service role bypass for RLS). API routes: DELETE /api/diary/[id] (ownership check), POST /api/diary/[id]/share (generates/reuses UUID token, sets 7-day expiry), GET /api/diary/public/[token] (service role). Middleware: removed subdomain rewrite block, added /diario to PROTECTED_PATHS. Nav: /diary → /diario. Requires migration 010 applied in Supabase (adds share_token, share_expires_at, visibility to teacher_diary). Typecheck clean, 23/23 tests pass. commit 303b881
-2026-06-17 Planeación System Redesign — Document-Style Plans (COMPLETE) — Full overhaul replacing day-by-day blocks with document-style quincena/taller format. Migration 042: adds plan_type, plan_document JSONB, observation_calendar JSONB, richmond_book_pages JSONB to fortnights; creates teacher_plan_templates table (max 5 per teacher, RLS). lib/planner/extract-template.ts: shared extraction helper (DOCX via mammoth, PDF via Claude Document API, images via Claude Vision). prompts/planner-quincena.ts + prompts/planner-taller.ts: system prompts for document-style generation with hybrid markdown/structured JSON output. API: POST /api/teachers/templates (GET/POST/DELETE multi-template CRUD), POST /api/planner/generate-document (SSE stream, quincena vs taller branching, writes plan_document to fortnight, GPT-4o-mini primary / claude-sonnet-4-6 fallback), POST /api/planner/generate-subplan (on-demand Letter & Number or Números sub-plan, appends to plan_document.sub_planes, claude-haiku-4-5), POST /api/planner/export-docx (plan_document → .docx download via docx npm). Components: ObservationCalendar (5-column L/M/M/J/V student toggle per day), PlanDocumentViewer (section accordion renderer with react-markdown, CronogramaGrid, CamposFormativosView, EvaluacionGrid, SubPlanCard generate buttons). UI: /planeaciones/nueva: plan type toggle (Quincena/Taller), richmond_book_pages 3-input card (shows when unit selected), ObservationCalendar per group, template selector. /planeaciones/[id]: tab toggle (Documento completo | Por día), PlanDocumentViewer primary when plan_document exists, DOCX download button, generate-document replaces generate as zero-state action. /configuracion: multi-template manager replaces single upload (list, add with label+type+file, delete, .docx recommended). Deps: docx, react-markdown installed. Typecheck clean, 23/23 tests pass.
-2026-06-17 Post-redesign cleanup (COMPLETE) — Removed dead code left after configuracion multi-template manager replaced single-template upload: deleted templateStatus state, planTemplate state, templateFileRef, handleTemplateFile handler, setPlanTemplate call from loadData. Removed handleGenerate (old day-by-day SSE consumer calling /api/planner/generate) from planeaciones/[id] — superseded by handleGenerateDocument. Removed IMAGE_TYPES constant from lib/planner/extract-template.ts (unused after type narrowing refactor). Removed noBorder() dead function and BorderStyle import from export-docx route (YAGNI — was suppressed with void). Fixed accuracy gap: observation_calendar from fortnights now flows end-to-end — added to Fortnight type, passed as observationCalendar prop to PlanDocumentViewer (renders as accordion section after cronograma), added to export-docx Supabase query + DOCX table output. Typecheck clean, 23/23 tests pass.
-2026-06-18 Security hardening + public landing page + rate limiting (COMPLETE) — (1) Google OAuth: added signInWithOAuth to login + register pages, /auth/callback route exchanges code → session → routes new vs returning users to /onboarding or /dashboard. (2) Rate limiting on 7 missing routes: diary/public/[token] (IP, relaxed), consent (IP, standard), diary/save + diary/[id]/share (user.id, standard), planner/export-docx + diary/[id] (user.id, relaxed), planner/update-document (user.id, relaxed). (3) Public landing page (app/page.tsx): server component, redirects auth users to /dashboard; hero with dual CTA (Soy maestra / Soy directora), features section, 3-step flow, mission quote, teacher vs school-admin CTA cards, footer with privacy/terms. (4) Register page: reads ?type=teacher|school param, shows role-specific subtitle copy, stores role in pendingConsents localStorage for consent audit trail, wrapped in Suspense for useSearchParams. (5) Middleware: removed pathname === '/' from isProtected check so landing page stays public. Typecheck clean, 23/23 tests pass.
-2026-06-18 Per-group schedule customization + plan gap fixes (COMPLETE) — Removed all hardcoded "Letter & Number = martes / Números = jueves" rules from prompts, routes, and UI. Key insight: groups.fixed_weekly_schedule JSONB already existed in the DB (migration 001) but was completely orphaned — no migration needed. (1) prompts/planner-quincena.ts + prompts/planner-taller.ts: removed hardcoded cronograma block and day rules from system prompts — schedule injected per-group at call time. (2) app/api/planner/generate-document/route.ts: added DEFAULT_CRONOGRAMA const + getGroupSchedule() helper (reads groups.fixed_weekly_schedule, falls back to defaults for backwards compat); schedule injected into both buildQuincenaPrompt and buildTallerPrompt; sub_planes preservation fix: existing sub_planes spliced back into planDocument after AI parse so regenerate no longer wipes them. (3) app/api/planner/generate-subplan/route.ts: reads fixed_weekly_schedule from fortnight group join, passes letterDay/numDay to buildSubplanPrompt — no more hardcoded "SOLO martes"/"SOLO jueves". (4) app/api/planner/update-document/route.ts (NEW): PATCH route for inline section editing with allowlist of editable text sections; structured sections (cronograma, campos_formativos, evaluacion_items, sub_planes) are read-only. (5) components/settings/GroupEditor.tsx: added "Horario de actividades especiales" section with two <select> dropdowns (Letter & Number day, Números day) defaulting to Martes/Jueves. (6) app/(main)/configuracion/page.tsx: handleCreateGroup + handleEditGroup now persist fixed_weekly_schedule; selectedGroupData mapper includes letter_number_day/numeros_day for pre-population. (7) components/planner/PlanDocumentViewer.tsx: rebuilt with schedule? prop for dynamic day labels in SubPlanCard; inline edit mode on all text sections (Pencil icon → textarea → PATCH /api/planner/update-document → onReload). (8) app/(main)/planeaciones/[id]/page.tsx: fortnight select now joins groups(fixed_weekly_schedule); schedule passed to PlanDocumentViewer. (9) app/(main)/planeaciones/nueva/page.tsx: letter regex validation (was .length(1), now .regex(/^[A-Za-zÁáÉéÍíÓóÚúÑñÜü]$/)); group-change useEffect now also fetches fixed_weekly_schedule; day hint text is dynamic; template discovery hint added when templates.length === 0. (10) CLAUDE.md: updated hard rules section to document per-group schedule architecture. Typecheck clean, 23/23 tests pass.
-2026-06-16 Session J — Parent email notifications (COMPLETE) — New parent_contacts table (migration 038, RLS). API: POST /api/calificaciones/contacts?action=extract (Claude Haiku extracts contacts from pasted text or photo), POST save (upsert with onConflict teacher_id,richmond_student_id), GET ?group_id, DELETE ?id. POST /api/calificaciones/notify sends per-parent emails via Resend for incomplete students. Calificaciones page rewritten with: "Contactos (N)" slide-in panel (3 tabs: paste→AI extract→preview→save, photo upload, manual entry), saved contacts list with delete, per-assignment mail icon showing incomplete count (only when contacts exist), notify confirmation modal with parent count. RESEND_API_KEY added to .env.local.example. resend@6.12.4 installed. Typecheck clean, 23/23 tests pass. commit 9a15d9d
-2026-06-16 Session I — Planeación voice fidelity (COMPLETE) — Template extractor now captures 2-3 verbatim activity snippets from the uploaded plan format (examples field in plan_template JSONB, max_tokens 512→800). Generator injects them as a "VOZ DE LA MAESTRA" few-shot block so GPT-4o-mini mirrors the teacher's exact writing style, vocabulary density, and detail level. planTemplate type updated to include examples?: string[] in both template route and generate route. Typecheck clean, 23/23 tests pass. commit 584b045
-2026-06-16 GPT-4o-mini migration (COMPLETE) — Lesson plan generation now uses gpt-4o-mini as primary (json_object mode, 96% cheaper at ~$0.0025/plan vs $0.062 with Sonnet). claude-sonnet-4-6 remains as runtime fallback when OPENAI_API_KEY is absent or OpenAI errors. parseClaudeResponse updated: tries direct JSON.parse first (handles both clean array from Claude and {"days":[...]} object from GPT), falls back to regex extraction for markdown-wrapped responses. 22/22 tests pass. commit 548859e
-2026-06-16 Session H (COMPLETE) — Template image upload: /api/teachers/template now accepts imageBase64+imageMimeType (Claude Vision path) alongside existing template_text. Same security pattern as vocabulary/extract (validateBase64Image + rate limiting). Configuracion page: "📷 Subir foto" button triggers hidden file input, FileReader converts to base64, sends to API, updates plan_template state on success. Text paste path unchanged. Typecheck clean, 22/22 tests pass. commit b0e936f
-2026-06-16 Session G (COMPLETE) — 6 critical bugs fixed: (1) YouTube fortnight*id now uses params.id from useParams() instead of async fortnight state (was undefined → Zod uuid error); (2) MaterialGenerator vocabulary 3-tier fallback: lesson_plan.vocabulary → blocks[].vocabulary → fortnight.vocabulary, Spanish error message when all empty; (3) configuracion api_keys query now filters .is('revoked_at', null) — revoked keys no longer appear with strikethrough; (4) /boletas redirects to /calificaciones-richmond via next.config.mjs redirects(); (5) lib/supabase/browser.ts passes cookieOptions.domain from NEXT_PUBLIC_COOKIE_DOMAIN env var — fixes diary subdomain auth isolation; (6) register page emailRedirectTo uses NEXT_PUBLIC_APP_URL so confirmation email doesn't point to diario. subdomain. Typecheck clean, 22/22 tests pass. SHIP. commit 455f287
-2026-06-15 Sessions E+F (COMPLETE) — Session E #11+#12: migration 036 adds english_period_minutes (default 45) + plan_template JSONB to teachers; POST /api/teachers/template (Claude Haiku extracts school format sections/notes → stores on teacher); GET/PATCH /api/teachers/me return/accept new fields; configuracion: period duration number input saves on profile save, plan template paste card (Analizar button → stores parsed JSONB, shows saved sections); planner prompt now injects period duration + school template sections when set. Session F #13: migration 037 adds physical_materials text[] to fortnights; nueva planeación: extras chip picker (shows baseline materials as read-only note, teacher adds extras per-fortnight with Enter key); planner prompt injects MATERIALES DISPONIBLES section so AI only references available items. Typecheck clean, 22/22 tests pass. commit 82ba836
-2026-06-15 Post-sessions A-D security audit (COMPLETE) — 4 bugs fixed: (1) DELETE fortnight now pre-fetches lesson*plan IDs and deletes orphaned materials (lesson_plan_id has no ON DELETE CASCADE); (2) login diary-restore wrapped in try/catch (JSON.parse crash on corrupt sessionStorage); (3) calificaciones IDOR guard moved to useEffect before loadGroupData is called, duplicate guard removed from function body; (4) vocabulary fetch errors now logged instead of silently swallowed in materiales + planeaciones/nueva. Typecheck clean, 22/22 tests pass. commit e314bce
-2026-06-15 Sessions C+D (COMPLETE) — diary auth: POST /api/diary/save upserts into teacher_diary (source=diary_microsite); resultado/handleSave checks auth, saves directly if logged in, stashes to sessionStorage+redirects to /login?from=diary if not; login page restores pending_diary after auth and redirects to /dashboard?diary=saved. Calificaciones Richmond: /calificaciones-richmond student×assignment grid (last 20 assignments), group selector, color-coded scores (≥80 green / ≥60 yellow / <60 red), CSV export; ClipboardList nav item added to sidebar. commit dcda382
-2026-06-15 Session B (COMPLETE) — migration 035: fortnights.vocabulary text[]; vocabulary chip selector in /planeaciones/nueva (loads from /api/vocabulary, saves to fortnight); planner/generate prefers fortnight.vocabulary over letter-based lookup; materials/generate now accepts vocabulary[] directly without lesson_plan_id (standalone mode); /materiales "Crear material" panel with chip picker, manual word entry, topic, type selector. commit 1484a61
-2026-06-15 Session A quick fixes (COMPLETE) — #1 YouTube POST now sends fortnight*id (was 422); #2 materials/generate reads top-level vocabulary not blocks[].vocabulary; #3 API key revoke filters from local state instead of strikethrough display; #4 sidebar sticky top-0 h-screen overflow-y-auto; #5 nem_field + nem_axis now <select> dropdowns from CAMPOS_FORMATIVOS/EJES_ARTICULADORES; #6 delete buttons on planeaciones list + materiales grid + DELETE /api/planner/[id] (cascades materials) + DELETE /api/materials/[id] with ownership guards. Typecheck clean, 22/22 tests pass. SHIP. commit 91a6461
-2026-06-15 Editorial-agnostic architecture + school-student linkage fix (COMPLETE) — lib/editorial/registry.ts: EDITORIAL*REGISTRY with has_lms_sync/sync_path/label (richmond/macmillan/pearson/oxford/cambridge/other); getEditorialConfig(key) helper; EDITORIAL_OPTIONS for selects. Onboarding editorial step changed from free-text to select. Dashboard LMS card gated on has_lms_sync, label+route from registry. configuracion gate changed from includes('richmond') to has_lms_sync; title uses editorialConfig.label. Migration 034: normalizes editorial values to lowercase, CHECK constraint (6 valid keys), RLS policy students_school_admin_read (admins/coordinators see all students in their school via groups.school_id join). Typecheck clean. SHIP.
-2026-06-15 School interconnectivity + Richmond analytics dashboard (COMPLETE) — Migration 033 written (students.import*source, groups.richmond_group_name, unique (group_id, richmond_student_id)); lib/richmond/analytics.ts (computeAverage/Median/Mode/Distribution, boundary fix for ≤80→60–80 bucket); lib/richmond/analytics.test.ts (5 tests passing); GET /api/richmond/analytics (4 shapes: todos/por-grupo/por-tarea/por-alumno, ownership guards, relaxed rate limit); components/richmond/ScoreDistributionChart.tsx (stat pills + framer-motion bar chart); RichmondExtensionGuide.tsx (4-step illustrated onboarding with SVG placeholders, public/images/extension-guide/); configuracion page replaces 3-step text guide with RichmondExtensionGuide; dashboard/richmond/page.tsx full rewrite — dynamic group loading (no more hardcoded UUIDs), 4 tabs (todos/por-grupo/por-tarea/por-alumno) with cross-group summary, assignment detail + ScoreDistributionChart, student history; GET+POST /api/school/announcements + DELETE /api/school/announcements/[id]; GET+POST /api/school/resources + DELETE /api/school/resources/[id]; GET+PATCH /api/teachers/me; GET /api/school/teachers + PATCH /api/school/teachers/[id] (admin only, anti-self-demote); GET /api/students/[id]/contact (decrypt parent_contact_encrypted → WhatsApp URL, strict rate limit, audit log); lib/audit.ts adds TEACHER_PROFILE_UPDATE/STUDENT_CONTACT_VIEW/RESOURCE_SHARE; app/(main)/perfil/page.tsx (identity + school + admin team management); app/(main)/red/page.tsx (announcements feed + shared resources hub); layout.tsx adds Mi Escuela + Mi Perfil nav items; alumnos/page.tsx + alumnos/[id]/page.tsx add WhatsApp buttons; planeaciones/[id]/page.tsx adds "Compartir con escuela" button; materiales/[id]/page.tsx adds "Compartir con escuela" button. Typecheck clean, 5/5 analytics tests pass. SHIP.
-2026-06-14 Chrome extension Web Store pre-submission audit + fixes (COMPLETE) — BLOCKERS fixed: icon16.png, icon48.png, icon128.png generated (99,102,241 indigo PNG, Node zlib, no deps); confirmed manifest_version 3, service_worker declaration, description field all present. content_scripts: removed ineffective ebook-scraper.js entry, changed content.js match from courses/*/markbook* to courses/* (covers all course pages). Functional bugs fixed: (1) Race condition — pendingPayloads queue in content.js buffers XHR payloads that arrive before loadGroupMappings() resolves, drained after init; (2) Silent sync failure — background.js now sets badge '!' + red on API error, clears badge on success, stores lastSyncStatus/lastSyncTime/lastSyncError in chrome.storage.sync; (3) apiUrl never validated — popup.js save button now blocks and shows inline error if URL doesn't start with https:// (localhost/127.0.0.1 allowed for dev), connection test must pass before saving; (4) E-book scraper ineffective — moved XHR interception for /api/interactives/\_ into content.js (fires on actual Richmond course page XHRs, not just direct browser navigation); popup.js now shows last sync status on open. Group slug regex broadened from grupo-[a-z0-9]+ to [^/]+ to handle any Richmond URL format. ebook-scraper.js kept as inert reference file. Typecheck clean. extension/content.js, extension/background.js, extension/popup.js, extension/manifest.json, extension/ebook-scraper.js, extension/icon16.png, extension/icon48.png, extension/icon128.png
-2026-06-14 Quality gates: test extraction, regression tests, CI pipeline, acceptance protocol — parseClaudeResponse extracted to lib/planner/parse-response.ts (exported, testable); extractVocabulary extracted to lib/materials/vocab-utils.ts; 13 new regression tests in lib/planner/parse-response.test.ts (5 tests), lib/materials/vocab-utils.test.ts (5 tests), lib/materials/games.test.ts (3 tests) covering the exact bugs fixed this session; .github/workflows/ci.yml added (typecheck+lint+test on every push/PR); CLAUDE.md (project + global ~/.claude/CLAUDE.md) updated with mandatory acceptance protocol. 17/17 tests pass, typecheck clean. SHIP.
-2026-06-14 Full generation engine audit + bug fixes (COMPLETE) — Planner: max*tokens 4096→8192 (root cause of "Generation failed" after 66s), temperature 0.7→0.3, system message added, buildPrompt() rewritten (~40% shorter, removes date/day_of_week from JSON, enforces JSON-only output, adds char limits), Array.isArray guard added to parseClaudeResponse. PDF export URL fixed: /api/planner/export-pdf → /api/planner/pdf (was 404 on every export). generate-all vocabulary extraction fixed: was reading lessonPlan.blocks[].vocabulary (always empty) → now reads top-level lessonPlan.vocabulary. MemoryMatch charCodeAt crash fixed: GameContent.pairs.id type number→string, pairId: String(pair.id), seed uses String(p.id).charCodeAt(0), matched guard fixed to matched.some(pid => cardId.startsWith(pid+'-')). maxDuration=120 added to 3 routes missing it (generate, generate-all, from-youtube). max_tokens 1024→2048 in picture-word-match, sorting, matching, letter-recognition. temperature 0.7→0.3 in worksheets + youtube; 0.5→0.3 in letter-recognition. StudentBingoCard unmark bug fixed: setHasBingo(false) → setHasBingo(checkBingo(next,size)). jugar/page.tsx refactored to use GameShell (adds word_search + bingo support, removes dead component branches). TypeScript clean.
-2026-06-10 Git recovery + build fix + session changes re-applied (COMPLETE) — Recovered project from iCloud-evicted .git directory: rsync Desktop→Developer, git init, reset to origin/main. Fixed Vercel build: 14 empty files restored from 274c89a base; 3 build errors fixed (ESLint no-explicit-any cast on planner/generate, React hooks exhaustive-deps on ListenAndTap, Zod v4 z.record() API on ebook-content). Re-applied all session changes to 7 restored base files: generate-all/route.ts created from scratch (flashcards+memory*game+matching+picture*word_match+sorting_game, auth+rate-limit+ownership checks); generate/route.ts adds picture_word_match+sorting_game cases, fetchVocabImages wired to all builders; word-search/route.ts adds IDOR fortnight ownership guard; ingest/route.ts adds encrypt import, encrypts first/last names before upsert, removes broken ciphertext fallback; jugar/page.tsx dispatches PictureWordMatch+SortingGame in addition to MemoryMatch; planeaciones/nueva adds RichmondUnitSelector card (appears after dates filled, persists richmond_unit); planeaciones/[id] adds YouTube quick-add inline below each day (URL input+Agregar/Cancel, calls from-youtube, reloads on success); vocabulario adds wordUsageMap (queries lesson_plans.vocabulary, shows "En N planes"/"Sin usar" badge per word). TypeScript + ESLint clean. Sentry+Unsplash+ENCRYPTION_KEY added to .env.local. 2 commits pushed: f44561d + 5e63fdb.
-2026-05-24 Phase 0 + 0.5 complete CLAUDE.md, PENDIENTES.md, lib/supabase/middleware.ts, supabase/migrations/005*usage*logs.sql, package.json (typecheck), .gitignore
-2026-05-24 Phase 1 Auth complete app/(auth)/*, app/(app)/onboarding/, app/(app)/layout.tsx, app/(main)/dashboard/, app/(main)/configuracion/
-2026-05-24 Phase 1 Richmond Sync complete lib/richmond/\_, app/api/richmond/\_, app/(main)/dashboard/richmond/, extension/\_, supabase/migrations/006*richmond_sync.sql, supabase/seed_step2.sql
-2026-05-25 Phase 2 Lesson Planner complete app/(main)/planeaciones/*, app/api/planner/generate/route.ts, components/app/RubricEditor.tsx
-2026-05-27 Phase 3 complete - PDF Export, Editing, Materials, Games. Files: app/(main)/planeaciones/*.tsx (UI improvements), lib/*PdfDocument.tsx (5 PDF generators), app/api/planner/pdf|update (export + editing APIs), app/api/materials/export|generate (material APIs), components/games/\_, components/app/LessonPlanEditor.tsx, components/app/MaterialGenerator.tsx, lib/materials/\_, prompts/materials.ts, supabase/migrations/008*lesson_plan_vocabulary.sql
-2026-05-27 Richmond CSV Import System complete - lib/richmond/csv-parser.ts, app/api/richmond/parse-csv|import-batch, app/(main)/richmond/subir/page.tsx, lib/richmond/**tests**/csv-parser.test.ts (4 passing tests), installed fastest-levenshtein, updated dashboard/richmond/page.tsx with Import button
-2026-05-27 Phase 3 Extensions complete - Projectable flashcard viewer (app/(main)/materiales/[id]/proyectar, components/games/FlashcardProjector.tsx, ProjectorControls.tsx), Student Dashboard Module D (app/(main)/alumnos/*, app/api/students/[id]/\_, StudentProgressChart.tsx, StudentScoreTable.tsx), UX improvements for teacher perspective (natural Spanish, personal pronouns, encouraging copy)
-2026-05-27 NEM/PRONI Official Alignment complete - lib/nem-official-data.ts (official SEP data structures), lib/PlaneacionPdfDocument.tsx (SEP citation footer), app/api/planner/generate/route.ts (PRONI integration for Kinder 3), app/(main)/planeaciones/[id]/page.tsx (PRONI badge), CLAUDE.md updated with official framework, verified 4 Campos Formativos from SEP Programa Sintético 2024
-2026-05-27 Vocabulary Management System complete - app/api/vocabulary/route.ts (CRUD API), app/api/vocabulary/extract/route.ts (Claude Vision extraction), app/(main)/vocabulario/page.tsx (3-mode UI: manual, bulk text, image upload), layout.tsx updated with nav link, supports messy teacher inputs (photos, handwritten notes, PDFs, markdown)
-2026-05-27 Pre-production validation complete - All ESLint/TypeScript checks passed, security audit complete, file upload validation added, PRE_PRODUCTION_CHECKLIST.md created, READY FOR DEPLOYMENT ✅
-2026-05-27 Auth flow UX improvements - Email verification page with step-by-step instructions, clear error messages for unverified emails, auto-redirect to verification page, resend email functionality, teacher-friendly language throughout auth flow
-2026-05-27 Configuration page fixes - Email now pre-filled from auth user, full name pre-filled from teacher record or email, clear explanation why email cannot be edited, better visual styling for disabled fields
-2026-05-28 Security Infrastructure Phase 4 (Part 1) - Created migrations 010 (diary sharing, school network, admin roles) and 011 (audit logging), implemented security libraries (rate-limit.ts, file-validation.ts, audit.ts, csrf.ts), all libraries pass TypeScript/ESLint checks, comprehensive security review in SECURITY_REVIEW.md
-2026-05-28 Phase 1 Critical Security Fixes (COMPLETE) - Fixed 4 CRITICAL RLS vulnerabilities (vocabulary_items broken by migration 007, schools INSERT too permissive, audit_logs/failed_auth_attempts forgeable), added 14 missing FK indexes to prevent N+1 queries at scale, fixed 3 CRITICAL API bugs (richmond/ingest z.any(), richmond/upload-xlsx missing try-catch, richmond/import-batch O(n²) → batch INSERT 20x faster), migrations 013+014 created, all TypeScript/ESLint checks passing
-2026-06-09 Richmond Integration + LFPDPPP Phase 1 (COMPLETE) — Phase 1 privacy fix: migration 030 adds first_name_encrypted/last_name_encrypted to richmond_scores, nullifies plaintext columns; ingest route now encrypts names via lib/encryption.ts (AES-256-GCM) before INSERT, removes broken plaintext/ciphertext fallback matching. Phase 2 Richmond unit: GET /api/richmond/available-units returns teacher's recent assignments with date-based suggestion; RichmondUnitSelector component (dropdown + ★ suggested + manual fallback); nueva/page.tsx adds optional "Unidad Richmond" card that appears after dates are filled, persists to fortnights.richmond_unit. Phase 3 planner prompt: generate route fetches matching richmond_assignment.instructions when fortnight.richmond_unit is set, injects "UNIDAD RICHMOND ACTUAL" block into prompt before INSTRUCCIONES — Tuesday PRONI block explicitly references the unit. Phase 5 autonomous generation: migration 031 adds materials_state JSONB to fortnight_packs; FortnightPackProgress patchPack now also persists materials_state per day; PATCH route accepts materials_state. Phase 4 (extension vocab scraping) BLOCKED pending teacher confirming Richmond textbook URL pattern. TypeScript clean.
-2026-06-09 Phase 5 Content Integration (B1+B2+B3 COMPLETE) — Material breadcrumb: Supabase query expanded to join fortnights(project_name)+lesson_plans(day_number); Material type updated; header now shows "Quincena · Día N" context above material title when parent data is present. YouTube per-day: inline "Agregar canción de YouTube" link below each day's materials in planeaciones detail; expands to URL input + Agregar/Cancel; calls /api/materials/from-youtube; reloads on success; client-side URL validation. Vocab usage counts: loadVocabulary now queries lesson_plans.vocabulary (RLS-scoped); builds wordUsageMap; each vocab card shows "En N planes" or "Sin usar" badge in matching color. TypeScript clean.
-2026-06-09 Game Engine Phase 3 (COMPLETE) — Three new interactive game types. Builders: lib/materials/picture-word-match.ts (Claude Haiku generates 3 foil words per vocabulary word), lib/materials/sorting.ts (Claude Haiku groups vocab into 2-3 Spanish-named categories). Components: PictureWordMatch.tsx (large image + 4 word choices, auto-speaks word, correct/wrong feedback), ListenAndTap.tsx (4 images on screen, browser speaks hidden word, student taps match — no reading required), SortingGame.tsx (tap-to-sort cards into category bins, progress tally). Wiring: picture_word_match + sorting_game added to generate/route.ts Zod enum + switch cases + generate-all jobs array. GameShell.tsx dispatches both types (shareable via /jugar/[token]). Material detail page: new sections for picture_word_match (share button + items preview) + sorting_game (share button + categories + word list), "Modo Escucha" (Headphones) button on flashcard + memory_game sections (shows only when ≥2 image_url pairs exist), ListenAndTap overlay modal. TypeScript + ESLint clean.
-2026-06-09 Game Engine Phase 1 + Phase 2 + Phase 4 (COMPLETE) — Images, Audio, Shareable URLs, Autonomous Generation. Bug fixes: IDOR guards on bingo+word-search routes, planner vocab injection (was empty string), seededShuffle shared utility, MemoryMatch deterministic shuffle, BingoCallerMode stable seed, matching schema fix (word/translation/image_description), youtube_videos type alias. Phase 1 images+audio: fetchVocabImages wired into both generation routes, imageMap threaded to all builders; FlashcardProjector + MemoryMatch render real images; PDF generators (Flashcard+GameCards) show images; useSpeech auto-speaks on card advance. Phase 4 autonomous: migration 029, POST /api/fortnight-packs + GET+PATCH /api/fortnight-packs/[id], FortnightPackProgress.tsx (SSE→sequential generate-all per day, DB-resumable), "Generar Todo" button. Phase 2 shareable games: migration 028_materials_play_token.sql, POST /api/materials/[id]/play-token, GET /api/game/[token] (public, service-role), app/jugar/[token]/page.tsx (no-auth game page), GameShell.tsx dispatcher, WordSearchGame.tsx (tap-to-select interactive, speaks found words), StudentBingoCard.tsx (seat-number → deterministic card, tap-to-mark, bingo detection), "Compartir con alumnos" button + QR+copy+WhatsApp modal on memory_game/bingo/word_search detail pages. ESLint + TypeScript clean.
-2026-06-08 Security Hardening — Phase 2 (COMPLETE) - middleware.ts rewritten: CSRF Origin-header check, auth guard for all protected paths, Supabase session refresh, CSP + security headers. CRON_SECRET bypass fixed (all 3 cron-protected routes: account-deletion, audit-cleanup, account/POST). richmond/ingest switched to service-role client (was broken with anon client + API-key auth). richmond/upload-xlsx validateFile type corrected csv→xlsx + static inner error. materials/export ownership chain replaced with direct teacher_id check. from-youtube: fortnight IDOR check + static error on assertYoutubePublic failure. vocabulary/extract: imageMimeType narrowed to enum. audit logging added: account DELETE, richmond credentials DELETE, student progress GET. Prompt injection sanitization in planner/generate (fortnight fields) and diary/summarize (teacherName). extension/content.js: removed UUID console.log. .gitignore: added .env/.env.\* protection. .env.local.example: added CRON_SECRET, CSRF_SECRET, UPSTASH_REDIS, SENTRY vars with generation instructions. csrf npm package removed, @blex41/word-search + fastest-levenshtein pinned to exact versions. TypeScript + ESLint clean.
-2026-06-08 Richmond ToS Compliance + Games Expansion (COMPLETE) - 6 compliance changes: disaggregated consent checkboxes on register+onboarding (migration 023_consent_records.sql), account soft-delete UI in settings with 30-day cron hard-delete (migration 024_account_soft_delete.sql), Vercel cron jobs for audit cleanup + account deletion (vercel.json), Sentry beforeSend filter stripping request body/cookies/auth headers, diary student name redaction (regex heuristic on all 5 answers), assertYoutubePublic() via oEmbed. Games: Bingo (PDF, seeded LCG, max 35 unique cards), Word Search (@blex41/word-search), Letter Recognition + Matching (Claude Haiku), Song Worksheet from YouTube transcript (Claude Sonnet), YouTube classifier (Haiku). API routes: /api/materials/bingo, /api/materials/word-search, /api/materials/from-youtube. MaterialGenerator rewritten to 3×3 card grid with per-type routing. Material detail page (materiales/[id]/page.tsx) shows all types inline. Bingo re-download page (materiales/[id]/bingo/page.tsx). Migration 025 adds video_type + source_transcript columns. All TypeScript checks pass.
+## Pending assets / input needed from Alan
+
+These block completing the landing page redesign — everything else is built:
+
+| Asset                             | Where it's used                                             | Notes                                                                        |
+| --------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Character illustration**        | Hero right side, timeline avatar, fixed bottom-right corner | PNG/SVG transparent bg. ~220px for hero, 48px circular for timeline + corner |
+| **Character expression variants** | 1 per timeline stop (optional)                              | Pointing / explaining / celebrating — swap per feature section               |
+| **Logo / wordmark SVG**           | Nav, footer                                                 | Replaces plain "MaestraAI" text                                              |
+| **Teacher photo**                 | Testimonial avatar                                          | Alejandra M., Kinder 3 CDMX                                                  |
+| **Additional testimonials**       | Testimonial section                                         | 2–3 more quotes with name + school + grade                                   |
+| **Partner school logos**          | Trust bar (optional)                                        | Adds credibility strip below hero                                            |
+| **Hero background art**           | Behind hero text (optional)                                 | Classroom or Mexico-themed illustration                                      |
+
+---
+
+## What does NOT exist yet
+
+- **Report cards generator** — trimestral qualitative reports for parents (post-launch)
+- **Admin dashboard** — school-admin-specific analytics and management views
+- **Game audio feedback** — match/wrong/complete sounds in Memory Match and other games
+- **Game difficulty levels** — small/medium/large card set modes in Memory Match
+- **Word Scramble / Simon Says** — additional game types
+
+---
+
+## Current focus — Phase 6: Quality & Polish
+
+1. **Planeaciones output quality** — improve prompt fidelity, structure, NEM depth, day-by-day coherence
+2. **Landing page design** — conversion-focused, Awwwards-level EdTech aesthetic
+3. **Dashboard & overall app design** — typography, spacing, color consistency, mobile polish
+4. **Games quality** — audio feedback, smoother animations, better UX on tablets/projectors
+5. **Branding** — logo, color system, consistent visual identity across app + landing
+
+---
+
+## Deployment
+
+- Vercel auto-deploys on push to main
+- All migrations applied through 042
+- Upstash Redis, CSRF_SECRET, RESEND_API_KEY, ENCRYPTION_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY set in Vercel env
+- Production domain: maestraia.com / maestraai.mx
+
+---
+
+## Session log
+
+| Date       | What was shipped                                                                                                                                                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-19 | fix(dashboard): remove 'Frase para maestras' label from phrase card — regression from husky stash/restore cycle. SHA 956eb0e                                                                                                                                               |
+| 2026-06-18 | Per-group schedule customization + plan gap fixes — removed all hardcoded day rules, schedule read from groups.fixed_weekly_schedule; sub_planes preservation on regenerate; PATCH /api/planner/update-document; GroupEditor day dropdowns; PlanDocumentViewer inline edit |
+| 2026-06-18 | Security hardening + public landing page + rate limiting — Google OAuth, rate limiting on 7 previously unprotected routes, public landing page with dual CTA, register ?type param                                                                                         |
+| 2026-06-17 | Document-style plan system — quincena/taller formats, migration 042, template extraction, SSE generation, DOCX export, ObservationCalendar, PlanDocumentViewer; post-redesign dead code cleanup                                                                            |
+| 2026-06-16 | Diary migrated to main app; UX/config improvements; GPT-4o-mini primary; teacher voice fidelity; dashboard phrase card + full mobile responsiveness; legal pages; design audit; parent contacts + email notifications                                                      |
+| 2026-06-15 | Editorial-agnostic registry; school interconnectivity; Richmond analytics; Chrome extension improvements; vocabulary chip selector; materials standalone mode; templates, diary auth, calificaciones grid, bug fixes, security audit                                       |
+| 2026-06-14 | Game engine audit; Chrome extension Web Store audit; CI + regression tests                                                                                                                                                                                                 |
+| 2026-06-10 | Git recovery + Vercel build fix; game engine phases 1-4 (images, audio, shareable tokens, autonomous generation); new game types; Richmond unit linkage                                                                                                                    |
+| 2026-06-08 | Security hardening phase 2 (CSRF, CSP, auth guards); Richmond ToS compliance; games expansion (Bingo, Word Search, Letter Recognition, Song Worksheet)                                                                                                                     |
+| 2026-05-28 | Security infrastructure: rate-limit, file-validation, audit, csrf libraries; critical RLS + API bug fixes                                                                                                                                                                  |
+| 2026-05-27 | Phase 3: PDF export, lesson editing, materials, projectable flashcards, student dashboard, NEM/PRONI alignment, vocabulary management                                                                                                                                      |
+| 2026-05-25 | Phase 2: lesson planner, fortnight CRUD, streaming AI generation                                                                                                                                                                                                           |
+| 2026-05-24 | Phase 0-1: infrastructure, auth, onboarding, Richmond sync, Chrome extension                                                                                                                                                                                               |
