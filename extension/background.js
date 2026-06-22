@@ -14,7 +14,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleAssignmentScores(message.groupId, message.groupSlug, message.data, sender.tab?.id)
   } else if (message.type === 'FETCH_GROUPS') {
     fetchGroups(message.apiKey, message.apiUrl).then(sendResponse)
-    return true // keep channel open for async response
+    return true
+  } else if (message.type === 'MAP_GROUP') {
+    mapGroup(message.apiUrl, message.groupId, message.richmondSlug).then(sendResponse)
+    return true
   }
 })
 
@@ -29,6 +32,22 @@ async function fetchGroups(apiKey, apiUrl) {
     return { ok: true, data }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+async function mapGroup(apiUrl, groupId, richmondSlug) {
+  const { apiKey } = await chrome.storage.sync.get('apiKey')
+  const targetUrl = apiUrl || await getApiUrl()
+  try {
+    const response = await fetch(`${targetUrl}/api/richmond/groups/map`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ group_id: groupId, richmond_slug: richmondSlug }),
+    })
+    if (!response.ok) return { ok: false, statusCode: response.status }
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error: String(error) }
   }
 }
 

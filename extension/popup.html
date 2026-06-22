@@ -49,35 +49,24 @@
       cursor: pointer;
       margin-top: 8px;
     }
-    button:hover {
-      background: #3451c7;
-    }
-    button:disabled {
-      background: #9ca3af;
-      cursor: not-allowed;
-    }
+    button:hover { background: #3451c7; }
+    button:disabled { background: #9ca3af; cursor: not-allowed; }
     button.secondary {
       background: white;
       color: #4f6af0;
       border: 1px solid #4f6af0;
     }
-    button.secondary:hover {
-      background: #eff2ff;
-    }
+    button.secondary:hover { background: #eff2ff; }
+
+    /* connection status box */
     .status {
       padding: 12px;
       background: #f3f4f6;
       border-radius: 8px;
       margin-top: 16px;
     }
-    .status.connected {
-      background: #ecfdf5;
-      border: 1px solid #22c55e;
-    }
-    .status.error {
-      background: #fef2f2;
-      border: 1px solid #ef4444;
-    }
+    .status.connected { background: #ecfdf5; border: 1px solid #22c55e; }
+    .status.error     { background: #fef2f2; border: 1px solid #ef4444; }
     .status-header {
       display: flex;
       align-items: center;
@@ -86,19 +75,15 @@
       font-weight: 600;
     }
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
+      flex-shrink: 0;
     }
-    .status-dot.green {
-      background: #22c55e;
-    }
-    .status-dot.red {
-      background: #ef4444;
-    }
-    .status-dot.gray {
-      background: #9ca3af;
-    }
+    .status-dot.green { background: #22c55e; }
+    .status-dot.red   { background: #ef4444; }
+    .status-dot.gray  { background: #9ca3af; }
+
+    /* status rows */
     .status-item {
       display: flex;
       justify-content: space-between;
@@ -107,16 +92,112 @@
       border-bottom: 1px solid #e5e7eb;
       font-size: 13px;
     }
-    .status-item:last-child {
-      border-bottom: none;
+    .status-item:last-child { border-bottom: none; }
+    .status-label { color: #6b7280; }
+    .status-value { font-weight: 500; color: #111827; }
+
+    /* setup guide — shown when no groups are mapped */
+    .setup-guide {
+      margin-top: 10px;
+      padding: 10px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
     }
-    .status-label {
+    .setup-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #92400e;
+      margin: 0 0 6px 0;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    .setup-step {
+      font-size: 12px;
+      color: #374151;
+      margin: 6px 0 4px 0;
+    }
+    .code-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 4px 0 8px 0;
+    }
+    .code-pill {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      color: #1d4ed8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .copy-btn {
+      width: auto;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #fff;
+      color: #4f6af0;
+      border: 1px solid #4f6af0;
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 0;
+    }
+    .copy-btn:hover { background: #eff2ff; }
+    .setup-instruction {
+      font-size: 11px;
       color: #6b7280;
+      margin: 2px 0 8px 0;
+      line-height: 1.5;
     }
-    .status-value {
-      font-weight: 500;
-      color: #111827;
+    .setup-link {
+      display: block;
+      text-align: center;
+      padding: 7px;
+      background: #4f6af0;
+      color: #fff;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
     }
+    .setup-link:hover { background: #3451c7; }
+    .no-richmond-hint {
+      font-size: 11px;
+      color: #6b7280;
+      margin: 4px 0 8px 0;
+      line-height: 1.5;
+    }
+    .group-select {
+      width: 100%;
+      padding: 7px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      margin: 4px 0 8px 0;
+    }
+    .link-btn {
+      width: 100%;
+      padding: 8px;
+      background: #f59e0b;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0;
+    }
+    .link-btn:hover { background: #d97706; }
+    .link-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+
     .message {
       font-size: 12px;
       margin-top: 4px;
@@ -124,16 +205,8 @@
       border-radius: 4px;
       display: none;
     }
-    .message.success {
-      color: #166534;
-      background: #dcfce7;
-      display: block;
-    }
-    .message.error {
-      color: #991b1b;
-      background: #fee2e2;
-      display: block;
-    }
+    .message.success { color: #166534; background: #dcfce7; display: block; }
+    .message.error   { color: #991b1b; background: #fee2e2; display: block; }
     .help-text {
       font-size: 11px;
       color: #6b7280;
@@ -147,7 +220,7 @@
   <div class="section">
     <label for="apiKey">Clave API</label>
     <input type="password" id="apiKey" placeholder="Ingresa tu clave API" />
-    <div class="help-text">Genera tu clave en Configuración</div>
+    <div class="help-text">Genera tu clave en Configuración → API</div>
     <div class="message" id="saveMsg"></div>
   </div>
 

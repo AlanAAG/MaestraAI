@@ -3,7 +3,7 @@
   "name": "MaestraAI Sync",
   "version": "1.0.1",
   "description": "Sincroniza calificaciones a MaestraAI automáticamente",
-  "permissions": ["storage", "notifications"],
+  "permissions": ["storage", "notifications", "tabs"],
   "host_permissions": ["https://richmondlp.com/*", "https://*.maestraia.com/*"],
   "background": {
     "service_worker": "background.js"

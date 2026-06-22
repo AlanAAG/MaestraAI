@@ -81,10 +81,13 @@ export async function GET(req: NextRequest) {
   // Build groupMap: { 'grupo-aca6e': 'uuid1', 'grupo-b01f6': 'uuid2' }
   const groupMap: Record<string, string> = {}
   const groupNames: string[] = []
+  const unmappedGroups: Array<{ id: string; name: string }> = []
 
   for (const group of groups || []) {
     if (group.richmond_class_code) {
       groupMap[group.richmond_class_code] = group.id
+    } else {
+      unmappedGroups.push({ id: group.id, name: group.name })
     }
     groupNames.push(group.name)
   }
@@ -95,5 +98,6 @@ export async function GET(req: NextRequest) {
     groups: groupNames,
     totalGroups: groups?.length || 0,
     mappedGroups: Object.keys(groupMap).length,
+    unmappedGroups,
   })
 }

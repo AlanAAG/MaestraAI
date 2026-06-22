@@ -5,39 +5,39 @@ import Image from 'next/image'
 const STEPS = [
   {
     number: 1,
-    title: 'Abre el panel de Richmond → haz clic en tu grupo',
+    title: 'Abre Richmond → haz clic en tu grupo',
     description:
-      'Inicia sesión en richmondlp.com. En el panel principal verás tus grupos. Haz clic en el nombre del grupo que quieres sincronizar.',
+      'En richmondlp.com verás tus grupos. Haz clic en el que quieres sincronizar. Al abrir la extensión por primera vez en ese grupo, te pedirá vincularlo con un clic — sin copiar ningún código.',
     imageSrc: '/images/extension-guide/richmond_1.jpg',
   },
   {
     number: 2,
     title: 'Dentro del grupo → pestaña Markbook',
-    description:
-      'Una vez dentro del grupo verás varias pestañas en la parte superior. Selecciona "Markbook" para abrir el libro de calificaciones.',
+    description: 'Selecciona la pestaña "Markbook" para abrir el libro de calificaciones.',
     imageSrc: '/images/extension-guide/richmond_2.jpg',
   },
   {
     number: 3,
-    title: 'En Markbook → navega a la sección Scores',
+    title: 'En Markbook → abre la sección Scores',
     description:
-      'Dentro del Markbook encontrarás la sección "Scores". Ábrela para ver las calificaciones individuales de cada tarea. La extensión captura los datos en este momento.',
+      'Abre "Scores" para ver las calificaciones individuales. La extensión captura los datos en este momento y los sincroniza automáticamente con MaestraAI.',
     imageSrc: '/images/extension-guide/richmond_3.jpg',
   },
   {
     number: 4,
-    title: 'Listo — regresa al panel principal de Richmond y selecciona otro grupo',
+    title: 'Listo — repite para cada grupo',
     description:
-      'La extensión detecta la carga de Scores y sincroniza automáticamente. Para sincronizar otro grupo, regresa al panel principal de richmondlp.com y repite el proceso.',
+      'Regresa al panel principal de Richmond, selecciona otro grupo y vuelve a abrir Scores. La extensión sincroniza cada grupo de forma independiente.',
     imageSrc: '/images/extension-guide/richmond_4.jpg',
   },
 ] as const
 
 export function RichmondExtensionGuide() {
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-3 mt-4">
       <p className="text-xs text-text-secondary">
-        Repite estos pasos para cada grupo que quieras sincronizar.
+        Repite estos pasos para cada grupo. La primera vez te pedirá vincularlo — solo un clic, sin
+        configuración manual.
       </p>
       {STEPS.map((step, i) => (
         <motion.div
@@ -47,7 +47,6 @@ export function RichmondExtensionGuide() {
           transition={{ delay: i * 0.07 }}
           className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg bg-surface border border-border"
         >
-          {/* Left: number + text */}
           <div className="flex gap-3 sm:w-1/2">
             <div className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
               {step.number}
@@ -57,8 +56,6 @@ export function RichmondExtensionGuide() {
               <p className="text-xs text-text-secondary mt-1">{step.description}</p>
             </div>
           </div>
-
-          {/* Right: screenshot or placeholder */}
           <div className="sm:w-1/2">
             <ImageWithFallback src={step.imageSrc} number={step.number} />
           </div>
@@ -69,7 +66,6 @@ export function RichmondExtensionGuide() {
 }
 
 function ImageWithFallback({ src, number }: { src: string; number: number }) {
-  // next/image requires known dimensions; use unoptimized for local screenshots
   return (
     <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
       <Image
@@ -85,14 +81,12 @@ function ImageWithFallback({ src, number }: { src: string; number: number }) {
           if (ph) (ph as HTMLElement).style.display = 'none'
         }}
         onError={(e) => {
-          // Hide broken image, show placeholder via parent
           const target = e.currentTarget as HTMLImageElement
           target.style.display = 'none'
-          const placeholder = target.parentElement?.querySelector('.placeholder')
-          if (placeholder) (placeholder as HTMLElement).style.display = 'flex'
+          const ph = target.parentElement?.querySelector('.placeholder')
+          if (ph) (ph as HTMLElement).style.display = 'flex'
         }}
       />
-      {/* Shown until image loads or on error */}
       <div
         className="placeholder absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-muted"
         style={{ display: 'flex' }}
