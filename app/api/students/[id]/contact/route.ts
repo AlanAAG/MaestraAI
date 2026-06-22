@@ -52,7 +52,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const phone = await decrypt(student.parent_contact_encrypted)
-    const digits = phone.replace(/\D/g, '')
+    // Use the number as-is if it already carries a country code (>10 digits);
+    // otherwise assume the local default (Mexico = 52). ponytail: per-school country
+    // code if we ever onboard outside MX — for now a length heuristic covers it.
+    const raw = phone.replace(/\D/g, '')
+    const digits = raw.length > 10 ? raw : `52${raw}`
     const message = encodeURIComponent(`Hola, soy la maestra de ${student.display_name}. `)
 
     await logAudit({
@@ -63,7 +67,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       req,
     })
 
-    return NextResponse.json({ phone, wa_url: `https://wa.me/52${digits}?text=${message}` })
+    return NextResponse.json({ phone, wa_url: `https://wa.me/${digits}?text=${message}` })
   } catch (err) {
     console.error('Error fetching student contact:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

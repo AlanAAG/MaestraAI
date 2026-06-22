@@ -339,6 +339,12 @@ function buildPrompt(
   const startStr = new Date(fortnight.start_date).toLocaleDateString('es-MX')
   const endStr = new Date(fortnight.end_date).toLocaleDateString('es-MX')
 
+  // Letter & Number / Números days are per-group config — never hardcode (CLAUDE.md rule).
+  const sched = fortnight.groups?.fixed_weekly_schedule
+  const letterDay: string = sched?.letter_number_day ?? 'martes'
+  const numDay: string = sched?.numeros_day ?? 'jueves'
+  const cap = (d: string) => d.charAt(0).toUpperCase() + d.slice(1)
+
   const neeSection =
     Object.keys(neeMap).length > 0
       ? `ALUMNOS CON NEE:\n${Object.keys(neeMap)
@@ -354,11 +360,11 @@ function buildPrompt(
   const proniSection = includeProni
     ? `PRONI (Kinder 3 — integrar de forma natural, NO como clase separada):
 Áreas: Familiarization with English | Vocabulary development | Oral communication | Written language awareness | Cultural awareness | Multilingual identity
-Mínimo 1 actividad PRONI por semana en el bloque del martes. Marca con [PRONI: área].`
+Mínimo 1 actividad PRONI por semana en el bloque de ${cap(letterDay)}. Marca con [PRONI: área].`
     : ''
 
   const richmondSection = richmondUnit
-    ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? `\n${richmondInstructions.slice(0, 300)}` : ''}\nBloque PRONI del martes debe alinearse a esta unidad.`
+    ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? `\n${richmondInstructions.slice(0, 300)}` : ''}\nBloque PRONI de ${cap(letterDay)} debe alinearse a esta unidad.`
     : ''
 
   const materialsBaseline =
@@ -388,11 +394,9 @@ Letras: Semana 1="${letterWeek1}" | Semana 2="${letterWeek2}"${vocabList ? `\nVo
 Período de inglés: ${periodMinutes} min.
 
 HORARIO FIJO (INVIOLABLE):
-Lun → Honores + Proyecto mensual
-Mar → Computación + Letter & Number (letra de la semana)
-Mié → Ed. Física + Proyecto mensual
-Jue → Cantos y Juegos + Números
-Vie → Cuento con papás + Cierre del Proyecto
+${cap(letterDay)} → Letter & Number (letra de la semana)
+${cap(numDay)} → Números
+Los demás días: Proyecto mensual, Honores, Ed. Física, Cantos y Juegos y Cuento con papás según el horario del grupo
 
 PRESENTES TODOS LOS DÍAS: Valor del mes (${monthlyValue}), pausa activa, aventura lectora, estrategia comunitaria.
 
@@ -423,7 +427,7 @@ Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con un objeto 
 ]}
 
 REGLAS:
-- Letter & Number SOLO martes | Números SOLO jueves
+- Letter & Number SOLO ${cap(letterDay)} | Números SOLO ${cap(numDay)}
 - 4-5 bloques por día | Máx 80 caracteres por actividad | Máx 3 materiales por bloque
 - Campos Formativos válidos: ${NEM_FIELDS.join(' | ')}
 - Ejes Articuladores válidos: ${NEM_AXES.join(' | ')}

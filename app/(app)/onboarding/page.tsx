@@ -101,7 +101,7 @@ export default function OnboardingPage() {
       full_name: answers.full_name,
       editorial: answers.editorial,
       school_id: null, // Will be updated after school creation
-      role: 'titular',
+      // role_type defaults to 'teacher' (DB); admins are promoted server-side, not self-assigned.
     })
 
     if (teacherError) {

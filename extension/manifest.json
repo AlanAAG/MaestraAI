@@ -1,14 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "MaestraAI Richmond Sync",
-  "version": "1.0.0",
-  "description": "Sincroniza calificaciones de Richmond a MaestraAI automáticamente",
+  "name": "MaestraAI Sync",
+  "version": "1.0.1",
+  "description": "Sincroniza calificaciones a MaestraAI automáticamente",
   "permissions": ["storage", "notifications"],
   "host_permissions": ["https://richmondlp.com/*", "https://*.maestraia.com/*"],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
+    {
+      "matches": ["https://richmondlp.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["https://richmondlp.com/*"],
       "js": ["content.js"],

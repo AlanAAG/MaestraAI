@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { encrypt } from '@/lib/encryption'
 
 const SaveSchema = z.object({
   q1: z.string().max(2000).optional(),
@@ -42,6 +43,12 @@ export async function POST(req: NextRequest) {
 
     const { q1, q2, q3, q4, q5, weekStart, weekEnd, summaryText } = body.data
 
+    // Encrypt the raw wizard answers at rest — q5 in particular names individual students.
+    // These columns are write-only (no UI reads them back), so no decrypt path is needed.
+    // ai_summary stays plaintext: it is the student-name-redacted, publicly-shareable summary
+    // and is read by browser clients that have no decryption key.
+    const enc = async (v?: string) => (v ? await encrypt(v) : v)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('teacher_diary')
@@ -50,11 +57,11 @@ export async function POST(req: NextRequest) {
           teacher_id: teacher.id,
           week_start: weekStart,
           week_end: weekEnd,
-          q1_functioning: q1,
-          q2_challenging: q2,
-          q3_group: q3,
-          q4_adjust: q4,
-          q5_student_obs: q5,
+          q1_functioning: await enc(q1),
+          q2_challenging: await enc(q2),
+          q3_group: await enc(q3),
+          q4_adjust: await enc(q4),
+          q5_student_obs: await enc(q5),
           ai_summary: summaryText,
           source: 'diary_microsite',
         },

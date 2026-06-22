@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Mail, CheckCircle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
+const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'soporte@maestraia.com'
+
 function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -159,8 +161,8 @@ function VerifyEmailContent() {
         {/* Help text */}
         <p className="text-center text-xs text-text-secondary mt-6 px-4">
           Si tienes problemas, contacta a soporte:{' '}
-          <a href="mailto:alanayalag@gmail.com" className="text-primary hover:underline">
-            alanayalag@gmail.com
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+            {SUPPORT_EMAIL}
           </a>
         </p>
       </div>

@@ -49,8 +49,6 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
 
     if (response.ok) {
       const result = await response.json()
-      console.log('[MaestraAI] Sync successful:', result)
-
       chrome.action.setBadgeText({ text: '' })
 
       const syncTimes = (await chrome.storage.sync.get('syncTimes')).syncTimes || {}

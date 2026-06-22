@@ -49,6 +49,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   })
 })
 
+// Build a status row with textContent (never innerHTML) — values come from the API and
+// from richmondlp.com URLs, so they are untrusted and must not be parsed as HTML.
+function statusRow(label, value, opts = {}) {
+  const row = document.createElement('div')
+  row.className = 'status-item'
+  const l = document.createElement('span')
+  l.className = 'status-label'
+  l.textContent = label
+  if (opts.labelColor) l.style.color = opts.labelColor
+  row.appendChild(l)
+  if (value != null) {
+    const v = document.createElement('span')
+    v.className = 'status-value'
+    v.textContent = value
+    if (opts.valueColor) v.style.color = opts.valueColor
+    row.appendChild(v)
+  }
+  return row
+}
+
 async function showLastSyncStatus() {
   const { lastSyncStatus, lastSyncTime, lastSyncGroup, lastSyncError } =
     await chrome.storage.sync.get(['lastSyncStatus', 'lastSyncTime', 'lastSyncGroup', 'lastSyncError'])
@@ -59,22 +79,14 @@ async function showLastSyncStatus() {
   const statusDetails = document.getElementById('statusDetails')
 
   if (lastSyncStatus === 'ok') {
-    statusDetails.innerHTML = `
-      <div class="status-item">
-        <span class="status-label">Última sincronización</span>
-        <span class="status-value" style="color:#16a34a">${when}</span>
-      </div>
-      ${lastSyncGroup ? `<div class="status-item"><span class="status-label">Grupo</span><span class="status-value">${lastSyncGroup}</span></div>` : ''}
-    `
+    const rows = [statusRow('Última sincronización', when, { valueColor: '#16a34a' })]
+    if (lastSyncGroup) rows.push(statusRow('Grupo', lastSyncGroup))
+    statusDetails.replaceChildren(...rows)
   } else if (lastSyncStatus === 'error') {
-    const statusBox = document.getElementById('statusBox')
-    statusBox.className = 'status error'
-    statusDetails.innerHTML = `
-      <div class="status-item">
-        <span class="status-label" style="color:#ef4444">Error al sincronizar (${when})</span>
-      </div>
-      ${lastSyncError ? `<div class="status-item"><span class="status-label">${lastSyncError}</span></div>` : ''}
-    `
+    document.getElementById('statusBox').className = 'status error'
+    const rows = [statusRow(`Error al sincronizar (${when})`, null, { labelColor: '#ef4444' })]
+    if (lastSyncError) rows.push(statusRow(lastSyncError, null))
+    statusDetails.replaceChildren(...rows)
   }
 }
 
@@ -87,7 +99,7 @@ async function testConnection(apiKey, apiUrl) {
   statusBox.className = 'status'
   statusDot.className = 'status-dot gray'
   statusTitle.textContent = 'Probando conexión...'
-  statusDetails.innerHTML = ''
+  statusDetails.replaceChildren()
 
   // Route through background service worker — extension popup pages are subject to CORS,
   // but the service worker bypasses it for URLs in host_permissions.
@@ -113,15 +125,13 @@ async function testConnection(apiKey, apiUrl) {
     const groupCount = data.totalGroups || 0
     const groupNames = data.groups || []
 
-    let detailsHTML = groupCount > 0
-      ? `<div class="status-item"><span class="status-label">Grupos sincronizando</span><span class="status-value">${groupCount}</span></div>`
-      : `<div class="status-item"><span class="status-label" style="color:#f59e0b">Sin grupos configurados</span></div>`
-
-    if (groupNames.length > 0) {
-      detailsHTML += `<div class="status-item"><span class="status-label">Grupos</span><span class="status-value">${groupNames.join(', ')}</span></div>`
-    }
-
-    statusDetails.innerHTML = detailsHTML
+    const rows = [
+      groupCount > 0
+        ? statusRow('Grupos sincronizando', groupCount)
+        : statusRow('Sin grupos configurados', null, { labelColor: '#f59e0b' }),
+    ]
+    if (groupNames.length > 0) rows.push(statusRow('Grupos', groupNames.join(', ')))
+    statusDetails.replaceChildren(...rows)
 
     // Reload mappings in the active Richmond tab — ignore silently if the tab
     // has no content script (i.e. teacher is not on a Richmond course page).
@@ -140,7 +150,7 @@ async function testConnection(apiKey, apiUrl) {
     if (result?.statusCode === 401) errorMsg = 'Clave API inválida o revocada'
     else if (result?.statusCode === 404) errorMsg = 'Endpoint no encontrado'
 
-    statusDetails.innerHTML = `<div class="status-item"><span class="status-label" style="color:#ef4444">${errorMsg}</span></div>`
+    statusDetails.replaceChildren(statusRow(errorMsg, null, { labelColor: '#ef4444' }))
   }
 }
 

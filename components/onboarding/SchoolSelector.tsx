@@ -27,11 +27,10 @@ export function SchoolSelector({ value, onChange, onCreateNew }: SchoolSelectorP
 
   async function loadSchools() {
     const supabase = createClient()
+    // RPC returns only id/name/state — the full schools table is not readable to avoid
+    // leaking the customer/plan list (see migration 044).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
-      .from('schools')
-      .select('id, name, state')
-      .order('name')
+    const { data, error } = await (supabase as any).rpc('list_schools_for_onboarding')
 
     if (!error && data) {
       setSchools(data)

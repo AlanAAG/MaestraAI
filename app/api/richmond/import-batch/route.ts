@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { encrypt } from '@/lib/encryption'
 
 const ImportRequestSchema = z.object({
   assignments: z.array(
@@ -144,8 +145,8 @@ export async function POST(req: NextRequest) {
       assignment_id: string
       student_id: string
       richmond_student_id: string | undefined
-      first_name: string
-      last_name: string
+      first_name_encrypted: string
+      last_name_encrypted: string
       progress: string | null
       total_score: number | null
       done: boolean
@@ -206,8 +207,8 @@ export async function POST(req: NextRequest) {
             assignment_id: assignmentId,
             student_id: student.matchedStudentId,
             richmond_student_id: richmondStudentId,
-            first_name: student.firstName,
-            last_name: student.lastName,
+            first_name_encrypted: await encrypt(student.firstName || ''),
+            last_name_encrypted: await encrypt(student.lastName || ''),
             progress: submission.progress ?? null,
             total_score: submission.rawValue,
             done: submission.rawValue !== null,

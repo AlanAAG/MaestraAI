@@ -40,8 +40,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ play_token: token, play_url: buildUrl(token) })
   }
 
-  // Generate short, URL-safe token
-  const token = Math.random().toString(36).slice(2, 10)
+  // Cryptographically-random, URL-safe token (public /jugar/[token] must not be guessable).
+  const token = crypto.randomUUID().replace(/-/g, '')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase as any).from('materials').update({ play_token: token }).eq('id', params.id)

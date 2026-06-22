@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import { headers } from 'next/headers'
 import Link from 'next/link'
 import { BookOpen } from 'lucide-react'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 type Props = { params: Promise<{ token: string }> }
 
@@ -26,6 +28,20 @@ function weekLabel(weekStart: string, weekEnd: string) {
 
 export default async function CompartirPage({ params }: Props) {
   const { token } = await params
+
+  // IP rate limit — abuse/DoS protection for this public page (token itself is a UUID).
+  const hdrs = await headers()
+  const ip = hdrs.get('x-forwarded-for') || hdrs.get('x-real-ip') || 'unknown'
+  const { success } = await checkRateLimit(ip, 'standard')
+  if (!success) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+        <BookOpen size={48} className="text-text-disabled mb-4" />
+        <h1 className="text-xl font-semibold text-text-primary mb-2">Demasiadas solicitudes</h1>
+        <p className="text-sm text-text-secondary">Intenta de nuevo en unos minutos.</p>
+      </main>
+    )
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

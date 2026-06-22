@@ -6,6 +6,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: '14.5'
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       api_keys: {
@@ -158,6 +183,60 @@ export type Database = {
         }
         Relationships: []
       }
+      fortnight_packs: {
+        Row: {
+          created_at: string | null
+          error_msg: string | null
+          fortnight_id: string
+          id: string
+          material_ids: string[]
+          materials_state: Json | null
+          progress: Json | null
+          status: string
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_msg?: string | null
+          fortnight_id: string
+          id?: string
+          material_ids?: string[]
+          materials_state?: Json | null
+          progress?: Json | null
+          status?: string
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_msg?: string | null
+          fortnight_id?: string
+          id?: string
+          material_ids?: string[]
+          materials_state?: Json | null
+          progress?: Json | null
+          status?: string
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fortnight_packs_fortnight_id_fkey'
+            columns: ['fortnight_id']
+            isOneToOne: false
+            referencedRelation: 'fortnights'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'fortnight_packs_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       fortnights: {
         Row: {
           created_at: string | null
@@ -172,13 +251,19 @@ export type Database = {
           number: number
           number_range_week1: string | null
           number_range_week2: string | null
+          observation_calendar: Json | null
+          physical_materials: string[] | null
+          plan_document: Json | null
+          plan_type: string
           project_name: string | null
           richmond_activity_pages: string | null
+          richmond_book_pages: Json | null
           richmond_student_pages: string | null
           richmond_unit: string | null
           start_date: string
           status: string | null
           teacher_id: string
+          vocabulary: string[] | null
         }
         Insert: {
           created_at?: string | null
@@ -193,13 +278,19 @@ export type Database = {
           number: number
           number_range_week1?: string | null
           number_range_week2?: string | null
+          observation_calendar?: Json | null
+          physical_materials?: string[] | null
+          plan_document?: Json | null
+          plan_type?: string
           project_name?: string | null
           richmond_activity_pages?: string | null
+          richmond_book_pages?: Json | null
           richmond_student_pages?: string | null
           richmond_unit?: string | null
           start_date: string
           status?: string | null
           teacher_id: string
+          vocabulary?: string[] | null
         }
         Update: {
           created_at?: string | null
@@ -214,13 +305,19 @@ export type Database = {
           number?: number
           number_range_week1?: string | null
           number_range_week2?: string | null
+          observation_calendar?: Json | null
+          physical_materials?: string[] | null
+          plan_document?: Json | null
+          plan_type?: string
           project_name?: string | null
           richmond_activity_pages?: string | null
+          richmond_book_pages?: Json | null
           richmond_student_pages?: string | null
           richmond_unit?: string | null
           start_date?: string
           status?: string | null
           teacher_id?: string
+          vocabulary?: string[] | null
         }
         Relationships: [
           {
@@ -288,6 +385,7 @@ export type Database = {
           name: string
           richmond_class_code: string | null
           richmond_course_module_uuid: string | null
+          richmond_group_name: string | null
           richmond_group_slug: string | null
           school_id: string
           titular_teacher_id: string
@@ -301,6 +399,7 @@ export type Database = {
           name: string
           richmond_class_code?: string | null
           richmond_course_module_uuid?: string | null
+          richmond_group_name?: string | null
           richmond_group_slug?: string | null
           school_id: string
           titular_teacher_id: string
@@ -314,6 +413,7 @@ export type Database = {
           name?: string
           richmond_class_code?: string | null
           richmond_course_module_uuid?: string | null
+          richmond_group_name?: string | null
           richmond_group_slug?: string | null
           school_id?: string
           titular_teacher_id?: string
@@ -413,12 +513,15 @@ export type Database = {
       materials: {
         Row: {
           content: Json
+          difficulty_level: string | null
           fortnight_id: string | null
+          fortnight_pack_id: string | null
           generated_at: string | null
           id: string
           is_projectable: boolean | null
           lesson_plan_id: string | null
           letter: string | null
+          play_token: string | null
           source_transcript: string | null
           source_type: string | null
           source_url: string | null
@@ -429,12 +532,15 @@ export type Database = {
         }
         Insert: {
           content: Json
+          difficulty_level?: string | null
           fortnight_id?: string | null
+          fortnight_pack_id?: string | null
           generated_at?: string | null
           id?: string
           is_projectable?: boolean | null
           lesson_plan_id?: string | null
           letter?: string | null
+          play_token?: string | null
           source_transcript?: string | null
           source_type?: string | null
           source_url?: string | null
@@ -445,12 +551,15 @@ export type Database = {
         }
         Update: {
           content?: Json
+          difficulty_level?: string | null
           fortnight_id?: string | null
+          fortnight_pack_id?: string | null
           generated_at?: string | null
           id?: string
           is_projectable?: boolean | null
           lesson_plan_id?: string | null
           letter?: string | null
+          play_token?: string | null
           source_transcript?: string | null
           source_type?: string | null
           source_url?: string | null
@@ -468,6 +577,13 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'materials_fortnight_pack_id_fkey'
+            columns: ['fortnight_pack_id']
+            isOneToOne: false
+            referencedRelation: 'fortnight_packs'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'materials_lesson_plan_id_fkey'
             columns: ['lesson_plan_id']
             isOneToOne: false
@@ -476,6 +592,60 @@ export type Database = {
           },
           {
             foreignKeyName: 'materials_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      parent_contacts: {
+        Row: {
+          created_at: string | null
+          group_id: string
+          id: string
+          parent_email_encrypted: string
+          parent_name_encrypted: string | null
+          richmond_student_id: string
+          student_first_name_encrypted: string | null
+          student_last_name_encrypted: string | null
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          group_id: string
+          id?: string
+          parent_email_encrypted: string
+          parent_name_encrypted?: string | null
+          richmond_student_id: string
+          student_first_name_encrypted?: string | null
+          student_last_name_encrypted?: string | null
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          parent_email_encrypted?: string
+          parent_name_encrypted?: string | null
+          richmond_student_id?: string
+          student_first_name_encrypted?: string | null
+          student_last_name_encrypted?: string | null
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'parent_contacts_group_id_fkey'
+            columns: ['group_id']
+            isOneToOne: false
+            referencedRelation: 'groups'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'parent_contacts_teacher_id_fkey'
             columns: ['teacher_id']
             isOneToOne: false
             referencedRelation: 'teachers'
@@ -659,13 +829,48 @@ export type Database = {
           },
         ]
       }
+      richmond_interactive_content: {
+        Row: {
+          captured_at: string | null
+          content_raw: Json
+          interactive_uuid: string
+          teacher_id: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          captured_at?: string | null
+          content_raw?: Json
+          interactive_uuid: string
+          teacher_id: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          captured_at?: string | null
+          content_raw?: Json
+          interactive_uuid?: string
+          teacher_id?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'richmond_interactive_content_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       richmond_scores: {
         Row: {
           assignment_id: string
           done: boolean | null
-          first_name: string
+          first_name_encrypted: string | null
           id: string
-          last_name: string
+          last_name_encrypted: string | null
           progress: string
           richmond_student_id: string | null
           student_id: string | null
@@ -675,9 +880,9 @@ export type Database = {
         Insert: {
           assignment_id: string
           done?: boolean | null
-          first_name: string
+          first_name_encrypted?: string | null
           id?: string
-          last_name: string
+          last_name_encrypted?: string | null
           progress: string
           richmond_student_id?: string | null
           student_id?: string | null
@@ -687,9 +892,9 @@ export type Database = {
         Update: {
           assignment_id?: string
           done?: boolean | null
-          first_name?: string
+          first_name_encrypted?: string | null
           id?: string
-          last_name?: string
+          last_name_encrypted?: string | null
           progress?: string
           richmond_student_id?: string | null
           student_id?: string | null
@@ -853,6 +1058,7 @@ export type Database = {
           group_id: string
           has_nee: boolean | null
           id: string
+          import_source: string | null
           last_name_encrypted: string
           level: string | null
           observation_day: string | null
@@ -868,6 +1074,7 @@ export type Database = {
           group_id: string
           has_nee?: boolean | null
           id?: string
+          import_source?: string | null
           last_name_encrypted: string
           level?: string | null
           observation_day?: string | null
@@ -883,6 +1090,7 @@ export type Database = {
           group_id?: string
           has_nee?: boolean | null
           id?: string
+          import_source?: string | null
           last_name_encrypted?: string
           level?: string | null
           observation_day?: string | null
@@ -1018,6 +1226,41 @@ export type Database = {
           },
         ]
       }
+      teacher_plan_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          label: string
+          plan_type: string
+          teacher_id: string
+          template: Json
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          label: string
+          plan_type?: string
+          teacher_id: string
+          template: Json
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          label?: string
+          plan_type?: string
+          teacher_id?: string
+          template?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'teacher_plan_templates_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       teacher_resources: {
         Row: {
           created_at: string | null
@@ -1082,12 +1325,13 @@ export type Database = {
           deleted_at: string | null
           editorial: string | null
           email: string
+          english_period_minutes: number | null
           full_name: string
           grade: string | null
           id: string
+          plan_template: Json | null
           richmond_email_encrypted: string | null
           richmond_password_encrypted: string | null
-          role: string | null
           role_type: string | null
           school_id: string | null
           subject: string | null
@@ -1098,12 +1342,13 @@ export type Database = {
           deleted_at?: string | null
           editorial?: string | null
           email: string
+          english_period_minutes?: number | null
           full_name: string
           grade?: string | null
           id?: string
+          plan_template?: Json | null
           richmond_email_encrypted?: string | null
           richmond_password_encrypted?: string | null
-          role?: string | null
           role_type?: string | null
           school_id?: string | null
           subject?: string | null
@@ -1114,12 +1359,13 @@ export type Database = {
           deleted_at?: string | null
           editorial?: string | null
           email?: string
+          english_period_minutes?: number | null
           full_name?: string
           grade?: string | null
           id?: string
+          plan_template?: Json | null
           richmond_email_encrypted?: string | null
           richmond_password_encrypted?: string | null
-          role?: string | null
           role_type?: string | null
           school_id?: string | null
           subject?: string | null
@@ -1175,8 +1421,6 @@ export type Database = {
       vocabulary_items: {
         Row: {
           color: string
-          color_code: string | null
-          color_hex: string | null
           id: string
           letter: string
           pair_index: number | null
@@ -1185,8 +1429,6 @@ export type Database = {
         }
         Insert: {
           color?: string
-          color_code?: string | null
-          color_hex?: string | null
           id?: string
           letter: string
           pair_index?: number | null
@@ -1195,8 +1437,6 @@ export type Database = {
         }
         Update: {
           color?: string
-          color_code?: string | null
-          color_hex?: string | null
           id?: string
           letter?: string
           pair_index?: number | null
@@ -1222,6 +1462,14 @@ export type Database = {
       create_school_for_onboarding: {
         Args: { school_name: string; school_state?: string }
         Returns: string
+      }
+      list_schools_for_onboarding: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+          state: string
+        }[]
       }
     }
     Enums: {
@@ -1349,6 +1597,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
