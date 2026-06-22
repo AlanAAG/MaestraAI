@@ -11,7 +11,7 @@ async function getApiUrl() {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'ASSIGNMENT_SCORES_INTERCEPTED') {
-    handleAssignmentScores(message.groupId, message.groupSlug, message.data)
+    handleAssignmentScores(message.groupId, message.groupSlug, message.data, sender.tab?.id)
   } else if (message.type === 'FETCH_GROUPS') {
     fetchGroups(message.apiKey, message.apiUrl).then(sendResponse)
     return true // keep channel open for async response
@@ -32,7 +32,14 @@ async function fetchGroups(apiKey, apiUrl) {
   }
 }
 
-async function handleAssignmentScores(groupId, groupSlug, data) {
+function notifyTab(tabId, message) {
+  if (!tabId) return
+  chrome.tabs.sendMessage(tabId, message, () => {
+    void chrome.runtime.lastError // suppress if tab navigated away
+  })
+}
+
+async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
   try {
     const { apiKey } = await chrome.storage.sync.get('apiKey')
     if (!apiKey) {
@@ -62,6 +69,8 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
 
       const scoreCount = result.synced ?? 0
       const assignmentCount = Array.isArray(data) ? data.length : 0
+      notifyTab(tabId, { type: 'SYNC_STATUS', status: 'ok', count: scoreCount, groupSlug })
+
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icon128.png',
@@ -74,6 +83,7 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
 
       chrome.action.setBadgeText({ text: '!' })
       chrome.action.setBadgeBackgroundColor({ color: '#ef4444' })
+      notifyTab(tabId, { type: 'SYNC_STATUS', status: 'error' })
 
       await chrome.storage.sync.set({
         lastSyncStatus: 'error',
@@ -87,6 +97,7 @@ async function handleAssignmentScores(groupId, groupSlug, data) {
 
     chrome.action.setBadgeText({ text: '!' })
     chrome.action.setBadgeBackgroundColor({ color: '#ef4444' })
+    notifyTab(tabId, { type: 'SYNC_STATUS', status: 'error' })
 
     await chrome.storage.sync.set({
       lastSyncStatus: 'error',

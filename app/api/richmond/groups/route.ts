@@ -94,5 +94,6 @@ export async function GET(req: NextRequest) {
     teacherName: teacher.full_name,
     groups: groupNames,
     totalGroups: groups?.length || 0,
+    mappedGroups: Object.keys(groupMap).length,
   })
 }

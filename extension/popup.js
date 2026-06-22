@@ -122,15 +122,20 @@ async function testConnection(apiKey, apiUrl) {
     statusDot.className = 'status-dot green'
     statusTitle.textContent = `Conectada como ${data.teacherName}`
 
-    const groupCount = data.totalGroups || 0
+    const mappedGroups = data.mappedGroups ?? Object.keys(data.groupMap ?? {}).length
+    const totalGroups = data.totalGroups || 0
     const groupNames = data.groups || []
 
-    const rows = [
-      groupCount > 0
-        ? statusRow('Grupos sincronizando', groupCount)
-        : statusRow('Sin grupos configurados', null, { labelColor: '#f59e0b' }),
-    ]
-    if (groupNames.length > 0) rows.push(statusRow('Grupos', groupNames.join(', ')))
+    const rows = []
+    if (mappedGroups > 0) {
+      rows.push(statusRow('Grupos sincronizando', mappedGroups))
+      if (groupNames.length > 0) rows.push(statusRow('Grupos', groupNames.join(', ')))
+    } else if (totalGroups > 0) {
+      rows.push(statusRow('⚠ Sin código Richmond en ningún grupo', null, { labelColor: '#f59e0b' }))
+      rows.push(statusRow('Configúralo en MaestraAI → Grupos → editar', null, { labelColor: '#9ca3af' }))
+    } else {
+      rows.push(statusRow('Sin grupos configurados', null, { labelColor: '#f59e0b' }))
+    }
     statusDetails.replaceChildren(...rows)
 
     // Reload mappings in the active Richmond tab — ignore silently if the tab

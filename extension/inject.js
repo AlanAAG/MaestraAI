@@ -4,9 +4,18 @@
 // content script (content.js) via window.postMessage — the only channel between the two worlds.
 (function () {
   const MATCH = (url) =>
-    typeof url === 'string' &&
-    url.includes('/api/course_modules/') &&
-    url.includes('assignment_scores')
+    typeof url === 'string' && (
+      (url.includes('/api/course_modules/') && url.includes('assignment_scores')) ||
+      url.includes('/api/scoresheets') ||
+      url.includes('/api/markbook')
+    )
+
+  // ponytail: log all /api/ calls so DevTools shows what Richmond actually fetches
+  function logApiCall(url) {
+    if (typeof url === 'string' && url.includes('/api/')) {
+      console.log('[MaestraAI] Richmond API call:', url)
+    }
+  }
 
   function emit(payload) {
     // Same-origin postMessage; content.js validates origin + the source tag.
@@ -19,6 +28,7 @@
     const xhr = new OriginalXHR()
     const open = xhr.open
     xhr.open = function (method, url, ...rest) {
+      logApiCall(String(url))
       if (MATCH(String(url))) {
         xhr.addEventListener('load', function () {
           if (xhr.status === 200) {
@@ -42,6 +52,7 @@
     const res = await originalFetch(input, init)
     try {
       const url = typeof input === 'string' ? input : input && input.url
+      logApiCall(url)
       if (MATCH(url) && res.ok) {
         res
           .clone()
