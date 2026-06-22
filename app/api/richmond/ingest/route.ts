@@ -7,31 +7,32 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 import { encrypt } from '@/lib/encryption'
 
-// Lenient schema: passthrough allows extra fields Richmond may add without breaking sync.
-// progress is z.string() not enum — Richmond may introduce new status values.
-// nullish() instead of nullable() — handles both null and absent fields.
+// Lenient schema — Richmond's API shape may differ from what was originally assumed.
+// All fields beyond group_id are optional with safe defaults so we never 400 on shape changes.
+// The actual field mapping is logged server-side for debugging.
 const RichmondStudentScoreSchema = z
   .object({
-    richmond_student_id: z.string(),
-    first_name: z.string().default(''),
-    last_name: z.string().default(''),
-    progress: z.string().default('not_started'),
+    richmond_student_id: z.union([z.string(), z.number()]).transform(String).optional().default(''),
+    first_name: z.string().optional().default(''),
+    last_name: z.string().optional().default(''),
+    progress: z.string().optional().default('not_started'),
     total_score: z.number().nullish(),
-    done: z.boolean().default(false),
+    done: z.boolean().optional().default(false),
   })
   .passthrough()
 
 const RichmondAssignmentSchema = z
   .object({
-    id: z.string(),
-    title: z.string(),
+    // id may be uuid string or integer — coerce to string
+    id: z.union([z.string(), z.number()]).transform(String).optional().default('unknown'),
+    title: z.string().optional().default('Actividad'),
     instructions: z.string().nullish(),
-    assigned_at: z.string(),
-    due_at: z.string(),
-    total_students: z.number().default(0),
-    total_submitted: z.number().default(0),
+    assigned_at: z.string().optional().default(''),
+    due_at: z.string().optional().default(''),
+    total_students: z.number().optional().default(0),
+    total_submitted: z.number().optional().default(0),
     class_avg_score: z.number().nullish(),
-    students: z.array(RichmondStudentScoreSchema).default([]),
+    students: z.array(RichmondStudentScoreSchema).optional().default([]),
   })
   .passthrough()
 
@@ -108,6 +109,13 @@ export async function POST(req: NextRequest) {
   }
 
   const { group_id, data: assignments } = parsed.data
+
+  // Log first item so we can see the actual Richmond payload shape in server logs.
+  console.log(
+    '[MaestraAI ingest] first item received:',
+    JSON.stringify(assignments[0]).slice(0, 600)
+  )
+  console.log('[MaestraAI ingest] total items:', assignments.length)
 
   // Verify group ownership (prevent cross-tenant injection)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

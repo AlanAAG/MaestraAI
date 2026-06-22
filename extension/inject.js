@@ -18,6 +18,10 @@
   }
 
   function emit(payload) {
+    // Log first item so DevTools shows the exact Richmond response shape.
+    const sample = Array.isArray(payload) ? payload[0] : payload
+    console.log('[MaestraAI] Intercepted payload — first item:', JSON.stringify(sample).slice(0, 600))
+    console.log('[MaestraAI] Total items in payload:', Array.isArray(payload) ? payload.length : 'non-array')
     // Same-origin postMessage; content.js validates origin + the source tag.
     window.postMessage({ source: 'maestraai-richmond', payload, path: location.pathname }, location.origin)
   }

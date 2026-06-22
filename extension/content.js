@@ -11,27 +11,47 @@ const pendingPayloads = []
 // ponytail: plain DOM badge, no shadow DOM — add shadow DOM if Richmond's CSS conflicts
 let badge = null
 
+// Inject keyframes for the pulse animation once.
+function injectPulseStyle() {
+  if (document.getElementById('maestraai-style')) return
+  const style = document.createElement('style')
+  style.id = 'maestraai-style'
+  style.textContent = `
+    @keyframes maestraai-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,.5), 0 2px 8px rgba(0,0,0,.18); }
+      50% { box-shadow: 0 0 0 6px rgba(245,158,11,0), 0 2px 8px rgba(0,0,0,.18); }
+    }
+    @keyframes maestraai-dot-pulse {
+      0%,100% { opacity:1; }
+      50% { opacity:.3; }
+    }
+  `
+  document.head.appendChild(style)
+}
+
 function ensureBadge() {
   if (badge) return badge
+  injectPulseStyle()
   badge = document.createElement('div')
   badge.id = 'maestraai-badge'
   badge.style.cssText = [
-    'position:fixed', 'top:12px', 'right:12px', 'z-index:2147483647',
-    'padding:5px 10px', 'border-radius:20px', 'font-size:12px',
+    'position:fixed', 'top:14px', 'right:14px', 'z-index:2147483647',
+    'padding:7px 13px', 'border-radius:22px', 'font-size:13px',
     'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
-    'font-weight:600', 'display:flex', 'align-items:center', 'gap:6px',
-    'box-shadow:0 2px 8px rgba(0,0,0,.18)', 'transition:background .3s,color .3s',
-    'pointer-events:none', 'user-select:none',
+    'font-weight:700', 'display:flex', 'align-items:center', 'gap:7px',
+    'box-shadow:0 2px 8px rgba(0,0,0,.18)',
+    'transition:background .3s,color .3s,border-color .3s',
+    'pointer-events:none', 'user-select:none', 'border:1.5px solid transparent',
   ].join(';')
   document.body.appendChild(badge)
   return badge
 }
 
 const BADGE_STYLES = {
-  gray:  { bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
-  green: { bg: '#ecfdf5', color: '#166534', dot: '#22c55e' },
-  amber: { bg: '#fffbeb', color: '#92400e', dot: '#f59e0b' },
-  red:   { bg: '#fef2f2', color: '#991b1b', dot: '#ef4444' },
+  gray:  { bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af', border: '#e5e7eb',   pulse: false },
+  green: { bg: '#ecfdf5', color: '#166534', dot: '#22c55e', border: '#86efac',   pulse: false },
+  amber: { bg: '#fffbeb', color: '#7c2d12', dot: '#f59e0b', border: '#fcd34d',   pulse: true  },
+  red:   { bg: '#fef2f2', color: '#991b1b', dot: '#ef4444', border: '#fca5a5',   pulse: false },
 }
 
 function setBadge(state, text) {
@@ -39,9 +59,16 @@ function setBadge(state, text) {
   const s = BADGE_STYLES[state] || BADGE_STYLES.gray
   el.style.background = s.bg
   el.style.color = s.color
+  el.style.borderColor = s.border
+  el.style.animation = s.pulse ? 'maestraai-pulse 1.6s ease-in-out infinite' : 'none'
   el.replaceChildren()
+
   const dot = document.createElement('span')
-  dot.style.cssText = `width:7px;height:7px;border-radius:50%;background:${s.dot};display:inline-block;flex-shrink:0`
+  dot.style.cssText = [
+    `width:8px`, `height:8px`, `border-radius:50%`, `background:${s.dot}`,
+    `display:inline-block`, `flex-shrink:0`,
+    s.pulse ? 'animation:maestraai-dot-pulse 1.6s ease-in-out infinite' : '',
+  ].join(';')
   const label = document.createElement('span')
   label.textContent = text
   el.appendChild(dot)
@@ -98,10 +125,10 @@ async function loadGroupMappings() {
 
     const mappedCount = Object.keys(GROUP_UUID_MAP).length
     if (mappedCount === 0) {
-      setBadge('amber', 'MaestraAI · Sin grupos mapeados')
-      console.warn('[MaestraAI] Connected but no groups have richmond_class_code set. Go to Grupos → edit → set Richmond code.')
+      setBadge('amber', 'MaestraAI · Abre la extensión ↑')
+      console.warn('[MaestraAI] Connected but no groups mapped — open the extension popup to link this class.')
     } else {
-      setBadge('green', `MaestraAI ✓`)
+      setBadge('green', 'MaestraAI ✓')
     }
 
     if (pendingPayloads.length > 0) {
