@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, Share2, Trash2, Copy, Check, Link2 } from 'lucide-react'
+import { ArrowLeft, Download, Share2, Trash2, Copy, Check, Link2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DownloadMenu } from '@/components/ui/download-menu'
 import { createClient } from '@/lib/supabase/browser'
@@ -102,6 +102,20 @@ export default function DiarioDetailPage() {
     URL.revokeObjectURL(url)
   }
 
+  async function handleShareSchool() {
+    if (!entry) return
+    const res = await fetch('/api/school/resources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `${weekLabel(entry.week_start, entry.week_end)} — Diario`,
+        file_url: window.location.href,
+        resource_type: 'guide',
+      }),
+    })
+    alert(res.ok ? 'Compartido con tu escuela' : 'No se pudo compartir.')
+  }
+
   async function handleShare() {
     const res = await fetch(`/api/diary/${id}/share`, { method: 'POST' })
     if (!res.ok) {
@@ -165,9 +179,13 @@ export default function DiarioDetailPage() {
               },
             ]}
           />
+          <Button variant="outline" onClick={handleShareSchool} className="min-h-[44px] gap-2">
+            <Users size={16} />
+            Compartir con escuela
+          </Button>
           <Button variant="outline" onClick={handleShare} className="min-h-[44px] gap-2">
             <Share2 size={16} />
-            Compartir
+            Enlace
           </Button>
           <Button
             variant="outline"

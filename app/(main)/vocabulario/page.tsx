@@ -264,8 +264,12 @@ export default function VocabularioPage() {
       })
 
       const data = await response.json()
+      if (!response.ok) {
+        toast.error(data.error ?? 'No pude guardar el vocabulario')
+        return // keep the extracted list so nothing is lost
+      }
 
-      toast.success(`${data.count} palabras guardadas`)
+      toast.success(`${data.count ?? extractedItems.length} palabras guardadas`)
       setExtractedItems([])
       setBulkText('')
       setSelectedFile(null)
@@ -437,8 +441,8 @@ export default function VocabularioPage() {
           <Card className="p-6 mb-6">
             <h2 className="text-lg font-semibold text-text-primary mb-4">Importar desde texto</h2>
             <p className="text-sm text-text-secondary mb-4">
-              Pega tu lista de vocabulario (puede ser de notas, documentos, markdown, etc.). Claude
-              extraerá las palabras automáticamente.
+              Pega tu lista de vocabulario (puede ser de notas, documentos, markdown, etc.).
+              MaestraIA extraerá las palabras automáticamente.
             </p>
             <textarea
               value={bulkText}

@@ -55,6 +55,7 @@ export async function extractTemplate(input: {
   const { imageBase64, imageMimeType, documentBase64, documentMimeType } = input
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
   let userContent: Anthropic.MessageParam['content']
+  let sourceText = '' // raw doc text (docx) — used for a graceful fallback if JSON extraction fails
 
   if (imageBase64 && imageMimeType) {
     const validation = await validateBase64Image(imageBase64, imageMimeType)
@@ -97,6 +98,7 @@ export async function extractTemplate(input: {
       if (!docText || docText.trim().length < 50) {
         throw new Error('El documento no tiene suficiente texto para analizar.')
       }
+      sourceText = docText
       userContent = `Formato de planeación:\n---\n${docText.slice(0, 16000)}\n---`
     }
   } else {
@@ -105,16 +107,58 @@ export async function extractTemplate(input: {
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
-    max_tokens: 2500,
+    max_tokens: 8000, // rich profile (verbatim PDAs + voice samples) needs room — was truncating
     temperature: 0,
     system: EXTRACTION_SYSTEM,
-    messages: [{ role: 'user', content: userContent }],
+    // Prefill "{" forces a clean JSON start (no prose/fences); we prepend it back below.
+    messages: [
+      { role: 'user', content: userContent },
+      { role: 'assistant', content: '{' },
+    ],
   })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
-  try {
-    return JSON.parse(text.replace(/^```json\n?/, '').replace(/\n?```$/, '')) as TemplateData
-  } catch {
-    throw new Error('No pude analizar el formato. Intenta con un documento más claro.')
+  const raw = '{' + (response.content[0].type === 'text' ? response.content[0].text : '')
+  const parsed = tryParseProfile(raw)
+  if (parsed) return parsed
+
+  // Graceful fallback — NEVER hard-reject a valid upload. If JSON extraction failed (e.g.
+  // truncation), still store a minimal profile from the raw text so generation gets the voice.
+  if (sourceText.trim().length > 50) {
+    return {
+      writing_style_samples: chunk(sourceText, 600, 3),
+      notes: 'Formato subido; extracción automática parcial.',
+    }
   }
+  return { notes: 'Formato subido; extracción automática no disponible.' }
+}
+
+function tryParseProfile(raw: string): TemplateData | null {
+  const cleaned = raw
+    .replace(/^```json\n?/, '')
+    .replace(/\n?```$/, '')
+    .trim()
+  try {
+    return JSON.parse(cleaned) as TemplateData
+  } catch {
+    const first = cleaned.indexOf('{')
+    const last = cleaned.lastIndexOf('}')
+    if (first !== -1 && last > first) {
+      try {
+        return JSON.parse(cleaned.slice(first, last + 1)) as TemplateData
+      } catch {
+        /* fall through */
+      }
+    }
+    return null
+  }
+}
+
+// Splits text into up to `n` substrings of ~`size` chars (verbatim voice samples).
+function chunk(text: string, size: number, n: number): string[] {
+  const t = text.replace(/\s+/g, ' ').trim()
+  const out: string[] = []
+  for (let i = 0; i < n && i * size < t.length; i++) {
+    out.push(t.slice(i * size, (i + 1) * size))
+  }
+  return out
 }

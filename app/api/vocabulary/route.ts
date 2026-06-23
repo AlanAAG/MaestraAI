@@ -99,25 +99,35 @@ export async function POST(req: NextRequest) {
       // Bulk insert
       const input = VocabularyBulkSchema.parse(body)
 
-      const insertData = input.items.map((item) => ({
-        word: item.word.toLowerCase().trim(),
-        letter: item.letter.toUpperCase(),
-        color: item.color || 'blue',
-        teacher_id: teacher.id,
-      }))
+      // Dedupe within the batch (letter+word), then upsert ignoring rows the teacher already
+      // has — a single duplicate must NOT fail the whole save (that was the silent-fail bug).
+      const seen = new Set<string>()
+      const insertData = input.items
+        .map((item) => ({
+          word: item.word.toLowerCase().trim(),
+          letter: item.letter.toUpperCase(),
+          color: item.color || 'blue',
+          teacher_id: teacher.id,
+        }))
+        .filter((r) => {
+          const k = `${r.letter}:${r.word}`
+          if (!r.word || seen.has(k)) return false
+          seen.add(k)
+          return true
+        })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('vocabulary_items')
-        .insert(insertData)
+        .upsert(insertData, { onConflict: 'letter,word,teacher_id', ignoreDuplicates: true })
         .select()
 
       if (error) {
         console.error('Bulk insert error:', error)
-        return NextResponse.json({ error: 'Failed to create vocabulary items' }, { status: 500 })
+        return NextResponse.json({ error: 'No pude guardar el vocabulario.' }, { status: 500 })
       }
 
-      return NextResponse.json({ vocabulary: data, count: data.length })
+      return NextResponse.json({ vocabulary: data, count: data?.length ?? 0 })
     } else {
       // Single insert
       const input = VocabularyCreateSchema.parse(body)

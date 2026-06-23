@@ -3,9 +3,73 @@
 // removed) plaintext display_name column. RLS scopes rows to the teacher's groups.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { decryptName } from '@/lib/students/name'
+import { decryptName, normalizeName } from '@/lib/students/name'
+import { encrypt } from '@/lib/encryption'
+
+// POST: manually add a student to a group. Names are normalized (Title Case) + encrypted, so a
+// later Richmond sync (which matches case-insensitively by name) links to this same row.
+const CreateSchema = z.object({
+  group_id: z.string().uuid(),
+  first_name: z.string().min(1).max(60),
+  last_name: z.string().min(1).max(60),
+})
+
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { success, headers } = await checkRateLimit(user.id, 'standard')
+    if (!success)
+      return NextResponse.json({ error: 'Demasiadas solicitudes.' }, { status: 429, headers })
+
+    const body = CreateSchema.safeParse(await req.json())
+    if (!body.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 422 })
+
+    // Verify the group belongs to this teacher (RLS also enforces, this gives a clean 403).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: teacher } = await (supabase as any)
+      .from('teachers')
+      .select('id')
+      .eq('auth_id', user.id)
+      .single()
+    if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: group } = await (supabase as any)
+      .from('groups')
+      .select('id')
+      .eq('id', body.data.group_id)
+      .eq('titular_teacher_id', teacher.id)
+      .single()
+    if (!group) return NextResponse.json({ error: 'Grupo no encontrado' }, { status: 404 })
+
+    const first = normalizeName(body.data.first_name)
+    const last = normalizeName(body.data.last_name)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from('students')
+      .insert({
+        group_id: body.data.group_id,
+        first_name_encrypted: await encrypt(first),
+        last_name_encrypted: await encrypt(last),
+      })
+      .select('id')
+      .single()
+    if (error) return NextResponse.json({ error: 'No pude agregar al alumno.' }, { status: 500 })
+
+    return NextResponse.json({ student: { id: data.id, first, last, name: `${first} ${last}` } })
+  } catch (err) {
+    console.error('POST /api/students error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()

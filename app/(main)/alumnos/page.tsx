@@ -6,7 +6,8 @@ import { ZeroState } from '@/components/app/ZeroState'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Users, Search, AlertCircle, MessageCircle } from 'lucide-react'
+import { Users, Search, AlertCircle, MessageCircle, Plus, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 
 interface Student {
@@ -41,6 +42,39 @@ export default function AlumnosPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'loading' })
   const [contactLoading, setContactLoading] = useState<string | null>(null)
+
+  // Manual add-student
+  const [showAdd, setShowAdd] = useState(false)
+  const [addFirst, setAddFirst] = useState('')
+  const [addLast, setAddLast] = useState('')
+  const [addGroupId, setAddGroupId] = useState('')
+  const [addSaving, setAddSaving] = useState(false)
+
+  async function handleAddStudent() {
+    if (!addFirst.trim() || !addLast.trim() || !addGroupId) return
+    setAddSaving(true)
+    try {
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_id: addGroupId,
+          first_name: addFirst.trim(),
+          last_name: addLast.trim(),
+        }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Alumno agregado')
+      setAddFirst('')
+      setAddLast('')
+      setShowAdd(false)
+      loadData()
+    } catch {
+      toast.error('No pude agregar al alumno.')
+    } finally {
+      setAddSaving(false)
+    }
+  }
 
   useEffect(() => {
     loadData()
@@ -223,11 +257,25 @@ export default function AlumnosPage() {
   // Success state - list of students
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-text-primary">Alumnos</h1>
-        <p className="text-sm text-text-secondary mt-1">
-          {filteredStudents.length} {filteredStudents.length === 1 ? 'alumno' : 'alumnos'}
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-text-primary">Alumnos</h1>
+          <p className="text-sm text-text-secondary mt-1">
+            {filteredStudents.length} {filteredStudents.length === 1 ? 'alumno' : 'alumnos'}
+          </p>
+        </div>
+        {groups.length > 0 && (
+          <Button
+            className="min-h-[44px] shrink-0"
+            onClick={() => {
+              setAddGroupId(selectedGroupId !== 'all' ? selectedGroupId : (groups[0]?.id ?? ''))
+              setShowAdd(true)
+            }}
+          >
+            <Plus size={16} className="mr-2" />
+            Agregar alumno
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -332,6 +380,61 @@ export default function AlumnosPage() {
               </Card>
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* Manual add-student modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !addSaving && setShowAdd(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-text-primary">Agregar alumno</h3>
+              <button
+                onClick={() => setShowAdd(false)}
+                className="text-text-disabled hover:text-text-primary"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-text-secondary">
+              Un nombre y un apellido. Se normaliza y se vincula con Richmond automáticamente al
+              sincronizar.
+            </p>
+            <select
+              value={addGroupId}
+              onChange={(e) => setAddGroupId(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} - {g.grade}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nombre"
+                value={addFirst}
+                onChange={(e) => setAddFirst(e.target.value)}
+              />
+              <Input
+                placeholder="Apellido"
+                value={addLast}
+                onChange={(e) => setAddLast(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={handleAddStudent}
+              disabled={addSaving || !addFirst.trim() || !addLast.trim() || !addGroupId}
+              className="w-full"
+            >
+              {addSaving ? 'Agregando...' : 'Agregar'}
+            </Button>
+          </div>
         </div>
       )}
     </div>

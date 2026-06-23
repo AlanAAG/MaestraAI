@@ -515,7 +515,7 @@ export default function PlaneacionDetailPage() {
             Planeación lista para generar
           </h2>
           <p className="text-text-secondary mb-6">
-            La IA creará el documento completo alineado a NEM
+            MaestraIA creará el documento completo alineado a NEM
           </p>
           <Button
             onClick={handleGenerateDocument}

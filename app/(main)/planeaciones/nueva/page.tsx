@@ -686,7 +686,7 @@ export default function NuevaPlaneacionPage() {
             <Link href="/configuracion" className="text-primary underline">
               Agrégalo en Configuración
             </Link>{' '}
-            para que la IA lo siga exactamente.
+            para que MaestraIA lo siga exactamente.
           </p>
         )}
 
