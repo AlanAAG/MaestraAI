@@ -1323,6 +1323,7 @@ export type Database = {
           full_name: string
           grade: string | null
           id: string
+          parent_email_template: Json | null
           plan_template: Json | null
           richmond_email_encrypted: string | null
           richmond_password_encrypted: string | null
@@ -1340,6 +1341,7 @@ export type Database = {
           full_name: string
           grade?: string | null
           id?: string
+          parent_email_template?: Json | null
           plan_template?: Json | null
           richmond_email_encrypted?: string | null
           richmond_password_encrypted?: string | null
@@ -1357,6 +1359,7 @@ export type Database = {
           full_name?: string
           grade?: string | null
           id?: string
+          parent_email_template?: Json | null
           plan_template?: Json | null
           richmond_email_encrypted?: string | null
           richmond_password_encrypted?: string | null

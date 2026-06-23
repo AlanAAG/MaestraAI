@@ -196,7 +196,7 @@ export default function ConfiguracionPage() {
           body: JSON.stringify(body),
         })
         if (!res.ok) throw new Error((await res.json()).error)
-        const { template } = await res.json()
+        const { template_record: template } = await res.json()
         setMultiTemplates((prev) => [template, ...prev])
         setAddingTemplate('saved')
         setShowAddTemplate(false)
@@ -459,7 +459,9 @@ export default function ConfiguracionPage() {
         {multiTemplates.length > 0 && (
           <div className="space-y-2 mb-4">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {multiTemplates.map((t: any) => (
+            {/* ponytail: filter(Boolean) guards against a malformed upload response */}
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {multiTemplates.filter(Boolean).map((t: any) => (
               <div
                 key={t.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"

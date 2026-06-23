@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Download, Users, X, Send, Trash2, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,11 @@ type ExtractedContact = {
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
+// Richmond sends names in inconsistent casing (ALL CAPS / lowercase / mixed). Title-case for display.
+const titleCase = (s: string) =>
+  s
+    .toLocaleLowerCase('es-MX')
+    .replace(/(^|[\s'-])([^\s'-])/g, (_, sep, ch) => sep + ch.toLocaleUpperCase('es-MX'))
 
 export default function CalificacionesRichmondPage() {
   const router = useRouter()
@@ -47,13 +52,15 @@ export default function CalificacionesRichmondPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [filter, setFilter] = useState<'all' | string>('all') // 'all' or a group id
   const [view, setView] = useState<'tarea' | 'alumno'>('tarea')
+  const [nameOrder, setNameOrder] = useState<'apellido' | 'nombre'>('apellido')
+  const [statusSort, setStatusSort] = useState<'ninguno' | 'pendientes' | 'entregados'>('ninguno')
   const [expandedTask, setExpandedTask] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Contacts panel
   const [showContacts, setShowContacts] = useState(false)
   const [contacts, setContacts] = useState<Contact[]>([])
-  const [contactTab, setContactTab] = useState<'paste' | 'photo' | 'manual'>('paste')
+  const [contactTab, setContactTab] = useState<'paste' | 'photo' | 'manual' | 'plantilla'>('paste')
   const [pasteText, setPasteText] = useState('')
   const [extracting, setExtracting] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedContact[]>([])
@@ -68,11 +75,45 @@ export default function CalificacionesRichmondPage() {
   // Notify
   const [notifyingAssignment, setNotifyingAssignment] = useState<Assignment | null>(null)
   const [sending, setSending] = useState(false)
+  const [confirmAll, setConfirmAll] = useState(false)
+  const [sendingAll, setSendingAll] = useState(false)
+
+  // Email template editor (account-level)
+  const [tplSubject, setTplSubject] = useState('')
+  const [tplBody, setTplBody] = useState('')
+  const [tplSaving, setTplSaving] = useState(false)
+
+  // Pending student → saved contact lookup (Richmond's id is per-assignment, so match by name).
+  const contactRidByName = useMemo(
+    () =>
+      new Map(
+        contacts.map((c) => [
+          norm(`${c.student_first_name ?? ''} ${c.student_last_name ?? ''}`),
+          c.richmond_student_id,
+        ])
+      ),
+    [contacts]
+  )
 
   useEffect(() => {
     loadData(filter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
+
+  // Load the account-level email template when the contacts panel opens.
+  useEffect(() => {
+    if (!showContacts) return
+    fetch('/api/teachers/email-template')
+      .then((r) => r.json())
+      .then((d) => {
+        const t = d.template ?? d.default
+        if (t) {
+          setTplSubject(t.subject ?? '')
+          setTplBody(t.body ?? '')
+        }
+      })
+      .catch(() => {})
+  }, [showContacts])
 
   async function loadData(groupFilter: 'all' | string) {
     setLoading(true)
@@ -243,20 +284,14 @@ export default function CalificacionesRichmondPage() {
     return students.filter((s) => s.group_id === a.group_id && !s.submitted[a.id])
   }
 
-  // Match pending students to saved contacts by NAME (Richmond's id is per-assignment, so we
-  // can't match on it). Returns the contacts' richmond_student_ids the notify route expects.
-  async function handleNotify(a: Assignment) {
+  const ridFor = (s: Student) => contactRidByName.get(norm(`${s.first} ${s.last}`))
+
+  // Notify parents of pending students for one task. With `onlyStudent`, sends to just that family.
+  async function handleNotify(a: Assignment, onlyStudent?: Student) {
     setSending(true)
     try {
-      const contactByName = new Map(
-        contacts.map((c) => [
-          norm(`${c.student_first_name ?? ''} ${c.student_last_name ?? ''}`),
-          c.richmond_student_id,
-        ])
-      )
-      const ids = pendingStudents(a)
-        .map((s) => contactByName.get(norm(`${s.first} ${s.last}`)))
-        .filter((x): x is string => !!x)
+      const targets = onlyStudent ? [onlyStudent] : pendingStudents(a)
+      const ids = targets.map(ridFor).filter((x): x is string => !!x)
       if (ids.length === 0) {
         toast.error('Ningún padre con correo registrado entre los pendientes.')
         return
@@ -272,12 +307,52 @@ export default function CalificacionesRichmondPage() {
         }),
       })
       if (!res.ok) throw new Error((await res.json()).error)
-      toast.success(`Correos enviados a ${ids.length} familias`)
+      toast.success(onlyStudent ? 'Correo enviado' : `Correos enviados a ${ids.length} familias`)
       setNotifyingAssignment(null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No pude enviar los correos.')
     } finally {
       setSending(false)
+    }
+  }
+
+  // Digest: one email per parent listing all their child's pending tasks in the selected group.
+  async function handleNotifyAll() {
+    if (filter === 'all') return
+    setSendingAll(true)
+    try {
+      const res = await fetch('/api/calificaciones/notify-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: filter }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      if (!data.sent)
+        toast.error(data.message ?? 'Ningún padre con pendientes y correo registrado.')
+      else toast.success(`Correos enviados a ${data.sent} familias`)
+      setConfirmAll(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No pude enviar los correos.')
+    } finally {
+      setSendingAll(false)
+    }
+  }
+
+  async function handleSaveTemplate() {
+    setTplSaving(true)
+    try {
+      const res = await fetch('/api/teachers/email-template', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: tplSubject, body: tplBody }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Plantilla guardada')
+    } catch {
+      toast.error('No pude guardar la plantilla.')
+    } finally {
+      setTplSaving(false)
     }
   }
 
@@ -298,6 +373,23 @@ export default function CalificacionesRichmondPage() {
     return { done, total }
   }
 
+  // Sort a student list by the active name order; optionally pendientes/entregados first.
+  // statusOf returns a number where LOWER = less complete (0 = pendiente, 1 = entregado / ratio).
+  function sortStudents(list: Student[], statusOf?: (s: Student) => number) {
+    const byName = (a: Student, b: Student) =>
+      nameOrder === 'apellido'
+        ? a.last.localeCompare(b.last) || a.first.localeCompare(b.first)
+        : a.first.localeCompare(b.first) || a.last.localeCompare(b.last)
+    if (statusSort === 'ninguno' || !statusOf) return [...list].sort(byName)
+    const dir = statusSort === 'pendientes' ? 1 : -1
+    return [...list].sort((a, b) => (statusOf(a) - statusOf(b)) * dir || byName(a, b))
+  }
+
+  const displayName = (s: Student | { first: string; last: string }) =>
+    nameOrder === 'apellido'
+      ? `${titleCase(s.last)}, ${titleCase(s.first)}`
+      : `${titleCase(s.first)} ${titleCase(s.last)}`
+
   function exportCsv() {
     const headers = [
       'Apellido',
@@ -306,8 +398,8 @@ export default function CalificacionesRichmondPage() {
       ...assignmentsDesc.map((a) => a.title.slice(0, 30)),
     ]
     const rows = students.map((s) => [
-      s.last,
-      s.first,
+      titleCase(s.last),
+      titleCase(s.first),
       groupName(s.group_id),
       ...assignmentsDesc.map((a) => (s.submitted[a.id] ? 'Entregado' : '—')),
     ])
@@ -337,6 +429,12 @@ export default function CalificacionesRichmondPage() {
             <Users size={16} className="mr-2" />
             Contactos{contacts.length > 0 ? ` (${contacts.length})` : ''}
           </Button>
+          {filter !== 'all' && contacts.length > 0 && (
+            <Button onClick={() => setConfirmAll(true)} className="min-h-[44px]">
+              <Send size={16} className="mr-2" />
+              Avisar a todos
+            </Button>
+          )}
           {students.length > 0 && (
             <Button variant="outline" onClick={exportCsv} className="min-h-[44px]">
               <Download size={16} className="mr-2" />
@@ -362,6 +460,30 @@ export default function CalificacionesRichmondPage() {
         </FilterChip>
         <FilterChip active={view === 'alumno'} onClick={() => setView('alumno')}>
           Por alumno
+        </FilterChip>
+      </div>
+
+      {/* Sort controls: name order + submission status */}
+      <div className="flex flex-wrap items-center gap-2 mb-5 -mt-2">
+        <span className="text-xs text-text-disabled">Ordenar:</span>
+        <FilterChip active={nameOrder === 'apellido'} onClick={() => setNameOrder('apellido')}>
+          Apellido
+        </FilterChip>
+        <FilterChip active={nameOrder === 'nombre'} onClick={() => setNameOrder('nombre')}>
+          Nombre
+        </FilterChip>
+        <span className="mx-1 h-5 w-px bg-border" />
+        <FilterChip
+          active={statusSort === 'pendientes'}
+          onClick={() => setStatusSort((s) => (s === 'pendientes' ? 'ninguno' : 'pendientes'))}
+        >
+          Pendientes primero
+        </FilterChip>
+        <FilterChip
+          active={statusSort === 'entregados'}
+          onClick={() => setStatusSort((s) => (s === 'entregados' ? 'ninguno' : 'entregados'))}
+        >
+          Entregados primero
         </FilterChip>
       </div>
 
@@ -448,28 +570,40 @@ export default function CalificacionesRichmondPage() {
                           )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                          {students
-                            .filter((s) => s.group_id === a.group_id)
-                            .map((s) => (
+                          {sortStudents(
+                            students.filter((s) => s.group_id === a.group_id),
+                            (s) => (s.submitted[a.id] ? 1 : 0)
+                          ).map((s) => (
+                            <div
+                              key={s.key}
+                              className="flex items-center justify-between gap-2 text-sm py-1"
+                            >
                               <button
-                                key={s.key}
                                 onClick={() => openStudent(s)}
-                                className="flex items-center justify-between text-sm py-1 hover:text-primary text-left"
+                                className="truncate hover:text-primary text-left"
                               >
-                                <span className="truncate">
-                                  {s.last}, {s.first}
-                                </span>
-                                {s.submitted[a.id] ? (
-                                  <span className="text-green-700 text-xs font-medium shrink-0">
-                                    ✓ Entregó
-                                  </span>
-                                ) : (
-                                  <span className="text-text-disabled text-xs shrink-0">
-                                    Pendiente
-                                  </span>
-                                )}
+                                {displayName(s)}
                               </button>
-                            ))}
+                              {s.submitted[a.id] ? (
+                                <span className="text-green-700 text-xs font-medium shrink-0">
+                                  ✓ Entregó
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-2 shrink-0">
+                                  {ridFor(s) && (
+                                    <button
+                                      onClick={() => handleNotify(a, s)}
+                                      disabled={sending}
+                                      className="text-primary text-xs hover:underline disabled:opacity-50"
+                                    >
+                                      Notificar
+                                    </button>
+                                  )}
+                                  <span className="text-text-disabled text-xs">Pendiente</span>
+                                </span>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -479,7 +613,10 @@ export default function CalificacionesRichmondPage() {
             </div>
           ) : (
             <div className="rounded-xl border border-border divide-y divide-border">
-              {students.map((s) => {
+              {sortStudents(students, (s) => {
+                const { done, total } = completion(s)
+                return total ? done / total : 0
+              }).map((s) => {
                 const { done, total } = completion(s)
                 return (
                   <button
@@ -489,7 +626,7 @@ export default function CalificacionesRichmondPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-text-primary truncate">
-                        {s.last}, {s.first}
+                        {displayName(s)}
                       </p>
                       {filter === 'all' && (
                         <p className="text-xs text-text-disabled">{groupName(s.group_id)}</p>
@@ -517,13 +654,19 @@ export default function CalificacionesRichmondPage() {
               </button>
             </div>
             <div className="flex border-b text-sm">
-              {(['paste', 'photo', 'manual'] as const).map((tab) => (
+              {(['paste', 'photo', 'manual', 'plantilla'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setContactTab(tab)}
-                  className={`flex-1 py-2.5 ${contactTab === tab ? 'border-b-2 border-primary font-medium text-primary' : 'text-text-secondary'}`}
+                  className={`flex-1 py-2.5 text-xs ${contactTab === tab ? 'border-b-2 border-primary font-medium text-primary' : 'text-text-secondary'}`}
                 >
-                  {tab === 'paste' ? 'Pegar lista' : tab === 'photo' ? 'Foto' : 'Manual'}
+                  {tab === 'paste'
+                    ? 'Pegar'
+                    : tab === 'photo'
+                      ? 'Foto'
+                      : tab === 'manual'
+                        ? 'Manual'
+                        : 'Plantilla'}
                 </button>
               ))}
             </div>
@@ -667,7 +810,35 @@ export default function CalificacionesRichmondPage() {
                   </Button>
                 </div>
               )}
-              {contacts.length > 0 && (
+              {contactTab === 'plantilla' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-text-secondary">
+                    Personaliza el correo a los padres. Usa <code>{'{padre}'}</code>,{' '}
+                    <code>{'{alumno}'}</code> y <code>{'{tareas}'}</code> donde quieras insertar el
+                    saludo, el nombre del alumno y la lista de tareas pendientes.
+                  </p>
+                  <Input
+                    placeholder="Asunto"
+                    value={tplSubject}
+                    onChange={(e) => setTplSubject(e.target.value)}
+                  />
+                  <textarea
+                    value={tplBody}
+                    onChange={(e) => setTplBody(e.target.value)}
+                    rows={10}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none font-mono"
+                  />
+                  <Button
+                    onClick={handleSaveTemplate}
+                    disabled={tplSaving || !tplSubject.trim() || !tplBody.trim()}
+                    className="w-full"
+                  >
+                    {tplSaving ? <Loader2 size={15} className="mr-2 animate-spin" /> : null}
+                    Guardar plantilla
+                  </Button>
+                </div>
+              )}
+              {contactTab !== 'plantilla' && contacts.length > 0 && (
                 <div className="mt-6">
                   <p className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-wide">
                     Contactos guardados ({contacts.length})
@@ -701,6 +872,41 @@ export default function CalificacionesRichmondPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk digest confirmation modal */}
+      {confirmAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !sendingAll && setConfirmAll(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="font-semibold text-text-primary mb-2">Avisar a todos los pendientes</h3>
+            <p className="text-sm text-text-secondary mb-4">
+              Se enviará <strong>un solo correo</strong> a cada familia (con contacto registrado)
+              con la lista de tareas que su hijo/a aún no entrega.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setConfirmAll(false)}
+                disabled={sendingAll}
+              >
+                Cancelar
+              </Button>
+              <Button className="flex-1" onClick={handleNotifyAll} disabled={sendingAll}>
+                {sendingAll ? (
+                  <Loader2 size={15} className="mr-2 animate-spin" />
+                ) : (
+                  <Send size={15} className="mr-2" />
+                )}
+                {sendingAll ? 'Enviando...' : 'Enviar'}
+              </Button>
             </div>
           </div>
         </div>
