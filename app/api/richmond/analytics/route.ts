@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { decryptName } from '@/lib/students/name'
 import {
   computeAverage,
   computeMedian,
@@ -52,13 +53,14 @@ export async function GET(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: student } = await (supabase as any)
         .from('students')
-        .select('display_name, groups(titular_teacher_id)')
+        .select('first_name_encrypted, last_name_encrypted, groups(titular_teacher_id)')
         .eq('id', student_id)
         .single()
 
       if (!student || student.groups?.titular_teacher_id !== teacher.id) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
+      const { name: studentName } = await decryptName(student)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: scores } = await (supabase as any)
@@ -68,7 +70,7 @@ export async function GET(req: NextRequest) {
         .order('synced_at', { ascending: false })
 
       return NextResponse.json({
-        student_name: student.display_name,
+        student_name: studentName,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         scores: (scores || []).map((s: any) => ({
           assignment_title: s.richmond_assignments?.title ?? 'Sin título',
@@ -96,7 +98,9 @@ export async function GET(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: rows } = await (supabase as any)
         .from('richmond_scores')
-        .select('total_score, done, student_id, students(display_name)')
+        .select(
+          'total_score, done, student_id, students(first_name_encrypted, last_name_encrypted)'
+        )
         .eq('assignment_id', assignment_id)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,12 +130,14 @@ export async function GET(req: NextRequest) {
           completion_rate,
           distribution: computeDistribution(numericScores),
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        scores: (rows || []).map((r: any) => ({
-          student_display_name: r.students?.display_name ?? null,
-          total_score: r.total_score,
-          done: r.done,
-        })),
+        scores: await Promise.all(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (rows || []).map(async (r: any) => ({
+            student_display_name: r.students ? (await decryptName(r.students)).name : null,
+            total_score: r.total_score,
+            done: r.done,
+          }))
+        ),
       })
     }
 

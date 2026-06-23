@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { decryptName } from '@/lib/students/name'
 
 const ReportInputSchema = z.object({
   trimester: z.number().int().min(1).max(3),
@@ -87,8 +88,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const summary = generateQualitativeSummary(observations, fortnights, student)
 
     // Generate text PDF
+    const { name: studentName } = await decryptName(student)
     const pdfContent = generateSimplePDF({
-      studentName: student.display_name,
+      studentName,
       groupName: student.groups?.name,
       gradeName: student.groups?.grade,
       hasNEE: student.has_nee,
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="reporte-${student.display_name.replace(/\s+/g, '-')}.pdf"`,
+        'Content-Disposition': `attachment; filename="reporte-${studentName.replace(/\s+/g, '-')}.pdf"`,
       },
     })
   } catch (err) {

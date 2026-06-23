@@ -1,21 +1,27 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/browser'
-import { Loader2, Download, Users, X, Send, Trash2, Mail } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Loader2, Download, Users, X, Send, Trash2, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { getEditorialConfig } from '@/lib/editorial/registry'
 
 type Group = { id: string; name: string; grade: string }
-type Assignment = { id: string; title: string; due_at: string }
-type Score = {
-  assignment_id: string
-  richmond_student_id: string
-  first_name: string
-  last_name: string
-  total_score: number | null
-  done: boolean
+type Assignment = {
+  id: string
+  group_id: string
+  title: string
+  due_at: string
+  total_students: number
+  total_submitted: number
+}
+type Student = {
+  id: string | null // students.id when linked (drill-down to /alumnos/[id])
+  key: string
+  first: string
+  last: string
+  group_id: string
+  submitted: Record<string, boolean> // assignment_id -> done
 }
 type Contact = {
   id: string
@@ -29,15 +35,19 @@ type ExtractedContact = {
   student_name: string
   parent_name: string
   parent_email: string
-  // resolved after user matches to student
   richmond_student_id?: string
 }
 
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
+
 export default function CalificacionesRichmondPage() {
+  const router = useRouter()
   const [groups, setGroups] = useState<Group[]>([])
-  const [selectedGroup, setSelectedGroup] = useState('')
   const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [scores, setScores] = useState<Score[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [filter, setFilter] = useState<'all' | string>('all') // 'all' or a group id
+  const [view, setView] = useState<'tarea' | 'alumno'>('tarea')
+  const [expandedTask, setExpandedTask] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Contacts panel
@@ -48,7 +58,6 @@ export default function CalificacionesRichmondPage() {
   const [extracting, setExtracting] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedContact[]>([])
   const [saving, setSaving] = useState(false)
-  // manual entry
   const [manualStudentId, setManualStudentId] = useState('')
   const [manualFirstName, setManualFirstName] = useState('')
   const [manualLastName, setManualLastName] = useState('')
@@ -56,68 +65,31 @@ export default function CalificacionesRichmondPage() {
   const [manualEmail, setManualEmail] = useState('')
   const photoRef = useRef<HTMLInputElement>(null)
 
-  // Notify panel
+  // Notify
   const [notifyingAssignment, setNotifyingAssignment] = useState<Assignment | null>(null)
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
-    async function load() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: teacher } = await (supabase as any)
-        .from('teachers')
-        .select('id, editorial')
-        .eq('auth_id', user.id)
-        .single()
-      if (!teacher) return
-
-      // Richmond-only page — bounce teachers whose editorial has no LMS sync.
-      if (!getEditorialConfig(teacher.editorial).has_lms_sync) {
-        window.location.href = '/dashboard'
-        return
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: groupsData } = await (supabase as any)
-        .from('groups')
-        .select('id, name, grade')
-        .eq('titular_teacher_id', teacher.id)
-        .order('name')
-
-      const list: Group[] = groupsData ?? []
-      setGroups(list)
-      if (list.length > 0) setSelectedGroup(list[0].id)
-      setLoading(false)
-    }
-    load()
-  }, [])
-
-  useEffect(() => {
-    if (!selectedGroup || !groups.find((g) => g.id === selectedGroup)) return
-    loadGroupData(selectedGroup)
-    loadContacts(selectedGroup)
+    loadData(filter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroup])
+  }, [filter])
 
-  async function loadGroupData(groupId: string) {
+  async function loadData(groupFilter: 'all' | string) {
     setLoading(true)
-    // Names are encrypted in the DB and can only be decrypted server-side.
-    const res = await fetch(`/api/calificaciones/scores?group_id=${groupId}`)
+    setExpandedTask(null)
+    const res = await fetch(`/api/calificaciones/scores?group_id=${groupFilter}`)
     if (!res.ok) {
-      setAssignments([])
-      setScores([])
       setLoading(false)
       return
     }
-    const { assignments: assignList, scores: scoreData } = await res.json()
-    setAssignments(assignList ?? [])
-    setScores(scoreData ?? [])
+    const data = await res.json()
+    setGroups(data.groups ?? [])
+    setAssignments(data.assignments ?? [])
+    setStudents(data.students ?? [])
     setLoading(false)
+    // Contacts are per-group; only load when a single group is selected.
+    if (groupFilter !== 'all') loadContacts(groupFilter)
+    else setContacts([])
   }
 
   async function loadContacts(groupId: string) {
@@ -185,8 +157,7 @@ export default function CalificacionesRichmondPage() {
   }
 
   async function handleSaveExtracted() {
-    // For auto-extracted contacts, we don't have richmond_student_id — save with student name only
-    // Teacher can refine later via manual tab
+    if (filter === 'all') return
     const validContacts = extracted
       .filter((c) => c.parent_email)
       .map((c) => {
@@ -199,20 +170,19 @@ export default function CalificacionesRichmondPage() {
           parent_email: c.parent_email,
         }
       })
-
     if (validContacts.length === 0) return
     setSaving(true)
     try {
       const res = await fetch('/api/calificaciones/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ group_id: selectedGroup, contacts: validContacts }),
+        body: JSON.stringify({ group_id: filter, contacts: validContacts }),
       })
       if (!res.ok) throw new Error()
       toast.success(`${validContacts.length} contactos guardados`)
       setExtracted([])
       setPasteText('')
-      await loadContacts(selectedGroup)
+      await loadContacts(filter)
     } catch {
       toast.error('No pude guardar los contactos.')
     } finally {
@@ -228,14 +198,14 @@ export default function CalificacionesRichmondPage() {
   }
 
   async function handleManualSave() {
-    if (!manualEmail || !manualStudentId) return
+    if (!manualEmail || !manualStudentId || filter === 'all') return
     setSaving(true)
     try {
       const res = await fetch('/api/calificaciones/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          group_id: selectedGroup,
+          group_id: filter,
           contacts: [
             {
               richmond_student_id: manualStudentId,
@@ -254,7 +224,7 @@ export default function CalificacionesRichmondPage() {
       setManualLastName('')
       setManualParentName('')
       setManualEmail('')
-      await loadContacts(selectedGroup)
+      await loadContacts(filter)
     } catch {
       toast.error('No pude guardar el contacto.')
     } finally {
@@ -268,24 +238,41 @@ export default function CalificacionesRichmondPage() {
     toast.success('Contacto eliminado')
   }
 
-  async function handleNotify(assignment: Assignment, incompleteStudentIds: string[]) {
+  // Pending students for a task = roster of that task's group who didn't submit.
+  function pendingStudents(a: Assignment) {
+    return students.filter((s) => s.group_id === a.group_id && !s.submitted[a.id])
+  }
+
+  // Match pending students to saved contacts by NAME (Richmond's id is per-assignment, so we
+  // can't match on it). Returns the contacts' richmond_student_ids the notify route expects.
+  async function handleNotify(a: Assignment) {
     setSending(true)
     try {
+      const contactByName = new Map(
+        contacts.map((c) => [
+          norm(`${c.student_first_name ?? ''} ${c.student_last_name ?? ''}`),
+          c.richmond_student_id,
+        ])
+      )
+      const ids = pendingStudents(a)
+        .map((s) => contactByName.get(norm(`${s.first} ${s.last}`)))
+        .filter((x): x is string => !!x)
+      if (ids.length === 0) {
+        toast.error('Ningún padre con correo registrado entre los pendientes.')
+        return
+      }
       const res = await fetch('/api/calificaciones/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          group_id: selectedGroup,
-          assignment_title: assignment.title,
-          due_date: assignment.due_at,
-          student_ids: incompleteStudentIds,
+          group_id: a.group_id,
+          assignment_title: a.title,
+          due_date: a.due_at,
+          student_ids: ids,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      toast.success(
-        `${data.sent} correo${data.sent === 1 ? '' : 's'} enviado${data.sent === 1 ? '' : 's'}${data.failed ? ` (${data.failed} fallaron)` : ''}`
-      )
+      if (!res.ok) throw new Error((await res.json()).error)
+      toast.success(`Correos enviados a ${ids.length} familias`)
       setNotifyingAssignment(null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No pude enviar los correos.')
@@ -294,88 +281,89 @@ export default function CalificacionesRichmondPage() {
     }
   }
 
-  // Build student list from scores
-  const studentMap = new Map<string, { first: string; last: string }>()
-  for (const s of scores) {
-    if (!studentMap.has(s.richmond_student_id)) {
-      studentMap.set(s.richmond_student_id, { first: s.first_name, last: s.last_name })
-    }
+  function openStudent(s: Student) {
+    if (s.id) router.push(`/alumnos/${s.id}`)
+    else toast.error('Este alumno aún no está vinculado. Vuelve a sincronizar el grupo.')
   }
-  const students = Array.from(studentMap.entries()).sort((a, b) =>
-    `${a[1].last}${a[1].first}`.localeCompare(`${b[1].last}${b[1].first}`)
-  )
 
-  const scoreKey = (assignId: string, studentId: string) =>
-    scores.find((s) => s.assignment_id === assignId && s.richmond_student_id === studentId)
+  // ── derived ──
+  const assignmentsAsc = [...assignments].sort((a, b) => a.due_at.localeCompare(b.due_at))
+  const assignmentsDesc = [...assignments].sort((a, b) => b.due_at.localeCompare(a.due_at))
+  const groupName = (id: string) => groups.find((g) => g.id === id)?.name ?? ''
 
-  function incompleteStudentsFor(assignment: Assignment) {
-    return students
-      .filter(([sid]) => {
-        const s = scoreKey(assignment.id, sid)
-        return !s || (!s.done && s.total_score == null)
-      })
-      .map(([sid]) => sid)
+  // per-student completion (submitted / total assignments in their group)
+  function completion(s: Student) {
+    const total = assignments.filter((a) => a.group_id === s.group_id).length
+    const done = assignments.filter((a) => a.group_id === s.group_id && s.submitted[a.id]).length
+    return { done, total }
   }
 
   function exportCsv() {
-    const headers = ['Apellido', 'Nombre', ...assignments.map((a) => a.title.slice(0, 30))]
-    const rows = students.map(([sid, { first, last }]) => [
-      last,
-      first,
-      ...assignments.map((a) => {
-        const s = scoreKey(a.id, sid)
-        return s ? (s.total_score ?? (s.done ? 'Entregado' : '—')) : '—'
-      }),
+    const headers = [
+      'Apellido',
+      'Nombre',
+      'Grupo',
+      ...assignmentsDesc.map((a) => a.title.slice(0, 30)),
+    ]
+    const rows = students.map((s) => [
+      s.last,
+      s.first,
+      groupName(s.group_id),
+      ...assignmentsDesc.map((a) => (s.submitted[a.id] ? 'Entregado' : '—')),
     ])
-    const csv = [headers, ...rows].map((r) => r.join(',')).join('\n')
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `calificaciones-richmond-${selectedGroup}.csv`
+    a.download = `calificaciones-richmond.csv`
     a.click()
   }
 
-  const group = groups.find((g) => g.id === selectedGroup)
-
   return (
-    <div className="p-4 sm:p-6 max-w-6xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+    <div className="p-4 sm:p-6 max-w-5xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-semibold text-text-primary">Calificaciones Richmond</h1>
-          <p className="text-sm text-text-secondary mt-0.5">
-            Últimas 20 tareas sincronizadas por grupo
-          </p>
+          <p className="text-sm text-text-secondary mt-0.5">Entregas por tarea y por alumno</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setShowContacts(true)} className="min-h-[44px]">
+          <Button
+            variant="outline"
+            onClick={() => setShowContacts(true)}
+            className="min-h-[44px]"
+            disabled={filter === 'all'}
+            title={filter === 'all' ? 'Selecciona un grupo para gestionar contactos' : undefined}
+          >
             <Users size={16} className="mr-2" />
             Contactos{contacts.length > 0 ? ` (${contacts.length})` : ''}
           </Button>
           {students.length > 0 && (
             <Button variant="outline" onClick={exportCsv} className="min-h-[44px]">
               <Download size={16} className="mr-2" />
-              Exportar CSV
+              CSV
             </Button>
           )}
         </div>
       </div>
 
-      {/* Group selector */}
-      {groups.length > 1 && (
-        <div className="mb-4">
-          <select
-            value={selectedGroup}
-            onChange={(e) => setSelectedGroup(e.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name} ({g.grade})
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Filters: group + view */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
+          Ambos grupos
+        </FilterChip>
+        {groups.map((g) => (
+          <FilterChip key={g.id} active={filter === g.id} onClick={() => setFilter(g.id)}>
+            {g.name}
+          </FilterChip>
+        ))}
+        <span className="mx-1 h-5 w-px bg-border" />
+        <FilterChip active={view === 'tarea'} onClick={() => setView('tarea')}>
+          Por tarea
+        </FilterChip>
+        <FilterChip active={view === 'alumno'} onClick={() => setView('alumno')}>
+          Por alumno
+        </FilterChip>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
@@ -385,79 +373,136 @@ export default function CalificacionesRichmondPage() {
         <div className="text-center py-16 text-text-secondary">
           <p className="font-medium">Sin tareas sincronizadas</p>
           <p className="text-sm mt-1">
-            {group
-              ? `${group.name} no tiene datos de Richmond aún.`
-              : 'Sincroniza desde la extensión de Chrome.'}
+            Abre Markbook → Scores en Richmond con la extensión activa.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="bg-muted">
-                <th className="sticky left-0 bg-muted px-4 py-3 text-left font-semibold text-text-primary whitespace-nowrap border-r border-border">
-                  Alumno
-                </th>
-                {assignments.map((a) => {
-                  const incomplete = incompleteStudentsFor(a)
-                  const canNotify = contacts.length > 0 && incomplete.length > 0
-                  return (
-                    <th
-                      key={a.id}
-                      className="px-3 py-3 text-center font-medium text-text-secondary max-w-[120px]"
+        <>
+          {/* Submissions-over-time chart */}
+          <div className="rounded-xl border border-border p-4 mb-5">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-3">
+              Entregas por tarea en el tiempo
+            </p>
+            <div className="flex items-end gap-[3px] h-28 overflow-x-auto pb-1">
+              {assignmentsAsc.map((a) => {
+                const ratio = a.total_students ? a.total_submitted / a.total_students : 0
+                return (
+                  <div
+                    key={a.id}
+                    className="flex-shrink-0 w-2.5 rounded-t bg-primary/80 hover:bg-primary transition-colors cursor-default"
+                    style={{ height: `${Math.max(4, ratio * 100)}%` }}
+                    title={`${a.title}\n${new Date(a.due_at).toLocaleDateString('es-MX')}\n${a.total_submitted}/${a.total_students} entregaron`}
+                  />
+                )
+              })}
+            </div>
+            <p className="text-[11px] text-text-disabled mt-1">
+              Cada barra es una tarea (orden cronológico). Altura = % de alumnos que entregaron.
+            </p>
+          </div>
+
+          {view === 'tarea' ? (
+            <div className="space-y-2">
+              {assignmentsDesc.map((a) => {
+                const pending = pendingStudents(a)
+                const isOpen = expandedTask === a.id
+                const submitted = a.total_submitted
+                const total = a.total_students
+                return (
+                  <div key={a.id} className="rounded-xl border border-border overflow-hidden">
+                    <button
+                      onClick={() => setExpandedTask(isOpen ? null : a.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40"
                     >
-                      <div className="truncate max-w-[110px]" title={a.title}>
-                        {a.title}
+                      <ChevronRight
+                        size={16}
+                        className={`shrink-0 text-text-disabled transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{a.title}</p>
+                        <p className="text-xs text-text-disabled">
+                          {new Date(a.due_at).toLocaleDateString('es-MX', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                          {filter === 'all' && ` · ${groupName(a.group_id)}`}
+                        </p>
                       </div>
-                      <div className="text-xs font-normal text-text-disabled">
-                        {new Date(a.due_at).toLocaleDateString('es-MX', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                      <RatioBar done={submitted} total={total} />
+                    </button>
+
+                    {isOpen && (
+                      <div className="border-t border-border bg-muted/20 px-4 py-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-text-secondary">
+                            {submitted}/{total} entregaron
+                          </p>
+                          {contacts.length > 0 && pending.length > 0 && (
+                            <button
+                              onClick={() => setNotifyingAssignment(a)}
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Send size={12} /> Notificar pendientes
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                          {students
+                            .filter((s) => s.group_id === a.group_id)
+                            .map((s) => (
+                              <button
+                                key={s.key}
+                                onClick={() => openStudent(s)}
+                                className="flex items-center justify-between text-sm py-1 hover:text-primary text-left"
+                              >
+                                <span className="truncate">
+                                  {s.last}, {s.first}
+                                </span>
+                                {s.submitted[a.id] ? (
+                                  <span className="text-green-700 text-xs font-medium shrink-0">
+                                    ✓ Entregó
+                                  </span>
+                                ) : (
+                                  <span className="text-text-disabled text-xs shrink-0">
+                                    Pendiente
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                        </div>
                       </div>
-                      {canNotify && (
-                        <button
-                          onClick={() => setNotifyingAssignment(a)}
-                          className="mt-1 text-xs text-primary hover:underline flex items-center gap-0.5 mx-auto"
-                          title={`Notificar ${incomplete.length} padres`}
-                        >
-                          <Mail size={11} />
-                          {incomplete.length}
-                        </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border divide-y divide-border">
+              {students.map((s) => {
+                const { done, total } = completion(s)
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => openStudent(s)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">
+                        {s.last}, {s.first}
+                      </p>
+                      {filter === 'all' && (
+                        <p className="text-xs text-text-disabled">{groupName(s.group_id)}</p>
                       )}
-                    </th>
-                  )
-                })}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {students.map(([sid, { first, last }]) => (
-                <tr key={sid} className="hover:bg-muted/40">
-                  <td className="sticky left-0 bg-white hover:bg-muted/40 px-4 py-2.5 font-medium text-text-primary whitespace-nowrap border-r border-border">
-                    {last}, {first}
-                  </td>
-                  {assignments.map((a) => {
-                    const s = scoreKey(a.id, sid)
-                    const score = s?.total_score
-                    const colorClass =
-                      score == null
-                        ? 'text-text-disabled'
-                        : score >= 80
-                          ? 'text-green-700 font-semibold'
-                          : score >= 60
-                            ? 'text-yellow-700'
-                            : 'text-red-600'
-                    return (
-                      <td key={a.id} className={`px-3 py-2.5 text-center ${colorClass}`}>
-                        {score != null ? score : s?.done ? '✓' : '—'}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                    <RatioBar done={done} total={total} label={`${done}/${total} tareas`} />
+                    <ChevronRight size={16} className="shrink-0 text-text-disabled" />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Contacts panel */}
@@ -471,8 +516,6 @@ export default function CalificacionesRichmondPage() {
                 <X size={20} />
               </button>
             </div>
-
-            {/* Tabs */}
             <div className="flex border-b text-sm">
               {(['paste', 'photo', 'manual'] as const).map((tab) => (
                 <button
@@ -484,13 +527,11 @@ export default function CalificacionesRichmondPage() {
                 </button>
               ))}
             </div>
-
             <div className="p-5 flex-1">
               {contactTab === 'paste' && (
                 <div className="space-y-3">
                   <p className="text-xs text-text-secondary">
-                    Pega una lista con nombres y correos. Puede ser CSV, tabla, texto libre — la IA
-                    extrae los datos.
+                    Pega una lista con nombres y correos. La IA extrae los datos.
                   </p>
                   <textarea
                     value={pasteText}
@@ -509,7 +550,6 @@ export default function CalificacionesRichmondPage() {
                     {extracting ? <Loader2 size={15} className="mr-2 animate-spin" /> : null}
                     {extracting ? 'Extrayendo...' : 'Extraer con IA'}
                   </Button>
-
                   {extracted.length > 0 && (
                     <div className="space-y-2 mt-3">
                       <p className="text-xs font-medium text-text-secondary">
@@ -538,12 +578,10 @@ export default function CalificacionesRichmondPage() {
                   )}
                 </div>
               )}
-
               {contactTab === 'photo' && (
                 <div className="space-y-3">
                   <p className="text-xs text-text-secondary">
-                    Toma una foto de tu lista de contactos impresa o en pantalla. La IA extrae los
-                    correos.
+                    Toma una foto de tu lista de contactos. La IA extrae los correos.
                   </p>
                   <Button
                     onClick={() => photoRef.current?.click()}
@@ -560,7 +598,6 @@ export default function CalificacionesRichmondPage() {
                     className="hidden"
                     onChange={handlePhotoExtract}
                   />
-
                   {extracted.length > 0 && (
                     <div className="space-y-2 mt-3">
                       <p className="text-xs font-medium text-text-secondary">
@@ -589,21 +626,17 @@ export default function CalificacionesRichmondPage() {
                   )}
                 </div>
               )}
-
               {contactTab === 'manual' && (
                 <div className="space-y-2">
-                  <p className="text-xs text-text-secondary mb-3">
-                    Agrega contactos uno por uno. El ID del alumno debe coincidir con el que usa
-                    Richmond.
-                  </p>
+                  <p className="text-xs text-text-secondary mb-3">Agrega contactos uno por uno.</p>
                   <Input
-                    placeholder="ID alumno Richmond (requerido)"
+                    placeholder="ID alumno (requerido)"
                     value={manualStudentId}
                     onChange={(e) => setManualStudentId(e.target.value)}
                   />
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Nombre alumno"
+                      placeholder="Nombre"
                       value={manualFirstName}
                       onChange={(e) => setManualFirstName(e.target.value)}
                     />
@@ -634,8 +667,6 @@ export default function CalificacionesRichmondPage() {
                   </Button>
                 </div>
               )}
-
-              {/* Saved contacts list */}
               {contacts.length > 0 && (
                 <div className="mt-6">
                   <p className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-wide">
@@ -684,56 +715,73 @@ export default function CalificacionesRichmondPage() {
           />
           <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
             <h3 className="font-semibold text-text-primary mb-2">Notificar padres</h3>
-            <p className="text-sm text-text-secondary mb-1">
+            <p className="text-sm text-text-secondary mb-4">
               Tarea: <strong>{notifyingAssignment.title}</strong>
+              <br />
+              Se enviará correo a los padres (con contacto registrado) de los alumnos que aún no
+              entregaron.
             </p>
-            {(() => {
-              const incomplete = incompleteStudentsFor(notifyingAssignment)
-              const contactedIds = contacts.map((c) => c.richmond_student_id)
-              const willNotify = incomplete.filter((id) => contactedIds.includes(id))
-              return (
-                <>
-                  <p className="text-sm text-text-secondary mb-4">
-                    Se enviará un correo a los padres de{' '}
-                    <strong>
-                      {willNotify.length} alumno{willNotify.length === 1 ? '' : 's'}
-                    </strong>{' '}
-                    que aún no entregaron.
-                    {incomplete.length > willNotify.length && (
-                      <span className="text-amber-600">
-                        {' '}
-                        ({incomplete.length - willNotify.length} sin correo registrado)
-                      </span>
-                    )}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setNotifyingAssignment(null)}
-                      disabled={sending}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={() => handleNotify(notifyingAssignment, incomplete)}
-                      disabled={sending || willNotify.length === 0}
-                    >
-                      {sending ? (
-                        <Loader2 size={15} className="mr-2 animate-spin" />
-                      ) : (
-                        <Send size={15} className="mr-2" />
-                      )}
-                      {sending ? 'Enviando...' : 'Enviar'}
-                    </Button>
-                  </div>
-                </>
-              )
-            })()}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setNotifyingAssignment(null)}
+                disabled={sending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => handleNotify(notifyingAssignment)}
+                disabled={sending}
+              >
+                {sending ? (
+                  <Loader2 size={15} className="mr-2 animate-spin" />
+                ) : (
+                  <Send size={15} className="mr-2" />
+                )}
+                {sending ? 'Enviando...' : 'Enviar'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+        active ? 'bg-primary text-white' : 'bg-muted text-text-secondary hover:bg-muted/70'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function RatioBar({ done, total, label }: { done: number; total: number; label?: string }) {
+  const pct = total ? Math.round((done / total) * 100) : 0
+  const color = pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400'
+  return (
+    <div className="flex items-center gap-2 shrink-0">
+      <div className="w-20 h-2 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs text-text-secondary tabular-nums w-16 text-right">
+        {label ?? `${done}/${total}`}
+      </span>
     </div>
   )
 }

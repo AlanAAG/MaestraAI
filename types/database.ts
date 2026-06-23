@@ -88,7 +88,6 @@ export type Database = {
         Row: {
           id: string
           group_id: string
-          display_name: string
           first_name_encrypted: string
           last_name_encrypted: string
           richmond_username: string | null
@@ -96,14 +95,12 @@ export type Database = {
           level: string
           observation_day: string | null
           has_nee: boolean
-          special_needs_encrypted: string | null
           parent_contact_encrypted: string | null
           created_at: string
         }
         Insert: {
           id?: string
           group_id: string
-          display_name: string
           first_name_encrypted: string
           last_name_encrypted: string
           richmond_username?: string | null
@@ -111,14 +108,12 @@ export type Database = {
           level?: string
           observation_day?: string | null
           has_nee?: boolean
-          special_needs_encrypted?: string | null
           parent_contact_encrypted?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           group_id?: string
-          display_name?: string
           first_name_encrypted?: string
           last_name_encrypted?: string
           richmond_username?: string | null
@@ -126,7 +121,6 @@ export type Database = {
           level?: string
           observation_day?: string | null
           has_nee?: boolean
-          special_needs_encrypted?: string | null
           parent_contact_encrypted?: string | null
           created_at?: string
         }

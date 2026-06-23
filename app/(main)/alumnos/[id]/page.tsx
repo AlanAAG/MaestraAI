@@ -10,16 +10,14 @@ import { StudentScoreTable } from '@/components/app/StudentScoreTable'
 
 interface Student {
   id: string
-  display_name: string
+  name: string
   has_nee: boolean
   group_id: string
-  observation_day?: string
-  richmond_student_id?: string
-  parent_contact_encrypted?: string | null
-  groups?: {
-    name: string
-    grade: string
-  }
+  observation_day?: string | null
+  richmond_student_id?: string | null
+  has_contact: boolean
+  group_name: string
+  group_grade: string
 }
 
 interface AssignmentScore {
@@ -85,22 +83,13 @@ export default function StudentDetailPage() {
         return
       }
 
-      // Load student data
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: studentData, error: studentError } = await (supabase as any)
-        .from('students')
-        .select('*, groups(name, grade)')
-        .eq('id', studentId)
-        .single()
-
-      if (studentError || !studentData) {
-        setLoadingState({
-          status: 'error',
-          error: 'No se encontró el alumno.',
-        })
+      // Names are encrypted at rest — fetch via the server route that decrypts them.
+      const studentRes = await fetch(`/api/students/${studentId}`)
+      if (!studentRes.ok) {
+        setLoadingState({ status: 'error', error: 'No se encontró el alumno.' })
         return
       }
-
+      const studentData = await studentRes.json()
       setStudent(studentData)
 
       // Load progress data from API
@@ -142,7 +131,7 @@ export default function StudentDetailPage() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `reporte-${student.display_name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`
+      a.download = `reporte-${student.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -235,7 +224,7 @@ export default function StudentDetailPage() {
         <div className="flex items-start justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-semibold text-text-primary">{student.display_name}</h1>
+              <h1 className="text-3xl font-semibold text-text-primary">{student.name}</h1>
               {student.has_nee && (
                 <span
                   className="text-xs px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200"
@@ -247,7 +236,7 @@ export default function StudentDetailPage() {
             </div>
             <div className="text-text-secondary space-y-1">
               <p>
-                {student.groups?.name} - {student.groups?.grade}
+                {student.group_name} - {student.group_grade}
               </p>
               {student.richmond_student_id && (
                 <div className="flex items-center gap-2">
@@ -261,7 +250,7 @@ export default function StudentDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            {student.parent_contact_encrypted && (
+            {student.has_contact && (
               <Button
                 variant="outline"
                 onClick={handleWhatsApp}
@@ -305,10 +294,7 @@ export default function StudentDetailPage() {
           {/* Assignment history table */}
           <Card className="p-8">
             <h2 className="text-xl font-semibold text-text-primary mb-6">Historial de trabajos</h2>
-            <StudentScoreTable
-              assignments={progressData.assignments}
-              studentName={student.display_name}
-            />
+            <StudentScoreTable assignments={progressData.assignments} studentName={student.name} />
           </Card>
 
           {/* Fortnight summary */}

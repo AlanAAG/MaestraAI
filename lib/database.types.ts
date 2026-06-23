@@ -1053,7 +1053,6 @@ export type Database = {
       students: {
         Row: {
           created_at: string | null
-          display_name: string
           first_name_encrypted: string
           group_id: string
           has_nee: boolean | null
@@ -1065,11 +1064,9 @@ export type Database = {
           parent_contact_encrypted: string | null
           richmond_student_id: string | null
           richmond_username: string | null
-          special_needs_encrypted: string | null
         }
         Insert: {
           created_at?: string | null
-          display_name: string
           first_name_encrypted: string
           group_id: string
           has_nee?: boolean | null
@@ -1081,11 +1078,9 @@ export type Database = {
           parent_contact_encrypted?: string | null
           richmond_student_id?: string | null
           richmond_username?: string | null
-          special_needs_encrypted?: string | null
         }
         Update: {
           created_at?: string | null
-          display_name?: string
           first_name_encrypted?: string
           group_id?: string
           has_nee?: boolean | null
@@ -1097,7 +1092,6 @@ export type Database = {
           parent_contact_encrypted?: string | null
           richmond_student_id?: string | null
           richmond_username?: string | null
-          special_needs_encrypted?: string | null
         }
         Relationships: [
           {

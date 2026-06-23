@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/encryption'
+import { decryptName } from '@/lib/students/name'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
@@ -37,7 +38,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: student } = await (supabase as any)
       .from('students')
-      .select('display_name, parent_contact_encrypted, groups(titular_teacher_id)')
+      .select(
+        'first_name_encrypted, last_name_encrypted, parent_contact_encrypted, groups(titular_teacher_id)'
+      )
       .eq('id', studentId)
       .single()
 
@@ -57,7 +60,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // code if we ever onboard outside MX — for now a length heuristic covers it.
     const raw = phone.replace(/\D/g, '')
     const digits = raw.length > 10 ? raw : `52${raw}`
-    const message = encodeURIComponent(`Hola, soy la maestra de ${student.display_name}. `)
+    const { name } = await decryptName(student)
+    const message = encodeURIComponent(`Hola, soy la maestra de ${name}. `)
 
     await logAudit({
       teacher_id: teacher.id,

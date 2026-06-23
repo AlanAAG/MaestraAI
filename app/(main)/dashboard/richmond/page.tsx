@@ -55,7 +55,7 @@ type StudentScore = {
   total_score: number | null
   done: boolean
 }
-type Student = { id: string; display_name: string }
+type Student = { id: string; name: string }
 type SyncLog = { started_at: string; status: string }
 
 function formatDate(d: string) {
@@ -184,12 +184,9 @@ export default function RichmondDashboard() {
   useEffect(() => {
     if (activeTab !== 'por-alumno' || !selectedGroupId) return
     async function fetchStudents() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (createClient() as any)
-        .from('students')
-        .select('id, display_name')
-        .eq('group_id', selectedGroupId)
-        .order('display_name')
+      // Names are encrypted at rest — fetch decrypted via the server route.
+      const res = await fetch(`/api/students?group_id=${selectedGroupId}`)
+      const { students: data } = res.ok ? await res.json() : { students: [] }
       setStudents(data || [])
       setSelectedStudentId(null)
       setStudentHistory([])
@@ -656,7 +653,7 @@ export default function RichmondDashboard() {
               <option value="">Selecciona un alumno...</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.display_name}
+                  {s.name}
                 </option>
               ))}
             </select>

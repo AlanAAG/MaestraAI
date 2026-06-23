@@ -6,7 +6,7 @@ import { Check } from 'lucide-react'
 type RubricValue = 'si' | 'en_proceso' | 'no' | null
 
 interface RubricEditorProps {
-  students: Array<{ id: string; display_name: string }>
+  students: Array<{ id: string; name: string }>
   initialValues?: Record<string, RubricValue>
   onSave?: (values: Record<string, RubricValue>) => Promise<void>
 }
@@ -53,7 +53,7 @@ export function RubricEditor({ students, initialValues = {}, onSave }: RubricEdi
         {students.map((student) => (
           <div key={student.id} className="p-4 hover:bg-bg transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-text-primary">{student.display_name}</span>
+              <span className="text-sm font-medium text-text-primary">{student.name}</span>
               <div className="flex gap-2">
                 {RUBRIC_OPTIONS.map((option) => {
                   const isSelected = values[student.id] === option.value

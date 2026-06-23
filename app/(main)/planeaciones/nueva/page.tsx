@@ -83,14 +83,11 @@ export default function NuevaPlaneacionPage() {
       return
     }
     const supabase = createClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any)
-      .from('students')
-      .select('display_name')
-      .eq('group_id', selectedGroupId)
-      .order('display_name')
-      .then(({ data }: { data: { display_name: string }[] | null }) => {
-        setGroupStudents((data ?? []).map((s) => s.display_name))
+    // Names are encrypted at rest — fetch decrypted via the server route.
+    fetch(`/api/students?group_id=${selectedGroupId}`)
+      .then((r) => (r.ok ? r.json() : { students: [] }))
+      .then(({ students }: { students: { name: string }[] }) => {
+        setGroupStudents((students ?? []).map((s) => s.name))
       })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(supabase as any)

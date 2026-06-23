@@ -1,13 +1,13 @@
 // components/settings/StudentRoster.tsx
-// Display student roster (display_name only, no PII)
+// Display student roster. Names arrive already decrypted from /api/students.
 
 'use client'
 import { Users } from 'lucide-react'
 
 interface Student {
   id: string
-  display_name: string
-  richmond_student_id: string | null
+  name: string
+  richmond_student_id?: string | null
 }
 
 interface StudentRosterProps {
@@ -44,7 +44,7 @@ export function StudentRoster({ students, groupName }: StudentRosterProps) {
                 {index + 1}
               </div>
               <div className="flex-1">
-                <p className="text-text-primary">{student.display_name}</p>
+                <p className="text-text-primary">{student.name}</p>
                 {student.richmond_student_id && (
                   <p className="text-xs text-text-disabled font-mono mt-0.5">
                     Richmond ID: {student.richmond_student_id}

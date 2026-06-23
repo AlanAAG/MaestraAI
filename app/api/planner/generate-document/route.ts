@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { decryptName } from '@/lib/students/name'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
 
@@ -329,11 +330,18 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: students } = await (supabase as any)
       .from('students')
-      .select('display_name, has_nee, nee_notes')
+      .select('first_name_encrypted, last_name_encrypted, has_nee, nee_notes')
       .eq('group_id', fn.group_id)
-      .order('display_name')
+    // Decrypt names (server-side) only for the NEE students we actually inject.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const neeStudents = (students ?? []).filter((s: any) => s.has_nee)
+    const neeRows = (students ?? []).filter((s: any) => s.has_nee)
+    const neeStudents = await Promise.all(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      neeRows.map(async (s: any) => ({
+        display_name: (await decryptName(s)).name,
+        nee_notes: s.nee_notes,
+      }))
+    )
 
     // Vocabulary
     let vocabList = ''

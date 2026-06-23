@@ -1,6 +1,7 @@
 // lib/richmond/sync.ts
 import { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAssignmentScores, RichmondSessionExpiredError } from './client'
+import { encrypt } from '@/lib/encryption'
 
 export interface SyncResult {
   synced: number
@@ -109,7 +110,9 @@ export async function syncGroup(
       // Process each student score
       for (const score of assignment.students) {
         // Match student: first by richmond_student_id, then by name fuzzy match
-        let matchedStudent = students.find((s) => s.richmond_student_id === score.richmond_student_id)
+        let matchedStudent = students.find(
+          (s) => s.richmond_student_id === score.richmond_student_id
+        )
 
         if (!matchedStudent) {
           // Fuzzy match by name (case-insensitive, trimmed)
@@ -140,8 +143,8 @@ export async function syncGroup(
             assignment_id: dbAssignment.id,
             student_id: matchedStudent?.id ?? null,
             richmond_student_id: score.richmond_student_id,
-            first_name: score.first_name,
-            last_name: score.last_name,
+            first_name_encrypted: await encrypt(score.first_name || ''),
+            last_name_encrypted: await encrypt(score.last_name || ''),
             progress: score.progress,
             total_score: score.total_score,
             done: score.done,

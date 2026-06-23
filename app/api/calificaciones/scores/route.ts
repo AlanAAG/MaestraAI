@@ -1,15 +1,13 @@
-// GET /api/calificaciones/scores?group_id=<uuid>
-// Returns a group's recent assignments + scores with names DECRYPTED server-side.
-// The page can't read encrypted columns from the browser (no key there), so this
-// route does the decryption. RLS scopes rows to the authenticated teacher's groups.
+// GET /api/calificaciones/scores?group_id=<uuid|all>
+// Returns the teacher's Richmond groups + all their assignments + per-student submission
+// status, with names DECRYPTED server-side. Richmond scores are effectively binary
+// (entregado / no entregado), so the UI works off `done`, not numeric scores.
+// RLS scopes every row to the authenticated teacher's groups.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decrypt } from '@/lib/encryption'
-
-const QuerySchema = z.object({ group_id: z.string().uuid() })
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -22,62 +20,103 @@ export async function GET(req: NextRequest) {
   if (!success)
     return NextResponse.json({ error: 'Demasiadas solicitudes.' }, { status: 429, headers })
 
-  const parsed = QuerySchema.safeParse({ group_id: new URL(req.url).searchParams.get('group_id') })
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid group_id' }, { status: 400 })
-  const { group_id } = parsed.data
+  const groupParam = new URL(req.url).searchParams.get('group_id') // specific uuid, or null/"all"
 
-  // Recent assignments for the group (RLS ensures it's the teacher's group).
+  // The teacher's groups (RLS-scoped) — drives the filter UI.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: assignData } = await (supabase as any)
-    .from('richmond_assignments')
-    .select('id, title, due_at, total_students, total_submitted')
-    .eq('group_id', group_id)
-    .order('due_at', { ascending: false })
-    .limit(20)
+  const { data: groupRows } = await (supabase as any)
+    .from('groups')
+    .select('id, name, grade')
+    .order('name')
+  const groups = (groupRows ?? []) as Array<{ id: string; name: string; grade: string }>
 
-  const assignments = (assignData ?? []) as Array<{ id: string; title: string; due_at: string }>
-  if (assignments.length === 0) return NextResponse.json({ assignments: [], scores: [] })
+  // Assignments: filter to one group, or all the teacher's groups (RLS already limits to theirs).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let aq = (supabase as any)
+    .from('richmond_assignments')
+    .select('id, group_id, title, due_at, total_students, total_submitted')
+    .order('due_at', { ascending: true })
+  if (groupParam && groupParam !== 'all') aq = aq.eq('group_id', groupParam)
+  const { data: assignData } = await aq
+
+  const assignments = (assignData ?? []) as Array<{
+    id: string
+    group_id: string
+    title: string
+    due_at: string
+    total_students: number
+    total_submitted: number
+  }>
+  if (assignments.length === 0) return NextResponse.json({ groups, assignments: [], students: [] })
 
   const assignmentIds = assignments.map((a) => a.id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scoreData } = await (supabase as any)
     .from('richmond_scores')
     .select(
-      'assignment_id, richmond_student_id, first_name_encrypted, last_name_encrypted, total_score, done'
+      'assignment_id, student_id, richmond_student_id, first_name_encrypted, last_name_encrypted, done, total_score'
     )
     .in('assignment_id', assignmentIds)
 
   type Row = {
     assignment_id: string
+    student_id: string | null
     richmond_student_id: string
     first_name_encrypted: string | null
     last_name_encrypted: string | null
-    total_score: number | null
     done: boolean
+    total_score: number | null
   }
   const rows = (scoreData ?? []) as Row[]
 
-  // Decrypt each student's name once, not once per score row.
+  // Stable per-student key: prefer the linked students.id; fall back to richmond_student_id
+  // (only matters for legacy rows synced before student linking).
+  const keyOf = (r: Row) => r.student_id ?? `rid:${r.richmond_student_id}`
+
+  // Decrypt each student's name once.
   const nameCache = new Map<string, { first: string; last: string }>()
   for (const r of rows) {
-    if (nameCache.has(r.richmond_student_id)) continue
-    nameCache.set(r.richmond_student_id, {
+    const k = keyOf(r)
+    if (nameCache.has(k)) continue
+    nameCache.set(k, {
       first: r.first_name_encrypted ? await decrypt(r.first_name_encrypted) : '',
       last: r.last_name_encrypted ? await decrypt(r.last_name_encrypted) : '',
     })
   }
 
-  const scores = rows.map((r) => {
-    const name = nameCache.get(r.richmond_student_id)!
-    return {
-      assignment_id: r.assignment_id,
-      richmond_student_id: r.richmond_student_id,
-      first_name: name.first,
-      last_name: name.last,
-      total_score: r.total_score,
-      done: r.done,
+  // Pivot into one record per student with their per-assignment submission status.
+  type Student = {
+    id: string | null // students.id when linked (used for /alumnos/[id] drill-down)
+    key: string
+    first: string
+    last: string
+    group_id: string
+    submitted: Record<string, boolean> // assignment_id -> done
+  }
+  const studentMap = new Map<string, Student>()
+  // assignment_id -> group_id, so a student's group is known from their first score row.
+  const groupByAssignment = new Map(assignments.map((a) => [a.id, a.group_id]))
+  for (const r of rows) {
+    const k = keyOf(r)
+    let s = studentMap.get(k)
+    if (!s) {
+      const name = nameCache.get(k)!
+      s = {
+        id: r.student_id,
+        key: k,
+        first: name.first,
+        last: name.last,
+        group_id: groupByAssignment.get(r.assignment_id) ?? '',
+        submitted: {},
+      }
+      studentMap.set(k, s)
     }
-  })
+    s.submitted[r.assignment_id] = r.done
+  }
 
-  return NextResponse.json({ assignments, scores })
+  const students = Array.from(studentMap.values()).sort((a, b) =>
+    `${a.last}${a.first}`.localeCompare(`${b.last}${b.first}`)
+  )
+
+  return NextResponse.json({ groups, assignments, students })
 }

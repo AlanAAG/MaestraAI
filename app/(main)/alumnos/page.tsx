@@ -11,16 +11,14 @@ import { motion } from 'framer-motion'
 
 interface Student {
   id: string
-  display_name: string
+  name: string
   has_nee: boolean
   group_id: string
-  group?: {
-    name: string
-    grade: string
-  }
-  richmond_student_id?: string
-  observation_day?: string
-  parent_contact_encrypted?: string | null
+  group_name: string
+  group_grade: string
+  richmond_student_id?: string | null
+  observation_day?: string | null
+  has_contact: boolean
 }
 
 interface Group {
@@ -103,30 +101,16 @@ export default function AlumnosPage() {
 
       setGroups(groupsData || [])
 
-      // Load all students from teacher's groups
-      const groupIds = groupsData?.map((g: Group) => g.id) || []
-
-      if (groupIds.length === 0) {
-        setStudents([])
-        setLoadingState({ status: 'success' })
-        return
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: studentsData, error: studentsError } = await (supabase as any)
-        .from('students')
-        .select('*, groups(name, grade), parent_contact_encrypted')
-        .in('group_id', groupIds)
-        .order('display_name')
-
-      if (studentsError) {
+      // Names are encrypted at rest — fetch via the server route that decrypts them.
+      const res = await fetch('/api/students?group_id=all')
+      if (!res.ok) {
         setLoadingState({
           status: 'error',
           error: 'Error al cargar los alumnos. Intenta de nuevo.',
         })
         return
       }
-
+      const { students: studentsData } = await res.json()
       setStudents(studentsData || [])
       setLoadingState({ status: 'success' })
     } catch (err) {
@@ -163,7 +147,7 @@ export default function AlumnosPage() {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim()
-      filtered = filtered.filter((s) => s.display_name.toLowerCase().includes(query))
+      filtered = filtered.filter((s) => s.name.toLowerCase().includes(query))
     }
 
     setFilteredStudents(filtered)
@@ -305,12 +289,12 @@ export default function AlumnosPage() {
                     router.push(`/alumnos/${student.id}`)
                   }
                 }}
-                aria-label={`Ver perfil de ${student.display_name}`}
+                aria-label={`Ver perfil de ${student.name}`}
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-lg font-semibold text-text-primary truncate">
-                      {student.display_name}
+                      {student.name}
                     </h3>
                     {student.has_nee && (
                       <span
@@ -323,7 +307,7 @@ export default function AlumnosPage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-text-secondary">
-                      {student.group?.name} - {student.group?.grade}
+                      {student.group_name} - {student.group_grade}
                     </p>
                     {student.richmond_student_id && (
                       <div className="flex items-center gap-2">
@@ -334,7 +318,7 @@ export default function AlumnosPage() {
                       </div>
                     )}
                   </div>
-                  {student.parent_contact_encrypted && (
+                  {student.has_contact && (
                     <button
                       onClick={(e) => handleWhatsApp(e, student.id)}
                       disabled={contactLoading === student.id}

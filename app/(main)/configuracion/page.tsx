@@ -286,14 +286,9 @@ export default function ConfiguracionPage() {
     setSelectedGroupId(groupId)
     setGroupMode('students')
 
-    const supabase = createClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
-      .from('students')
-      .select('id, display_name, richmond_student_id')
-      .eq('group_id', groupId)
-      .order('display_name')
-
+    // Names are encrypted at rest — fetch decrypted via the server route.
+    const res = await fetch(`/api/students?group_id=${groupId}`)
+    const { students: data } = res.ok ? await res.json() : { students: [] }
     setStudents(data || [])
   }
 

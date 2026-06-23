@@ -1,9 +1,10 @@
 -- 046_students_richmond_unique.sql
--- The Richmond sync auto-creates one students row per (group, richmond_student_id).
--- A unique index makes that idempotent and blocks duplicate students from concurrent syncs.
--- Partial index (WHERE richmond_student_id IS NOT NULL) so manually-added students
--- without a Richmond id are unaffected.
+-- Richmond's per-entry student id is per-ASSIGNMENT (a submission id), not a stable
+-- student identity, so the roster is deduped by name in app code — NOT by a DB unique
+-- index on richmond_student_id (that column is no longer written for Richmond students).
+--
+-- This migration only drops a dead column: special_needs_encrypted was never read or
+-- written anywhere. We deliberately do not store special-needs data we don't use.
+-- (has_nee stays — it's set only via the manual student flow and used by reports/planner.)
 
-CREATE UNIQUE INDEX IF NOT EXISTS students_group_richmond_uid
-  ON students (group_id, richmond_student_id)
-  WHERE richmond_student_id IS NOT NULL;
+ALTER TABLE students DROP COLUMN IF EXISTS special_needs_encrypted;

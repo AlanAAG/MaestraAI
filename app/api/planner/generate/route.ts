@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { decryptName } from '@/lib/students/name'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 import { parseClaudeResponse } from '@/lib/planner/parse-response'
 
@@ -115,7 +116,6 @@ export async function POST(req: NextRequest) {
       .from('students')
       .select('*')
       .eq('group_id', fortnight.group_id)
-      .order('display_name')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const neeStudents = students?.filter((s: any) => s.has_nee) || []
@@ -129,15 +129,13 @@ export async function POST(req: NextRequest) {
     // Anonymize student names before they reach Anthropic.
     // Real names are restored server-side after parsing Claude's response.
     const neeMap: Record<string, string> = {}
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    neeStudents.forEach((s: any, i: number) => {
-      neeMap[`ALUMNO_NEE_${i + 1}`] = s.display_name
-    })
+    for (let i = 0; i < neeStudents.length; i++) {
+      neeMap[`ALUMNO_NEE_${i + 1}`] = (await decryptName(neeStudents[i])).name
+    }
     const obsMap: Record<string, string> = {}
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    observationStudents.forEach((s: any, i: number) => {
-      obsMap[`ALUMNO_OBS_${i + 1}`] = s.display_name
-    })
+    for (let i = 0; i < observationStudents.length; i++) {
+      obsMap[`ALUMNO_OBS_${i + 1}`] = (await decryptName(observationStudents[i])).name
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fn = fortnight as any
