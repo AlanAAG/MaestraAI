@@ -225,11 +225,19 @@ async function testConnection(apiKey, apiUrl) {
   statusTitle.textContent = data.teacherName ? `✓ ${data.teacherName}` : '✓ Conectada'
 
   const nodes = []
+  let shownCourseSync = false
 
   if (currentCourseIsMapped) {
-    // On a mapped course — ready. Tell them to open Markbook → Scores.
-    nodes.push(statusRow('✓ Grupo vinculado', classCode, { valueColor: '#16a34a' }))
-    nodes.push(statusRow('Abre Markbook → Scores para sincronizar', null))
+    // Once this group has synced at least once, show "Listo" instead of the how-to.
+    const { syncTimes } = await chrome.storage.sync.get('syncTimes')
+    const syncedAt = syncTimes?.[data.groupMap[classCode]]
+    if (syncedAt) {
+      nodes.push(statusRow('✓ Listo', `Sincronizado ${formatRelativeTime(syncedAt)}`, { valueColor: '#16a34a' }))
+      shownCourseSync = true
+    } else {
+      nodes.push(statusRow('✓ Grupo vinculado', classCode, { valueColor: '#16a34a' }))
+      nodes.push(statusRow('Abre Markbook → Scores para sincronizar', null))
+    }
   } else if (classCode && unmappedGroups.length > 0) {
     // On an unmapped Richmond course → one-tap picker
     nodes.push(buildMappingUI(classCode, unmappedGroups, apiUrl, () => testConnection(apiKey, apiUrl)))
@@ -246,9 +254,11 @@ async function testConnection(apiKey, apiUrl) {
     nodes.push(buildNotOnRichmondHint(onRichmond))
   }
 
-  // Always surface the last sync result if we have one — it's the proof the flow worked.
-  const lastRow = await lastSyncRow()
-  if (lastRow) nodes.push(lastRow)
+  // Surface the last sync result (unless the course-specific "Listo" row already did).
+  if (!shownCourseSync) {
+    const lastRow = await lastSyncRow()
+    if (lastRow) nodes.push(lastRow)
+  }
 
   statusDetails.replaceChildren(...nodes)
 
