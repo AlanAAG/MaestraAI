@@ -5,6 +5,7 @@ import { Loader2, Download, Users, X, Send, Trash2, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { getEditorialConfig } from '@/lib/editorial/registry'
 
 type Group = { id: string; name: string; grade: string }
 type Assignment = { id: string; title: string; due_at: string }
@@ -70,10 +71,16 @@ export default function CalificacionesRichmondPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: teacher } = await (supabase as any)
         .from('teachers')
-        .select('id')
+        .select('id, editorial')
         .eq('auth_id', user.id)
         .single()
       if (!teacher) return
+
+      // Richmond-only page — bounce teachers whose editorial has no LMS sync.
+      if (!getEditorialConfig(teacher.editorial).has_lms_sync) {
+        window.location.href = '/dashboard'
+        return
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: groupsData } = await (supabase as any)
@@ -99,32 +106,16 @@ export default function CalificacionesRichmondPage() {
 
   async function loadGroupData(groupId: string) {
     setLoading(true)
-    const supabase = createClient()
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: assignData } = await (supabase as any)
-      .from('richmond_assignments')
-      .select('id, title, due_at')
-      .eq('group_id', groupId)
-      .order('due_at', { ascending: false })
-      .limit(20)
-
-    const assignList: Assignment[] = assignData ?? []
-    setAssignments(assignList)
-
-    if (assignList.length === 0) {
+    // Names are encrypted in the DB and can only be decrypted server-side.
+    const res = await fetch(`/api/calificaciones/scores?group_id=${groupId}`)
+    if (!res.ok) {
+      setAssignments([])
       setScores([])
       setLoading(false)
       return
     }
-
-    const assignIds = assignList.map((a) => a.id)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: scoreData } = await (supabase as any)
-      .from('richmond_scores')
-      .select('assignment_id, richmond_student_id, first_name, last_name, total_score, done')
-      .in('assignment_id', assignIds)
-
+    const { assignments: assignList, scores: scoreData } = await res.json()
+    setAssignments(assignList ?? [])
     setScores(scoreData ?? [])
     setLoading(false)
   }

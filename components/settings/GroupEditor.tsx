@@ -30,7 +30,7 @@ interface GroupEditorProps {
   loading?: boolean
 }
 
-const GRADES = ['Maternal', 'Kinder 1', 'Kinder 2', 'Kinder 3', 'Preprimaria A', 'Preprimaria B']
+const GRADES = ['Maternal', 'Kinder 1', 'Kinder 2', 'Kinder 3', 'Preprimaria']
 
 export function GroupEditor({
   initialData,

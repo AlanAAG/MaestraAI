@@ -21,7 +21,7 @@ interface GroupCreatorProps {
 }
 
 const CURRENT_YEAR = new Date().getFullYear()
-const GRADES = ['Maternal', 'Kinder 1', 'Kinder 2', 'Kinder 3', 'Preprimaria A', 'Preprimaria B']
+const GRADES = ['Maternal', 'Kinder 1', 'Kinder 2', 'Kinder 3', 'Preprimaria']
 
 export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
   const [formData, setFormData] = useState<GroupData>({

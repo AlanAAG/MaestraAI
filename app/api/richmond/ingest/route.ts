@@ -147,6 +147,49 @@ export async function POST(req: NextRequest) {
   }
   const typedStudents = students as unknown as Student[]
 
+  // richmond_student_id -> students.id, for linking scores and skipping re-creation.
+  const studentIdByRid = new Map<string, string>()
+  for (const s of typedStudents) {
+    if (s.richmond_student_id) studentIdByRid.set(s.richmond_student_id, s.id)
+  }
+
+  // Auto-create the roster from Richmond: every Richmond student we don't already
+  // have becomes a students row (encrypted names, linked to the group → school + teacher).
+  const richmondStudents = new Map<string, { first: string; last: string }>()
+  for (const a of assignments) {
+    for (const s of a.students) {
+      if (s.rid && !richmondStudents.has(s.rid)) {
+        richmondStudents.set(s.rid, { first: s.first, last: s.last })
+      }
+    }
+  }
+  const toCreate = Array.from(richmondStudents.entries()).filter(
+    ([rid]) => !studentIdByRid.has(rid)
+  )
+  if (toCreate.length > 0) {
+    const newRows = await Promise.all(
+      toCreate.map(async ([rid, name]) => ({
+        group_id,
+        display_name: `${name.first} ${name.last}`.trim() || 'Estudiante',
+        first_name_encrypted: await encrypt(name.first),
+        last_name_encrypted: await encrypt(name.last),
+        richmond_student_id: rid,
+      }))
+    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: created, error: createErr } = await (supabase as any)
+      .from('students')
+      .insert(newRows)
+      .select('id, richmond_student_id')
+    if (createErr) {
+      console.error('[MaestraAI ingest] failed to auto-create students:', createErr.message)
+    } else {
+      for (const s of (created ?? []) as { id: string; richmond_student_id: string }[]) {
+        studentIdByRid.set(s.richmond_student_id, s.id)
+      }
+    }
+  }
+
   // Process each assignment
   for (const assignment of assignments) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -185,10 +228,9 @@ export async function POST(req: NextRequest) {
       const dbAssignmentTyped = dbAssignment as any as { id: string }
       const rows = await Promise.all(
         validStudents.map(async (student) => {
-          const matchedStudent = typedStudents.find((s) => s.richmond_student_id === student.rid)
           return {
             assignment_id: dbAssignmentTyped.id,
-            student_id: matchedStudent?.id ?? null,
+            student_id: studentIdByRid.get(student.rid) ?? null,
             richmond_student_id: student.rid,
             first_name_encrypted: await encrypt(student.first),
             last_name_encrypted: await encrypt(student.last),

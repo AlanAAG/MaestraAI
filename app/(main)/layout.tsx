@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { Toaster } from '@/components/ui/sonner'
+import { getEditorialConfig } from '@/lib/editorial/registry'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
@@ -32,16 +33,18 @@ const NAV_ITEMS = [
   { href: '/configuracion', icon: Lock, label: 'Configuración' },
 ]
 
+// Calificaciones is Richmond-only — hidden when the teacher's editorial has no LMS sync.
+const LMS_ONLY_HREFS = ['/calificaciones-richmond']
+
 // First 4 items in bottom nav + "Más" as 5th
 const BOTTOM_PRIMARY = ['/dashboard', '/planeaciones', '/calificaciones-richmond', '/diario']
-const bottomPrimary = NAV_ITEMS.filter((n) => BOTTOM_PRIMARY.includes(n.href))
-const bottomMore = NAV_ITEMS.filter((n) => !BOTTOM_PRIMARY.includes(n.href))
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [loading, setLoading] = useState(true)
   const [showMore, setShowMore] = useState(false)
+  const [hasLmsSync, setHasLmsSync] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -55,7 +58,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: teacher } = await (supabase as any)
         .from('teachers')
-        .select('id')
+        .select('id, editorial')
         .eq('auth_id', user.id)
         .maybeSingle()
 
@@ -64,6 +67,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         return
       }
 
+      setHasLmsSync(getEditorialConfig(teacher.editorial).has_lms_sync)
       setLoading(false)
     })
 
@@ -91,6 +95,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return pathname.startsWith(href)
   }
 
+  const navItems = NAV_ITEMS.filter((n) => hasLmsSync || !LMS_ONLY_HREFS.includes(n.href))
+  const bottomPrimary = navItems.filter((n) => BOTTOM_PRIMARY.includes(n.href))
+  const bottomMore = navItems.filter((n) => !BOTTOM_PRIMARY.includes(n.href))
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar — desktop only */}
@@ -98,7 +106,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <div className="px-3 mb-6">
           <span className="text-lg font-semibold text-text-primary">MaestraAI</span>
         </div>
-        {NAV_ITEMS.map(({ href, icon: Icon, label }) => (
+        {navItems.map(({ href, icon: Icon, label }) => (
           <Link
             key={href}
             href={href}
