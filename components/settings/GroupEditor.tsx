@@ -113,16 +113,17 @@ export function GroupEditor({
       <div>
         <label className="block text-sm font-medium text-text-secondary mb-1">
           Código de clase Richmond{' '}
-          <span className="font-normal text-text-disabled">(opcional)</span>
+          <span className="font-normal text-text-disabled">(automático)</span>
         </label>
         <Input
           value={formData.richmond_class_code || ''}
           onChange={(e) => setFormData({ ...formData, richmond_class_code: e.target.value })}
-          placeholder="Ej: grupo-kinder3a"
+          placeholder="Se vincula solo desde la extensión"
           className="min-h-[44px]"
         />
         <p className="text-xs text-text-disabled mt-1">
-          El slug de la URL en richmondlp.com — necesario para sincronizar calificaciones
+          La extensión de Chrome lo llena automáticamente al vincular el grupo. Solo edítalo
+          manualmente si necesitas corregirlo.
         </p>
       </div>
 

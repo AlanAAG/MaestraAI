@@ -85,22 +85,6 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Código de clase Richmond{' '}
-          <span className="font-normal text-text-disabled">(opcional)</span>
-        </label>
-        <Input
-          value={formData.richmond_class_code || ''}
-          onChange={(e) => setFormData({ ...formData, richmond_class_code: e.target.value })}
-          placeholder="Ej: grupo-kinder3a"
-          className="min-h-[44px]"
-        />
-        <p className="text-xs text-text-disabled mt-1">
-          El slug de la URL en richmondlp.com — necesario para sincronizar calificaciones
-        </p>
-      </div>
-
       <div className="pt-1">
         <label className="flex items-start gap-3 cursor-pointer">
           <input

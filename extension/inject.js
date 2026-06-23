@@ -10,18 +10,18 @@
       url.includes('/api/markbook')
     )
 
-  // ponytail: log all /api/ calls so DevTools shows what Richmond actually fetches
-  function logApiCall(url) {
-    if (typeof url === 'string' && url.includes('/api/')) {
-      console.log('[MaestraAI] Richmond API call:', url)
-    }
-  }
+  // Diagnostics: flip to true (or set window.__MAESTRAAI_DEBUG = true) to log Richmond's
+  // payload field names while confirming the ingest mapping. Off by default — keeps the
+  // console quiet and avoids logging student data in production.
+  const DEBUG = false
 
   function emit(payload) {
-    // Log first item so DevTools shows the exact Richmond response shape.
-    const sample = Array.isArray(payload) ? payload[0] : payload
-    console.log('[MaestraAI] Intercepted payload — first item:', JSON.stringify(sample).slice(0, 600))
-    console.log('[MaestraAI] Total items in payload:', Array.isArray(payload) ? payload.length : 'non-array')
+    if (DEBUG || window.__MAESTRAAI_DEBUG) {
+      const sample = Array.isArray(payload) ? payload[0] : payload
+      const firstStudents = sample && (sample.students || sample.scores || sample.student_scores)
+      console.log('[MaestraAI] Assignment keys:', sample ? Object.keys(sample) : 'none')
+      console.log('[MaestraAI] First student object:', JSON.stringify(firstStudents && firstStudents[0]))
+    }
     // Same-origin postMessage; content.js validates origin + the source tag.
     window.postMessage({ source: 'maestraai-richmond', payload, path: location.pathname }, location.origin)
   }
@@ -32,7 +32,6 @@
     const xhr = new OriginalXHR()
     const open = xhr.open
     xhr.open = function (method, url, ...rest) {
-      logApiCall(String(url))
       if (MATCH(String(url))) {
         xhr.addEventListener('load', function () {
           if (xhr.status === 200) {
@@ -56,7 +55,6 @@
     const res = await originalFetch(input, init)
     try {
       const url = typeof input === 'string' ? input : input && input.url
-      logApiCall(url)
       if (MATCH(url) && res.ok) {
         res
           .clone()

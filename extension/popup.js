@@ -7,14 +7,15 @@ async function getApiUrl() {
   return apiUrl || PRODUCTION_URL
 }
 
-// Read the Richmond course slug from the active tab URL.
-// Returns e.g. "grupo-aca6e" or null if not on a course page.
-function detectRichmondClass() {
+// Inspect the active tab: are we on a Richmond course page, elsewhere on Richmond, or off-site?
+// Returns { slug, onRichmond }.
+function detectRichmondContext() {
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const url = tabs[0]?.url || ''
+      const onRichmond = /richmondlp\.com/.test(url)
       const m = url.match(/richmondlp\.com\/courses\/([^/]+)/)
-      resolve(m ? m[1] : null)
+      resolve({ slug: m ? m[1] : null, onRichmond })
     })
   })
 }
@@ -23,11 +24,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const { apiKey } = await chrome.storage.sync.get('apiKey')
   if (apiKey) document.getElementById('apiKey').value = apiKey
 
-  await showLastSyncStatus()
-
   if (apiKey) {
     const url = await getApiUrl()
     testConnection(apiKey, url)
+  } else {
+    // No key yet — surface any prior sync history instead of a blank box.
+    await showLastSyncStatus()
   }
 
   document.getElementById('saveBtn').addEventListener('click', async () => {
@@ -66,7 +68,7 @@ function statusRow(label, value, opts = {}) {
 }
 
 // Renders the one-tap group linking UI when teacher is on an unmapped Richmond course.
-function buildMappingUI(classCode, unmappedGroups, apiKey, apiUrl, onMapped) {
+function buildMappingUI(classCode, unmappedGroups, apiUrl, onMapped) {
   const div = document.createElement('div')
   div.className = 'setup-guide'
 
@@ -122,25 +124,46 @@ function buildMappingUI(classCode, unmappedGroups, apiKey, apiUrl, onMapped) {
   return div
 }
 
-// Shown when teacher is connected but not on any Richmond course page.
-function buildNotOnRichmondHint(apiUrl) {
+// Shown when connected but not on a Richmond course page.
+// onRichmond=true → they're on Richmond but not inside a group; just guide them to open one.
+function buildNotOnRichmondHint(onRichmond) {
   const div = document.createElement('div')
   div.className = 'setup-guide'
 
+  const title = document.createElement('p')
+  title.className = 'setup-title'
+  title.textContent = onRichmond ? 'Abre un grupo para vincularlo' : 'Ve a Richmond'
+  div.appendChild(title)
+
   const hint = document.createElement('p')
   hint.className = 'no-richmond-hint'
-  hint.textContent =
-    'Navega a tu grupo en richmondlp.com → abre esta extensión → vincula el grupo con un clic.'
+  hint.textContent = onRichmond
+    ? 'Haz clic en el nombre de cualquiera de tus grupos en Richmond. Al entrar, vuelve a abrir esta extensión y podrás vincularlo con un clic.'
+    : 'Inicia sesión en richmondlp.com, abre un grupo y vuelve a esta extensión para vincularlo.'
   div.appendChild(hint)
 
-  const link = document.createElement('a')
-  link.href = 'https://richmondlp.com'
-  link.target = '_blank'
-  link.className = 'setup-link'
-  link.textContent = '→ Ir a Richmond'
-  div.appendChild(link)
+  if (!onRichmond) {
+    const link = document.createElement('a')
+    link.href = 'https://richmondlp.com'
+    link.target = '_blank'
+    link.className = 'setup-link'
+    link.textContent = '→ Ir a Richmond'
+    div.appendChild(link)
+  }
 
   return div
+}
+
+// Returns a single status row summarizing the most recent sync, or null if none.
+async function lastSyncRow() {
+  const { lastSyncStatus, lastSyncTime, lastSyncGroup } =
+    await chrome.storage.sync.get(['lastSyncStatus', 'lastSyncTime', 'lastSyncGroup'])
+  if (!lastSyncTime) return null
+  const when = formatRelativeTime(lastSyncTime)
+  if (lastSyncStatus === 'ok') {
+    return statusRow('Última sincronización', `${lastSyncGroup || ''} ${when}`.trim(), { valueColor: '#16a34a' })
+  }
+  return statusRow(`Último intento falló (${when})`, null, { labelColor: '#ef4444' })
 }
 
 async function showLastSyncStatus() {
@@ -194,34 +217,38 @@ async function testConnection(apiKey, apiUrl) {
   const data = result.data
   const mappedGroups = data.mappedGroups ?? Object.keys(data.groupMap ?? {}).length
   const unmappedGroups = data.unmappedGroups ?? []
-  const classCode = await detectRichmondClass()
+  const { slug: classCode, onRichmond } = await detectRichmondContext()
   const currentCourseIsMapped = classCode && data.groupMap && data.groupMap[classCode]
 
   statusBox.className = 'status connected'
   statusDot.className = 'status-dot green'
-  statusTitle.textContent = `✓ ${data.teacherName}`
+  statusTitle.textContent = data.teacherName ? `✓ ${data.teacherName}` : '✓ Conectada'
 
   const nodes = []
 
   if (currentCourseIsMapped) {
-    // On a mapped course — show sync readiness
-    nodes.push(statusRow('Lista para sincronizar', classCode, { valueColor: '#16a34a' }))
-    if (mappedGroups > 1) nodes.push(statusRow('Total grupos vinculados', mappedGroups))
+    // On a mapped course — ready. Tell them to open Markbook → Scores.
+    nodes.push(statusRow('✓ Grupo vinculado', classCode, { valueColor: '#16a34a' }))
+    nodes.push(statusRow('Abre Markbook → Scores para sincronizar', null))
   } else if (classCode && unmappedGroups.length > 0) {
-    // On Richmond, course not mapped yet → show one-tap picker
-    nodes.push(buildMappingUI(classCode, unmappedGroups, apiKey, apiUrl, () => testConnection(apiKey, apiUrl)))
-  } else if (mappedGroups > 0 && !classCode) {
-    // Has mappings but not on Richmond right now — just show status
-    nodes.push(statusRow('Grupos vinculados', mappedGroups, { valueColor: '#16a34a' }))
-    nodes.push(statusRow('Navega a Richmond para sincronizar', null))
-  } else if (!classCode) {
-    // No mappings, not on Richmond
-    nodes.push(buildNotOnRichmondHint(apiUrl))
+    // On an unmapped Richmond course → one-tap picker
+    nodes.push(buildMappingUI(classCode, unmappedGroups, apiUrl, () => testConnection(apiKey, apiUrl)))
+  } else if (classCode && mappedGroups === 0) {
+    // On a Richmond course but teacher has no MaestraAI groups yet
+    nodes.push(statusRow('Crea un grupo en MaestraAI primero', null, { labelColor: '#f59e0b' }))
+  } else if (classCode) {
+    // On a Richmond course, not mapped, but all groups already linked elsewhere
+    nodes.push(statusRow('Esta clase no coincide con tus grupos', null, { labelColor: '#f59e0b' }))
+    nodes.push(statusRow('Todos tus grupos ya están vinculados a otras clases', null))
   } else {
-    // On Richmond but all groups already mapped (or no groups exist)
-    nodes.push(statusRow('Sin grupos en MaestraAI', null, { labelColor: '#f59e0b' }))
-    nodes.push(statusRow('Crea un grupo en MaestraAI primero', null))
+    // Not inside a course page (Richmond dashboard or off-site)
+    if (mappedGroups > 0) nodes.push(statusRow('Grupos vinculados', mappedGroups, { valueColor: '#16a34a' }))
+    nodes.push(buildNotOnRichmondHint(onRichmond))
   }
+
+  // Always surface the last sync result if we have one — it's the proof the flow worked.
+  const lastRow = await lastSyncRow()
+  if (lastRow) nodes.push(lastRow)
 
   statusDetails.replaceChildren(...nodes)
 

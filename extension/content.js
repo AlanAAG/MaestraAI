@@ -43,8 +43,16 @@ function ensureBadge() {
     'transition:background .3s,color .3s,border-color .3s',
     'pointer-events:none', 'user-select:none', 'border:1.5px solid transparent',
   ].join(';')
-  document.body.appendChild(badge)
+  // At document_start <body> may not exist yet; <html> always does.
+  ;(document.body || document.documentElement).appendChild(badge)
   return badge
+}
+
+// Single source of truth for the resting badge state, so every code path agrees.
+function idleBadge() {
+  return Object.keys(GROUP_UUID_MAP).length > 0
+    ? { state: 'green', text: 'MaestraAI ✓' }
+    : { state: 'amber', text: '⚠ MaestraAI sin vincular' }
 }
 
 const BADGE_STYLES = {
@@ -124,8 +132,10 @@ async function loadGroupMappings() {
     isInitialized = true
 
     const mappedCount = Object.keys(GROUP_UUID_MAP).length
+    const onCoursePage = /\/courses\/[^/]+\//.test(window.location.pathname)
     if (mappedCount === 0) {
-      setBadge('amber', 'MaestraAI · Abre la extensión ↑')
+      // Pulsing amber CTA — clicking the extension icon is the next action.
+      setBadge('amber', onCoursePage ? '⚠ Vincula este grupo → clic en el ícono ↗' : '⚠ MaestraAI sin vincular')
       console.warn('[MaestraAI] Connected but no groups mapped — open the extension popup to link this class.')
     } else {
       setBadge('green', 'MaestraAI ✓')
@@ -166,13 +176,13 @@ chrome.runtime.onMessage.addListener((message) => {
     isInitialized = false
     loadGroupMappings()
   } else if (message.type === 'SYNC_STATUS') {
+    const idle = idleBadge()
     if (message.status === 'ok') {
       const label = message.count != null ? `MaestraAI ✓ ${message.count} registros` : 'MaestraAI ✓ Sincronizado'
-      const idleLabel = Object.keys(GROUP_UUID_MAP).length > 0 ? 'MaestraAI ✓' : 'MaestraAI · Sin grupos mapeados'
-      const idleState = Object.keys(GROUP_UUID_MAP).length > 0 ? 'green' : 'amber'
-      setBadgeTemp('green', label, idleState, idleLabel)
+      setBadgeTemp('green', label, idle.state, idle.text)
     } else {
-      setBadgeTemp('red', 'MaestraAI · Error al sincronizar', 'green', 'MaestraAI ✓')
+      // Reset to the real resting state (green/amber), not an unconditional green.
+      setBadgeTemp('red', 'MaestraAI · Error al sincronizar', idle.state, idle.text)
     }
   }
 })

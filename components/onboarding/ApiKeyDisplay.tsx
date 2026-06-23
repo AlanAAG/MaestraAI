@@ -60,8 +60,9 @@ export function ApiKeyDisplay({ apiKey, keyPrefix }: ApiKeyDisplayProps) {
 
       <div className="p-3 rounded-lg bg-surface border border-border">
         <p className="text-xs text-text-secondary">
-          💡 <strong>Próximo paso:</strong> Instalarás la extensión de Chrome y pegarás esta clave
-          para sincronizar automáticamente tus datos de Richmond LP.
+          💡 <strong>Próximo paso:</strong> Instala la extensión de Chrome y pega esta clave{' '}
+          <strong>una sola vez</strong>. Después, cada grupo se vincula con un clic desde la
+          extensión — sin códigos que copiar.
         </p>
       </div>
     </div>

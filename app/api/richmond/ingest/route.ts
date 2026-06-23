@@ -6,39 +6,13 @@ import { verifyApiKey, extractKeyPrefix } from '@/lib/api-keys'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 import { encrypt } from '@/lib/encryption'
+import { mapAssignment } from '@/lib/richmond/map'
 
-// Lenient schema — Richmond's API shape may differ from what was originally assumed.
-// All fields beyond group_id are optional with safe defaults so we never 400 on shape changes.
-// The actual field mapping is logged server-side for debugging.
-const RichmondStudentScoreSchema = z
-  .object({
-    richmond_student_id: z.union([z.string(), z.number()]).transform(String).optional().default(''),
-    first_name: z.string().optional().default(''),
-    last_name: z.string().optional().default(''),
-    progress: z.string().optional().default('not_started'),
-    total_score: z.number().nullish(),
-    done: z.boolean().optional().default(false),
-  })
-  .passthrough()
-
-const RichmondAssignmentSchema = z
-  .object({
-    // id may be uuid string or integer — coerce to string
-    id: z.union([z.string(), z.number()]).transform(String).optional().default('unknown'),
-    title: z.string().optional().default('Actividad'),
-    instructions: z.string().nullish(),
-    assigned_at: z.string().optional().default(''),
-    due_at: z.string().optional().default(''),
-    total_students: z.number().optional().default(0),
-    total_submitted: z.number().optional().default(0),
-    class_avg_score: z.number().nullish(),
-    students: z.array(RichmondStudentScoreSchema).optional().default([]),
-  })
-  .passthrough()
-
+// Richmond is an external API we don't control — never reject on its shape.
+// Accept any array of objects; map fields defensively (see lib/richmond/map.ts).
 const IngestInputSchema = z.object({
   group_id: z.string().uuid(),
-  data: z.array(RichmondAssignmentSchema),
+  data: z.array(z.record(z.string(), z.unknown())),
 })
 
 export async function POST(req: NextRequest) {
@@ -108,12 +82,27 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { group_id, data: assignments } = parsed.data
+  const { group_id, data: rawAssignments } = parsed.data
+  const assignments = rawAssignments.map(mapAssignment)
 
-  // Log first item so we can see the actual Richmond payload shape in server logs.
+  // Log shapes (keys only, no student PII) to confirm field mapping in server logs.
+  const firstRawStudent = (rawAssignments[0]?.students ??
+    rawAssignments[0]?.scores ??
+    rawAssignments[0]?.student_scores) as unknown[] | undefined
+  console.log('[MaestraAI ingest] assignment keys:', Object.keys(rawAssignments[0] ?? {}))
   console.log(
-    '[MaestraAI ingest] first item received:',
-    JSON.stringify(assignments[0]).slice(0, 600)
+    '[MaestraAI ingest] student keys:',
+    Object.keys((firstRawStudent?.[0] as object) ?? {})
+  )
+  console.log(
+    '[MaestraAI ingest] mapped sample (no names):',
+    JSON.stringify({
+      id: assignments[0]?.id,
+      title: assignments[0]?.title,
+      studentCount: assignments[0]?.students.length,
+      firstStudentScore: assignments[0]?.students[0]?.score,
+      firstStudentRid: assignments[0]?.students[0]?.rid ? 'present' : 'MISSING',
+    })
   )
   console.log('[MaestraAI ingest] total items:', assignments.length)
 
@@ -186,25 +175,26 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // Skip students with no usable id — they'd collide on the (assignment_id, richmond_student_id) key.
+    const validStudents = assignment.students.filter((s) => s.rid !== '')
+
     // Batch upsert all student records for this assignment in a single round trip.
     // Encrypt names in parallel, then send one upsert call instead of one per student.
-    if (assignment.students.length > 0) {
+    if (validStudents.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dbAssignmentTyped = dbAssignment as any as { id: string }
       const rows = await Promise.all(
-        assignment.students.map(async (student) => {
-          const matchedStudent = typedStudents.find(
-            (s) => s.richmond_student_id === student.richmond_student_id
-          )
+        validStudents.map(async (student) => {
+          const matchedStudent = typedStudents.find((s) => s.richmond_student_id === student.rid)
           return {
             assignment_id: dbAssignmentTyped.id,
             student_id: matchedStudent?.id ?? null,
-            richmond_student_id: student.richmond_student_id,
-            first_name_encrypted: await encrypt(student.first_name || ''),
-            last_name_encrypted: await encrypt(student.last_name || ''),
-            progress: student.progress ?? 'not_started',
-            total_score: student.total_score ?? null,
-            done: student.done ?? false,
+            richmond_student_id: student.rid,
+            first_name_encrypted: await encrypt(student.first),
+            last_name_encrypted: await encrypt(student.last),
+            progress: student.progress,
+            total_score: student.score,
+            done: student.done,
             synced_at: new Date().toISOString(),
           }
         })
