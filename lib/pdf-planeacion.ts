@@ -49,6 +49,7 @@ export interface PlaneacionDocumentProps {
   groupName: string
   grade: string
   schoolName: string
+  orientation?: 'vertical' | 'horizontal'
   lessonPlans: Array<{
     dayNumber: number
     dayLabel: string

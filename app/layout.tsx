@@ -12,8 +12,8 @@ const inter = Inter({
 
 export function generateMetadata(): Metadata {
   return {
-    title: 'MaestraAI',
-    description: 'Tu asistente para maestra de inglés en preescolar',
+    title: 'MaestraIA',
+    description: 'Tu asistente de planeación y materiales para preescolar',
     other: {
       ...Sentry.getTraceData(),
     },

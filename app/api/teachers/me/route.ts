@@ -4,8 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
 const PatchSchema = z.object({
-  full_name: z.string().min(2).max(100),
+  full_name: z.string().min(2).max(100).optional(),
   english_period_minutes: z.number().int().min(15).max(120).optional(),
+  subject: z.string().max(100).optional(),
+  teaching_style: z.string().max(500).optional(),
+  profile_notes: z.string().max(1000).optional(),
 })
 
 export async function GET() {
@@ -16,14 +19,23 @@ export async function GET() {
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const base =
+      'id, full_name, email, role_type, subject, editorial, school_id, created_at, english_period_minutes, plan_template, schools(name, city, plan)'
+    // Try the personalization columns; fall back if migration 049 isn't applied yet.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: teacher, error } = await (supabase as any)
+    let { data: teacher, error } = await (supabase as any)
       .from('teachers')
-      .select(
-        'id, full_name, email, role_type, subject, editorial, school_id, created_at, english_period_minutes, plan_template, schools(name, city, plan)'
-      )
+      .select(`${base}, teaching_style, profile_notes`)
       .eq('auth_id', user.id)
       .single()
+    if (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;({ data: teacher, error } = await (supabase as any)
+        .from('teachers')
+        .select(base)
+        .eq('auth_id', user.id)
+        .single())
+    }
 
     if (error || !teacher) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -64,9 +76,16 @@ export async function PATCH(req: NextRequest) {
     const { data, error } = await (supabase as any)
       .from('teachers')
       .update({
-        full_name: body.data.full_name,
+        ...(body.data.full_name !== undefined ? { full_name: body.data.full_name } : {}),
         ...(body.data.english_period_minutes !== undefined
           ? { english_period_minutes: body.data.english_period_minutes }
+          : {}),
+        ...(body.data.subject !== undefined ? { subject: body.data.subject } : {}),
+        ...(body.data.teaching_style !== undefined
+          ? { teaching_style: body.data.teaching_style }
+          : {}),
+        ...(body.data.profile_notes !== undefined
+          ? { profile_notes: body.data.profile_notes }
           : {}),
       })
       .eq('auth_id', user.id)

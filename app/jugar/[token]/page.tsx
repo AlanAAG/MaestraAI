@@ -23,7 +23,7 @@ export default async function JugarPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center">
-        <span className="text-sm font-semibold text-indigo-600">MaestraAI</span>
+        <span className="text-sm font-semibold text-indigo-600">MaestraIA</span>
       </header>
       <main className="max-w-lg mx-auto py-6 px-4">
         <GameShell

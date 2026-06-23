@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card'
 import {
   ChevronDown,
   Sparkles,
-  Download,
   ArrowLeft,
   BookOpen,
   Eye,
@@ -18,6 +17,8 @@ import {
   FileText,
 } from 'lucide-react'
 import Link from 'next/link'
+import { DownloadMenu } from '@/components/ui/download-menu'
+import { FileType, Link2 } from 'lucide-react'
 import { LoadingGeneration } from '@/components/app/LoadingGeneration'
 import { LessonPlanEditor } from '@/components/app/LessonPlanEditor'
 import { MaterialGenerator } from '@/components/app/MaterialGenerator'
@@ -115,6 +116,7 @@ export default function PlaneacionDetailPage() {
   const [generatingDocument, setGeneratingDocument] = useState(false)
   const [exportingDocx, setExportingDocx] = useState(false)
   const [teacherName, setTeacherName] = useState('')
+  const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>('vertical')
 
   useEffect(() => {
     loadData()
@@ -249,6 +251,7 @@ export default function PlaneacionDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fortnight_id: fortnight.id,
+          orientation,
         }),
       })
 
@@ -326,7 +329,7 @@ export default function PlaneacionDetailPage() {
       const res = await fetch('/api/planner/export-docx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fortnight_id: fortnight.id }),
+        body: JSON.stringify({ fortnight_id: fortnight.id, orientation }),
       })
       if (!res.ok) throw new Error('DOCX export failed')
       const blob = await res.blob()
@@ -368,7 +371,7 @@ export default function PlaneacionDetailPage() {
     setEditingPlanId(null)
   }
 
-  async function handleAddYoutube(planId: string) {
+  async function handleAddYoutube(planId?: string) {
     if (!fortnight) return
     const url = youtubeUrl.trim()
     if (!url.includes('youtube.com') && !url.includes('youtu.be')) return
@@ -377,7 +380,11 @@ export default function PlaneacionDetailPage() {
       const res = await fetch('/api/materials/from-youtube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, fortnight_id: fortnight.id, lesson_plan_id: planId }),
+        body: JSON.stringify({
+          url,
+          fortnight_id: fortnight.id,
+          ...(planId ? { lesson_plan_id: planId } : {}),
+        }),
       })
       if (res.ok) {
         setYoutubeUrl('')
@@ -429,27 +436,49 @@ export default function PlaneacionDetailPage() {
             {(lessonPlans.length > 0 || fortnight.plan_document) && (
               <>
                 {fortnight.plan_document && (
-                  <Button
-                    variant="outline"
-                    className="min-h-[44px]"
-                    onClick={handleExportDocx}
-                    disabled={exportingDocx}
-                  >
-                    <FileText size={16} className="mr-2" />
-                    {exportingDocx ? 'Descargando...' : 'Descargar Word'}
-                  </Button>
+                  <div className="flex items-center gap-1 rounded-full bg-muted p-0.5">
+                    {(['vertical', 'horizontal'] as const).map((o) => (
+                      <button
+                        key={o}
+                        type="button"
+                        onClick={() => setOrientation(o)}
+                        className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          orientation === o
+                            ? 'bg-surface shadow-sm text-text-primary'
+                            : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                        title="Orientación del documento exportado"
+                      >
+                        {o === 'vertical' ? 'Vertical' : 'Horizontal'}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {lessonPlans.length > 0 && (
-                  <Button
-                    variant="outline"
-                    className="min-h-[44px]"
-                    onClick={handleExportPdf}
-                    disabled={exportingPdf}
-                  >
-                    <Download size={16} className="mr-2" />
-                    {exportingPdf ? 'Descargando...' : 'Descargar PDF'}
-                  </Button>
-                )}
+                <DownloadMenu
+                  busy={exportingDocx || exportingPdf}
+                  items={[
+                    ...(fortnight.plan_document
+                      ? [
+                          {
+                            label: 'Word (.docx)',
+                            icon: <FileText size={15} />,
+                            onSelect: handleExportDocx,
+                          },
+                        ]
+                      : []),
+                    ...(lessonPlans.length > 0
+                      ? [{ label: 'PDF', icon: <FileType size={15} />, onSelect: handleExportPdf }]
+                      : []),
+                    {
+                      label: 'Copiar enlace',
+                      icon: <Link2 size={15} />,
+                      onSelect: () => {
+                        navigator.clipboard.writeText(window.location.href)
+                        alert('Enlace copiado al portapapeles')
+                      },
+                    },
+                  ]}
+                />
                 <Button
                   variant="outline"
                   className="min-h-[44px]"
@@ -528,17 +557,32 @@ export default function PlaneacionDetailPage() {
 
           {/* Plan document view */}
           {fortnight.plan_document && (activeTab === 'document' || lessonPlans.length === 0) && (
-            <PlanDocumentViewer
-              planDocument={fortnight.plan_document}
-              fortnightId={fortnight.id}
-              observationCalendar={fortnight.observation_calendar}
-              schedule={fortnight.groups?.fixed_weekly_schedule}
-              startDate={fortnight.start_date}
-              endDate={fortnight.end_date}
-              groupName={fortnight.groups?.name}
-              teacherName={teacherName}
-              onReload={loadData}
-            />
+            <>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedLessonPlanId(null)
+                    setShowMaterialGenerator(true)
+                  }}
+                >
+                  <Package size={14} className="mr-2" />
+                  Crear materiales y juegos
+                </Button>
+              </div>
+              <PlanDocumentViewer
+                planDocument={fortnight.plan_document}
+                fortnightId={fortnight.id}
+                observationCalendar={fortnight.observation_calendar}
+                schedule={fortnight.groups?.fixed_weekly_schedule}
+                startDate={fortnight.start_date}
+                endDate={fortnight.end_date}
+                groupName={fortnight.groups?.name}
+                teacherName={teacherName}
+                onReload={loadData}
+              />
+            </>
           )}
 
           {/* Day-by-day view */}
@@ -794,14 +838,15 @@ export default function PlaneacionDetailPage() {
         </div>
       )}
 
-      {showMaterialGenerator && selectedLessonPlanId && fortnight && (
+      {showMaterialGenerator && fortnight && (
         <MaterialGenerator
-          lessonPlanId={selectedLessonPlanId}
+          lessonPlanId={selectedLessonPlanId ?? undefined}
           fortnightId={fortnight.id}
           vocabulary={
-            lessonPlans.find((p) => p.id === selectedLessonPlanId)?.vocabulary?.length
-              ? lessonPlans.find((p) => p.id === selectedLessonPlanId)!.vocabulary
-              : vocabularyItems.map((v) => v.word)
+            (selectedLessonPlanId &&
+              lessonPlans.find((p) => p.id === selectedLessonPlanId)?.vocabulary?.length &&
+              lessonPlans.find((p) => p.id === selectedLessonPlanId)!.vocabulary) ||
+            vocabularyItems.map((v) => v.word)
           }
           onClose={() => {
             setShowMaterialGenerator(false)

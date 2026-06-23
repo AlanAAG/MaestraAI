@@ -640,7 +640,7 @@ export default function NuevaPlaneacionPage() {
           </h3>
           <p className="text-xs text-text-secondary mb-3">
             Base siempre disponible: pizarrón, crayones, hojas, proyector, tijeras, pegamento,
-            flashcards MaestraAI.
+            flashcards MaestraIA.
           </p>
           <div className="flex gap-2 mb-3">
             <Input

@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, Share2, Trash2, Copy, Check } from 'lucide-react'
+import { ArrowLeft, Download, Share2, Trash2, Copy, Check, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DownloadMenu } from '@/components/ui/download-menu'
 import { createClient } from '@/lib/supabase/browser'
 
 type Entry = {
@@ -151,10 +152,19 @@ export default function DiarioDetailPage() {
           {weekLabel(entry.week_start, entry.week_end)}
         </h1>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" onClick={handleDownload} className="min-h-[44px] gap-2">
-            <Download size={16} />
-            PDF
-          </Button>
+          <DownloadMenu
+            items={[
+              { label: 'PDF', icon: <Download size={15} />, onSelect: handleDownload },
+              {
+                label: 'Copiar enlace',
+                icon: <Link2 size={15} />,
+                onSelect: () => {
+                  navigator.clipboard.writeText(window.location.href)
+                  alert('Enlace copiado al portapapeles')
+                },
+              },
+            ]}
+          />
           <Button variant="outline" onClick={handleShare} className="min-h-[44px] gap-2">
             <Share2 size={16} />
             Compartir

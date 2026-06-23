@@ -420,7 +420,7 @@ export default function LandingContent() {
       {/* ── Floating nav ── */}
       <div className="fixed top-5 inset-x-0 z-50 flex justify-center px-4">
         <nav className="w-full max-w-5xl flex items-center justify-between px-5 h-14 rounded-2xl bg-[#0d0b14]/80 backdrop-blur-md border border-white/10 shadow-xl">
-          <span className="font-black text-base text-white tracking-tight">MaestraAI</span>
+          <span className="font-black text-base text-white tracking-tight">MaestraIA</span>
           <div className="hidden md:flex items-center gap-6 text-sm text-white/50 font-medium">
             <a href="#plataforma" className="hover:text-white transition-colors cursor-pointer">
               La plataforma
@@ -490,7 +490,7 @@ export default function LandingContent() {
                 {...(reduced ? {} : fadeUp(0.16))}
                 className="mt-6 text-lg text-white/50 leading-relaxed max-w-lg"
               >
-                MaestraAI genera planeaciones alineadas al NEM y PRONI, crea materiales didácticos
+                MaestraIA genera planeaciones alineadas al NEM y PRONI, crea materiales didácticos
                 listos para imprimir, y da seguimiento a cada alumno — todo en un solo lugar.
               </motion.p>
 
@@ -565,7 +565,7 @@ export default function LandingContent() {
                   />
                   <GraduationCap size={44} className="text-violet-400/40" />
                   <div className="text-center">
-                    <p className="text-violet-300/60 text-sm font-semibold">Personaje MaestraAI</p>
+                    <p className="text-violet-300/60 text-sm font-semibold">Personaje MaestraIA</p>
                     <p className="text-violet-400/30 text-xs mt-0.5">Asset pendiente</p>
                   </div>
                 </div>
@@ -606,7 +606,7 @@ export default function LandingContent() {
               Todo lo que necesitas para enseñar mejor
             </h2>
             <p className="text-white/35 max-w-lg mx-auto">
-              Desde la planeación hasta el reporte trimestral, MaestraAI cubre cada etapa de tu
+              Desde la planeación hasta el reporte trimestral, MaestraIA cubre cada etapa de tu
               semana.
             </p>
           </motion.div>
@@ -653,7 +653,7 @@ export default function LandingContent() {
       <section className="bg-[#13111c] py-24 px-4 border-t border-white/5">
         <motion.div {...(reduced ? {} : fadeUp())} className="text-center mb-14">
           <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-4 block">
-            Por qué MaestraAI
+            Por qué MaestraIA
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-white">
             Hecho específicamente para
@@ -701,7 +701,7 @@ export default function LandingContent() {
         <div className="max-w-5xl mx-auto">
           <motion.div {...(reduced ? {} : fadeUp())} className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-black text-gray-950 mb-3">
-              Antes vs. con MaestraAI
+              Antes vs. con MaestraIA
             </h2>
             <p className="text-gray-500 max-w-md mx-auto">
               Así cambia tu semana cuando la planificación deja de ser el problema.
@@ -742,7 +742,7 @@ export default function LandingContent() {
                 className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-200/30 rounded-full blur-2xl"
               />
               <span className="text-xs font-bold uppercase tracking-widest text-indigo-500 mb-6 block">
-                Con MaestraAI
+                Con MaestraIA
               </span>
               <div className="space-y-5">
                 {[
@@ -778,7 +778,7 @@ export default function LandingContent() {
             </div>
             <blockquote className="text-xl font-semibold text-gray-900 leading-relaxed mb-6">
               &ldquo;Por fin tengo mis planeaciones listas el viernes — antes me quedaba hasta las
-              11pm del domingo. MaestraAI entiende exactamente lo que necesito.&rdquo;
+              11pm del domingo. MaestraIA entiende exactamente lo que necesito.&rdquo;
             </blockquote>
             <div className="flex items-center justify-center gap-3">
               <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
@@ -878,7 +878,7 @@ export default function LandingContent() {
       <footer className="border-t border-white/8 py-10 px-4 bg-[#0d0b14]">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex flex-col items-center sm:items-start gap-1">
-            <span className="font-black text-white">MaestraAI</span>
+            <span className="font-black text-white">MaestraIA</span>
             <span className="text-xs text-white/25">Hecho para maestras de México</span>
           </div>
           <div className="flex flex-wrap justify-center gap-6 text-sm text-white/30">

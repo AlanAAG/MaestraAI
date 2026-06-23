@@ -61,7 +61,8 @@ const GENERATE_TYPES: GenerateMaterialType[] = [
 ]
 
 type MaterialGeneratorProps = {
-  lessonPlanId: string
+  // Optional: omitted when creating materials at the fortnight (document) level rather than a day.
+  lessonPlanId?: string
   fortnightId: string
   vocabulary?: string[]
   onClose: () => void

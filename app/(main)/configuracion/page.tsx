@@ -415,7 +415,7 @@ export default function ConfiguracionPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Duración del período de inglés (minutos)
+              Duración de tu clase/periodo (minutos)
             </label>
             <input
               type="number"
@@ -667,7 +667,7 @@ export default function ConfiguracionPage() {
               Aviso importante sobre el uso de datos de Richmond LP
             </p>
             <p className="text-xs text-amber-700">
-              MaestraAI no es proveedor afiliado ni autorizado de Richmond Publishing / Programas de
+              MaestraIA no es proveedor afiliado ni autorizado de Richmond Publishing / Programas de
               Innovación Educativa (Grupo Santillana). Al activar la sincronización confirmas que:{' '}
               <strong>(a)</strong> tienes autorización de tu institución para el intercambio de
               datos entre plataformas educativas, y <strong>(b)</strong> cumplirás los términos de
@@ -722,7 +722,7 @@ export default function ConfiguracionPage() {
             {/* Install button */}
             <div className="p-4 rounded-lg bg-surface border border-border flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-text-primary">MaestraAI Richmond Sync</p>
+                <p className="text-sm font-medium text-text-primary">MaestraIA Richmond Sync</p>
                 <p className="text-xs text-text-secondary mt-0.5">
                   {CHROME_STORE_URL
                     ? 'Instala la extensión con un clic. No requiere configuración técnica.'

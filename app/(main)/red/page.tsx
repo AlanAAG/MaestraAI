@@ -68,6 +68,7 @@ export default function RedPage() {
   const [teacherId, setTeacherId] = useState<string | null>(null)
   const [roleType, setRoleType] = useState<string>('teacher')
   const [loading, setLoading] = useState(true)
+  const [schoolName, setSchoolName] = useState('')
   const [resourceFilter, setResourceFilter] = useState('todos')
   const [showForm, setShowForm] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -92,6 +93,7 @@ export default function RedPage() {
       const { resources: res } = await resRes.json()
       setTeacherId(me.id)
       setRoleType(me.role_type || 'teacher')
+      setSchoolName(me.schools?.name ?? '')
       setAnnouncements(ann || [])
       setResources(res || [])
       setLoading(false)
@@ -174,7 +176,9 @@ export default function RedPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-8">
-      <h1 className="text-2xl font-semibold text-text-primary mb-8">Mi escuela</h1>
+      <h1 className="text-2xl font-semibold text-text-primary mb-8">
+        {schoolName || 'Mi escuela'}
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Avisos (2/3 width) */}

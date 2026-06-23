@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { BookOpen, Plus, Download, Trash2 } from 'lucide-react'
+import { BookOpen, Plus, Download, Trash2, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/browser'
 import { ZeroState } from '@/components/app/ZeroState'
@@ -38,6 +38,7 @@ export default function DiarioPage() {
   const router = useRouter()
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [sharingId, setSharingId] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -70,6 +71,24 @@ export default function DiarioPage() {
     if (!confirm('¿Eliminar este diario? Esta acción no se puede deshacer.')) return
     const res = await fetch(`/api/diary/${id}`, { method: 'DELETE' })
     if (res.ok) setEntries((prev) => prev.filter((e) => e.id !== id))
+  }
+
+  async function handleShareSchool(entry: DiaryEntry) {
+    setSharingId(entry.id)
+    try {
+      const res = await fetch('/api/school/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${weekLabel(entry.week_start, entry.week_end)} — Diario`,
+          file_url: `${window.location.origin}/diario/${entry.id}`,
+          resource_type: 'guide',
+        }),
+      })
+      alert(res.ok ? 'Compartido con tu escuela' : 'No se pudo compartir.')
+    } finally {
+      setSharingId(null)
+    }
   }
 
   async function handleDownload(entry: DiaryEntry) {
@@ -135,16 +154,17 @@ export default function DiarioPage() {
           {entries.map((entry) => (
             <div
               key={entry.id}
-              className="p-5 rounded-2xl border border-[var(--color-border)] bg-surface"
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/diario/${entry.id}`)}
+              onKeyDown={(e) => e.key === 'Enter' && router.push(`/diario/${entry.id}`)}
+              className="p-5 rounded-2xl border border-[var(--color-border)] bg-surface cursor-pointer hover:border-primary transition-colors"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <Link
-                    href={`/diario/${entry.id}`}
-                    className="font-semibold text-text-primary hover:text-primary transition-colors"
-                  >
+                  <p className="font-semibold text-text-primary">
                     {weekLabel(entry.week_start, entry.week_end)}
-                  </Link>
+                  </p>
                   {entry.ai_summary && (
                     <p className="text-sm text-text-secondary mt-1 line-clamp-2">
                       {entry.ai_summary.slice(0, 200)}
@@ -153,14 +173,31 @@ export default function DiarioPage() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={() => handleDownload(entry)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleShareSchool(entry)
+                    }}
+                    disabled={sharingId === entry.id}
+                    className="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary-light transition-colors disabled:opacity-50"
+                    title="Compartir con escuela"
+                  >
+                    <Share2 size={18} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDownload(entry)
+                    }}
                     className="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary-light transition-colors"
                     title="Descargar PDF"
                   >
                     <Download size={18} />
                   </button>
                   <button
-                    onClick={() => handleDelete(entry.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(entry.id)
+                    }}
                     className="p-2 rounded-lg text-text-secondary hover:text-red-500 hover:bg-red-50 transition-colors"
                     title="Eliminar"
                   >

@@ -119,7 +119,7 @@ export function StreamingOutput({
               onClick={onSave}
               className="min-h-[44px] px-6 text-[15px] font-semibold rounded-xl"
             >
-              Guardar en MaestraAI
+              Guardar en MaestraIA
             </Button>
           )}
         </div>

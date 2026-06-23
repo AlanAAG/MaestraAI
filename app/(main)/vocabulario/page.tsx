@@ -222,13 +222,15 @@ export default function VocabularioPage() {
         const base64 = e.target?.result as string
         const base64Data = base64.split(',')[1]
 
+        const isImage = selectedFile.type.startsWith('image/')
         const response = await fetch('/api/vocabulary/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageBase64: base64Data,
-            imageMimeType: selectedFile.type,
-          }),
+          body: JSON.stringify(
+            isImage
+              ? { imageBase64: base64Data, imageMimeType: selectedFile.type }
+              : { documentBase64: base64Data, documentMimeType: selectedFile.type }
+          ),
         })
 
         const data = await response.json()
@@ -363,7 +365,7 @@ export default function VocabularioPage() {
               </Button>
               <Button onClick={() => setMode('extract')} size="sm">
                 <Upload size={16} className="mr-2" />
-                Subir imagen
+                Subir archivo
               </Button>
             </div>
           )}
@@ -441,7 +443,7 @@ export default function VocabularioPage() {
             <textarea
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
-              placeholder="A: apple, ant, airplane&#10;B: ball, book, bird&#10;..."
+              placeholder="Pega tu lista. Funciona con:&#10;A&#10;apple&#10;ant&#10;&#10;B&#10;ball&#10;...&#10;o también: A: apple, ant"
               className="w-full h-64 border border-border rounded-lg px-4 py-3 text-sm bg-surface text-text-primary resize-none"
             />
 
@@ -507,30 +509,37 @@ export default function VocabularioPage() {
         {/* Image Upload */}
         {mode === 'extract' && (
           <Card className="p-6 mb-6">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">Extraer desde imagen</h2>
+            <h2 className="text-lg font-semibold text-text-primary mb-4">Extraer desde archivo</h2>
             <p className="text-sm text-text-secondary mb-4">
-              Sube una foto de tu libro, notas escritas a mano, o cualquier documento. Claude Vision
-              extraerá el vocabulario automáticamente.
+              Sube una foto, un PDF o un Word (.docx) con tu lista de vocabulario. Extraemos las
+              palabras automáticamente (incluye OCR de páginas escaneadas).
             </p>
 
             <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,application/pdf,.docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (!file) return
 
-                  // Validate file type
-                  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+                  const validTypes = [
+                    'image/png',
+                    'image/jpeg',
+                    'image/jpg',
+                    'image/webp',
+                    'application/pdf',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/msword',
+                  ]
                   if (!validTypes.includes(file.type)) {
-                    toast.error('Tipo de archivo no válido. Solo PNG, JPG y WEBP.')
+                    toast.error('Tipo no válido. Usa PNG, JPG, WEBP, PDF o Word (.docx).')
                     return
                   }
 
-                  // Validate file size (5MB max)
-                  if (file.size > 5 * 1024 * 1024) {
-                    toast.error('Archivo demasiado grande. El tamaño máximo es 5MB.')
+                  // 10MB max (docs/pdfs can be larger than images)
+                  if (file.size > 10 * 1024 * 1024) {
+                    toast.error('Archivo demasiado grande. El tamaño máximo es 10MB.')
                     return
                   }
 
@@ -546,9 +555,11 @@ export default function VocabularioPage() {
                 <ImageIcon size={48} className="text-text-secondary" />
                 <div>
                   <p className="text-sm font-medium text-text-primary">
-                    {selectedFile ? selectedFile.name : 'Haz clic para seleccionar una imagen'}
+                    {selectedFile ? selectedFile.name : 'Haz clic para seleccionar un archivo'}
                   </p>
-                  <p className="text-xs text-text-secondary mt-1">PNG, JPG, WEBP hasta 5MB</p>
+                  <p className="text-xs text-text-secondary mt-1">
+                    Imagen, PDF o Word (.docx) hasta 10MB
+                  </p>
                 </div>
               </label>
             </div>

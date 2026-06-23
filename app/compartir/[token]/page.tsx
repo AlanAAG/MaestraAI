@@ -78,13 +78,13 @@ export default async function CompartirPage({ params }: Props) {
       <div className="max-w-2xl mx-auto px-4 py-12">
         <div className="flex items-center gap-2 mb-8">
           <BookOpen size={20} className="text-primary" />
-          <span className="text-sm font-medium text-primary">MaestraAI — Diario Docente</span>
+          <span className="text-sm font-medium text-primary">MaestraIA — Diario Docente</span>
         </div>
 
         <h1 className="text-2xl font-semibold text-text-primary mb-2">
           {weekLabel(entry.week_start, entry.week_end)}
         </h1>
-        <p className="text-xs text-text-disabled mb-8">Compartido por una maestra de MaestraAI</p>
+        <p className="text-xs text-text-disabled mb-8">Compartido por una maestra de MaestraIA</p>
 
         {entry.ai_summary && (
           <div className="p-6 rounded-2xl border border-gray-200 whitespace-pre-wrap text-gray-800 leading-relaxed">
@@ -95,7 +95,7 @@ export default async function CompartirPage({ params }: Props) {
         <p className="mt-8 text-xs text-center text-text-disabled">
           ¿Eres maestra?{' '}
           <Link href="/register" className="text-primary underline underline-offset-2">
-            Crea tu cuenta gratis en MaestraAI
+            Crea tu cuenta gratis en MaestraIA
           </Link>
         </p>
       </div>

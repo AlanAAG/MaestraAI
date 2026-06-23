@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Términos de Servicio — MaestraAI',
-  description: 'Términos de Servicio de MaestraAI para docentes de preescolar en México.',
+  title: 'Términos de Servicio — MaestraIA',
+  description: 'Términos de Servicio de MaestraIA para docentes de preescolar en México.',
 }
 
 export default function TerminosPage() {
@@ -13,7 +13,7 @@ export default function TerminosPage() {
           href="/"
           className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
         >
-          ← MaestraAI
+          ← MaestraIA
         </Link>
         <span className="text-xs text-gray-400">México · Ley Federal</span>
       </header>
@@ -32,7 +32,7 @@ export default function TerminosPage() {
               I. Descripción del Servicio
             </h2>
             <p>
-              MaestraAI es una plataforma de asistencia pedagógica con inteligencia artificial
+              MaestraIA es una plataforma de asistencia pedagógica con inteligencia artificial
               diseñada para docentes de preescolar en México. El servicio incluye:
             </p>
             <ul className="list-disc list-inside space-y-1 ml-4 mt-3">
@@ -53,7 +53,7 @@ export default function TerminosPage() {
             <h2 className="text-xl font-semibold mb-3 text-gray-900">
               II. Elegibilidad y Registro
             </h2>
-            <p>Para usar MaestraAI debes:</p>
+            <p>Para usar MaestraIA debes:</p>
             <ul className="list-disc list-inside space-y-1 ml-4 mt-3">
               <li>Ser docente frente a grupo o directivo en una institución educativa en México</li>
               <li>Tener al menos 18 años de edad</li>
@@ -111,7 +111,7 @@ export default function TerminosPage() {
               IV. Contenido Generado por Inteligencia Artificial
             </h2>
             <p>
-              MaestraAI utiliza modelos de lenguaje (Claude de Anthropic y GPT-4o-mini de OpenAI)
+              MaestraIA utiliza modelos de lenguaje (Claude de Anthropic y GPT-4o-mini de OpenAI)
               para asistir en la elaboración de planeaciones y materiales. Al respecto:
             </p>
             <ul className="list-disc list-inside space-y-2 ml-4 mt-3">
@@ -121,25 +121,25 @@ export default function TerminosPage() {
                 responsable de revisar, adaptar y validar cada planeación antes de aplicarla.
               </li>
               <li>
-                <strong>Alineación NEM:</strong> MaestraAI incorpora el marco oficial del Programa
+                <strong>Alineación NEM:</strong> MaestraIA incorpora el marco oficial del Programa
                 de Estudio para la Educación Preescolar, Fase 2 (SEP, 2024), incluyendo los 4 Campos
                 Formativos, los 7 Ejes Articuladores y el Programa Nacional de Inglés (PRONI) para
                 tercer grado. Sin embargo, la plataforma no garantiza que cada salida cumpla
                 íntegramente con los requerimientos específicos de cada supervisión o escuela.
               </li>
               <li>
-                <strong>Evaluación cualitativa:</strong> MaestraAI no genera ni sugiere
+                <strong>Evaluación cualitativa:</strong> MaestraIA no genera ni sugiere
                 calificaciones numéricas, porcentajes ni puntajes. La escala de evaluación es
                 estrictamente cualitativa: Logrado / En proceso / Requiere apoyo / Sin evaluar.
               </li>
               <li>
-                <strong>YouTube:</strong> MaestraAI puede generar materiales a partir de videos
+                <strong>YouTube:</strong> MaestraIA puede generar materiales a partir de videos
                 públicos de YouTube. La plataforma verifica públicamente que el video sea accesible,
                 pero no es responsable del contenido de terceros en la plataforma YouTube.
               </li>
               <li>
                 <strong>Propiedad del contenido generado:</strong> El contenido producido a partir
-                de tus planeaciones, observaciones y parámetros es tuyo. MaestraAI no reclama
+                de tus planeaciones, observaciones y parámetros es tuyo. MaestraIA no reclama
                 derechos de autor sobre las planeaciones o materiales que generaste con el servicio.
               </li>
             </ul>
@@ -162,17 +162,17 @@ export default function TerminosPage() {
               </li>
               <li>
                 Eres responsable del cumplimiento de los Términos de Uso de richmondlp.com.
-                MaestraAI no asume responsabilidad por el uso de la integración que incumpla esos
+                MaestraIA no asume responsabilidad por el uso de la integración que incumpla esos
                 términos.
               </li>
               <li>
                 <strong>
-                  MaestraAI no es proveedor afiliado, certificado ni autorizado por Richmond
+                  MaestraIA no es proveedor afiliado, certificado ni autorizado por Richmond
                   Publishing / Programas de Innovación Educativa, S.A. de C.V.
                 </strong>
               </li>
               <li>
-                Las credenciales de Richmond LP que almacenes en MaestraAI son procesadas
+                Las credenciales de Richmond LP que almacenes en MaestraIA son procesadas
                 exclusivamente para los fines de sincronización descritos en el Aviso de Privacidad.
               </li>
             </ul>
@@ -185,7 +185,7 @@ export default function TerminosPage() {
             </h2>
             <p>
               El docente es el único Responsable del tratamiento de los datos de sus alumnos
-              conforme a la LFPDPPP. Al ingresar datos de alumnos en MaestraAI:
+              conforme a la LFPDPPP. Al ingresar datos de alumnos en MaestraIA:
             </p>
             <ul className="list-disc list-inside space-y-2 ml-4 mt-3">
               <li>
@@ -193,7 +193,7 @@ export default function TerminosPage() {
                 para el uso de herramientas digitales en tu actividad docente.
               </li>
               <li>
-                Entiendes que MaestraAI actúa como Encargado del tratamiento (Art. 2-XII LFPDPPP):
+                Entiendes que MaestraIA actúa como Encargado del tratamiento (Art. 2-XII LFPDPPP):
                 procesa los datos bajo tus instrucciones y para las finalidades que tú determinas.
               </li>
               <li>
@@ -208,13 +208,13 @@ export default function TerminosPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-gray-900">VII. Propiedad Intelectual</h2>
             <p>
-              MaestraAI, su diseño, código fuente, marca, logotipo, prompts de IA y metodologías
+              MaestraIA, su diseño, código fuente, marca, logotipo, prompts de IA y metodologías
               propietarias son propiedad exclusiva de sus titulares y están protegidos por las leyes
               de propiedad intelectual aplicables en México.
             </p>
             <p className="mt-3">
               No está permitido copiar, reproducir, distribuir ni crear obras derivadas de los
-              componentes propietarios de MaestraAI sin autorización escrita previa.
+              componentes propietarios de MaestraIA sin autorización escrita previa.
             </p>
             <p className="mt-3">
               Los marcos pedagógicos utilizados (NEM, PRONI) son propiedad de la Secretaría de
@@ -228,7 +228,7 @@ export default function TerminosPage() {
               VIII. Disponibilidad y Modificaciones del Servicio
             </h2>
             <p>
-              MaestraAI se ofrece &ldquo;tal como está&rdquo; (as-is). Nos reservamos el derecho de:
+              MaestraIA se ofrece &ldquo;tal como está&rdquo; (as-is). Nos reservamos el derecho de:
             </p>
             <ul className="list-disc list-inside space-y-1 ml-4 mt-3">
               <li>
@@ -256,20 +256,20 @@ export default function TerminosPage() {
             <p>En la máxima medida permitida por la ley aplicable:</p>
             <ul className="list-disc list-inside space-y-2 ml-4 mt-3">
               <li>
-                MaestraAI no garantiza que el contenido generado por IA sea completo, preciso o
+                MaestraIA no garantiza que el contenido generado por IA sea completo, preciso o
                 adecuado para todas las situaciones pedagógicas específicas.
               </li>
               <li>
-                MaestraAI no es responsable por daños directos, indirectos, incidentales o
+                MaestraIA no es responsable por daños directos, indirectos, incidentales o
                 consecuentes derivados del uso del servicio, incluyendo decisiones pedagógicas
                 tomadas con base en el contenido generado.
               </li>
               <li>
-                MaestraAI no es responsable por interrupciones de servicio causadas por terceros
+                MaestraIA no es responsable por interrupciones de servicio causadas por terceros
                 (proveedores de nube, proveedores de IA, cortes de internet).
               </li>
               <li>
-                La responsabilidad máxima de MaestraAI ante el usuario, en cualquier caso, estará
+                La responsabilidad máxima de MaestraIA ante el usuario, en cualquier caso, estará
                 limitada a los montos pagados por el usuario en los 12 meses previos al evento que
                 dio origen al reclamo.
               </li>

@@ -1,7 +1,17 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Download, Users, X, Send, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
+import {
+  Loader2,
+  Download,
+  Users,
+  X,
+  Send,
+  Trash2,
+  ChevronRight,
+  ChevronDown,
+  ExternalLink,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -54,6 +64,10 @@ export default function CalificacionesRichmondPage() {
   const [view, setView] = useState<'tarea' | 'alumno'>('tarea')
   // One mutually-exclusive sort control (clearer than two separate chip groups).
   const [sort, setSort] = useState<'apellido' | 'nombre' | 'pendientes' | 'entregados'>('apellido')
+  // Por-tarea has its own task-level sort (independent of the student sort above).
+  const [taskSort, setTaskSort] = useState<
+    'fecha_reciente' | 'fecha_antigua' | 'alfabetico' | 'mas_entregados' | 'menos_entregados'
+  >('fecha_reciente')
   const nameOrder = sort === 'nombre' ? 'nombre' : 'apellido'
   const statusSort: 'ninguno' | 'pendientes' | 'entregados' =
     sort === 'pendientes' || sort === 'entregados' ? sort : 'ninguno'
@@ -367,6 +381,22 @@ export default function CalificacionesRichmondPage() {
   // ── derived ──
   const assignmentsAsc = [...assignments].sort((a, b) => a.due_at.localeCompare(b.due_at))
   const assignmentsDesc = [...assignments].sort((a, b) => b.due_at.localeCompare(a.due_at))
+  const subRate = (a: Assignment) => (a.total_students ? a.total_submitted / a.total_students : 0)
+  // Por-tarea list order, driven by taskSort.
+  const assignmentsSorted = [...assignments].sort((a, b) => {
+    switch (taskSort) {
+      case 'fecha_antigua':
+        return a.due_at.localeCompare(b.due_at)
+      case 'alfabetico':
+        return a.title.localeCompare(b.title)
+      case 'mas_entregados':
+        return subRate(b) - subRate(a)
+      case 'menos_entregados':
+        return subRate(a) - subRate(b)
+      default:
+        return b.due_at.localeCompare(a.due_at) // fecha_reciente
+    }
+  })
   const groupName = (id: string) => groups.find((g) => g.id === id)?.name ?? ''
 
   // per-student completion (submitted / total assignments in their group)
@@ -424,6 +454,15 @@ export default function CalificacionesRichmondPage() {
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
+            onClick={() => window.open('https://richmondlp.com', '_blank', 'noopener')}
+            className="min-h-[44px]"
+            title="Abrir Richmond LP en una pestaña nueva"
+          >
+            <ExternalLink size={16} className="mr-2" />
+            Ir a Richmond
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => setShowContacts(true)}
             className="min-h-[44px]"
             disabled={filter === 'all'}
@@ -471,17 +510,31 @@ export default function CalificacionesRichmondPage() {
               onChange={(v) => setView(v as 'tarea' | 'alumno')}
             />
             <label className="relative">
-              <span className="sr-only">Ordenar alumnos</span>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as typeof sort)}
-                className="appearance-none rounded-full border border-border bg-muted/60 hover:bg-muted pl-3 pr-8 py-1.5 text-sm font-medium text-text-secondary cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
-              >
-                <option value="apellido">Ordenar: Apellido (A–Z)</option>
-                <option value="nombre">Ordenar: Nombre (A–Z)</option>
-                <option value="pendientes">Ordenar: Pendientes primero</option>
-                <option value="entregados">Ordenar: Entregados primero</option>
-              </select>
+              <span className="sr-only">Ordenar</span>
+              {view === 'alumno' ? (
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as typeof sort)}
+                  className="appearance-none rounded-full border border-border bg-muted/60 hover:bg-muted pl-3 pr-8 py-1.5 text-sm font-medium text-text-secondary cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="apellido">Ordenar: Apellido (A–Z)</option>
+                  <option value="nombre">Ordenar: Nombre (A–Z)</option>
+                  <option value="pendientes">Ordenar: Pendientes primero</option>
+                  <option value="entregados">Ordenar: Entregados primero</option>
+                </select>
+              ) : (
+                <select
+                  value={taskSort}
+                  onChange={(e) => setTaskSort(e.target.value as typeof taskSort)}
+                  className="appearance-none rounded-full border border-border bg-muted/60 hover:bg-muted pl-3 pr-8 py-1.5 text-sm font-medium text-text-secondary cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="fecha_reciente">Ordenar: Más recientes</option>
+                  <option value="fecha_antigua">Ordenar: Más antiguas</option>
+                  <option value="alfabetico">Ordenar: Alfabético (A–Z)</option>
+                  <option value="mas_entregados">Ordenar: Más entregados</option>
+                  <option value="menos_entregados">Ordenar: Menos entregados</option>
+                </select>
+              )}
               <ChevronDown
                 size={14}
                 className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-disabled"
@@ -509,7 +562,7 @@ export default function CalificacionesRichmondPage() {
 
           {view === 'tarea' ? (
             <div className="space-y-2">
-              {assignmentsDesc.map((a) => {
+              {assignmentsSorted.map((a) => {
                 const pending = pendingStudents(a)
                 const isOpen = expandedTask === a.id
                 const submitted = a.total_submitted
@@ -1017,6 +1070,13 @@ function SubmissionTrend({ assignments }: { assignments: Assignment[] }) {
   const area = line ? `${line} L 100 100 L 0 100 Z` : ''
   const latest = n ? Math.round(pts[n - 1].ratio * 100) : 0
 
+  const [hover, setHover] = useState<number | null>(null)
+  const shortDate = (d: string) =>
+    new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+  // X-axis: label every k-th task so labels don't overlap (aim for ≤6 labels).
+  const step = Math.max(1, Math.ceil(n / 6))
+  const hp = hover !== null ? pts[hover] : null
+
   return (
     <div className="rounded-xl border border-border p-4 mb-5">
       <div className="flex items-center justify-between mb-3">
@@ -1039,7 +1099,6 @@ function SubmissionTrend({ assignments }: { assignments: Assignment[] }) {
               <stop offset="100%" stopColor="currentColor" stopOpacity="0.01" />
             </linearGradient>
           </defs>
-          {/* gridlines at 0 / 50 / 100% */}
           {[0, 0.5, 1].map((g) => (
             <line
               key={g}
@@ -1066,20 +1125,58 @@ function SubmissionTrend({ assignments }: { assignments: Assignment[] }) {
             />
           )}
         </svg>
-        {/* Transparent hover targets for per-task tooltips. */}
+
+        {/* Hover guide line + dot (HTML overlay avoids SVG aspect distortion) */}
+        {hp && (
+          <>
+            <div
+              className="absolute top-0 bottom-0 w-px bg-primary/40 pointer-events-none"
+              style={{ left: `${x(hover!)}%` }}
+            />
+            <div
+              className="absolute w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-white pointer-events-none -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${x(hover!)}%`, top: `${y(hp.ratio)}%` }}
+            />
+            <div
+              className="absolute z-10 -translate-x-1/2 -translate-y-full -mt-2 whitespace-nowrap rounded-lg bg-text-primary px-2.5 py-1.5 text-[11px] text-white shadow-lg pointer-events-none"
+              style={{ left: `${Math.min(85, Math.max(15, x(hover!)))}%`, top: `${y(hp.ratio)}%` }}
+            >
+              <p className="font-semibold max-w-[160px] truncate">{hp.a.title}</p>
+              <p className="opacity-80">
+                {shortDate(hp.a.due_at)} · {hp.a.total_submitted}/{hp.a.total_students} (
+                {Math.round(hp.ratio * 100)}%)
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Transparent hover targets */}
         <div className="absolute inset-0 flex">
-          {pts.map((p) => (
+          {pts.map((p, i) => (
             <div
               key={p.a.id}
-              className="flex-1 cursor-default"
-              title={`${p.a.title}\n${new Date(p.a.due_at).toLocaleDateString('es-MX')}\n${p.a.total_submitted}/${p.a.total_students} entregaron (${Math.round(p.ratio * 100)}%)`}
+              className="flex-1 cursor-pointer"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
             />
           ))}
         </div>
       </div>
-      <p className="text-[11px] text-text-disabled mt-2">
-        Cada punto es una tarea en orden cronológico. Pasa el cursor para ver el detalle.
-      </p>
+
+      {/* X-axis date labels (sampled to avoid overlap) */}
+      <div className="relative h-4 mt-1">
+        {pts.map((p, i) =>
+          i % step === 0 || i === n - 1 ? (
+            <span
+              key={p.a.id}
+              className="absolute -translate-x-1/2 text-[10px] text-text-disabled whitespace-nowrap"
+              style={{ left: `${Math.min(94, Math.max(6, x(i)))}%` }}
+            >
+              {shortDate(p.a.due_at)}
+            </span>
+          ) : null
+        )}
+      </div>
     </div>
   )
 }

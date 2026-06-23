@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     const contacts = await decryptContacts(contactRows)
     const resend = new Resend(process.env.RESEND_API_KEY)
-    const fromName = teacher.full_name ?? 'MaestraAI'
+    const fromName = teacher.full_name ?? 'MaestraIA'
     const dueFormatted = new Date(due_date).toLocaleDateString('es-MX', {
       weekday: 'long',
       day: 'numeric',

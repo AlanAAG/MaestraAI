@@ -99,7 +99,7 @@ function VerifyEmailContent() {
               <li className="flex gap-2">
                 <span className="font-bold">2.</span>
                 <span>
-                  Busca un correo de <strong>MaestraAI</strong> o <strong>Supabase</strong>
+                  Busca un correo de <strong>MaestraIA</strong> o <strong>Supabase</strong>
                 </span>
               </li>
               <li className="flex gap-2">

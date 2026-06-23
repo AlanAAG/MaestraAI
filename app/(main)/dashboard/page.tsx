@@ -106,7 +106,7 @@ export default function DashboardPage() {
       <div className="p-4 sm:p-8">
         <ZeroState
           icon={Calendar}
-          title="¡Bienvenida a MaestraAI!"
+          title="¡Bienvenida a MaestraIA!"
           description="Completa tu perfil en Configuración para comenzar"
           ctaLabel="Ir a Configuración"
           onCta={() => router.push('/configuracion')}
@@ -170,11 +170,11 @@ export default function DashboardPage() {
 
         <Card
           className="p-6 cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => router.push('/boletas')}
+          onClick={() => router.push('/calificaciones-richmond')}
         >
           <FileText size={32} className="text-primary mb-3" strokeWidth={1.5} />
-          <h3 className="text-lg font-semibold text-text-primary mb-1">Boletas</h3>
-          <p className="text-sm text-text-secondary">Genera boletas cualitativas</p>
+          <h3 className="text-lg font-semibold text-text-primary mb-1">Calificaciones</h3>
+          <p className="text-sm text-text-secondary">Consulta entregas y avisa a padres</p>
         </Card>
 
         {(() => {

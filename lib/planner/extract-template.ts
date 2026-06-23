@@ -1,31 +1,48 @@
 import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
 import { validateBase64Image } from '@/lib/file-validation'
+import type { TeacherProfile } from '@/types/teacher-profile'
 
-export type TemplateData = {
-  sections?: string[]
-  activity_blocks?: string[]
-  block_descriptions?: Record<string, string>
-  notes?: string
-  examples?: string[]
-}
+// Kept as an alias so existing imports of TemplateData keep compiling.
+export type TemplateData = TeacherProfile
 
-const EXTRACTION_SYSTEM = `Analiza este formato de planeación escolar y extrae su estructura con precisión quirúrgica. Responde ÚNICAMENTE con JSON válido, sin texto adicional:
+const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quirúrgica para extraer su estructura y contenido REUTILIZABLE. Responde ÚNICAMENTE con JSON válido (sin texto adicional):
 
 {
-  "sections": ["nombre exacto sección 1", "nombre exacto sección 2"],
-  "activity_blocks": ["Actividades Iniciales", "Desarrollo del Taller", "Pausas Activas"],
-  "block_descriptions": {"Actividades Iniciales": "qué va en esta sección", "Desarrollo del Taller": "qué va aquí"},
-  "notes": "tono y estilo en máx 120 chars — p.ej. 'Narrativo, detallado, enfoque constructivista, verbos en infinitivo'",
-  "examples": ["fragmento verbatim copiado EXACTO del formato", "otro fragmento"]
+  "sections": ["nombre exacto sección 1 verbatim", "..."],
+  "sub_plan_types": ["Proyecto", "Centro de Interés", "Taller Crítico"],
+  "evaluation_columns": ["Sí", "No", "Proceso"],
+  "writing_style_samples": [
+    "fragmento VERBATIM de ≥250 caracteres que muestre cómo redacta la maestra las actividades del proyecto",
+    "fragmento VERBATIM de ≥250 caracteres de la estructura didáctica o momentos",
+    "fragmento VERBATIM de ≥250 caracteres de ajustes razonables o estrategia comunitaria"
+  ],
+  "actividades_iniciales_example": "lista completa de actividades iniciales copiada VERBATIM del documento",
+  "actividades_rutina_example": "lista completa de rutinas copiada VERBATIM del documento",
+  "estrategia_comunitaria_example": "pasos numerados VERBATIM de la estrategia comunitaria (o Fichero de la Paz)",
+  "pda_bank": [
+    {
+      "campo": "Lenguajes",
+      "contenido": "texto exacto del contenido tal como aparece en el documento",
+      "pdas": ["texto verbatim del PDA 1 — copia completa, sin abreviar", "texto verbatim del PDA 2"]
+    }
+  ],
+  "school_specifics": {
+    "book_series": "Richmond",
+    "special_programs": ["PRONI", "Fichero de la Paz"],
+    "valor_del_mes_format": "VALOR DEL MES GRATITUD"
+  },
+  "verb_person": "primera_singular",
+  "notes": "tono y estilo en máx 200 chars"
 }
 
-Reglas estrictas:
-- sections: TODOS los encabezados/secciones en orden exacto tal como aparecen, con la ortografía exacta del documento
-- activity_blocks: SOLO las secciones que describen ACTIVIDADES que los alumnos realizan (excluye metadatos como "Datos Generales", "Campos Formativos"). Máx 6 bloques.
-- block_descriptions: para cada activity_block, 1 frase corta de qué tipo de contenido va ahí
-- notes: captura el tono real del documento — si usa verbos en infinitivo, si es narrativo o de lista, nivel de detalle
-- examples: 2-3 fragmentos copiados LITERALMENTE del documento que muestren cómo se redactan las actividades (máx 150 chars c/u)`
+REGLAS CRÍTICAS:
+- writing_style_samples: copia LITERAL ≥250 chars por fragmento — no parafrasees, no resumas
+- pda_bank: copia los Procesos de Desarrollo de Aprendizaje (PDAs) COMPLETOS tal como aparecen — son la fuente de verdad para la generación; NO los abrevies
+- evaluation_columns: detecta el formato real ("Sí/No/Proceso", "Logrado/En proceso/Requiere apoyo", u otro)
+- sections: TODOS los encabezados en orden exacto, con la ortografía del documento
+- verb_person: detecta si la maestra escribe en primera persona singular, plural, o infinitivo
+- Si una sección no existe en el documento, omite ese campo (NO inventes)`
 
 type ClaudeImageMimeType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
@@ -80,7 +97,7 @@ export async function extractTemplate(input: {
       if (!docText || docText.trim().length < 50) {
         throw new Error('El documento no tiene suficiente texto para analizar.')
       }
-      userContent = `Formato de planeación:\n---\n${docText.slice(0, 6000)}\n---`
+      userContent = `Formato de planeación:\n---\n${docText.slice(0, 16000)}\n---`
     }
   } else {
     throw new Error('No se recibió ningún archivo.')
@@ -88,7 +105,7 @@ export async function extractTemplate(input: {
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
-    max_tokens: 1000,
+    max_tokens: 2500,
     temperature: 0,
     system: EXTRACTION_SYSTEM,
     messages: [{ role: 'user', content: userContent }],

@@ -62,7 +62,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside className="w-64 bg-surface border-r border-border flex flex-col">
         <div className="p-6">
-          <h1 className="text-xl font-bold text-text-primary">MaestraAI</h1>
+          <h1 className="text-xl font-bold text-text-primary">MaestraIA</h1>
           <p className="text-xs text-text-secondary mt-1">{user?.email}</p>
         </div>
 

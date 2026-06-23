@@ -13,21 +13,29 @@ export function buildSubplanPrompt(
   vocabList: string,
   letterDay: string,
   numDay: string,
-  includeProni: boolean
+  includeProni: boolean,
+  pdaBank?: Array<{ campo: string; contenido: string; pdas: string[] }>,
+  evalColumns: string[] = ['Logrado', 'En proceso', 'Requiere apoyo']
 ): string {
   const projectName = sanitize(fn.project_name)
   const monthlyValue = sanitize(fn.monthly_value)
 
+  const pdaCtx = pdaBank?.length
+    ? `<pda_bank>\nUsa estos PDAs VERBATIM (no inventes otros):\n${pdaBank
+        .map((p) => `${p.campo}: ${(p.pdas ?? []).join(' | ')}`)
+        .join('\n')}\n</pda_bank>\n\n`
+    : ''
+
   const depth = `EXIGENCIAS DE PROFUNDIDAD:
-- "campos_formativos": 1-3 campos relevantes, cada contenido con 2-4 Procesos de Desarrollo de Aprendizaje (PDA) OFICIALES del Programa Fase 2 redactados VERBATIM (no inventados).
+- "campos_formativos": 1-3 campos relevantes, cada contenido con 2-4 Procesos de Desarrollo de Aprendizaje (PDA) OFICIALES del Programa Fase 2 redactados VERBATIM (usa los del <pda_bank> si se proveen; no inventes otros).
 - Cada momento de la estructura didáctica debe tener 4-8 actividades CONCRETAS y variadas (no genéricas).
-- "evaluacion": 5 aspectos concretos.
+- "evaluacion": 5 aspectos concretos. Columnas de evaluación: ${evalColumns.join(' / ')} (NUNCA numérica).
 - Verbos en primera persona del singular. NO resumas, NO uses placeholders.`
 
   if (subType === 'letter_number') {
     const letter1 = sanitize(fn.letter_week1)
     const letter2 = sanitize(fn.letter_week2)
-    return `Genera un sub-plan DETALLADO de LETTER & NUMBER (Centro de Interés, para los ${letterDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).
+    return `${pdaCtx}Genera un sub-plan DETALLADO de LETTER & NUMBER (Centro de Interés, para los ${letterDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).
 Letras a trabajar: Semana 1="${letter1}", Semana 2="${letter2}"${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
 ${includeProni ? 'PRONI (Kinder 3): integra inglés — trazo, vocabulario, canciones, identidad multilingüe.' : ''}
 
@@ -45,11 +53,11 @@ Formato de salida JSON:
   "evaluacion": [{"aspecto": "Escribe la letra Xx"}, {"aspecto": "Reconoce la letra Xx"}, {"aspecto": "Reconoce y escribe palabras que comienzan con Xx"}, {"aspecto": "Modela letras y palabras con plastilina"}, {"aspecto": "Trabaja y juega respetando reglas de convivencia"}]
 }
 
-Reglas: Letter & Number es SOLO los ${letterDay}. Evaluación cualitativa (Logrado/En proceso/Requiere apoyo), nunca numérica.
+Reglas: Letter & Number es SOLO los ${letterDay}. Evaluación cualitativa, nunca numérica.
 ${depth}`
   }
 
-  return `Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
+  return `${pdaCtx}Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
 
 Formato de salida JSON:
 {
@@ -73,7 +81,14 @@ export async function generateSubplan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: any,
   subType: 'letter_number' | 'numeros',
-  opts: { vocabList: string; letterDay: string; numDay: string; includeProni: boolean }
+  opts: {
+    vocabList: string
+    letterDay: string
+    numDay: string
+    includeProni: boolean
+    pdaBank?: Array<{ campo: string; contenido: string; pdas: string[] }>
+    evalColumns?: string[]
+  }
 ): Promise<Record<string, unknown>> {
   const prompt = buildSubplanPrompt(
     fn,
@@ -81,7 +96,9 @@ export async function generateSubplan(
     opts.vocabList,
     opts.letterDay,
     opts.numDay,
-    opts.includeProni
+    opts.includeProni,
+    opts.pdaBank,
+    opts.evalColumns
   )
   const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, { maxTokens: 6000 })
   return parsePlanJson(raw)

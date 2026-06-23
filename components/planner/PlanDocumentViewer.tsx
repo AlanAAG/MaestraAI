@@ -33,6 +33,7 @@ type PlanDoc = {
   cronograma?: Record<string, string[]>
   campos_formativos?: CampoFormativo[]
   evaluacion_items?: { aspecto: string }[]
+  evaluation_columns?: string[]
   sub_planes?: SubPlan[]
 }
 
@@ -215,9 +216,9 @@ function CamposFormativosView({ campos }: { campos: CampoFormativo[] }) {
   )
 }
 
-function EvaluacionGrid({ items }: { items: { aspecto: string }[] }) {
+function EvaluacionGrid({ items, columns }: { items: { aspecto: string }[]; columns?: string[] }) {
   const [checked, setChecked] = useState<Record<number, string>>({})
-  const opts = ['Logrado', 'En proceso', 'Requiere apoyo']
+  const opts = columns?.length ? columns : ['Logrado', 'En proceso', 'Requiere apoyo']
 
   return (
     <div className="overflow-x-auto">
@@ -272,12 +273,14 @@ function SubPlanBlock({
   subType,
   dayLabel,
   onGenerated,
+  evalColumns,
 }: {
   subPlan?: SubPlan
   fortnightId: string
   subType: 'letter_number' | 'numeros'
   dayLabel: string
   onGenerated: () => void
+  evalColumns?: string[]
 }) {
   const [loading, setLoading] = useState(false)
   const label =
@@ -365,7 +368,7 @@ function SubPlanBlock({
         {subPlan.evaluacion?.length ? (
           <>
             <p className="font-semibold text-sm text-gray-900">Evaluación de Aprendizajes</p>
-            <EvaluacionGrid items={subPlan.evaluacion} />
+            <EvaluacionGrid items={subPlan.evaluacion} columns={evalColumns} />
           </>
         ) : null}
       </div>
@@ -616,7 +619,7 @@ export function PlanDocumentViewer({
 
       {pd.evaluacion_items?.length ? (
         <DocSection title="Evaluación de Aprendizajes">
-          <EvaluacionGrid items={pd.evaluacion_items} />
+          <EvaluacionGrid items={pd.evaluacion_items} columns={pd.evaluation_columns} />
         </DocSection>
       ) : null}
 
@@ -629,6 +632,7 @@ export function PlanDocumentViewer({
             subType="letter_number"
             dayLabel={letterDay}
             onGenerated={onReload}
+            evalColumns={pd.evaluation_columns}
           />
           <SubPlanBlock
             subPlan={numSub}
@@ -636,6 +640,7 @@ export function PlanDocumentViewer({
             subType="numeros"
             dayLabel={numDay}
             onGenerated={onReload}
+            evalColumns={pd.evaluation_columns}
           />
         </>
       )}

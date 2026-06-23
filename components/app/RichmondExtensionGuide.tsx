@@ -20,7 +20,7 @@ const STEPS = [
     number: 3,
     title: 'En Markbook → abre la sección Scores',
     description:
-      'Abre "Scores" para ver las calificaciones individuales. La extensión captura los datos en este momento y los sincroniza automáticamente con MaestraAI.',
+      'Abre "Scores" para ver las calificaciones individuales. La extensión captura los datos en este momento y los sincroniza automáticamente con MaestraIA.',
     imageSrc: '/images/extension-guide/richmond_3.jpg',
   },
   {

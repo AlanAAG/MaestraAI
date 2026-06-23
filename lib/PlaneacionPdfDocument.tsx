@@ -134,10 +134,11 @@ const styles = StyleSheet.create({
 })
 
 export function PlaneacionPdfDocument(props: PlaneacionDocumentProps) {
+  const orient = props.orientation === 'horizontal' ? 'landscape' : 'portrait'
   return (
-    <Document title={`Planeación Quincena ${props.fortnightNumber} - MaestraAI`}>
+    <Document title={`Planeación Quincena ${props.fortnightNumber} - MaestraIA`}>
       {/* Cover Page */}
-      <Page size="LETTER" style={styles.page}>
+      <Page size="LETTER" orientation={orient} style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>Planeación Quincenal</Text>
           <Text style={styles.subtitle}>
@@ -196,7 +197,7 @@ export function PlaneacionPdfDocument(props: PlaneacionDocumentProps) {
 
       {/* Lesson Plan Pages */}
       {props.lessonPlans.map((plan, index) => (
-        <Page key={plan.dayNumber} size="LETTER" style={styles.page}>
+        <Page key={plan.dayNumber} size="LETTER" orientation={orient} style={styles.page}>
           <View style={styles.dayHeader}>
             <Text style={styles.dayTitle}>
               Día {plan.dayNumber} - {plan.dayLabel}

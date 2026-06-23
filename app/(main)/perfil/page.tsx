@@ -14,6 +14,8 @@ type Teacher = {
   editorial: string | null
   school_id: string | null
   group_count: number
+  teaching_style?: string | null
+  profile_notes?: string | null
   schools: { name: string; city: string; plan: string } | null
 }
 
@@ -47,6 +49,13 @@ export default function PerfilPage() {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
+  // Personalization (feeds planeación + material generation)
+  const [materia, setMateria] = useState('')
+  const [teachingStyle, setTeachingStyle] = useState('')
+  const [profileNotes, setProfileNotes] = useState('')
+  const [savingP, setSavingP] = useState(false)
+  const [savePMsg, setSavePMsg] = useState('')
+
   const [schoolTeachers, setSchoolTeachers] = useState<SchoolTeacher[]>([])
   const [loadingTeam, setLoadingTeam] = useState(false)
   const [roleUpdating, setRoleUpdating] = useState<string | null>(null)
@@ -57,6 +66,9 @@ export default function PerfilPage() {
       .then((data) => {
         setTeacher(data)
         setFullName(data.full_name || '')
+        setMateria(data.subject || '')
+        setTeachingStyle(data.teaching_style || '')
+        setProfileNotes(data.profile_notes || '')
         if (data.role_type === 'admin') loadTeam()
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,6 +103,26 @@ export default function PerfilPage() {
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handlePersonalizationSave() {
+    setSavingP(true)
+    setSavePMsg('')
+    try {
+      const res = await fetch('/api/teachers/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: materia.trim(),
+          teaching_style: teachingStyle.trim(),
+          profile_notes: profileNotes.trim(),
+        }),
+      })
+      setSavePMsg(res.ok ? 'Guardado' : 'No se pudo guardar')
+      setTimeout(() => setSavePMsg(''), 2500)
+    } finally {
+      setSavingP(false)
     }
   }
 
@@ -173,6 +205,57 @@ export default function PerfilPage() {
               <p className="text-sm text-text-secondary capitalize">{teacher.editorial}</p>
             </div>
           )}
+        </div>
+
+        <Separator />
+
+        {/* Personalización — feeds planeación + material generation */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-text-primary">Personalización</h2>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Esto ayuda a la IA a generar planeaciones y materiales con tu estilo.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Materia / grado que enseñas
+            </label>
+            <Input
+              value={materia}
+              onChange={(e) => setMateria(e.target.value)}
+              placeholder="Ej: Inglés preescolar, Kinder 3"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Tu estilo de enseñanza
+            </label>
+            <Input
+              value={teachingStyle}
+              onChange={(e) => setTeachingStyle(e.target.value)}
+              placeholder="Ej: lúdico, basado en juego, mucha música y movimiento"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Notas para la IA (gustos, materiales favoritos, contexto)
+            </label>
+            <textarea
+              value={profileNotes}
+              onChange={(e) => setProfileNotes(e.target.value)}
+              rows={4}
+              placeholder="Ej: Me gustan los proyectos sobre naturaleza. Tengo pocos recursos de impresión. Mis alumnos disfrutan las canciones."
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+            />
+          </div>
+
+          <Button onClick={handlePersonalizationSave} disabled={savingP}>
+            {savingP ? 'Guardando...' : savePMsg || 'Guardar personalización'}
+          </Button>
         </div>
 
         <Separator />

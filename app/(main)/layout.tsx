@@ -104,7 +104,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex flex-col w-60 border-r border-[var(--color-border)] bg-surface py-6 px-3 gap-1 shrink-0 sticky top-0 h-screen overflow-y-auto">
         <div className="px-3 mb-6">
-          <span className="text-lg font-semibold text-text-primary">MaestraAI</span>
+          <span className="text-lg font-semibold text-text-primary">MaestraIA</span>
         </div>
         {navItems.map(({ href, icon: Icon, label }) => (
           <Link
@@ -136,7 +136,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             Términos de Servicio
           </Link>
           <span className="mx-2">·</span>
-          <span>© 2026 MaestraAI</span>
+          <span>© 2026 MaestraIA</span>
         </footer>
       </main>
 

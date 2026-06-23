@@ -9,6 +9,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 
 const PdfInputSchema = z.object({
   fortnight_id: z.string().uuid(),
+  orientation: z.enum(['vertical', 'horizontal']).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       school: (fortnight as any).groups.schools,
     })
+    props.orientation = parsed.data.orientation
 
     // Render PDF to buffer
     const pdfBuffer = await renderToBuffer(

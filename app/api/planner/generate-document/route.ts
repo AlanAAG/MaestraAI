@@ -8,6 +8,7 @@ import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quinc
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
 import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
 import { generateSubplan } from '@/lib/planner/subplan'
+import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 
 export const maxDuration = 300
 
@@ -86,36 +87,66 @@ function getGroupSchedule(fn: any) {
   }
 }
 
-type TeacherTemplate = {
-  sections?: string[]
-  activity_blocks?: string[]
-  block_descriptions?: Record<string, string>
-  notes?: string
-  examples?: string[]
-} | null
+// Builds rich, attention-ordered teacher context: voice samples → PDA bank → eval format →
+// section examples → structure. Placed BEFORE the output schema so it gets high attention.
+function profileContext(p: TeacherProfile | null, evalColumns: string[]): string {
+  const parts: string[] = []
 
-// Renders the teacher's extracted format into rich prompt context — including the
-// activity_blocks + block_descriptions that were previously discarded.
-function templateContext(template: TeacherTemplate): string {
-  if (!template) return ''
-  const blocks =
-    template.activity_blocks?.length && template.block_descriptions
-      ? `BLOQUES DE ACTIVIDAD DEL FORMATO (respeta estos bloques y lo que va en cada uno):\n${template.activity_blocks
-          .map((b) => `• ${b}: ${template.block_descriptions?.[b] ?? ''}`)
-          .join('\n')}`
-      : ''
-  return [
-    template.sections?.length
-      ? `FORMATO ESCOLAR (secciones en orden): ${template.sections.join(' → ')}`
-      : '',
-    blocks,
-    template.notes ? `ESTILO Y TONO DE LA MAESTRA: ${template.notes}` : '',
-    template.examples?.length
-      ? `VOZ DE LA MAESTRA (copia este estilo de redacción exactamente):\n${template.examples.map((e) => `• ${e}`).join('\n')}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  // 1. Teacher voice (verbatim style samples; fall back to legacy short examples)
+  const samples = p?.writing_style_samples?.length ? p.writing_style_samples : (p?.examples ?? [])
+  if (samples.length) {
+    parts.push(
+      `<teacher_voice>\nEscribe EXACTAMENTE como esta maestra. Estos son fragmentos VERBATIM de su planeación anterior — imita su estilo, vocabulario, nivel de detalle y voz:\n\n${samples
+        .map((s, i) => `Ejemplo ${i + 1}:\n"${s}"`)
+        .join('\n\n')}\n</teacher_voice>`
+    )
+  }
+
+  // 2. PDA bank — the anti-hallucination source
+  if (p?.pda_bank?.length) {
+    parts.push(
+      `<pda_bank>\nPROCESOS DE DESARROLLO DE APRENDIZAJE DISPONIBLES (usa estos VERBATIM — no inventes otros):\n${p.pda_bank
+        .map(
+          (b) =>
+            `Campo: ${b.campo}\nContenido: ${b.contenido}\nPDAs:\n${(b.pdas ?? [])
+              .map((x) => `  • ${x}`)
+              .join('\n')}`
+        )
+        .join('\n\n')}\n</pda_bank>`
+    )
+  }
+
+  // 3. Evaluation format for THIS school
+  parts.push(
+    `<evaluation_format>\nColumnas de evaluación para ESTA escuela: ${evalColumns.join(' / ')}\nUsa SIEMPRE estas columnas en evaluacion_items. NUNCA numérica.\n</evaluation_format>`
+  )
+
+  // 4. Verbatim section examples from the teacher's real document
+  const ex: string[] = []
+  if (p?.actividades_iniciales_example)
+    ex.push(
+      `<example_actividades_iniciales>\n${p.actividades_iniciales_example}\n</example_actividades_iniciales>`
+    )
+  if (p?.actividades_rutina_example)
+    ex.push(
+      `<example_actividades_rutina>\n${p.actividades_rutina_example}\n</example_actividades_rutina>`
+    )
+  if (p?.estrategia_comunitaria_example)
+    ex.push(
+      `<example_estrategia_comunitaria>\n${p.estrategia_comunitaria_example}\n</example_estrategia_comunitaria>`
+    )
+  if (ex.length) parts.push(ex.join('\n'))
+
+  // 5. Structure (lower priority)
+  if (p?.sections?.length)
+    parts.push(`FORMATO ESCOLAR (secciones en orden): ${p.sections.join(' → ')}`)
+  if (p?.activity_blocks?.length && p.block_descriptions)
+    parts.push(
+      `BLOQUES DE ACTIVIDAD:\n${p.activity_blocks.map((b) => `• ${b}: ${p.block_descriptions?.[b] ?? ''}`).join('\n')}`
+    )
+  if (p?.notes) parts.push(`ESTILO Y TONO DE LA MAESTRA: ${p.notes}`)
+
+  return parts.filter(Boolean).join('\n\n')
 }
 
 function buildQuincenaPrompt(
@@ -125,7 +156,8 @@ function buildQuincenaPrompt(
   neeStudents: { display_name: string; nee_notes?: string }[],
   vocabList: string,
   richmondInstructions: string,
-  template: TeacherTemplate,
+  profile: TeacherProfile | null,
+  evalColumns: string[],
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> }
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
@@ -175,7 +207,7 @@ function buildQuincenaPrompt(
     ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? '\n' + richmondInstructions.slice(0, 300) : ''}\n${richmondBooks}`
     : richmondBooks
 
-  const templateCtx = templateContext(template)
+  const profileCtx = profileContext(profile, evalColumns)
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma, sin modificarlo):
 ${JSON.stringify(schedule.cronograma)}
@@ -183,7 +215,8 @@ Letter & Number: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}
 ${proniNote}`
 
-  return `PLANEACIÓN QUINCENA ${fn.number}: ${sanitize(fn.project_name)}
+  const requestData = `<request>
+PLANEACIÓN QUINCENA ${fn.number}: ${sanitize(fn.project_name)}
 Nivel: Kinder 3 (5-6 años) | Del ${startStr} al ${endStr}
 Grupo: ${fn.groups?.name ?? ''} | Grado: ${fn.groups?.grade ?? ''}
 Valor del mes: ${sanitize(fn.monthly_value)}
@@ -193,18 +226,20 @@ ${neeSection}
 ${obsSection}
 ${richmondCtx ? 'LIBROS RICHMOND:\n' + richmondCtx : ''}
 ${scheduleCtx}
-${templateCtx}
-
-${QUINCENA_OUTPUT_SCHEMA}
+</request>
 
 Genera la planeación completa en el formato JSON especificado. sub_planes debe ser [] (los sub-planes se generan por separado).`
+
+  // Order: teacher voice → PDAs → eval format → examples → structure → schema → request.
+  return [profileCtx, QUINCENA_OUTPUT_SCHEMA, requestData].filter(Boolean).join('\n\n')
 }
 
 function buildTallerPrompt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: any,
   neeStudents: { display_name: string }[],
-  template: TeacherTemplate,
+  profile: TeacherProfile | null,
+  evalColumns: string[],
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> }
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
@@ -229,23 +264,26 @@ function buildTallerPrompt(
       ? `ALUMNOS CON NEE:\n${neeStudents.map((s) => `- ${s.display_name}`).join('\n')}`
       : ''
 
-  const templateCtx = templateContext(template)
+  const profileCtx = profileContext(profile, evalColumns)
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma):
 ${JSON.stringify(schedule.cronograma)}
 Letter & Number: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}`
 
-  return `PLANEACIÓN TALLER: ${sanitize(fn.project_name)}
+  const requestData = `<request>
+PLANEACIÓN TALLER: ${sanitize(fn.project_name)}
 Fechas: ${startStr} – ${endStr}
 Grupo: ${fn.groups?.name ?? ''} | Valor: ${sanitize(fn.monthly_value)}
 
 ${neeSection}
 ${obsSection}
 ${scheduleCtx}
-${templateCtx}
+</request>
 
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
+
+  return [profileCtx, requestData].filter(Boolean).join('\n\n')
 }
 
 export async function POST(req: NextRequest) {
@@ -293,7 +331,9 @@ export async function POST(req: NextRequest) {
     const includeProni = isProniApplicable(groupGrade)
     const schedule = getGroupSchedule(fn)
 
-    // Load teacher template for this plan type
+    // Load teacher templates for this plan type. Use the newest for STRUCTURE (sections/blocks),
+    // but merge the "VOZ DE LA MAESTRA" examples across ALL same-type templates for a richer
+    // few-shot voice (more samples = better fidelity), capped + deduped.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: templates } = await (supabase as any)
       .from('teacher_plan_templates')
@@ -301,9 +341,24 @@ export async function POST(req: NextRequest) {
       .eq('teacher_id', teacherId)
       .eq('plan_type', planType)
       .order('created_at', { ascending: false })
-      .limit(1)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const teacherTemplate: TeacherTemplate = (templates?.[0] as any)?.template ?? null
+    const rows = (templates ?? []).map((t: any) => t.template).filter(Boolean) as TeacherProfile[]
+    let profile: TeacherProfile | null = rows[0] ?? null
+    if (profile && rows.length > 1) {
+      // Merge voice samples + PDA bank across all same-type formats for richer few-shot.
+      const mergedVoice = Array.from(
+        new Set(rows.flatMap((r) => r?.writing_style_samples ?? r?.examples ?? []))
+      ).slice(0, 6)
+      const mergedPdas = rows.flatMap((r) => r?.pda_bank ?? [])
+      profile = {
+        ...profile,
+        ...(mergedVoice.length ? { writing_style_samples: mergedVoice } : {}),
+        ...(mergedPdas.length ? { pda_bank: mergedPdas } : {}),
+      }
+    }
+    const evalColumns = profile?.evaluation_columns?.length
+      ? profile.evaluation_columns
+      : DEFAULT_EVAL_COLUMNS
 
     // Fetch NEE students
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -348,14 +403,15 @@ export async function POST(req: NextRequest) {
     const systemPrompt = planType === 'taller' ? TALLER_SYSTEM : QUINCENA_SYSTEM
     const userPrompt =
       planType === 'taller'
-        ? buildTallerPrompt(fn, neeStudents, teacherTemplate, schedule)
+        ? buildTallerPrompt(fn, neeStudents, profile, evalColumns, schedule)
         : buildQuincenaPrompt(
             fn,
             includeProni,
             neeStudents,
             vocabList,
             richmondInstructions,
-            teacherTemplate,
+            profile,
+            evalColumns,
             schedule
           )
 
@@ -382,6 +438,8 @@ export async function POST(req: NextRequest) {
               letterDay: schedule.letterDay,
               numDay: schedule.numDay,
               includeProni,
+              pdaBank: profile?.pda_bank,
+              evalColumns,
             }
             const [letterSub, numSub] = await Promise.allSettled([
               generateSubplan(fn, 'letter_number', subOpts),
@@ -407,6 +465,9 @@ export async function POST(req: NextRequest) {
           ) {
             planDocument.sub_planes = existingSubPlanes
           }
+
+          // Persist the evaluation columns so the viewer + DOCX export render this school's scale.
+          planDocument.evaluation_columns = evalColumns
 
           // Save plan_document to fortnight
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

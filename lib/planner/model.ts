@@ -19,10 +19,20 @@ export async function callPlannerModel(
         max_tokens: maxTokens,
         temperature: 0.4,
         system,
-        messages: [{ role: 'user', content: user }],
+        // Prefill "{" forces the model to start directly with the JSON object —
+        // no ```json fences, no preamble. We prepend it back below.
+        messages: [
+          { role: 'user', content: user },
+          { role: 'assistant', content: '{' },
+        ],
       })
+      if (resp.stop_reason === 'max_tokens') {
+        // Diagnostic: the document was cut off. parsePlanJson recovery may still salvage it,
+        // but this means maxTokens should rise or the request should be split.
+        console.error('[planner] Sonnet response truncated (stop_reason=max_tokens)')
+      }
       const c = resp.content[0]
-      if (c?.type === 'text' && c.text.trim()) return c.text
+      if (c?.type === 'text' && c.text.trim()) return '{' + c.text
       throw new Error('Empty Sonnet response')
     } catch (e) {
       console.error('[planner] Sonnet failed, falling back to gpt-4o-mini:', e)

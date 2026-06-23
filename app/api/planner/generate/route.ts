@@ -366,7 +366,7 @@ Mínimo 1 actividad PRONI por semana en el bloque de ${cap(letterDay)}. Marca co
     : ''
 
   const materialsBaseline =
-    'pizarrón, crayones, hojas, proyector, tijeras, pegamento, flashcards MaestraAI'
+    'pizarrón, crayones, hojas, proyector, tijeras, pegamento, flashcards MaestraIA'
   const materialsExtra = physicalMaterials.length > 0 ? `, ${physicalMaterials.join(', ')}` : ''
   const materialsSection = `MATERIALES DISPONIBLES: ${materialsBaseline}${materialsExtra}. Usa solo estos en el campo "materials" de cada bloque.`
 

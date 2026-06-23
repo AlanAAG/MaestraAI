@@ -14,9 +14,13 @@ import {
   WidthType,
   ShadingType,
   AlignmentType,
+  PageOrientation,
 } from 'docx'
 
-const Schema = z.object({ fortnight_id: z.string().uuid() })
+const Schema = z.object({
+  fortnight_id: z.string().uuid(),
+  orientation: z.enum(['vertical', 'horizontal']).optional(),
+})
 
 type CampoFormativo = {
   campo: string
@@ -47,6 +51,7 @@ type PlanDocument = {
   cronograma?: Record<string, string[]>
   campos_formativos?: CampoFormativo[]
   evaluacion_items?: { aspecto: string }[]
+  evaluation_columns?: string[]
   sub_planes?: SubPlan[]
 }
 
@@ -170,9 +175,10 @@ function camposFormativosSection(campos: CampoFormativo[]): (Paragraph | Table)[
   return items
 }
 
-function evaluacionTable(items: { aspecto: string }[]): Table {
+function evaluacionTable(items: { aspecto: string }[], columns?: string[]): Table {
+  const cols = columns?.length ? columns : ['Logrado', 'En proceso', 'Requiere apoyo']
   const headerRow = new TableRow({
-    children: ['Aspecto', 'Logrado', 'En proceso', 'Requiere apoyo'].map(
+    children: ['Aspecto', ...cols].map(
       (h) =>
         new TableCell({
           children: [
@@ -190,9 +196,7 @@ function evaluacionTable(items: { aspecto: string }[]): Table {
       new TableRow({
         children: [
           new TableCell({ children: [new Paragraph(`• ${item.aspecto}`)] }),
-          new TableCell({ children: [new Paragraph('')] }),
-          new TableCell({ children: [new Paragraph('')] }),
-          new TableCell({ children: [new Paragraph('')] }),
+          ...cols.map(() => new TableCell({ children: [new Paragraph('')] })),
         ],
       })
   )
@@ -364,7 +368,7 @@ export async function POST(req: NextRequest) {
       children.push(
         new Paragraph({ text: 'Evaluación de Aprendizajes', heading: HeadingLevel.HEADING_2 })
       )
-      children.push(evaluacionTable(pd.evaluacion_items))
+      children.push(evaluacionTable(pd.evaluacion_items, pd.evaluation_columns))
       children.push(new Paragraph(''))
     }
 
@@ -395,7 +399,7 @@ export async function POST(req: NextRequest) {
         }
       }
       if (sp.evaluacion?.length) {
-        children.push(evaluacionTable(sp.evaluacion))
+        children.push(evaluacionTable(sp.evaluacion, pd.evaluation_columns))
       }
       children.push(new Paragraph(''))
     }
@@ -414,7 +418,15 @@ export async function POST(req: NextRequest) {
     )
 
     const doc = new Document({
-      sections: [{ children }],
+      sections: [
+        {
+          properties:
+            body.data.orientation === 'horizontal'
+              ? { page: { size: { orientation: PageOrientation.LANDSCAPE } } }
+              : undefined,
+          children,
+        },
+      ],
       styles: { paragraphStyles: [{ id: 'Normal', run: { font: 'Calibri', size: 22 } }] },
     })
 

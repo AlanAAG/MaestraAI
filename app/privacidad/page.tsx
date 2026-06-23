@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Aviso de Privacidad — MaestraAI',
-  description: 'Aviso de Privacidad de MaestraAI conforme a la LFPDPPP (DOF 20-03-2025).',
+  title: 'Aviso de Privacidad — MaestraIA',
+  description: 'Aviso de Privacidad de MaestraIA conforme a la LFPDPPP (DOF 20-03-2025).',
 }
 
 export default function PrivacidadPage() {
@@ -13,7 +13,7 @@ export default function PrivacidadPage() {
           href="/"
           className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
         >
-          ← MaestraAI
+          ← MaestraIA
         </Link>
         <span className="text-xs text-gray-400">LFPDPPP 2025</span>
       </header>
@@ -32,7 +32,7 @@ export default function PrivacidadPage() {
               I. Identidad y Domicilio del Responsable
             </h2>
             <p>
-              <strong>MaestraAI</strong> es una plataforma educativa para docentes de preescolar en
+              <strong>MaestraIA</strong> es una plataforma educativa para docentes de preescolar en
               México, disponible en <strong>maestraia.com</strong>.
             </p>
             <p className="mt-2">Domicilio: Ciudad de México, México.</p>
@@ -43,7 +43,7 @@ export default function PrivacidadPage() {
               </a>
             </p>
             <p className="mt-2 text-sm text-gray-500">
-              MaestraAI actúa como Responsable del tratamiento de los datos del docente y como
+              MaestraIA actúa como Responsable del tratamiento de los datos del docente y como
               Encargado del tratamiento respecto a los datos de alumnos (ver Sección IV).
             </p>
           </section>
@@ -126,7 +126,7 @@ export default function PrivacidadPage() {
               IV. Tratamiento de Datos de Menores de Edad
             </h2>
             <p>
-              Los alumnos de preescolar son menores de edad. MaestraAI actúa exclusivamente como{' '}
+              Los alumnos de preescolar son menores de edad. MaestraIA actúa exclusivamente como{' '}
               <strong>Encargado del tratamiento</strong>: procesa sus datos únicamente bajo
               instrucción del docente y para las finalidades que éste determina en su función
               pedagógica.
@@ -150,7 +150,7 @@ export default function PrivacidadPage() {
             <h2 className="text-xl font-semibold mb-3 text-gray-900">
               V. Datos Provenientes de Richmond LP
             </h2>
-            <p className="mb-3">MaestraAI ofrece integración opcional con richmondlp.com:</p>
+            <p className="mb-3">MaestraIA ofrece integración opcional con richmondlp.com:</p>
 
             <h3 className="font-semibold mt-3 mb-1">A. Extensión de Chrome</h3>
             <p>
@@ -171,7 +171,7 @@ export default function PrivacidadPage() {
               institucional para el intercambio de datos entre plataformas.
             </p>
             <p className="mt-2 text-sm text-gray-500">
-              MaestraAI no es proveedor afiliado ni autorizado de Richmond Publishing / Programas de
+              MaestraIA no es proveedor afiliado ni autorizado de Richmond Publishing / Programas de
               Innovación Educativa, S.A. de C.V.
             </p>
           </section>
@@ -182,7 +182,7 @@ export default function PrivacidadPage() {
               VI. Uso de Inteligencia Artificial
             </h2>
             <p className="mb-4">
-              MaestraAI usa la API de Claude (<strong>Anthropic PBC</strong>) y GPT-4o-mini (
+              MaestraIA usa la API de Claude (<strong>Anthropic PBC</strong>) y GPT-4o-mini (
               <strong>OpenAI, L.L.C.</strong>) para generar contenido pedagógico.
             </p>
             <div className="overflow-x-auto">
@@ -243,7 +243,7 @@ export default function PrivacidadPage() {
               VII. Transferencias de Datos a Terceros
             </h2>
             <p className="mb-3">
-              MaestraAI no vende ni cede datos personales con fines comerciales. Compartimos datos
+              MaestraIA no vende ni cede datos personales con fines comerciales. Compartimos datos
               solo con los siguientes proveedores, bajo acuerdos contractuales con protección
               equivalente (Art. 35 LFPDPPP):
             </p>
@@ -291,7 +291,7 @@ export default function PrivacidadPage() {
                 (asignaciones y calificaciones visibles en esa sesión).
               </li>
               <li>
-                <strong>Qué transmite:</strong> Datos capturados al servidor de MaestraAI usando la
+                <strong>Qué transmite:</strong> Datos capturados al servidor de MaestraIA usando la
                 clave API personal del docente.
               </li>
               <li>
@@ -396,7 +396,7 @@ export default function PrivacidadPage() {
               XIV. Mecanismo de Consentimiento
             </h2>
             <p className="mb-3">
-              Al registrarse, MaestraAI solicita consentimiento desagregado mediante casillas
+              Al registrarse, MaestraIA solicita consentimiento desagregado mediante casillas
               independientes (Art. 7–8 LFPDPPP):
             </p>
             <ol className="list-decimal list-inside space-y-3 ml-4">
