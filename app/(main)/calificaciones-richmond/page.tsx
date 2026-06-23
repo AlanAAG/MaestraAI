@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Download, Users, X, Send, Trash2, ChevronRight } from 'lucide-react'
+import { Loader2, Download, Users, X, Send, Trash2, ChevronRight, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -52,8 +52,11 @@ export default function CalificacionesRichmondPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [filter, setFilter] = useState<'all' | string>('all') // 'all' or a group id
   const [view, setView] = useState<'tarea' | 'alumno'>('tarea')
-  const [nameOrder, setNameOrder] = useState<'apellido' | 'nombre'>('apellido')
-  const [statusSort, setStatusSort] = useState<'ninguno' | 'pendientes' | 'entregados'>('ninguno')
+  // One mutually-exclusive sort control (clearer than two separate chip groups).
+  const [sort, setSort] = useState<'apellido' | 'nombre' | 'pendientes' | 'entregados'>('apellido')
+  const nameOrder = sort === 'nombre' ? 'nombre' : 'apellido'
+  const statusSort: 'ninguno' | 'pendientes' | 'entregados' =
+    sort === 'pendientes' || sort === 'entregados' ? sort : 'ninguno'
   const [expandedTask, setExpandedTask] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -444,48 +447,49 @@ export default function CalificacionesRichmondPage() {
         </div>
       </div>
 
-      {/* Filters: group + view */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
-          Ambos grupos
-        </FilterChip>
-        {groups.map((g) => (
-          <FilterChip key={g.id} active={filter === g.id} onClick={() => setFilter(g.id)}>
-            {g.name}
-          </FilterChip>
-        ))}
-        <span className="mx-1 h-5 w-px bg-border" />
-        <FilterChip active={view === 'tarea'} onClick={() => setView('tarea')}>
-          Por tarea
-        </FilterChip>
-        <FilterChip active={view === 'alumno'} onClick={() => setView('alumno')}>
-          Por alumno
-        </FilterChip>
-      </div>
+      {/* Filters — group scope (pills) · view (segmented) · sort (dropdown) */}
+      {groups.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
+              Ambos grupos
+            </FilterChip>
+            {groups.map((g) => (
+              <FilterChip key={g.id} active={filter === g.id} onClick={() => setFilter(g.id)}>
+                {g.name}
+              </FilterChip>
+            ))}
+          </div>
 
-      {/* Sort controls: name order + submission status */}
-      <div className="flex flex-wrap items-center gap-2 mb-5 -mt-2">
-        <span className="text-xs text-text-disabled">Ordenar:</span>
-        <FilterChip active={nameOrder === 'apellido'} onClick={() => setNameOrder('apellido')}>
-          Apellido
-        </FilterChip>
-        <FilterChip active={nameOrder === 'nombre'} onClick={() => setNameOrder('nombre')}>
-          Nombre
-        </FilterChip>
-        <span className="mx-1 h-5 w-px bg-border" />
-        <FilterChip
-          active={statusSort === 'pendientes'}
-          onClick={() => setStatusSort((s) => (s === 'pendientes' ? 'ninguno' : 'pendientes'))}
-        >
-          Pendientes primero
-        </FilterChip>
-        <FilterChip
-          active={statusSort === 'entregados'}
-          onClick={() => setStatusSort((s) => (s === 'entregados' ? 'ninguno' : 'entregados'))}
-        >
-          Entregados primero
-        </FilterChip>
-      </div>
+          <div className="flex items-center gap-2">
+            <Segmented
+              options={[
+                { value: 'tarea', label: 'Por tarea' },
+                { value: 'alumno', label: 'Por alumno' },
+              ]}
+              value={view}
+              onChange={(v) => setView(v as 'tarea' | 'alumno')}
+            />
+            <label className="relative">
+              <span className="sr-only">Ordenar alumnos</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as typeof sort)}
+                className="appearance-none rounded-full border border-border bg-muted/60 hover:bg-muted pl-3 pr-8 py-1.5 text-sm font-medium text-text-secondary cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <option value="apellido">Ordenar: Apellido (A–Z)</option>
+                <option value="nombre">Ordenar: Nombre (A–Z)</option>
+                <option value="pendientes">Ordenar: Pendientes primero</option>
+                <option value="entregados">Ordenar: Entregados primero</option>
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-disabled"
+              />
+            </label>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
@@ -500,28 +504,8 @@ export default function CalificacionesRichmondPage() {
         </div>
       ) : (
         <>
-          {/* Submissions-over-time chart */}
-          <div className="rounded-xl border border-border p-4 mb-5">
-            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-3">
-              Entregas por tarea en el tiempo
-            </p>
-            <div className="flex items-end gap-[3px] h-28 overflow-x-auto pb-1">
-              {assignmentsAsc.map((a) => {
-                const ratio = a.total_students ? a.total_submitted / a.total_students : 0
-                return (
-                  <div
-                    key={a.id}
-                    className="flex-shrink-0 w-2.5 rounded-t bg-primary/80 hover:bg-primary transition-colors cursor-default"
-                    style={{ height: `${Math.max(4, ratio * 100)}%` }}
-                    title={`${a.title}\n${new Date(a.due_at).toLocaleDateString('es-MX')}\n${a.total_submitted}/${a.total_students} entregaron`}
-                  />
-                )
-              })}
-            </div>
-            <p className="text-[11px] text-text-disabled mt-1">
-              Cada barra es una tarea (orden cronológico). Altura = % de alumnos que entregaron.
-            </p>
-          </div>
+          {/* Submissions-over-time trend (always visible, fits width) */}
+          <SubmissionTrend assignments={assignmentsAsc} />
 
           {view === 'tarea' ? (
             <div className="space-y-2">
@@ -974,6 +958,129 @@ function FilterChip({
     >
       {children}
     </button>
+  )
+}
+
+function Segmented({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: string }[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="inline-flex rounded-full bg-muted/60 p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+            value === o.value
+              ? 'bg-white text-text-primary shadow-sm'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Smooth area chart of % entregado over time. Inline SVG (no chart lib), fits container width.
+// vector-effect keeps stroke crisp while the viewBox stretches via preserveAspectRatio="none".
+function SubmissionTrend({ assignments }: { assignments: Assignment[] }) {
+  const pts = assignments.map((a) => ({
+    a,
+    ratio: a.total_students ? a.total_submitted / a.total_students : 0,
+  }))
+  const n = pts.length
+  const TOP = 8
+  const BOT = 4 // % padding inside the 0–100 viewBox so 0%/100% aren't clipped
+  const x = (i: number) => (n <= 1 ? 50 : (i / (n - 1)) * 100)
+  const y = (r: number) => TOP + (1 - r) * (100 - TOP - BOT)
+
+  const coords = pts.map((p, i) => ({ px: x(i), py: y(p.ratio) }))
+  // Smooth cubic path with control points at the horizontal midpoint (monotone in x).
+  let line = ''
+  if (n === 1) {
+    line = `M 0 ${coords[0].py} L 100 ${coords[0].py}`
+  } else if (n > 1) {
+    line = `M ${coords[0].px} ${coords[0].py}`
+    for (let i = 1; i < n; i++) {
+      const cx = (coords[i - 1].px + coords[i].px) / 2
+      line += ` C ${cx} ${coords[i - 1].py}, ${cx} ${coords[i].py}, ${coords[i].px} ${coords[i].py}`
+    }
+  }
+  const area = line ? `${line} L 100 100 L 0 100 Z` : ''
+  const latest = n ? Math.round(pts[n - 1].ratio * 100) : 0
+
+  return (
+    <div className="rounded-xl border border-border p-4 mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+          % de entregas por tarea
+        </p>
+        <span className="text-xs text-text-disabled">
+          Última tarea: <span className="font-semibold text-text-primary">{latest}%</span>
+        </span>
+      </div>
+      <div className="relative h-32">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full text-primary overflow-visible"
+        >
+          <defs>
+            <linearGradient id="subFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0.01" />
+            </linearGradient>
+          </defs>
+          {/* gridlines at 0 / 50 / 100% */}
+          {[0, 0.5, 1].map((g) => (
+            <line
+              key={g}
+              x1="0"
+              x2="100"
+              y1={y(g)}
+              y2={y(g)}
+              stroke="currentColor"
+              strokeOpacity="0.08"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {area && <path d={area} fill="url(#subFill)" />}
+          {line && (
+            <path
+              d={line}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
+        </svg>
+        {/* Transparent hover targets for per-task tooltips. */}
+        <div className="absolute inset-0 flex">
+          {pts.map((p) => (
+            <div
+              key={p.a.id}
+              className="flex-1 cursor-default"
+              title={`${p.a.title}\n${new Date(p.a.due_at).toLocaleDateString('es-MX')}\n${p.a.total_submitted}/${p.a.total_students} entregaron (${Math.round(p.ratio * 100)}%)`}
+            />
+          ))}
+        </div>
+      </div>
+      <p className="text-[11px] text-text-disabled mt-2">
+        Cada punto es una tarea en orden cronológico. Pasa el cursor para ver el detalle.
+      </p>
+    </div>
   )
 }
 

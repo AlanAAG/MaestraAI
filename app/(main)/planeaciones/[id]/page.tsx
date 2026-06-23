@@ -77,7 +77,7 @@ type Fortnight = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   plan_document?: Record<string, any> | null
   observation_calendar?: Record<string, string[]> | null
-  groups?: { fixed_weekly_schedule?: GroupSchedule | null } | null
+  groups?: { name?: string; fixed_weekly_schedule?: GroupSchedule | null } | null
 }
 
 type VocabularyItem = {
@@ -114,6 +114,7 @@ export default function PlaneacionDetailPage() {
   const [activeTab, setActiveTab] = useState<'document' | 'days'>('document')
   const [generatingDocument, setGeneratingDocument] = useState(false)
   const [exportingDocx, setExportingDocx] = useState(false)
+  const [teacherName, setTeacherName] = useState('')
 
   useEffect(() => {
     loadData()
@@ -143,7 +144,7 @@ export default function PlaneacionDetailPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: fortnightData, error: fortnightError } = await (supabase as any)
         .from('fortnights')
-        .select('*, groups(fixed_weekly_schedule)')
+        .select('*, groups(name, fixed_weekly_schedule)')
         .eq('id', params.id)
         .single()
 
@@ -154,6 +155,15 @@ export default function PlaneacionDetailPage() {
       }
 
       setFortnight(fortnightData)
+
+      // Teacher name for the document header
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: teacherRow } = await (supabase as any)
+        .from('teachers')
+        .select('full_name')
+        .eq('auth_id', user.id)
+        .single()
+      setTeacherName(teacherRow?.full_name ?? '')
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: plansData, error: plansError } = await (supabase as any)
@@ -523,6 +533,10 @@ export default function PlaneacionDetailPage() {
               fortnightId={fortnight.id}
               observationCalendar={fortnight.observation_calendar}
               schedule={fortnight.groups?.fixed_weekly_schedule}
+              startDate={fortnight.start_date}
+              endDate={fortnight.end_date}
+              groupName={fortnight.groups?.name}
+              teacherName={teacherName}
               onReload={loadData}
             />
           )}

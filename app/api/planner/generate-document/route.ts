@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decryptName } from '@/lib/students/name'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
+import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
+import { generateSubplan } from '@/lib/planner/subplan'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 const Schema = z.object({ fortnight_id: z.string().uuid() })
 
@@ -86,36 +86,36 @@ function getGroupSchedule(fn: any) {
   }
 }
 
-async function callModel(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-      const resp = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        max_tokens: 8192,
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-      })
-      return resp.choices[0]?.message?.content ?? ''
-    } catch (e) {
-      console.error('[generate-document] GPT fallback to Sonnet:', e)
-    }
-  }
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-  const resp = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 8192,
-    temperature: 0.3,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }],
-  })
-  const c = resp.content[0]
-  if (c.type !== 'text') throw new Error('Unexpected response type')
-  return c.text
+type TeacherTemplate = {
+  sections?: string[]
+  activity_blocks?: string[]
+  block_descriptions?: Record<string, string>
+  notes?: string
+  examples?: string[]
+} | null
+
+// Renders the teacher's extracted format into rich prompt context — including the
+// activity_blocks + block_descriptions that were previously discarded.
+function templateContext(template: TeacherTemplate): string {
+  if (!template) return ''
+  const blocks =
+    template.activity_blocks?.length && template.block_descriptions
+      ? `BLOQUES DE ACTIVIDAD DEL FORMATO (respeta estos bloques y lo que va en cada uno):\n${template.activity_blocks
+          .map((b) => `• ${b}: ${template.block_descriptions?.[b] ?? ''}`)
+          .join('\n')}`
+      : ''
+  return [
+    template.sections?.length
+      ? `FORMATO ESCOLAR (secciones en orden): ${template.sections.join(' → ')}`
+      : '',
+    blocks,
+    template.notes ? `ESTILO Y TONO DE LA MAESTRA: ${template.notes}` : '',
+    template.examples?.length
+      ? `VOZ DE LA MAESTRA (copia este estilo de redacción exactamente):\n${template.examples.map((e) => `• ${e}`).join('\n')}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 function buildQuincenaPrompt(
@@ -125,7 +125,7 @@ function buildQuincenaPrompt(
   neeStudents: { display_name: string; nee_notes?: string }[],
   vocabList: string,
   richmondInstructions: string,
-  template: { sections?: string[]; notes?: string; examples?: string[] } | null,
+  template: TeacherTemplate,
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> }
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
@@ -175,17 +175,7 @@ function buildQuincenaPrompt(
     ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? '\n' + richmondInstructions.slice(0, 300) : ''}\n${richmondBooks}`
     : richmondBooks
 
-  const templateCtx = template?.sections?.length
-    ? [
-        `FORMATO ESCOLAR (secciones): ${template.sections.join(' → ')}`,
-        template.notes ? `ESTILO: ${template.notes}` : '',
-        template.examples?.length
-          ? `VOZ DE LA MAESTRA:\n${template.examples.map((e) => `• ${e}`).join('\n')}`
-          : '',
-      ]
-        .filter(Boolean)
-        .join('\n')
-    : ''
+  const templateCtx = templateContext(template)
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma, sin modificarlo):
 ${JSON.stringify(schedule.cronograma)}
@@ -214,7 +204,7 @@ function buildTallerPrompt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: any,
   neeStudents: { display_name: string }[],
-  template: { sections?: string[]; notes?: string; examples?: string[] } | null,
+  template: TeacherTemplate,
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> }
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
@@ -239,17 +229,7 @@ function buildTallerPrompt(
       ? `ALUMNOS CON NEE:\n${neeStudents.map((s) => `- ${s.display_name}`).join('\n')}`
       : ''
 
-  const templateCtx = template?.sections?.length
-    ? [
-        `FORMATO ESCOLAR: ${template.sections.join(' → ')}`,
-        template.notes ? `ESTILO: ${template.notes}` : '',
-        template.examples?.length
-          ? `VOZ DE LA MAESTRA:\n${template.examples.map((e) => `• ${e}`).join('\n')}`
-          : '',
-      ]
-        .filter(Boolean)
-        .join('\n')
-    : ''
+  const templateCtx = templateContext(template)
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma):
 ${JSON.stringify(schedule.cronograma)}
@@ -322,9 +302,8 @@ export async function POST(req: NextRequest) {
       .eq('plan_type', planType)
       .order('created_at', { ascending: false })
       .limit(1)
-    const teacherTemplate: { sections?: string[]; notes?: string; examples?: string[] } | null =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (templates?.[0] as any)?.template ?? null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teacherTemplate: TeacherTemplate = (templates?.[0] as any)?.template ?? null
 
     // Fetch NEE students
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -388,19 +367,44 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`))
 
         try {
-          const raw = await callModel(systemPrompt, userPrompt)
-          let planDocument: Record<string, unknown>
-          try {
-            const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '')
-            planDocument = JSON.parse(cleaned)
-          } catch {
-            throw new Error('La respuesta del modelo no es JSON válido')
+          const raw = await callPlannerModel(systemPrompt, userPrompt, { maxTokens: 16384 })
+          const planDocument = parsePlanJson(raw)
+
+          // Quincena: auto-generate the Letter & Number + Números sub-plans inline so the
+          // document is a complete bundle on first generation (matches the teacher's format).
+          // Run in parallel — they only depend on fortnight data, not on the main doc.
+          if (planType === 'quincena') {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ phase: 'subplanes' })}\n\n`)
+            )
+            const subOpts = {
+              vocabList,
+              letterDay: schedule.letterDay,
+              numDay: schedule.numDay,
+              includeProni,
+            }
+            const [letterSub, numSub] = await Promise.allSettled([
+              generateSubplan(fn, 'letter_number', subOpts),
+              generateSubplan(fn, 'numeros', subOpts),
+            ])
+            const subPlanes: Record<string, unknown>[] = []
+            if (letterSub.status === 'fulfilled') subPlanes.push(letterSub.value)
+            if (numSub.status === 'fulfilled') subPlanes.push(numSub.value)
+            if (letterSub.status === 'rejected')
+              console.error('[generate-document] letter_number subplan failed:', letterSub.reason)
+            if (numSub.status === 'rejected')
+              console.error('[generate-document] numeros subplan failed:', numSub.reason)
+            planDocument.sub_planes = subPlanes
           }
 
-          // Preserve existing sub_planes across regenerates
+          // Preserve any prior sub_planes only if we produced none this run.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const existingSubPlanes = ((fn as any).plan_document as any)?.sub_planes
-          if (Array.isArray(existingSubPlanes) && existingSubPlanes.length > 0) {
+          if (
+            (!Array.isArray(planDocument.sub_planes) || planDocument.sub_planes.length === 0) &&
+            Array.isArray(existingSubPlanes) &&
+            existingSubPlanes.length > 0
+          ) {
             planDocument.sub_planes = existingSubPlanes
           }
 

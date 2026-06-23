@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { ChevronDown, ChevronRight, Loader2, BookOpen, Hash, Pencil, Check, X } from 'lucide-react'
+import { Loader2, BookOpen, Hash, Pencil, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type CampoFormativo = {
@@ -45,20 +45,19 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-function Section({
+// A document section: title as a heading with a bottom rule, content ALWAYS visible.
+// Inline edit (when onSave provided) swaps the content for a textarea.
+function DocSection({
   title,
   children,
-  defaultOpen = false,
   editValue,
   onSave,
 }: {
   title: string
   children: React.ReactNode
-  defaultOpen?: boolean
   editValue?: string
   onSave?: (v: string) => Promise<void>
 }) {
-  const [open, setOpen] = useState(defaultOpen)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(editValue ?? '')
   const [saving, setSaving] = useState(false)
@@ -75,84 +74,61 @@ function Section({
   }
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={() => !editing && setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-surface hover:bg-muted transition-colors text-left"
-      >
-        <span className="font-medium text-sm text-text-primary">{title}</span>
-        <div className="flex items-center gap-2">
-          {onSave && !editing && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => {
-                e.stopPropagation()
-                setDraft(editValue ?? '')
-                setOpen(true)
-                setEditing(true)
-              }}
-              onKeyDown={(e) =>
-                e.key === 'Enter' &&
-                (e.stopPropagation(), setDraft(editValue ?? ''), setOpen(true), setEditing(true))
-              }
-              className="p-1 rounded hover:bg-muted text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-              aria-label="Editar sección"
+    <section className="mt-7 first:mt-0">
+      <div className="flex items-center justify-between border-b border-gray-300 pb-1.5 mb-3">
+        <h2 className="text-[13px] font-bold uppercase tracking-wide text-gray-800">{title}</h2>
+        {onSave && !editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(editValue ?? '')
+              setEditing(true)
+            }}
+            className="flex items-center gap-1 text-xs text-primary hover:underline print:hidden"
+          >
+            <Pencil size={12} /> Editar
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={10}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary resize-y font-mono"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8">
+              {saving ? (
+                <Loader2 size={13} className="animate-spin mr-1" />
+              ) : (
+                <Check size={13} className="mr-1" />
+              )}
+              Guardar
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="h-8"
             >
-              <Pencil size={13} />
-            </span>
-          )}
-          {open ? (
-            <ChevronDown size={16} className="text-text-secondary" />
-          ) : (
-            <ChevronRight size={16} className="text-text-secondary" />
-          )}
+              <X size={13} className="mr-1" />
+              Cancelar
+            </Button>
+          </div>
         </div>
-      </button>
-      {open && (
-        <div className="px-4 py-3 border-t border-border">
-          {editing ? (
-            <div className="space-y-2">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={8}
-                className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y font-mono"
-              />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSave} disabled={saving} className="h-8">
-                  {saving ? (
-                    <Loader2 size={13} className="animate-spin mr-1" />
-                  ) : (
-                    <Check size={13} className="mr-1" />
-                  )}
-                  Guardar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setEditing(false)}
-                  disabled={saving}
-                  className="h-8"
-                >
-                  <X size={13} className="mr-1" />
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          ) : (
-            children
-          )}
-        </div>
+      ) : (
+        children
       )}
-    </div>
+    </section>
   )
 }
 
 function MdContent({ text }: { text: string }) {
   return (
-    <div className="prose prose-sm max-w-none text-text-primary">
+    <div className="prose prose-sm max-w-none text-gray-800 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900">
       <ReactMarkdown>{text}</ReactMarkdown>
     </div>
   )
@@ -161,7 +137,7 @@ function MdContent({ text }: { text: string }) {
 function CronogramaGrid({ cronograma }: { cronograma: Record<string, string[]> }) {
   const days = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
   const labels = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
-  const maxLen = Math.max(...days.map((d) => (cronograma[d] ?? []).length))
+  const maxLen = Math.max(0, ...days.map((d) => (cronograma[d] ?? []).length))
 
   return (
     <div className="overflow-x-auto">
@@ -171,7 +147,7 @@ function CronogramaGrid({ cronograma }: { cronograma: Record<string, string[]> }
             {labels.map((l) => (
               <th
                 key={l}
-                className="px-2 py-1 bg-muted border border-border text-center font-medium"
+                className="px-2 py-1.5 bg-gray-100 border border-gray-300 text-center font-semibold text-gray-700"
               >
                 {l}
               </th>
@@ -184,7 +160,7 @@ function CronogramaGrid({ cronograma }: { cronograma: Record<string, string[]> }
               {days.map((d) => (
                 <td
                   key={d}
-                  className="px-2 py-1 border border-border text-center text-text-secondary"
+                  className="px-2 py-1 border border-gray-300 text-center text-gray-700 align-top"
                 >
                   {cronograma[d]?.[i] ?? ''}
                 </td>
@@ -202,14 +178,14 @@ function CamposFormativosView({ campos }: { campos: CampoFormativo[] }) {
     <div className="space-y-4">
       {campos.map((cf, i) => (
         <div key={i}>
-          <p className="font-semibold text-sm text-text-primary mb-2">{cf.campo}</p>
+          <p className="font-semibold text-sm text-gray-900 mb-1.5">Campo formativo: {cf.campo}</p>
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
-                <th className="px-3 py-2 bg-muted border border-border text-left w-2/5">
+                <th className="px-3 py-2 bg-gray-100 border border-gray-300 text-left w-2/5 font-semibold text-gray-700">
                   Contenidos
                 </th>
-                <th className="px-3 py-2 bg-muted border border-border text-left w-3/5">
+                <th className="px-3 py-2 bg-gray-100 border border-gray-300 text-left w-3/5 font-semibold text-gray-700">
                   Procesos de Desarrollo de Aprendizaje
                 </th>
               </tr>
@@ -217,13 +193,13 @@ function CamposFormativosView({ campos }: { campos: CampoFormativo[] }) {
             <tbody>
               {cf.contenidos.map((c, j) => (
                 <tr key={j}>
-                  <td className="px-3 py-2 border border-border align-top text-text-primary">
+                  <td className="px-3 py-2 border border-gray-300 align-top text-gray-800">
                     {c.contenido}
                   </td>
-                  <td className="px-3 py-2 border border-border align-top">
+                  <td className="px-3 py-2 border border-gray-300 align-top">
                     <ul className="space-y-1">
                       {c.procesos.map((p, k) => (
-                        <li key={k} className="text-text-secondary">
+                        <li key={k} className="text-gray-700">
                           • {p}
                         </li>
                       ))}
@@ -248,9 +224,14 @@ function EvaluacionGrid({ items }: { items: { aspecto: string }[] }) {
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr>
-            <th className="px-3 py-2 bg-muted border border-border text-left w-1/2">Aspecto</th>
+            <th className="px-3 py-2 bg-gray-100 border border-gray-300 text-left w-1/2 font-semibold text-gray-700">
+              Aspecto
+            </th>
             {opts.map((o) => (
-              <th key={o} className="px-2 py-2 bg-muted border border-border text-center">
+              <th
+                key={o}
+                className="px-2 py-2 bg-gray-100 border border-gray-300 text-center font-semibold text-gray-700"
+              >
                 {o}
               </th>
             ))}
@@ -259,9 +240,9 @@ function EvaluacionGrid({ items }: { items: { aspecto: string }[] }) {
         <tbody>
           {items.map((item, i) => (
             <tr key={i}>
-              <td className="px-3 py-2 border border-border text-text-primary">• {item.aspecto}</td>
+              <td className="px-3 py-2 border border-gray-300 text-gray-800">• {item.aspecto}</td>
               {opts.map((o) => (
-                <td key={o} className="px-2 py-2 border border-border text-center">
+                <td key={o} className="px-2 py-2 border border-gray-300 text-center">
                   <input
                     type="radio"
                     name={`eval-${i}`}
@@ -279,7 +260,13 @@ function EvaluacionGrid({ items }: { items: { aspecto: string }[] }) {
   )
 }
 
-function SubPlanCard({
+const MOMENTO_LABELS: Record<string, string> = {
+  '1': '1° Momento: En contacto con la realidad',
+  '2': '2° Momento: Identificación e integración',
+  '3': '3° Momento: Expresión',
+}
+
+function SubPlanBlock({
   subPlan,
   fortnightId,
   subType,
@@ -295,7 +282,7 @@ function SubPlanCard({
   const [loading, setLoading] = useState(false)
   const label =
     subType === 'letter_number' ? `Letter & Number (${dayLabel})` : `Números (${dayLabel})`
-  const icon = subType === 'letter_number' ? <BookOpen size={16} /> : <Hash size={16} />
+  const icon = subType === 'letter_number' ? <BookOpen size={15} /> : <Hash size={15} />
 
   async function generate() {
     setLoading(true)
@@ -313,10 +300,10 @@ function SubPlanCard({
 
   if (!subPlan) {
     return (
-      <div className="border border-dashed border-border rounded-lg p-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-text-secondary text-sm">
+      <div className="mt-7 border border-dashed border-gray-300 rounded-lg p-4 flex items-center justify-between print:hidden">
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
           {icon}
-          <span>{label}</span>
+          <span>{label} — aún no generado</span>
         </div>
         <Button size="sm" variant="outline" onClick={generate} disabled={loading}>
           {loading ? (
@@ -333,47 +320,63 @@ function SubPlanCard({
   }
 
   return (
-    <Section title={`${label} — ${subPlan.nombre ?? ''}`}>
+    <section className="mt-7">
+      <div className="flex items-center justify-between border-b border-gray-300 pb-1.5 mb-3">
+        <h2 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-gray-800">
+          {icon}
+          {label}
+          {subPlan.nombre ? (
+            <span className="normal-case font-normal text-gray-500">— {subPlan.nombre}</span>
+          ) : null}
+        </h2>
+        <button
+          type="button"
+          onClick={generate}
+          disabled={loading}
+          className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 print:hidden"
+        >
+          {loading ? <Loader2 size={12} className="animate-spin" /> : null}
+          Regenerar
+        </button>
+      </div>
       <div className="space-y-3">
-        <p className="text-xs text-text-secondary italic">{subPlan.metodologia}</p>
+        {subPlan.metodologia && (
+          <p className="text-xs text-gray-500 italic">Metodología: {subPlan.metodologia}</p>
+        )}
         {subPlan.campos_formativos?.length ? (
           <CamposFormativosView campos={subPlan.campos_formativos} />
         ) : null}
-        {subPlan.estructura_didactica &&
-          Object.entries(subPlan.estructura_didactica).map(([key, val]) => {
-            const n = key.replace('momento_', '')
-            const label3 =
-              n === '1'
-                ? '1° Momento: En contacto con la realidad'
-                : n === '2'
-                  ? '2° Momento: Identificación e integración'
-                  : '3° Momento: Expresión'
-            return (
-              <div key={key}>
-                <p className="font-medium text-xs text-text-secondary mb-1">{label3}</p>
-                <MdContent text={val} />
-              </div>
-            )
-          })}
+        {subPlan.estructura_didactica && (
+          <div className="space-y-2">
+            <p className="font-semibold text-sm text-gray-900">Estructura Didáctica</p>
+            {Object.entries(subPlan.estructura_didactica).map(([key, val]) => {
+              const n = key.replace('momento_', '')
+              return (
+                <div key={key}>
+                  <p className="font-medium text-xs text-gray-600 mb-1">
+                    {MOMENTO_LABELS[n] ?? `${n}° Momento`}
+                  </p>
+                  <MdContent text={val} />
+                </div>
+              )
+            })}
+          </div>
+        )}
         {subPlan.evaluacion?.length ? (
           <>
-            <p className="font-medium text-sm">Evaluación</p>
+            <p className="font-semibold text-sm text-gray-900">Evaluación de Aprendizajes</p>
             <EvaluacionGrid items={subPlan.evaluacion} />
           </>
         ) : null}
-        <Button size="sm" variant="ghost" onClick={generate} disabled={loading} className="text-xs">
-          {loading ? <Loader2 size={12} className="animate-spin mr-1" /> : null}
-          Regenerar
-        </Button>
       </div>
-    </Section>
+    </section>
   )
 }
 
 function ObservationCalendarSection({ cal }: { cal: Record<string, string[]> }) {
   const days = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
   const labels = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
-  const maxLen = Math.max(...days.map((d) => (cal[d] ?? []).length))
+  const maxLen = Math.max(0, ...days.map((d) => (cal[d] ?? []).length))
   if (maxLen === 0) return null
   return (
     <div className="overflow-x-auto">
@@ -383,7 +386,7 @@ function ObservationCalendarSection({ cal }: { cal: Record<string, string[]> }) 
             {labels.map((l) => (
               <th
                 key={l}
-                className="px-2 py-1 bg-muted border border-border text-center font-medium"
+                className="px-2 py-1.5 bg-gray-100 border border-gray-300 text-center font-semibold text-gray-700"
               >
                 {l}
               </th>
@@ -394,10 +397,7 @@ function ObservationCalendarSection({ cal }: { cal: Record<string, string[]> }) 
           {Array.from({ length: maxLen }, (_, i) => (
             <tr key={i}>
               {days.map((d) => (
-                <td
-                  key={d}
-                  className="px-2 py-1 border border-border text-center text-text-secondary"
-                >
+                <td key={d} className="px-2 py-1 border border-gray-300 text-center text-gray-700">
                   {cal[d]?.[i] ?? ''}
                 </td>
               ))}
@@ -414,6 +414,10 @@ interface PlanDocumentViewerProps {
   fortnightId: string
   observationCalendar?: Record<string, string[]> | null
   schedule?: GroupSchedule | null
+  startDate?: string
+  endDate?: string
+  groupName?: string
+  teacherName?: string
   onReload: () => void
 }
 
@@ -422,6 +426,10 @@ export function PlanDocumentViewer({
   fortnightId,
   observationCalendar,
   schedule,
+  startDate,
+  endDate,
+  groupName,
+  teacherName,
   onReload,
 }: PlanDocumentViewerProps) {
   const isQuincena = pd.tipo !== 'taller'
@@ -441,188 +449,198 @@ export function PlanDocumentViewer({
     onReload()
   }
 
+  const fmt = (d?: string) =>
+    d
+      ? new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+      : ''
+  const dateLine = startDate && endDate ? `Del ${fmt(startDate)} al ${fmt(endDate)}` : ''
+  const metaParts = [
+    dateLine,
+    groupName ? `Grupo: ${groupName}` : '',
+    teacherName ? `Profesora: ${teacherName}` : '',
+  ].filter(Boolean)
+
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
-        <p className="text-xs text-text-secondary uppercase tracking-wide">
-          {pd.tipo === 'taller' ? 'Taller' : 'Quincena'} · {pd.metodologia}
+    <div className="mx-auto max-w-3xl bg-white text-gray-900 ring-1 ring-gray-200 rounded-lg shadow-sm px-6 sm:px-10 py-8 sm:py-10 print:shadow-none print:ring-0 print:px-0 print:py-0">
+      {/* Document header */}
+      <header className="text-center border-b-2 border-gray-800 pb-4 mb-2">
+        <p className="text-[11px] uppercase tracking-widest text-gray-500">
+          {pd.tipo === 'taller' ? 'Planeación de Taller' : 'Planeación Quincenal'}
         </p>
-        <p className="font-semibold text-text-primary">{pd.nombre_proyecto}</p>
-      </div>
+        <h1 className="text-xl font-bold text-gray-900 mt-1">{pd.nombre_proyecto}</h1>
+        {pd.metodologia && (
+          <p className="text-sm text-gray-600 mt-0.5">Metodología: {pd.metodologia}</p>
+        )}
+        {metaParts.length > 0 && (
+          <p className="text-xs text-gray-500 mt-2">{metaParts.join('  ·  ')}</p>
+        )}
+      </header>
 
       {isQuincena && (
         <>
           {pd.actividades_iniciales && (
-            <Section
+            <DocSection
               title="Actividades Iniciales"
-              defaultOpen
               editValue={pd.actividades_iniciales}
               onSave={(v) => handleEdit('actividades_iniciales', v)}
             >
               <MdContent text={pd.actividades_iniciales} />
-            </Section>
+            </DocSection>
           )}
           {pd.actividades_rutina && (
-            <Section
+            <DocSection
               title="Actividades de Rutina y Permanentes"
               editValue={pd.actividades_rutina}
               onSave={(v) => handleEdit('actividades_rutina', v)}
             >
               <MdContent text={pd.actividades_rutina} />
-            </Section>
+            </DocSection>
           )}
           {pd.estrategia_comunitaria && (
-            <Section
-              title="Estrategia Comunitaria"
+            <DocSection
+              title="Estrategias Comunitarias para Espacios Libres de Violencia"
               editValue={pd.estrategia_comunitaria}
               onSave={(v) => handleEdit('estrategia_comunitaria', v)}
             >
               <MdContent text={pd.estrategia_comunitaria} />
-            </Section>
+            </DocSection>
           )}
           {pd.pausas_activas && (
-            <Section
+            <DocSection
               title="Pausas Activas"
               editValue={pd.pausas_activas}
               onSave={(v) => handleEdit('pausas_activas', v)}
             >
               <MdContent text={pd.pausas_activas} />
-            </Section>
+            </DocSection>
           )}
           {pd.ajustes_razonables && (
-            <Section
+            <DocSection
               title="Ajustes Razonables"
               editValue={pd.ajustes_razonables}
               onSave={(v) => handleEdit('ajustes_razonables', v)}
             >
               <MdContent text={pd.ajustes_razonables} />
-            </Section>
+            </DocSection>
           )}
         </>
       )}
 
-      {!isQuincena && pd.ajustes_razonables && (
-        <Section
-          title="Ajustes Razonables"
-          editValue={pd.ajustes_razonables}
-          onSave={(v) => handleEdit('ajustes_razonables', v)}
-        >
-          <MdContent text={pd.ajustes_razonables} />
-        </Section>
-      )}
-
       {pd.cronograma && (
-        <Section title="Cronograma de Actividades Diarias">
+        <DocSection title="Cronograma de Actividades Diarias">
           <CronogramaGrid cronograma={pd.cronograma} />
-        </Section>
+        </DocSection>
       )}
 
       {observationCalendar && Object.values(observationCalendar).some((v) => v?.length) && (
-        <Section title="Calendario de Observación de Alumnos">
+        <DocSection title="Calendario de Observación de Alumnos">
           <ObservationCalendarSection cal={observationCalendar} />
-        </Section>
+        </DocSection>
       )}
 
       {pd.ejes_articuladores && (
-        <Section
+        <DocSection
           title="Ejes Articuladores"
           editValue={pd.ejes_articuladores}
           onSave={(v) => handleEdit('ejes_articuladores', v)}
         >
           <MdContent text={pd.ejes_articuladores} />
-        </Section>
+        </DocSection>
       )}
 
       {pd.campos_formativos?.length ? (
-        <Section title="Campos Formativos" defaultOpen={false}>
+        <DocSection title="Campos Formativos">
           <CamposFormativosView campos={pd.campos_formativos} />
-        </Section>
+        </DocSection>
       ) : null}
 
       {isQuincena && pd.proyecto && (
-        <Section
+        <DocSection
           title="Del Proyecto"
-          defaultOpen
           editValue={pd.proyecto}
           onSave={(v) => handleEdit('proyecto', v)}
         >
           <MdContent text={pd.proyecto} />
-        </Section>
-      )}
-      {!isQuincena && pd.desarrollo_taller && (
-        <Section
-          title="Desarrollo del Taller"
-          defaultOpen
-          editValue={pd.desarrollo_taller}
-          onSave={(v) => handleEdit('desarrollo_taller', v)}
-        >
-          <MdContent text={pd.desarrollo_taller} />
-        </Section>
+        </DocSection>
       )}
 
       {!isQuincena && (
         <>
+          {pd.ajustes_razonables && (
+            <DocSection
+              title="Ajustes Razonables"
+              editValue={pd.ajustes_razonables}
+              onSave={(v) => handleEdit('ajustes_razonables', v)}
+            >
+              <MdContent text={pd.ajustes_razonables} />
+            </DocSection>
+          )}
+          {pd.desarrollo_taller && (
+            <DocSection
+              title="Desarrollo del Taller"
+              editValue={pd.desarrollo_taller}
+              onSave={(v) => handleEdit('desarrollo_taller', v)}
+            >
+              <MdContent text={pd.desarrollo_taller} />
+            </DocSection>
+          )}
           {pd.actividades_iniciales && (
-            <Section
+            <DocSection
               title="Actividades Iniciales"
               editValue={pd.actividades_iniciales}
               onSave={(v) => handleEdit('actividades_iniciales', v)}
             >
               <MdContent text={pd.actividades_iniciales} />
-            </Section>
+            </DocSection>
           )}
           {pd.actividades_rutina && (
-            <Section
+            <DocSection
               title="Actividades de Rutina y Permanentes"
               editValue={pd.actividades_rutina}
               onSave={(v) => handleEdit('actividades_rutina', v)}
             >
               <MdContent text={pd.actividades_rutina} />
-            </Section>
+            </DocSection>
           )}
           {pd.pausas_activas && (
-            <Section
+            <DocSection
               title="Pausas Activas"
               editValue={pd.pausas_activas}
               onSave={(v) => handleEdit('pausas_activas', v)}
             >
               <MdContent text={pd.pausas_activas} />
-            </Section>
+            </DocSection>
           )}
         </>
       )}
 
       {pd.evaluacion_items?.length ? (
-        <Section title="Evaluación de Aprendizajes">
+        <DocSection title="Evaluación de Aprendizajes">
           <EvaluacionGrid items={pd.evaluacion_items} />
-        </Section>
+        </DocSection>
       ) : null}
 
-      {/* Sub-plans (quincena only) */}
+      {/* Sub-plans (quincena only) — rendered as continuation document sections */}
       {isQuincena && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide pt-2">
-            Sub-planeaciones
-          </p>
-          <SubPlanCard
+        <>
+          <SubPlanBlock
             subPlan={letterSub}
             fortnightId={fortnightId}
             subType="letter_number"
             dayLabel={letterDay}
             onGenerated={onReload}
           />
-          <SubPlanCard
+          <SubPlanBlock
             subPlan={numSub}
             fortnightId={fortnightId}
             subType="numeros"
             dayLabel={numDay}
             onGenerated={onReload}
           />
-        </div>
+        </>
       )}
 
-      <p className="text-xs text-text-disabled italic pt-2 text-center">
+      <p className="text-[11px] text-gray-400 italic pt-8 text-center">
         Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024
       </p>
     </div>

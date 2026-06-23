@@ -27,6 +27,7 @@ type SubPlan = {
   tipo: string
   metodologia?: string
   nombre?: string
+  campos_formativos?: CampoFormativo[]
   estructura_didactica?: Record<string, string>
   evaluacion?: { aspecto: string }[]
 }
@@ -171,7 +172,7 @@ function camposFormativosSection(campos: CampoFormativo[]): (Paragraph | Table)[
 
 function evaluacionTable(items: { aspecto: string }[]): Table {
   const headerRow = new TableRow({
-    children: ['Aspecto', 'Sí', 'No', 'En proceso'].map(
+    children: ['Aspecto', 'Logrado', 'En proceso', 'Requiere apoyo'].map(
       (h) =>
         new TableCell({
           children: [
@@ -385,15 +386,12 @@ export async function POST(req: NextRequest) {
           ],
         })
       )
+      if (sp.campos_formativos?.length) {
+        children.push(...camposFormativosSection(sp.campos_formativos))
+      }
       if (sp.estructura_didactica) {
         for (const [key, val] of Object.entries(sp.estructura_didactica)) {
-          const label =
-            key.replace('momento_', '') === '1'
-              ? '1° Momento'
-              : key.replace('momento_', '') === '2'
-                ? '2° Momento'
-                : '3° Momento'
-          children.push(...mdToParas(val as string, label))
+          children.push(...mdToParas(val as string, `${key.replace('momento_', '')}° Momento`))
         }
       }
       if (sp.evaluacion?.length) {

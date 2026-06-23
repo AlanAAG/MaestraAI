@@ -30,10 +30,12 @@ Current phase: Phase 6 — Quality & Polish (output quality, design, games, bran
 ### Lesson Planner (`/planeaciones`)
 
 - Document-style plans: Quincena + Taller formats
-- GPT-4o-mini primary / claude-sonnet-4-6 fallback
+- claude-sonnet-4-6 PRIMARY (depth/voice) / gpt-4o-mini fallback via `lib/planner/model.ts` (`callPlannerModel`, max_tokens 16k); removed the 2,500-word cap, prompts now demand exhaustive multi-page output with verbatim NEM PDAs
+- Full bundle on first generate: main Proyecto + auto-generated rich Letter&Number + Números sub-plans (parallel pipeline in generate-document, shared `lib/planner/subplan.ts`); teacher template's activity_blocks/block_descriptions now injected (previously discarded)
 - Teacher voice fidelity: "VOZ DE LA MAESTRA" few-shot injection from uploaded template
 - Per-group schedule: letter_number_day + numeros_day from groups.fixed_weekly_schedule (no hardcoding)
 - Sub-plans: on-demand Letter & Number / Numeros generation (claude-haiku-4-5)
+- Document-style preview: PlanDocumentViewer renders a paper "sheet" (header with fechas/grupo/profesora, flowing always-visible sections in the teacher's order, Word-style tables, inline sub-plans, print CSS) — replaces the old collapsed accordions
 - Inline section editing (PATCH /api/planner/update-document)
 - DOCX export
 - ObservationCalendar per group
@@ -59,7 +61,7 @@ Current phase: Phase 6 — Quality & Polish (output quality, design, games, bran
 - CSV/XLSX import with fuzzy student matching (Levenshtein)
 - Analytics dashboard: 4 views (todos / por-grupo / por-tarea / por-alumno), score distribution chart
 - Richmond unit linkage in lesson plans (injects unit context into prompt)
-- Calificaciones tracker (`/calificaciones-richmond`): sort filters (Apellido/Nombre, Pendientes/Entregados primero) on both por-tarea/por-alumno views
+- Calificaciones tracker (`/calificaciones-richmond`): consolidated sort dropdown (Apellido/Nombre/Pendientes/Entregados primero) + segmented view toggle; always-visible smooth SVG area trend (% entregas over time, fits width, no horizontal scroll); student names title-cased on display
 - Parent notifications: editable account-level email template (`teachers.parent_email_template`, placeholders `{padre}/{alumno}/{tareas}`), per-task one-click, per-student individual send, and bulk "Avisar a todos" digest (one email per parent listing their child's pending tasks). Shared render/decrypt helper in `lib/calificaciones/notify.ts`. Note: Richmond sync has no per-homework "unit" field — only task title.
 
 ### Student & School
