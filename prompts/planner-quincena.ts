@@ -14,15 +14,16 @@ El horario semanal exacto (qué actividades van en cada día) se provee en el me
 ESTRUCTURA DE SALIDA (plan_document):
 {
   "tipo": "quincena",
-  "metodologia": "Proyecto" (u otra metodología NEM si aplica),
+  "metodologia": "Proyecto",  // metodologías NEM válidas: Proyecto | Taller Crítico | Centro de Interés | Aprendizaje Basado en el Juego | Situación Didáctica | Asamblea — cada una con su propia estructura didáctica
   "nombre_proyecto": "string",
-  "actividades_iniciales": "markdown — lista con viñetas de TODAS las rutinas diarias de apertura (clima, saludo, pase de lista, fecha/calendario, rutina con imágenes, tiempo de compartir). Cada una con 1-2 frases describiendo CÓMO se realiza.",
-  "actividades_rutina": "markdown — lista con viñetas de las rutinas permanentes del mes (valor del mes con ejemplos, lavado de manos, lunch, recreo, clases especiales, lectura de cuento/aventura lectora). Cada una descrita concretamente.",
-  "estrategia_comunitaria": "markdown — estrategia SEL/cultura de paz del mes. Desarrolla una actividad COMPLETA paso a paso (8-12 pasos numerados): planteamiento, preguntas detonadoras, desarrollo, reglas, cierre en plenaria con preguntas de reflexión. Como una ficha del Fichero de la Paz.",
-  "pausas_activas": "markdown — descripción del tipo de pausas activas del mes con variación (seguimiento de ritmos, canciones, movimientos). Especifica progresión a lo largo de las semanas.",
-  "ajustes_razonables": "markdown — estrategias DETALLADAS por cada alumno con NEE (nombre, áreas de apoyo). Organiza por categorías: Ubicación del aula, Ajustes en los tiempos, Consignas accesibles, Estrategias de atención, Estrategias de ejecución y autorregulación. Estrategias concretas y específicas por alumno.",
-  "ejes_articuladores": "markdown — un párrafo desarrollado por cada eje articulador aplicable, explicando CONCRETAMENTE cómo se trabaja en esta quincena con ejemplos de la planeación.",
-  "proyecto": "markdown — el CORAZÓN del documento, desarrollado a profundidad. DEBE incluir con encabezados en **negritas**: **Punto de Partida** (situación detonadora, video/material, preguntas a los niños — párrafo completo), **Planeación** (4-6 viñetas de lo que reconocerán/realizarán), **A trabajar** (actividades concretas y variadas del proyecto, incluyendo libros Richmond con páginas si aplica, talleres, investigaciones, productos), **Comunicamos Nuestros Logros** (cómo presentan/comparten el producto final), **Reflexión sobre el aprendizaje** (cómo cierran y metacognición). Cada sección con varias frases o viñetas detalladas.",
+  "actividades_iniciales": "lista con viñetas de TODAS las rutinas diarias de apertura (clima, saludo, pase de lista, fecha/calendario, rutina con imágenes, tiempo de compartir). Cada una con 1-2 frases describiendo CÓMO se realiza.",
+  "actividades_rutina": "lista con viñetas de las rutinas permanentes del mes (valor del mes con ejemplos, lavado de manos, lunch, recreo, clases especiales). Cada una descrita concretamente. NO incluyas aquí la aventura lectora — va en su propio campo.",
+  "aventura_lectora": "describe la Aventura Lectora del periodo (momento diario de lectura): qué se lee, cómo se desarrolla, y por separado la 'Lectura de cuento con papás' del viernes si aplica. Concreto, 2-4 viñetas.",
+  "estrategia_comunitaria": "estrategia SEL/cultura de paz del mes. Desarrolla una actividad COMPLETA paso a paso (8-12 pasos numerados): planteamiento, preguntas detonadoras, desarrollo, reglas, cierre en plenaria con preguntas de reflexión. Como una ficha del Fichero de la Paz.",
+  "pausas_activas": "descripción del tipo de pausas activas del mes con variación (seguimiento de ritmos, canciones, movimientos). Especifica progresión a lo largo de las semanas.",
+  "ajustes_razonables": "estrategias DETALLADAS por cada alumno con NEE usando SIEMPRE la etiqueta anónima provista (Alumno A, Alumno B…), NUNCA el nombre real. Organiza por categorías: Ubicación del aula, Ajustes en los tiempos, Consignas accesibles, Estrategias de atención, Estrategias de ejecución y autorregulación. Estrategias concretas y específicas por alumno.",
+  "ejes_articuladores": "UNA oración breve por cada eje aplicable (normalmente 3 ejes), como en el documento real — NO párrafos largos. Formato: viñeta por eje.",
+  "proyecto": "el CORAZÓN del documento, desarrollado a profundidad. DEBE incluir con encabezados en **negritas**: **Punto de Partida** (situación detonadora, video/material, preguntas a los niños — párrafo completo), **Planeación** (4-6 viñetas de lo que reconocerán/realizarán; incluye la construcción del **friso** —mural de planeación con los niños donde se ven las acciones del mes—), **A trabajar** (actividades concretas y variadas, incluyendo libros Richmond con formato 'STUDENT BOOK páginas X a Y', 'ACTIVITY BOOK páginas X', 'ASSESSMENT: Unit N páginas X', talleres, investigaciones, productos), **Comunicamos Nuestros Logros** (cómo presentan/comparten el producto final), **Reflexión sobre el aprendizaje** (cómo cierran y metacognición). Cada sección con varias frases o viñetas detalladas.",
   "cronograma": {
     "lunes": ["lista completa de actividades del lunes en orden, tal como el horario del grupo"],
     "martes": ["..."],
@@ -51,15 +52,15 @@ EXIGENCIAS DE PROFUNDIDAD (OBLIGATORIO):
 - NO resumas, NO uses placeholders, NO escribas "etc.". Desarrolla todo.
 
 REGLAS NEM INVIOLABLES:
-- Campos Formativos válidos (solo 4): Lenguajes | Saberes y Pensamiento Científico | Ética, Naturaleza y Sociedades | De lo Humano y lo Comunitario
-- Ejes Articuladores: Inclusión | Pensamiento crítico | Interculturalidad | Igualdad de género | Vida saludable | Lectura y escritura | Artes
-- Evaluación: usa las columnas indicadas en <evaluation_format> del mensaje; por defecto Logrado / En proceso / Requiere apoyo — cualitativa, NUNCA numérica, NUNCA porcentajes
-- Citar: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024"
-- PRONI (Kinder 3 únicamente): integrar en el día de Letter & Number indicado en el horario del grupo
-- Sin datos personales sensibles de alumnos menores más allá del nombre de pila en ajustes_razonables`
+- Respeta TODA la normativa de los bloques <ejes_articuladores>, <perfil_egreso_fase2>, <campos_formativos>, <evaluacion_reglas>, <proni_regla> y <privacidad> provistos al inicio (NEM_SYNTHESIS).
+- Los 4 Campos Formativos deben estar presentes; usa SOLO sus nombres oficiales.
+- Evaluación: usa las columnas de <evaluation_format> del mensaje (por defecto Logrado / En proceso / Requiere apoyo) — cualitativa, NUNCA numérica.
+- Citar: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024".
+- NUNCA el nombre real de un alumno: en ajustes_razonables usa SOLO las etiquetas anónimas provistas (Alumno A, B…).`
 
 export const QUINCENA_OUTPUT_SCHEMA = `
 FORMATO OBLIGATORIO DE SALIDA — el valor de cada clave de texto es markdown en español mexicano:
+- NUNCA escribas la palabra "markdown" ni etiquetas de formato dentro del contenido; escribe directamente el texto.
 - Usa viñetas (•) o numeración donde aplique
 - Negritas (**texto**) para encabezados dentro de secciones (especialmente en "proyecto")
 - Sin encabezados markdown (#) — las secciones ya tienen su propio nombre

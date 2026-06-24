@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: fortnight } = await (supabase as any)
     .from('fortnights')
-    .select('project_name')
+    .select('project_name, vocabulary')
     .eq('id', fortnight_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .eq('teacher_id', (teacher as any).id)
@@ -85,6 +85,12 @@ export async function POST(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .flatMap((p: any) => p.vocabulary ?? [])
       .filter((w: string, i: number, a: string[]) => a.indexOf(w) === i)
+    // Fall back to the fortnight's own vocabulary (document-level generation, no lesson plans)
+    if (vocabulary.length === 0 && Array.isArray(fortnight.vocabulary)) {
+      vocabulary = fortnight.vocabulary.filter(
+        (w: string, i: number, a: string[]) => a.indexOf(w) === i
+      )
+    }
   }
 
   if (vocabulary.length === 0) {

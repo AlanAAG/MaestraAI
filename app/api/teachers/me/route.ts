@@ -9,6 +9,14 @@ const PatchSchema = z.object({
   subject: z.string().max(100).optional(),
   teaching_style: z.string().max(500).optional(),
   profile_notes: z.string().max(1000).optional(),
+  design_settings: z
+    .object({
+      font: z.enum(['sans', 'serif', 'rounded']).optional(),
+      size: z.number().min(12).max(22).optional(),
+      accent: z.string().max(20).optional(),
+      lineIntensity: z.enum(['light', 'medium', 'strong']).optional(),
+    })
+    .optional(),
 })
 
 export async function GET() {
@@ -25,7 +33,7 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let { data: teacher, error } = await (supabase as any)
       .from('teachers')
-      .select(`${base}, teaching_style, profile_notes`)
+      .select(`${base}, teaching_style, profile_notes, design_settings`)
       .eq('auth_id', user.id)
       .single()
     if (error) {
@@ -86,6 +94,9 @@ export async function PATCH(req: NextRequest) {
           : {}),
         ...(body.data.profile_notes !== undefined
           ? { profile_notes: body.data.profile_notes }
+          : {}),
+        ...(body.data.design_settings !== undefined
+          ? { design_settings: body.data.design_settings }
           : {}),
       })
       .eq('auth_id', user.id)

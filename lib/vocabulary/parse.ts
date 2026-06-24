@@ -37,3 +37,24 @@ export function parseLetterGrouped(text: string): VocabItem[] {
   }
   return items
 }
+
+// Clamp raw LLM-extracted items to what the save schema accepts, so one odd value
+// (a color like "rojo", a >50-char word, an accented/multi-char letter) can't reject
+// the whole batch when it's saved. Drops items with no A-Z first letter.
+export function clampVocabItems(raw: unknown[]): VocabItem[] {
+  const out: VocabItem[] = []
+  for (const r of raw) {
+    const it = (r ?? {}) as Partial<VocabItem>
+    const word = String(it.word ?? '')
+      .trim()
+      .slice(0, 50)
+    if (!word) continue
+    const letter = String(it.letter ?? word)
+      .toUpperCase()
+      .match(/[A-Z]/)
+    if (!letter) continue
+    const color = VOCAB_COLORS.includes(String(it.color)) ? (it.color as string) : 'blue'
+    out.push({ word: word.toLowerCase(), letter: letter[0], color })
+  }
+  return out
+}

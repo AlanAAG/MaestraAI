@@ -1,0 +1,23 @@
+import { describe, it, expect } from 'vitest'
+import { CONTENIDOS_FASE2_3 } from './contenidos-fase2'
+import { nemGroundingBlock } from './grounding'
+
+describe('NEM grounding', () => {
+  it('has all 34 contenidos with at least one 3° PDA each', () => {
+    expect(CONTENIDOS_FASE2_3).toHaveLength(34)
+    expect(CONTENIDOS_FASE2_3.every((c) => c.pdas3.length > 0)).toBe(true)
+  })
+
+  it('injects a verbatim official PDA and omits PRONI unless Kinder 3', () => {
+    const block = nemGroundingBlock(false)
+    expect(block).toContain('De manera oral, expresa ideas completas sobre necesidades')
+    expect(block).not.toContain('<proni_contenidos')
+    expect(nemGroundingBlock(true)).toContain('<proni_contenidos')
+  })
+
+  it('scopes contenidos by campo', () => {
+    const numeros = nemGroundingBlock(false, ['Saberes y Pensamiento Científico'])
+    expect(numeros).toContain('CAMPO: Saberes y Pensamiento Científico')
+    expect(numeros).not.toContain('CAMPO: Lenguajes')
+  })
+})

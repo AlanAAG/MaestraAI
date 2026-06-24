@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
 
           case 'letter_recognition': {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const letter = (lessonPlan as any).fortnights?.letter_week1 || 'A'
+            const letter = (lessonPlan as any)?.fortnights?.letter_week1 || 'A'
             content = await buildLetterRecognition(vocabulary, letter, 'hear_and_circle')
             type = 'letter_recognition'
             isProjectable = false

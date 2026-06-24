@@ -77,7 +77,10 @@ export default function CalificacionesRichmondPage() {
   // Contacts panel
   const [showContacts, setShowContacts] = useState(false)
   const [contacts, setContacts] = useState<Contact[]>([])
-  const [contactTab, setContactTab] = useState<'paste' | 'photo' | 'manual' | 'plantilla'>('paste')
+  // Import (paste/photo/manual) moved to the Alumnos page; this panel is now template-only.
+  const [contactTab, setContactTab] = useState<'paste' | 'photo' | 'manual' | 'plantilla'>(
+    'plantilla'
+  )
   const [pasteText, setPasteText] = useState('')
   const [extracting, setExtracting] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedContact[]>([])
@@ -463,13 +466,16 @@ export default function CalificacionesRichmondPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => setShowContacts(true)}
+            onClick={() => {
+              setContactTab('plantilla')
+              setShowContacts(true)
+            }}
             className="min-h-[44px]"
             disabled={filter === 'all'}
-            title={filter === 'all' ? 'Selecciona un grupo para gestionar contactos' : undefined}
+            title={filter === 'all' ? 'Selecciona un grupo' : undefined}
           >
             <Users size={16} className="mr-2" />
-            Contactos{contacts.length > 0 ? ` (${contacts.length})` : ''}
+            Plantilla de correo
           </Button>
           {filter !== 'all' && contacts.length > 0 && (
             <Button onClick={() => setConfirmAll(true)} className="min-h-[44px]">
@@ -685,27 +691,16 @@ export default function CalificacionesRichmondPage() {
           <div className="absolute inset-0 bg-black/40 cursor-pointer" onClick={closeContacts} />
           <div className="relative ml-auto w-full max-w-md bg-white h-full flex flex-col shadow-xl overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">Contactos de padres</h2>
+              <h2 className="text-lg font-semibold">Plantilla de correo</h2>
               <button onClick={closeContacts}>
                 <X size={20} />
               </button>
             </div>
-            <div className="flex border-b text-sm">
-              {(['paste', 'photo', 'manual', 'plantilla'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setContactTab(tab)}
-                  className={`flex-1 py-2.5 text-xs ${contactTab === tab ? 'border-b-2 border-primary font-medium text-primary' : 'text-text-secondary'}`}
-                >
-                  {tab === 'paste'
-                    ? 'Pegar'
-                    : tab === 'photo'
-                      ? 'Foto'
-                      : tab === 'manual'
-                        ? 'Manual'
-                        : 'Plantilla'}
-                </button>
-              ))}
+            <div className="px-5 pt-4">
+              <p className="text-xs text-text-secondary rounded-lg bg-muted/60 px-3 py-2">
+                Los contactos de padres ahora se importan y gestionan en la página de{' '}
+                <span className="font-medium text-text-primary">Alumnos</span>.
+              </p>
             </div>
             <div className="p-5 flex-1">
               {contactTab === 'paste' && (

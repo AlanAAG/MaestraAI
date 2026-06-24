@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { parseLetterGrouped } from './parse'
+import { parseLetterGrouped, clampVocabItems } from './parse'
+
+describe('clampVocabItems', () => {
+  it('normalizes odd LLM values instead of dropping the batch', () => {
+    const out = clampVocabItems([
+      { word: 'Apple', letter: 'A', color: 'rojo' }, // bad color → blue
+      { word: 'BALL', color: 'blue' }, // missing letter → derived 'B'
+      { word: 'x'.repeat(80), letter: 'X', color: 'green' }, // long word → sliced
+      { word: 'árbol', letter: 'Á', color: 'red' }, // accented-only letter → dropped
+      { word: '', letter: 'Z', color: 'red' }, // empty word → dropped
+    ])
+    expect(out).toEqual([
+      { word: 'apple', letter: 'A', color: 'blue' },
+      { word: 'ball', letter: 'B', color: 'blue' },
+      { word: 'x'.repeat(50), letter: 'X', color: 'green' },
+    ])
+  })
+})
 
 describe('parseLetterGrouped', () => {
   it('parses letter-header-grouped paste (the format that failed)', () => {

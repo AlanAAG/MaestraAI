@@ -74,6 +74,7 @@ type Fortnight = {
   letter_week2: string
   status: string
   group_id: string
+  vocabulary?: string[] | null
   plan_type?: 'quincena' | 'taller'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   plan_document?: Record<string, any> | null
@@ -117,6 +118,7 @@ export default function PlaneacionDetailPage() {
   const [exportingDocx, setExportingDocx] = useState(false)
   const [teacherName, setTeacherName] = useState('')
   const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>('vertical')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -166,6 +168,12 @@ export default function PlaneacionDetailPage() {
         .eq('auth_id', user.id)
         .single()
       setTeacherName(teacherRow?.full_name ?? '')
+
+      // School logo for the document header (best-effort)
+      fetch('/api/school/logo')
+        .then((r) => (r.ok ? r.json() : { logo_url: null }))
+        .then((d) => setLogoUrl(d.logo_url ?? null))
+        .catch(() => {})
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: plansData, error: plansError } = await (supabase as any)
@@ -580,6 +588,8 @@ export default function PlaneacionDetailPage() {
                 endDate={fortnight.end_date}
                 groupName={fortnight.groups?.name}
                 teacherName={teacherName}
+                orientation={orientation}
+                logoUrl={logoUrl}
                 onReload={loadData}
               />
             </>
@@ -846,6 +856,7 @@ export default function PlaneacionDetailPage() {
             (selectedLessonPlanId &&
               lessonPlans.find((p) => p.id === selectedLessonPlanId)?.vocabulary?.length &&
               lessonPlans.find((p) => p.id === selectedLessonPlanId)!.vocabulary) ||
+            (fortnight.vocabulary?.length ? fortnight.vocabulary : undefined) ||
             vocabularyItems.map((v) => v.word)
           }
           onClose={() => {

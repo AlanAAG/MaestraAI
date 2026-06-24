@@ -20,6 +20,7 @@ export function buildSubplanPrompt(
   const projectName = sanitize(fn.project_name)
   const monthlyValue = sanitize(fn.monthly_value)
 
+  // Grounding is injected as a cached system prefix (see callPlannerModel cachePrefix), not here.
   const pdaCtx = pdaBank?.length
     ? `<pda_bank>\nUsa estos PDAs VERBATIM (no inventes otros):\n${pdaBank
         .map((p) => `${p.campo}: ${(p.pdas ?? []).join(' | ')}`)
@@ -46,9 +47,9 @@ Formato de salida JSON:
   "nombre": "Nombre descriptivo de la actividad con las letras (p. ej. 'Conozcamos las letras')",
   "campos_formativos": [{"campo": "Lenguajes", "contenidos": [{"contenido": "Contenido NEM Fase 2", "procesos": ["PDA oficial verbatim 1", "PDA oficial verbatim 2"]}]}],
   "estructura_didactica": {
-    "momento_1": "markdown — 1° Momento: En contacto con la realidad. Cómo presento la letra, qué conocimientos previos activo, búsqueda en el alfabeto, investigación con nombres/objetos.",
-    "momento_2": "markdown — 2° Momento: Identificación e integración. MÚLTIPLES actividades de trazo (pizarrón mágico, crema de afeitar, agujetas, fichas), canciones, sopa de letras, búsqueda en cuentos, tarjetas LETTERS, plastilina, flashcards de vocabulario.",
-    "momento_3": "markdown — 3° Momento: Expresión. Modelado con plastilina, exposición de trabajos, cierre cantando/bailando la canción de la letra."
+    "momento_1": "1° Momento: En contacto con la realidad. Cómo presento la letra, qué conocimientos previos activo, búsqueda en el alfabeto, investigación con nombres/objetos.",
+    "momento_2": "2° Momento: Identificación e integración. MÚLTIPLES actividades de trazo (pizarrón mágico, crema de afeitar, agujetas, fichas), canciones, sopa de letras, búsqueda en cuentos, tarjetas LETTERS, plastilina, flashcards de vocabulario.",
+    "momento_3": "3° Momento: Expresión. Modelado con plastilina, exposición de trabajos, cierre cantando/bailando la canción de la letra."
   },
   "evaluacion": [{"aspecto": "Escribe la letra Xx"}, {"aspecto": "Reconoce la letra Xx"}, {"aspecto": "Reconoce y escribe palabras que comienzan con Xx"}, {"aspecto": "Modela letras y palabras con plastilina"}, {"aspecto": "Trabaja y juega respetando reglas de convivencia"}]
 }
@@ -66,15 +67,105 @@ Formato de salida JSON:
   "nombre": "Nombre descriptivo del rango numérico que se trabaja (p. ej. 'Los Fifty's')",
   "campos_formativos": [{"campo": "Saberes y Pensamiento Científico", "contenidos": [{"contenido": "Contenido NEM Fase 2", "procesos": ["PDA oficial verbatim 1", "PDA oficial verbatim 2"]}]}],
   "estructura_didactica": {
-    "momento_1": "markdown — 1° Momento: En contacto con la realidad. Introducción al rango numérico, conocimientos previos, canción de los números en inglés.",
-    "momento_2": "markdown — 2° Momento: Identificación e integración. MÚLTIPLES actividades: tarjetas y tableros con vasos, conteo, pares número-nombre en inglés, ordenar, torres de fichas, trazo en pizarrón.",
-    "momento_3": "markdown — 3° Momento: Expresión. Modelado de números con plastilina, identificación en desorden, cierre con canción."
+    "momento_1": "1° Momento: En contacto con la realidad. Introducción al rango numérico, conocimientos previos, canción de los números en inglés.",
+    "momento_2": "2° Momento: Identificación e integración. MÚLTIPLES actividades: tarjetas y tableros con vasos, conteo, pares número-nombre en inglés, ordenar, torres de fichas, trazo en pizarrón.",
+    "momento_3": "3° Momento: Expresión. Modelado de números con plastilina, identificación en desorden, cierre con canción."
   },
   "evaluacion": [{"aspecto": "Reconoce los números del rango trabajado"}, {"aspecto": "Traza los números del rango"}, {"aspecto": "Cuenta objetos del rango"}, {"aspecto": "Construye colecciones"}, {"aspecto": "Trabaja y juega respetando reglas de convivencia"}]
 }
 
 Reglas: Números es SOLO los ${numDay}. Evaluación cualitativa, nunca numérica.
 ${depth}`
+}
+
+// Each NEM methodology has its own didactic structure (the keys + their human labels).
+const METHODOLOGY_STRUCTURE: Record<string, { key: string; label: string }[]> = {
+  'Centro de Interés': [
+    { key: 'momento_1', label: '1° Momento: En contacto con la realidad' },
+    { key: 'momento_2', label: '2° Momento: Identificación e integración' },
+    { key: 'momento_3', label: '3° Momento: Expresión' },
+  ],
+  'Aprendizaje Basado en el Juego': [
+    { key: 'momento_1', label: '1° Momento: Planteamiento del juego' },
+    { key: 'momento_2', label: '2° Momento: Desarrollo de las actividades' },
+    { key: 'momento_3', label: '3° Momento: Compartimos la experiencia' },
+    { key: 'momento_4', label: '4° Momento: Comunidad de juego' },
+  ],
+  'Taller Crítico': [
+    { key: 'situacion_inicial', label: 'Situación Inicial' },
+    { key: 'organizacion', label: 'Organización de las Acciones (mesas/equipos, reglas)' },
+    { key: 'puesta_en_marcha', label: 'Puesta en Marcha (días con fechas)' },
+    { key: 'valoramos', label: 'Valoramos lo Aprendido' },
+  ],
+  Proyecto: [
+    { key: 'punto_de_partida', label: 'Punto de Partida' },
+    { key: 'planeacion', label: 'Planeación (incluye el friso)' },
+    { key: 'a_trabajar', label: 'A trabajar (libros Richmond con páginas si aplica)' },
+    { key: 'comunicamos', label: 'Comunicamos Nuestros Logros' },
+    { key: 'reflexion', label: 'Reflexión sobre el aprendizaje' },
+  ],
+  'Situación Didáctica': [
+    { key: 'inicio', label: 'Inicio' },
+    { key: 'desarrollo', label: 'Desarrollo' },
+    { key: 'cierre', label: 'Cierre' },
+  ],
+  Asamblea: [
+    { key: 'inicio', label: 'Inicio' },
+    { key: 'desarrollo', label: 'Desarrollo' },
+    { key: 'cierre', label: 'Cierre' },
+  ],
+}
+
+export const SUBPLAN_METHODOLOGIES = Object.keys(METHODOLOGY_STRUCTURE)
+
+// Generate a sub-planeación of ANY NEM methodology (Taller, ABJ, etc.), teacher-driven.
+export async function generateCustomSubplan(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fn: any,
+  spec: { methodology: string; name: string; notes?: string },
+  opts: {
+    evalColumns?: string[]
+    pdaBank?: Array<{ campo: string; contenido: string; pdas: string[] }>
+    cachePrefix?: string
+  } = {}
+): Promise<Record<string, unknown>> {
+  const struct =
+    METHODOLOGY_STRUCTURE[spec.methodology] ?? METHODOLOGY_STRUCTURE['Situación Didáctica']
+  const estructuraJson = struct
+    .map((s) => `    "${s.key}": "${s.label}: 4-8 actividades concretas, primera persona singular"`)
+    .join(',\n')
+  const evalCols = opts.evalColumns?.length
+    ? opts.evalColumns
+    : ['Logrado', 'En proceso', 'Requiere apoyo']
+  const pdaCtx = opts.pdaBank?.length
+    ? `<pda_bank>\nUsa estos PDAs VERBATIM (no inventes otros):\n${opts.pdaBank
+        .map((p) => `${p.campo}: ${(p.pdas ?? []).join(' | ')}`)
+        .join('\n')}\n</pda_bank>\n\n`
+    : ''
+
+  const prompt = `${pdaCtx}Genera una sub-planeación DETALLADA de metodología "${spec.methodology}" titulada "${spec.name}", dentro del proyecto "${sanitize(fn.project_name)}" (valor del mes: ${sanitize(fn.monthly_value)}).
+${spec.notes ? `Indicaciones específicas de la maestra: ${sanitize(spec.notes)}` : ''}
+
+Formato de salida JSON (responde SOLO el objeto):
+{
+  "tipo": "custom",
+  "metodologia": "${spec.methodology}",
+  "nombre": "${spec.name}",
+  "campos_formativos": [{"campo": "Lenguajes", "contenidos": [{"contenido": "Contenido NEM Fase 2", "procesos": ["PDA oficial verbatim"]}]}],
+  "estructura_didactica": {
+${estructuraJson}
+  },
+  "evaluacion": [{"aspecto": "..."}, {"aspecto": "..."}],
+  "observaciones": ""
+}
+
+Reglas: 1-3 campos formativos con PDAs oficiales verbatim. 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
+
+  const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
+    maxTokens: 6000,
+    cachePrefix: opts.cachePrefix,
+  })
+  return parsePlanJson(raw)
 }
 
 export async function generateSubplan(
@@ -88,6 +179,7 @@ export async function generateSubplan(
     includeProni: boolean
     pdaBank?: Array<{ campo: string; contenido: string; pdas: string[] }>
     evalColumns?: string[]
+    cachePrefix?: string
   }
 ): Promise<Record<string, unknown>> {
   const prompt = buildSubplanPrompt(
@@ -100,6 +192,9 @@ export async function generateSubplan(
     opts.pdaBank,
     opts.evalColumns
   )
-  const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, { maxTokens: 6000 })
+  const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
+    maxTokens: 6000,
+    cachePrefix: opts.cachePrefix,
+  })
   return parsePlanJson(raw)
 }

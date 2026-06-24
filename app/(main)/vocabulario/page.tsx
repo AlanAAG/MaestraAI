@@ -280,7 +280,13 @@ export default function VocabularioPage() {
         return // keep the extracted list so nothing is lost
       }
 
-      toast.success(`${data.count ?? extractedItems.length} palabras guardadas`)
+      const saved = data.count ?? extractedItems.length
+      // ignoreDuplicates upsert returns 0 rows when everything was already saved.
+      toast.success(
+        saved === 0
+          ? 'Ya estaban guardadas (0 nuevas)'
+          : `${saved} ${saved === 1 ? 'palabra guardada' : 'palabras guardadas'}`
+      )
       setExtractedItems([])
       setBulkText('')
       setSelectedFile(null)

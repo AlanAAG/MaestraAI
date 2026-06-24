@@ -7,6 +7,7 @@ import { buildWordSearch } from '@/lib/materials/word-search'
 const Schema = z.object({
   fortnight_id: z.string().uuid(),
   lesson_plan_id: z.string().uuid().optional(),
+  vocabulary: z.array(z.string()).optional(),
   difficulty: z.enum(['kinder', 'standard']).default('kinder'),
 })
 
@@ -46,29 +47,35 @@ export async function POST(req: NextRequest) {
   if (!teacher) return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
 
   const { fortnight_id, lesson_plan_id, difficulty } = parsed.data
+  const overrideVocab = parsed.data.vocabulary
 
   // Verify fortnight ownership (IDOR guard)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: fortnight } = await (supabase as any)
     .from('fortnights')
-    .select('teacher_id')
+    .select('teacher_id, vocabulary')
     .eq('id', fortnight_id)
     .single()
   if (!fortnight || fortnight.teacher_id !== (teacher as { id: string }).id) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }
 
-  // Fetch vocabulary from fortnight's lesson plans
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: plans } = await (supabase as any)
-    .from('lesson_plans')
-    .select('blocks')
-    .eq('fortnight_id', fortnight_id)
-
-  const vocabulary: string[] = (plans || [])
+  // Vocabulary source ladder: explicit override → lesson-plan blocks → fortnight vocabulary
+  let vocabulary: string[] = overrideVocab?.length ? overrideVocab : []
+  if (vocabulary.length === 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .flatMap((p: any) => p.blocks?.flatMap((b: any) => b.vocabulary || []) || [])
-    .filter((w: string, i: number, a: string[]) => a.indexOf(w) === i)
+    const { data: plans } = await (supabase as any)
+      .from('lesson_plans')
+      .select('blocks')
+      .eq('fortnight_id', fortnight_id)
+    vocabulary = (plans || [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .flatMap((p: any) => p.blocks?.flatMap((b: any) => b.vocabulary || []) || [])
+  }
+  if (vocabulary.length === 0 && Array.isArray(fortnight.vocabulary)) {
+    vocabulary = fortnight.vocabulary
+  }
+  vocabulary = vocabulary.filter((w, i, a) => a.indexOf(w) === i)
 
   if (vocabulary.length === 0) {
     return NextResponse.json({ error: 'No hay vocabulario en esta quincena' }, { status: 400 })

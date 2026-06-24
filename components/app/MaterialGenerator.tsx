@@ -146,6 +146,7 @@ export function MaterialGenerator({
           body: JSON.stringify({
             fortnight_id: fortnightId,
             lesson_plan_id: lessonPlanId,
+            vocabulary: vocabulary?.length ? vocabulary : undefined,
             card_count: cardCount,
             free_space: freeSpace,
             difficulty,
@@ -173,6 +174,7 @@ export function MaterialGenerator({
           body: JSON.stringify({
             fortnight_id: fortnightId,
             lesson_plan_id: lessonPlanId,
+            vocabulary: vocabulary?.length ? vocabulary : undefined,
             difficulty,
           }),
         })

@@ -62,6 +62,9 @@ export default function NuevaPlaneacionPage() {
   const [selectedVocab, setSelectedVocab] = useState<string[]>([])
   const [extraMaterials, setExtraMaterials] = useState<string[]>([])
   const [manualMaterial, setManualMaterial] = useState('')
+  // Optional teacher details (general + project-specific) — both feed generation.
+  const [teacherNotes, setTeacherNotes] = useState('')
+  const [projectNotes, setProjectNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
   // Binary choice: use the teacher's uploaded format, or MaestraIA's built-in design.
   const [useSystemTemplate, setUseSystemTemplate] = useState(false)
@@ -234,13 +237,20 @@ export default function NuevaPlaneacionPage() {
 
       if (fortnightError) throw fortnightError
 
-      // Best-effort: record the "use system design" choice. Ignored (no throw) if migration 050
-      // isn't applied yet — so creation never breaks and the default stays "use my format".
+      // Best-effort updates (separate so one missing migration doesn't block the other).
+      // Each is ignored (no throw) if its column isn't applied yet — creation never breaks.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any
       if (useSystemTemplate) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
+        await sb.from('fortnights').update({ use_system_template: true }).eq('id', fortnight.id)
+      }
+      if (teacherNotes.trim() || projectNotes.trim()) {
+        await sb
           .from('fortnights')
-          .update({ use_system_template: true })
+          .update({
+            teacher_notes: teacherNotes.trim() || null,
+            project_notes: projectNotes.trim() || null,
+          })
           .eq('id', fortnight.id)
       }
 
@@ -696,6 +706,42 @@ export default function NuevaPlaneacionPage() {
               ))}
             </div>
           )}
+        </Card>
+
+        {/* Optional teacher details — general + project-specific */}
+        <Card className="p-6 border-2">
+          <h3 className="text-sm font-semibold text-text-primary mb-1">
+            Detalles adicionales <span className="font-normal text-text-secondary">(opcional)</span>
+          </h3>
+          <p className="text-xs text-text-secondary mb-3">
+            Cualquier cosa específica que quieras que MaestraIA incluya. Entre más detalles, mejor.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">
+                General (actividades, juegos o materiales específicos)
+              </label>
+              <textarea
+                value={teacherNotes}
+                onChange={(e) => setTeacherNotes(e.target.value)}
+                rows={3}
+                placeholder="Ej: Quiero incluir un juego de memoria el martes. Tengo plastilina y bloques."
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">
+                Sobre el proyecto (descripción, ideas, productos)
+              </label>
+              <textarea
+                value={projectNotes}
+                onChange={(e) => setProjectNotes(e.target.value)}
+                rows={3}
+                placeholder="Ej: El proyecto trata sobre los animales del mar. Me gustaría que terminen con una maqueta."
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+              />
+            </div>
+          </div>
         </Card>
 
         {/* Template discovery hint */}

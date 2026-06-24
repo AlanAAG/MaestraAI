@@ -7,18 +7,31 @@ import OpenAI from 'openai'
 export async function callPlannerModel(
   system: string,
   user: string,
-  opts: { maxTokens?: number } = {}
+  opts: { maxTokens?: number; cachePrefix?: string } = {}
 ): Promise<string> {
   const maxTokens = opts.maxTokens ?? 16384
 
   if (process.env.ANTHROPIC_API_KEY) {
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      // The cachePrefix (static NEM grounding) is identical across every call in a generation,
+      // so it's marked ephemeral-cacheable: the first call writes it, the rest read it (~90%
+      // cheaper). It must be the FIRST system block for the cache prefix to match.
+      const systemParam = opts.cachePrefix
+        ? [
+            {
+              type: 'text' as const,
+              text: opts.cachePrefix,
+              cache_control: { type: 'ephemeral' as const },
+            },
+            { type: 'text' as const, text: system },
+          ]
+        : system
       const resp = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         temperature: 0.4,
-        system,
+        system: systemParam,
         // Prefill "{" forces the model to start directly with the JSON object —
         // no ```json fences, no preamble. We prepend it back below.
         messages: [
@@ -47,7 +60,7 @@ export async function callPlannerModel(
     temperature: 0.4,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: system },
+      { role: 'system', content: opts.cachePrefix ? `${opts.cachePrefix}\n\n${system}` : system },
       { role: 'user', content: user },
     ],
   })

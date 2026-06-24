@@ -129,6 +129,37 @@ These block completing the landing page redesign — everything else is built:
 
 ---
 
+## Batch 1 — breaking bugs + LFPDPPP (current)
+
+- **Materials/games 400 fixed**: the document-view `MaterialGenerator` now forwards `fortnights.vocabulary` (was sending the empty `vocabulary_items` bank → "Provide lesson_plan_id or vocabulary[]"). `bingo` + `word-search` routes also fall back to `fortnights.vocabulary` and accept a `vocabulary` override; `materials/generate` letter_recognition guarded against null lessonPlan.
+- **Vocabulary save fixed**: LLM-extracted items are now clamped (`clampVocabItems` in `lib/vocabulary/parse.ts`) — bad color → `blue`, multi/accented letter → first A-Z or drop, word → ≤50 chars — so one odd value no longer Zod-rejects the whole batch. "0 nuevas" now shows "Ya estaban guardadas" instead of reading as failure. Tested.
+- **LFPDPPP — NEE names anonymized**: `generate-document` no longer decrypts NEE student names; injects positional labels (`Alumno A/B…`) into `ajustes_razonables`. Prompt rules (quincena + taller) updated to forbid real names. `plan_document` RLS already owner-only.
+- **LFPDPPP — uploaded examples**: `EXTRACTION_SYSTEM` instructs the model to replace student names with "Alumno"; the raw-text fallback runs `scrubNames` (best-effort regex). Tested.
+
+## NEM grounding caching (current)
+
+- **Distilled synthesis** (`lib/nem/synthesis.ts` `NEM_SYNTHESIS`, mirrored in `context/NEM_SYNTHESIS.md`): always-on rules — 7 ejes (full defs), perfil de egreso (I–X), 4 campos, evaluación rules, PRONI, privacidad.
+- **Prompt caching** (`callPlannerModel` `cachePrefix`): the grounding (`NEM_SYNTHESIS` + full verbatim PDA bank) is now a **cached ephemeral system block** instead of riding in the user message of every call. The main-doc call writes the cache; the sub-plan calls read it (~90% cheaper) — was ~28k duplicated grounding tokens/generation, now ~0 after the first call. Removed the per-call grounding + the campo-scoping (prefix is byte-identical → cache hits).
+- **Deduped** the NEM rule blocks out of `QUINCENA_SYSTEM`/`TALLER_SYSTEM` (the synthesis owns them; also fixed a stale ejes list there).
+- **Slimmed `context/`**: deleted `La_Nueva_Escuela_Mexicana.md` (superseded by Plan 2022) and `LFPDPPP.md` (reduced to the `<privacidad>` rule). No runtime refs.
+- Deferred (separate green-light): pgvector retrieval over the **teacher's own past planeaciones** (`<ejemplos_estilo_maestra>`) — the retrieval that actually earns its complexity. SEP corpus stays cached, not RAG'd.
+- Tested (`lib/nem/synthesis.test.ts`). No migration.
+
+## Batch 2 — official NEM grounding (current)
+
+- **Verbatim Contenido+PDA bank**: `scripts/parse-contenidos.mjs` parses `context/Programa_sintetico_fase_2.md` → `lib/nem/contenidos-fase2.ts` (34 contenidos, 9/9/8/8, Tercer-grado PDAs verbatim). Re-run the script if the source changes.
+- **Grounding injection** (`lib/nem/grounding.ts` `nemGroundingBlock`): prepended to quincena + taller prompts and (campo-scoped) to sub-plan + custom-sub-plan prompts. Contains `<contenidos_oficiales>` (REPRODUCE VERBATIM, prohibido inventar), `<ejes_articuladores>` (canonical 7), `<evaluacion_formativa>` (cualitativa, instrumentos), and `<proni_contenidos>` (6 official areas + PDAs, only Kinder 3).
+- **Fixed wrong data in `lib/nem-official-data.ts`**: ejes → canonical names (Interculturalidad crítica, Apropiación de las culturas…, Artes y experiencias estéticas); PRONI areas → the 6 official Spanish contenidos. Removed the invented inline PRONI list from the prompt.
+- Tested (`lib/nem/grounding.test.ts`: 34 contenidos, verbatim PDA present, PRONI gated on Kinder 3, campo scoping).
+
+## Batch 3 — sub_planes mirrors the teacher's example (current)
+
+- **Sub-plan inventory capture**: `extract-template` now extracts `subplan_inventory` (metodología + nombre + secciones per sub-plan in the uploaded example) into `TeacherProfile`. Injected into the main prompt as `<estructura_subplaneaciones>` so the plan reflects the same set.
+- **Auto-generate the example's extras**: `generate-document` generates the non-standard sub-plans the example contains (Taller, ABJ…) via `generateCustomSubplan` (best-effort, capped at 3, `allSettled`, non-fatal) — beyond the standard Proyecto + Letter&Number + Números. Teacher-added custom sub-plans still survive regeneration.
+- **`aventura_lectora`** is now a distinct field (separated from `actividades_rutina`): prompt schema + viewer DocSection + inline edit whitelist + DOCX export.
+- **`observaciones`** now also renders in the **DOCX export** (was on-screen only).
+- Deferred: structured `libros_richmond` array (the prompt already requests Richmond books inline with page ranges).
+
 ## Recent fixes (UX + branding batch)
 
 - Brand corrected **MaestraAI → MaestraIA** everywhere user-facing (app shell, metadata/title, dashboard, auth, landing, legal, share pages, generated-plan material list, parent-email sender, PDF title).

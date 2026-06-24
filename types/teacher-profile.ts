@@ -5,6 +5,8 @@ export type TeacherProfile = {
   // Document structure
   sections?: string[]
   sub_plan_types?: string[] // ["Proyecto", "Centro de Interés", "Taller Crítico", ...]
+  // The example's sub-plan inventory: which sub-plans it contains, so generation mirrors it.
+  subplan_inventory?: Array<{ metodologia: string; nombre?: string; secciones?: string[] }>
   evaluation_columns?: string[] // e.g. ["Sí", "No", "Proceso"] or ["Logrado", "En proceso", "Requiere apoyo"]
 
   // Writing voice (the most important few-shot material)

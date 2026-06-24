@@ -3,14 +3,23 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { isProniApplicable } from '@/lib/nem-official-data'
-import { generateSubplan } from '@/lib/planner/subplan'
+import { generateSubplan, generateCustomSubplan } from '@/lib/planner/subplan'
 
 export const maxDuration = 120
 
-const Schema = z.object({
-  fortnight_id: z.string().uuid(),
-  sub_type: z.enum(['letter_number', 'numeros']),
-})
+const Schema = z
+  .object({
+    fortnight_id: z.string().uuid(),
+    sub_type: z.enum(['letter_number', 'numeros']).optional(),
+    custom: z
+      .object({
+        methodology: z.string().min(1).max(60),
+        name: z.string().min(1).max(80),
+        notes: z.string().max(500).optional(),
+      })
+      .optional(),
+  })
+  .refine((d) => d.sub_type || d.custom, { message: 'sub_type o custom requerido' })
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,26 +66,34 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const includeProni = isProniApplicable((fn as any).groups?.grade ?? '')
 
+    const existing = (fn.plan_document ?? {}) as Record<string, unknown>
+    const evalColumns = Array.isArray(existing.evaluation_columns)
+      ? (existing.evaluation_columns as string[])
+      : undefined
+
     let subplan: Record<string, unknown>
     try {
-      subplan = await generateSubplan(fn, body.data.sub_type, {
-        vocabList,
-        letterDay,
-        numDay,
-        includeProni,
-      })
+      subplan = body.data.custom
+        ? await generateCustomSubplan(fn, body.data.custom, { evalColumns })
+        : await generateSubplan(fn, body.data.sub_type!, {
+            vocabList,
+            letterDay,
+            numDay,
+            includeProni,
+          })
     } catch {
       return NextResponse.json({ error: 'Respuesta inválida del modelo' }, { status: 500 })
     }
 
-    // Append to plan_document.sub_planes (or create plan_document if it doesn't exist)
-    const existing = (fn.plan_document ?? {}) as Record<string, unknown>
     const subPlanes = (Array.isArray(existing.sub_planes) ? existing.sub_planes : []) as unknown[]
-    // Replace if same tipo already exists
-    const filtered = subPlanes.filter(
-      (s) => (s as Record<string, unknown>).tipo !== body.data.sub_type
-    )
-    const updated = { ...existing, sub_planes: [...filtered, subplan] }
+    // Standard sub-plans (letter_number/numeros) replace by tipo; custom ones are appended.
+    const nextSubPlanes = body.data.custom
+      ? [...subPlanes, subplan]
+      : [
+          ...subPlanes.filter((s) => (s as Record<string, unknown>).tipo !== body.data.sub_type),
+          subplan,
+        ]
+    const updated = { ...existing, sub_planes: nextSubPlanes }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: saveErr } = await (supabase as any)

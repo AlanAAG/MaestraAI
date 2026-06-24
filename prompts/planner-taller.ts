@@ -22,9 +22,9 @@ ESTRUCTURA DE SALIDA (plan_document taller):
       ]
     }
   ],
-  "ejes_articuladores": "markdown — un párrafo desarrollado por cada eje aplicable con explicación concreta de cómo se trabaja",
-  "ajustes_razonables": "markdown — estrategias detalladas por alumno NEE para este taller específico",
-  "desarrollo_taller": "markdown — el corazón del taller, a profundidad. Incluye con encabezados en **negritas**: **Situación Inicial** (detonante: video/material, preguntas, propuesta — párrafo completo), **Organización de las Acciones** (cómo se organiza el grupo, mesas/equipos con su producto, reglas de trabajo — varias viñetas), **Puesta en Marcha** (días específicos con FECHAS y qué se hace cada día), **Valoramos lo aprendido** (cierre, exposición a la comunidad, reflexión).",
+  "ejes_articuladores": "un párrafo desarrollado por cada eje aplicable con explicación concreta de cómo se trabaja",
+  "ajustes_razonables": "estrategias detalladas por alumno NEE para este taller, usando SIEMPRE la etiqueta anónima provista (Alumno A, B…), NUNCA el nombre real",
+  "desarrollo_taller": "el corazón del taller, a profundidad. Incluye con encabezados en **negritas**: **Situación Inicial** (detonante: video/material, preguntas, propuesta — párrafo completo), **Organización de las Acciones** (cómo se organiza el grupo, mesas/equipos con su producto, reglas de trabajo — varias viñetas), **Puesta en Marcha** (días específicos con FECHAS y qué se hace cada día), **Valoramos lo aprendido** (cierre, exposición a la comunidad, reflexión).",
   "cronograma": {
     "lunes": ["lista de actividades del lunes en orden"],
     "martes": ["..."],
@@ -32,12 +32,12 @@ ESTRUCTURA DE SALIDA (plan_document taller):
     "jueves": ["..."],
     "viernes": ["..."]
   },
-  "actividades_iniciales": "markdown — lista rutinas de apertura (clima, saludo, pase de lista, fecha, rutina, tiempo de compartir), cada una descrita",
-  "actividades_rutina": "markdown — lista rutinas permanentes (valor del mes, lavado de manos, lunch, recreo, aventura lectora), cada una descrita",
+  "actividades_iniciales": "lista rutinas de apertura (clima, saludo, pase de lista, fecha, rutina, tiempo de compartir), cada una descrita",
+  "actividades_rutina": "lista rutinas permanentes (valor del mes, lavado de manos, lunch, recreo, aventura lectora), cada una descrita",
   "evaluacion_items": [
     {"aspecto": "Aspecto cualitativo a evaluar ligado al taller"}
   ],
-  "pausas_activas": "markdown — una pausa activa por día de la semana (Lunes: ..., Martes: ..., Miércoles: ..., Jueves: ..., Viernes: ...)"
+  "pausas_activas": "una pausa activa por día de la semana (Lunes: ..., Martes: ..., Miércoles: ..., Jueves: ..., Viernes: ...)"
 }
 
 EXIGENCIAS DE PROFUNDIDAD (OBLIGATORIO):
@@ -46,8 +46,8 @@ EXIGENCIAS DE PROFUNDIDAD (OBLIGATORIO):
 - evaluacion_items: 4-6 aspectos concretos. NO resumas, NO uses placeholders.
 
 REGLAS NEM INVIOLABLES:
-- Campos Formativos válidos (solo 4): Lenguajes | Saberes y Pensamiento Científico | Ética, Naturaleza y Sociedades | De lo Humano y lo Comunitario
-- Evaluación: usa las columnas de <evaluation_format>; por defecto Logrado / En proceso / Requiere apoyo — cualitativa, NUNCA numérica
-- Citar: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024"
-- Sin datos personales sensibles de alumnos menores
+- Respeta los bloques <ejes_articuladores>, <campos_formativos>, <evaluacion_reglas>, <proni_regla> y <privacidad> provistos al inicio (NEM_SYNTHESIS).
+- Evaluación: columnas de <evaluation_format> (por defecto Logrado / En proceso / Requiere apoyo) — cualitativa, NUNCA numérica.
+- Citar: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024".
+- NUNCA el nombre real de un alumno; en ajustes_razonables usa SOLO etiquetas anónimas (Alumno A, B…).
 - EXTENSIÓN: documento DETALLADO. La brevedad es un error.`

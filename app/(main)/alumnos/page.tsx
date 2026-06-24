@@ -6,8 +6,9 @@ import { ZeroState } from '@/components/app/ZeroState'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Users, Search, AlertCircle, MessageCircle, Plus, X } from 'lucide-react'
+import { Users, Search, AlertCircle, MessageCircle, Plus, X, Mail } from 'lucide-react'
 import { toast } from 'sonner'
+import { ParentContactsManager } from '@/components/app/ParentContactsManager'
 import { motion } from 'framer-motion'
 
 interface Student {
@@ -43,7 +44,8 @@ export default function AlumnosPage() {
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'loading' })
   const [contactLoading, setContactLoading] = useState<string | null>(null)
 
-  // Manual add-student
+  // Parent contacts + manual add-student
+  const [showContacts, setShowContacts] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [addFirst, setAddFirst] = useState('')
   const [addLast, setAddLast] = useState('')
@@ -265,16 +267,32 @@ export default function AlumnosPage() {
           </p>
         </div>
         {groups.length > 0 && (
-          <Button
-            className="min-h-[44px] shrink-0"
-            onClick={() => {
-              setAddGroupId(selectedGroupId !== 'all' ? selectedGroupId : (groups[0]?.id ?? ''))
-              setShowAdd(true)
-            }}
-          >
-            <Plus size={16} className="mr-2" />
-            Agregar alumno
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => {
+                if (selectedGroupId === 'all') {
+                  toast.error('Selecciona un grupo para gestionar sus contactos.')
+                  return
+                }
+                setShowContacts(true)
+              }}
+            >
+              <Mail size={16} className="mr-2" />
+              Contactos de padres
+            </Button>
+            <Button
+              className="min-h-[44px]"
+              onClick={() => {
+                setAddGroupId(selectedGroupId !== 'all' ? selectedGroupId : (groups[0]?.id ?? ''))
+                setShowAdd(true)
+              }}
+            >
+              <Plus size={16} className="mr-2" />
+              Agregar alumno
+            </Button>
+          </div>
         )}
       </div>
 
@@ -380,6 +398,32 @@ export default function AlumnosPage() {
               </Card>
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* Parent contacts slide-over */}
+      {showContacts && selectedGroupId !== 'all' && (
+        <div className="fixed inset-0 z-50 flex">
+          <div
+            className="absolute inset-0 bg-black/40 cursor-pointer"
+            onClick={() => setShowContacts(false)}
+          />
+          <div className="relative ml-auto w-full max-w-md bg-white h-full flex flex-col shadow-xl overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b">
+              <div>
+                <h2 className="text-lg font-semibold">Contactos de padres</h2>
+                <p className="text-xs text-text-secondary">
+                  {groups.find((g) => g.id === selectedGroupId)?.name ?? ''}
+                </p>
+              </div>
+              <button onClick={() => setShowContacts(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 flex-1">
+              <ParentContactsManager groupId={selectedGroupId} />
+            </div>
+          </div>
         </div>
       )}
 

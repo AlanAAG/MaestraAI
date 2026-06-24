@@ -69,6 +69,8 @@ export default function RedPage() {
   const [roleType, setRoleType] = useState<string>('teacher')
   const [loading, setLoading] = useState(true)
   const [schoolName, setSchoolName] = useState('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [resourceFilter, setResourceFilter] = useState('todos')
   const [showForm, setShowForm] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -97,9 +99,46 @@ export default function RedPage() {
       setAnnouncements(ann || [])
       setResources(res || [])
       setLoading(false)
+      fetch('/api/school/logo')
+        .then((r) => (r.ok ? r.json() : { logo_url: null }))
+        .then((d) => setLogoUrl(d.logo_url ?? null))
+        .catch(() => {})
     }
     load()
   }, [])
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(file.type)) {
+      alert('Usa PNG, JPG o WEBP.')
+      return
+    }
+    if (file.size > 1.5 * 1024 * 1024) {
+      alert('El logo es muy grande (máx 1.5MB).')
+      return
+    }
+    setUploadingLogo(true)
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      try {
+        const dataUrl = ev.target?.result as string
+        const base64 = dataUrl.split(',')[1]
+        const res = await fetch('/api/school/logo', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64, imageMimeType: file.type }),
+        })
+        const d = await res.json()
+        if (res.ok) setLogoUrl(d.logo_url)
+        else alert(d.error ?? 'No pude guardar el logo.')
+      } finally {
+        setUploadingLogo(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   async function handleCreateAnnouncement() {
     if (!formTitle.trim() || !formContent.trim()) {
@@ -176,9 +215,29 @@ export default function RedPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-8">
-      <h1 className="text-2xl font-semibold text-text-primary mb-8">
-        {schoolName || 'Mi escuela'}
-      </h1>
+      <div className="flex items-center gap-4 mb-8">
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt="Logo de la escuela"
+            className="h-14 w-14 rounded-lg object-contain border border-border bg-white"
+          />
+        ) : null}
+        <div className="flex-1">
+          <h1 className="text-2xl font-semibold text-text-primary">{schoolName || 'Mi escuela'}</h1>
+          <label className="text-xs text-primary hover:underline cursor-pointer">
+            {uploadingLogo ? 'Subiendo…' : logoUrl ? 'Cambiar logo' : 'Subir logo de la escuela'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleLogoUpload}
+              disabled={uploadingLogo}
+              className="hidden"
+            />
+          </label>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Avisos (2/3 width) */}

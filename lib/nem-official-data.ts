@@ -28,57 +28,36 @@ export const CAMPOS_FORMATIVOS = [
 ] as const
 
 /**
- * Ejes Articuladores - NOT FOUND in official documentation
- * Current implementation uses these 7 axes, but official source not yet verified
- * TODO: Verify from complete Programa Sintético or official SEP documentation
+ * 7 Ejes Articuladores — canonical names (Plan de Estudio 2022, §8.1).
+ * Source: context/Plan-de-Estudio-2022.md
  */
 export const EJES_ARTICULADORES = [
   'Inclusión',
   'Pensamiento crítico',
-  'Interculturalidad',
+  'Interculturalidad crítica',
   'Igualdad de género',
   'Vida saludable',
-  'Lectura y escritura',
-  'Artes',
+  'Apropiación de las culturas a través de la lectura y la escritura',
+  'Artes y experiencias estéticas',
 ] as const
 
 /**
- * PRONI (Programa Nacional de Inglés) Content Areas
- * Applies ONLY to Kinder 3 (Tercer grado de Preescolar)
- * Part of Campo Formativo: Lenguajes
- *
- * Source: PRONI 2024-2025, SEP
+ * PRONI (Programa Nacional de Inglés) — 6 official content areas, Fase 2 / 3er grado only.
+ * Part of Campo Formativo: Lenguajes. Verbatim PDAs live in lib/nem/grounding.ts (PRONI_FASE2).
+ * Source: context/PRONI_2024-2025.md
  */
 export const PRONI_CONTENT_AREAS = [
+  { id: 'cuerpo', name: 'Cuerpo, imagen e identidad' },
   {
-    id: 'familiarization',
-    name: 'Familiarization with English',
-    description: 'English sounds, rhythm, intonation patterns',
+    id: 'sensaciones',
+    name: 'Sensaciones, emociones, sentimientos e ideas expresados en lengua inglesa',
   },
+  { id: 'textos', name: 'Textos orales y escritos en lengua inglesa' },
+  { id: 'manifestaciones', name: 'Manifestaciones culturales y artísticas' },
+  { id: 'entornos', name: 'Entornos naturales y sociales' },
   {
-    id: 'vocabulary',
-    name: 'Vocabulary development',
-    description: 'Building word recognition through visuals and context',
-  },
-  {
-    id: 'oral',
-    name: 'Oral communication',
-    description: 'Simple phrases, greetings, classroom language',
-  },
-  {
-    id: 'written',
-    name: 'Written language awareness',
-    description: 'Letter recognition, awareness of print in English',
-  },
-  {
-    id: 'cultural',
-    name: 'Cultural awareness',
-    description: 'English-speaking cultures, traditions, celebrations',
-  },
-  {
-    id: 'multilingual',
-    name: 'Multilingual identity',
-    description: 'Pride in bilingualism, value of multiple languages',
+    id: 'graficos',
+    name: 'Elementos y recursos gráficos, lúdicos y estéticos de la lengua inglesa',
   },
 ] as const
 

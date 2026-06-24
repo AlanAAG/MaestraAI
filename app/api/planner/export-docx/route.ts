@@ -15,7 +15,25 @@ import {
   ShadingType,
   AlignmentType,
   PageOrientation,
+  ImageRun,
+  BorderStyle,
 } from 'docx'
+
+// Design preferences → docx values.
+const DOCX_FONT: Record<string, string> = {
+  sans: 'Calibri',
+  serif: 'Georgia',
+  rounded: 'Comic Sans MS',
+}
+const DOCX_BORDER: Record<string, string> = {
+  light: 'E5E7EB',
+  medium: 'D1D5DB',
+  strong: '9CA3AF',
+}
+function tableBorders(color: string) {
+  const b = { style: BorderStyle.SINGLE, size: 4, color }
+  return { top: b, bottom: b, left: b, right: b, insideHorizontal: b, insideVertical: b }
+}
 
 const Schema = z.object({
   fortnight_id: z.string().uuid(),
@@ -34,6 +52,7 @@ type SubPlan = {
   campos_formativos?: CampoFormativo[]
   estructura_didactica?: Record<string, string>
   evaluacion?: { aspecto: string }[]
+  observaciones?: string
 }
 
 type PlanDocument = {
@@ -42,6 +61,7 @@ type PlanDocument = {
   metodologia?: string
   actividades_iniciales?: string
   actividades_rutina?: string
+  aventura_lectora?: string
   estrategia_comunitaria?: string
   pausas_activas?: string
   ajustes_razonables?: string
@@ -83,7 +103,7 @@ function mdToParas(text: string, heading?: string): Paragraph[] {
   return paras
 }
 
-function cronogramaTable(cronograma: Record<string, string[]>): Table {
+function cronogramaTable(cronograma: Record<string, string[]>, borderColor: string): Table {
   const days = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
   const headers = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
   const maxRows = Math.max(...days.map((d) => (cronograma[d] ?? []).length))
@@ -122,10 +142,14 @@ function cronogramaTable(cronograma: Record<string, string[]>): Table {
   return new Table({
     rows: [headerRow, ...dataRows],
     width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: tableBorders(borderColor),
   })
 }
 
-function camposFormativosSection(campos: CampoFormativo[]): (Paragraph | Table)[] {
+function camposFormativosSection(
+  campos: CampoFormativo[],
+  borderColor: string
+): (Paragraph | Table)[] {
   const items: (Paragraph | Table)[] = []
   items.push(new Paragraph({ text: 'Campos Formativos', heading: HeadingLevel.HEADING_2 }))
   for (const cf of campos) {
@@ -169,13 +193,23 @@ function camposFormativosSection(campos: CampoFormativo[]): (Paragraph | Table)[
           })
       ),
     ]
-    items.push(new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } }))
+    items.push(
+      new Table({
+        rows,
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: tableBorders(borderColor),
+      })
+    )
     items.push(new Paragraph(''))
   }
   return items
 }
 
-function evaluacionTable(items: { aspecto: string }[], columns?: string[]): Table {
+function evaluacionTable(
+  items: { aspecto: string }[],
+  borderColor: string,
+  columns?: string[]
+): Table {
   const cols = columns?.length ? columns : ['Logrado', 'En proceso', 'Requiere apoyo']
   const headerRow = new TableRow({
     children: ['Aspecto', ...cols].map(
@@ -203,10 +237,11 @@ function evaluacionTable(items: { aspecto: string }[], columns?: string[]): Tabl
   return new Table({
     rows: [headerRow, ...dataRows],
     width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: tableBorders(borderColor),
   })
 }
 
-function observationCalendarTable(cal: Record<string, string[]>): Table {
+function observationCalendarTable(cal: Record<string, string[]>, borderColor: string): Table {
   const days = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
   const labels = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
   const maxRows = Math.max(...days.map((d) => (cal[d] ?? []).length))
@@ -241,6 +276,7 @@ function observationCalendarTable(cal: Record<string, string[]>): Table {
   return new Table({
     rows: [headerRow, ...dataRows],
     width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: tableBorders(borderColor),
   })
 }
 
@@ -258,10 +294,44 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)
       .from('teachers')
-      .select('id')
+      .select('id, school_id')
       .eq('auth_id', user.id)
       .single()
     if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // School logo (base64 data URL) for the document header — best-effort.
+    let logoDataUrl: string | null = null
+    if (teacher.school_id) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: school } = await (supabase as any)
+          .from('schools')
+          .select('logo_url')
+          .eq('id', teacher.school_id)
+          .single()
+        logoDataUrl = (school?.logo_url as string) ?? null
+      } catch {
+        /* column may not exist yet */
+      }
+    }
+
+    // Teacher design preferences (font, size, accent, line intensity) — best-effort.
+    let design = { font: 'sans', size: 16, accent: '#1f2937', lineIntensity: 'medium' }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: dRow } = await (supabase as any)
+        .from('teachers')
+        .select('design_settings')
+        .eq('id', teacher.id)
+        .single()
+      if (dRow?.design_settings) design = { ...design, ...dRow.design_settings }
+    } catch {
+      /* column may not exist yet */
+    }
+    const docFont = DOCX_FONT[design.font] ?? 'Calibri'
+    const docSize = Math.round(design.size * 1.375) // px → half-points (16px ≈ 22 ≈ 11pt)
+    const accentHex = (design.accent || '#1f2937').replace('#', '').toUpperCase()
+    const borderHex = DOCX_BORDER[design.lineIntensity] ?? 'D1D5DB'
 
     const { success } = await checkRateLimit((teacher as { id: string }).id, 'standard')
     if (!success)
@@ -289,6 +359,29 @@ export async function POST(req: NextRequest) {
 
     const children: (Paragraph | Table)[] = []
 
+    // School logo (centered, above the title)
+    const logoMatch = logoDataUrl?.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/)
+    if (logoMatch) {
+      const fmt = logoMatch[1] === 'jpg' ? 'jpeg' : logoMatch[1]
+      try {
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                // @ts-expect-error docx type union accepts these string formats at runtime
+                type: fmt === 'jpeg' ? 'jpg' : fmt,
+                data: Buffer.from(logoMatch[2], 'base64'),
+                transformation: { width: 90, height: 90 },
+              }),
+            ],
+          })
+        )
+      } catch {
+        /* skip a malformed logo rather than fail the export */
+      }
+    }
+
     // Title
     children.push(
       new Paragraph({
@@ -308,6 +401,7 @@ export async function POST(req: NextRequest) {
         children.push(...mdToParas(pd.actividades_iniciales, 'Actividades Iniciales'))
       if (pd.actividades_rutina)
         children.push(...mdToParas(pd.actividades_rutina, 'Actividades de Rutina y Permanentes'))
+      if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, 'Aventura Lectora'))
       if (pd.estrategia_comunitaria)
         children.push(...mdToParas(pd.estrategia_comunitaria, 'Estrategia Comunitaria'))
       if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, 'Pausas Activas'))
@@ -325,7 +419,7 @@ export async function POST(req: NextRequest) {
           heading: HeadingLevel.HEADING_2,
         })
       )
-      children.push(cronogramaTable(pd.cronograma))
+      children.push(cronogramaTable(pd.cronograma, borderHex))
       children.push(new Paragraph(''))
     }
 
@@ -338,7 +432,7 @@ export async function POST(req: NextRequest) {
           heading: HeadingLevel.HEADING_2,
         })
       )
-      children.push(observationCalendarTable(obsCal))
+      children.push(observationCalendarTable(obsCal, borderHex))
       children.push(new Paragraph(''))
     }
 
@@ -346,7 +440,7 @@ export async function POST(req: NextRequest) {
       children.push(...mdToParas(pd.ejes_articuladores, 'Ejes Articuladores'))
 
     if (pd.campos_formativos?.length) {
-      children.push(...camposFormativosSection(pd.campos_formativos))
+      children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
     }
 
     if (pd.tipo === 'quincena' && pd.proyecto) {
@@ -361,6 +455,7 @@ export async function POST(req: NextRequest) {
         children.push(...mdToParas(pd.actividades_iniciales, 'Actividades Iniciales'))
       if (pd.actividades_rutina)
         children.push(...mdToParas(pd.actividades_rutina, 'Actividades de Rutina y Permanentes'))
+      if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, 'Aventura Lectora'))
       if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, 'Pausas Activas'))
     }
 
@@ -368,7 +463,7 @@ export async function POST(req: NextRequest) {
       children.push(
         new Paragraph({ text: 'Evaluación de Aprendizajes', heading: HeadingLevel.HEADING_2 })
       )
-      children.push(evaluacionTable(pd.evaluacion_items, pd.evaluation_columns))
+      children.push(evaluacionTable(pd.evaluacion_items, borderHex, pd.evaluation_columns))
       children.push(new Paragraph(''))
     }
 
@@ -391,7 +486,7 @@ export async function POST(req: NextRequest) {
         })
       )
       if (sp.campos_formativos?.length) {
-        children.push(...camposFormativosSection(sp.campos_formativos))
+        children.push(...camposFormativosSection(sp.campos_formativos, borderHex))
       }
       if (sp.estructura_didactica) {
         for (const [key, val] of Object.entries(sp.estructura_didactica)) {
@@ -399,8 +494,9 @@ export async function POST(req: NextRequest) {
         }
       }
       if (sp.evaluacion?.length) {
-        children.push(evaluacionTable(sp.evaluacion, pd.evaluation_columns))
+        children.push(evaluacionTable(sp.evaluacion, borderHex, pd.evaluation_columns))
       }
+      children.push(...mdToParas(sp.observaciones || '', 'Observaciones y ajustes'))
       children.push(new Paragraph(''))
     }
 
@@ -427,7 +523,25 @@ export async function POST(req: NextRequest) {
           children,
         },
       ],
-      styles: { paragraphStyles: [{ id: 'Normal', run: { font: 'Calibri', size: 22 } }] },
+      styles: {
+        paragraphStyles: [
+          { id: 'Normal', run: { font: docFont, size: docSize } },
+          {
+            id: 'Heading1',
+            name: 'Heading 1',
+            basedOn: 'Normal',
+            run: { font: docFont, size: docSize + 10, bold: true, color: accentHex },
+            paragraph: { spacing: { before: 240, after: 120 } },
+          },
+          {
+            id: 'Heading2',
+            name: 'Heading 2',
+            basedOn: 'Normal',
+            run: { font: docFont, size: docSize + 4, bold: true, color: accentHex },
+            paragraph: { spacing: { before: 200, after: 80 } },
+          },
+        ],
+      },
     })
 
     const buf = await Packer.toBuffer(doc)

@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBase64Image } from '@/lib/file-validation'
-import { parseLetterGrouped, type VocabItem } from '@/lib/vocabulary/parse'
+import { parseLetterGrouped, type VocabItem, clampVocabItems } from '@/lib/vocabulary/parse'
 
 const ExtractInputSchema = z.object({
   text: z.string().min(1).max(20000).optional(),
@@ -35,7 +35,7 @@ async function llmExtract(
     block.text.match(/```json\s*([\s\S]*?)\s*```/) || block.text.match(/\{[\s\S]*\}/)
   const jsonText = jsonMatch ? jsonMatch[1] || jsonMatch[0] : block.text
   const parsed = JSON.parse(jsonText)
-  return (parsed.items ?? []) as Item[]
+  return clampVocabItems(parsed.items ?? [])
 }
 
 export async function POST(req: NextRequest) {

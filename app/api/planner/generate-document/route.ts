@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { isProniApplicable } from '@/lib/nem-official-data'
+import { nemGroundingBlock } from '@/lib/nem/grounding'
+import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { decryptName } from '@/lib/students/name'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
 import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
-import { generateSubplan } from '@/lib/planner/subplan'
+import { generateSubplan, generateCustomSubplan } from '@/lib/planner/subplan'
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 
 export const maxDuration = 300
@@ -138,6 +139,15 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): string
   if (ex.length) parts.push(ex.join('\n'))
 
   // 5. Structure (lower priority)
+  if (p?.subplan_inventory?.length)
+    parts.push(
+      `<estructura_subplaneaciones>\nEsta planeación DEBE reflejar el mismo conjunto de sub-planeaciones que el formato de la maestra:\n${p.subplan_inventory
+        .map(
+          (s) =>
+            `• ${s.metodologia}${s.nombre ? `: ${s.nombre}` : ''}${s.secciones?.length ? ` (${s.secciones.join(', ')})` : ''}`
+        )
+        .join('\n')}\n</estructura_subplaneaciones>`
+    )
   if (p?.sections?.length)
     parts.push(`FORMATO ESCOLAR (secciones en orden): ${p.sections.join(' → ')}`)
   if (p?.activity_blocks?.length && p.block_descriptions)
@@ -198,8 +208,9 @@ function buildQuincenaPrompt(
       ? `ALUMNOS CON NEE (incluir en ajustes_razonables):\n${neeStudents.map((s) => `- ${s.display_name}${s.nee_notes ? ': ' + s.nee_notes : ''}`).join('\n')}`
       : 'NEE: (ninguno en este grupo)'
 
+  // PRONI contenidos/PDAs come from <proni_contenidos> in the grounding block (verbatim).
   const proniNote = includeProni
-    ? `PRONI (Kinder 3): integrar en actividades del ${schedule.letterDay}. Áreas: Familiarization | Vocabulary | Oral communication | Written language | Cultural awareness | Multilingual identity`
+    ? `PRONI (Kinder 3): integra inglés en las actividades del ${schedule.letterDay} usando los contenidos y PDAs de <proni_contenidos>.`
     : ''
 
   const richmondUnit = sanitize(fn.richmond_unit)
@@ -208,6 +219,18 @@ function buildQuincenaPrompt(
     : richmondBooks
 
   const profileCtx = profileContext(profile, evalColumns)
+
+  // High-priority: the teacher's explicit requests + continuity with the previous quincena.
+  const tNotes = String(fn.teacher_notes ?? '').slice(0, 1500)
+  const pNotes = String(fn.project_notes ?? '').slice(0, 1500)
+  const teacherReq =
+    tNotes || pNotes
+      ? `<teacher_requests>\nLa maestra pidió ESPECÍFICAMENTE incluir lo siguiente — priorízalo e intégralo de forma natural:\n${tNotes ? `General: ${tNotes}\n` : ''}${pNotes ? `Proyecto: ${pNotes}` : ''}\n</teacher_requests>`
+      : ''
+  const continuity = String(fn.__continuity ?? '')
+  const continuityBlock = continuity
+    ? `<continuidad>\n${continuity}\nEsta quincena es CONTINUACIÓN del ciclo: retoma, da seguimiento o referencia lo anterior donde tenga sentido (no empieces de cero si el proyecto continúa).\n</continuidad>`
+    : ''
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma, sin modificarlo):
 ${JSON.stringify(schedule.cronograma)}
@@ -230,8 +253,11 @@ ${scheduleCtx}
 
 Genera la planeación completa en el formato JSON especificado. sub_planes debe ser [] (los sub-planes se generan por separado).`
 
-  // Order: teacher voice → PDAs → eval format → examples → structure → schema → request.
-  return [profileCtx, QUINCENA_OUTPUT_SCHEMA, requestData].filter(Boolean).join('\n\n')
+  // Grounding (NEM synthesis + PDA bank) is injected as a cached SYSTEM prefix, not here.
+  // Order: teacher voice → PDAs → requests → continuity → schema → request.
+  return [profileCtx, teacherReq, continuityBlock, QUINCENA_OUTPUT_SCHEMA, requestData]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 function buildTallerPrompt(
@@ -283,6 +309,7 @@ ${scheduleCtx}
 
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
 
+  // Grounding is injected as a cached system prefix, not here.
   return [profileCtx, requestData].filter(Boolean).join('\n\n')
 }
 
@@ -331,6 +358,25 @@ export async function POST(req: NextRequest) {
     const includeProni = isProniApplicable(groupGrade)
     const schedule = getGroupSchedule(fn)
 
+    // Continuity: the most recent prior planeación for this group, so each quincena builds on the
+    // cycle (continue a project, reference prior learning) instead of starting from scratch.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prev } = await (supabase as any)
+      .from('fortnights')
+      .select('number, project_name, monthly_value, plan_document, start_date')
+      .eq('group_id', fn.group_id)
+      .eq('plan_type', planType)
+      .lt('start_date', fn.start_date)
+      .order('start_date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (prev) {
+      const prevProj = (prev.plan_document?.nombre_proyecto as string) ?? prev.project_name
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(fn as any).__continuity =
+        `Planeación anterior (#${prev.number}): proyecto "${prevProj}", valor del mes "${prev.monthly_value}".`
+    }
+
     // Load teacher templates for this plan type. Use the newest for STRUCTURE (sections/blocks),
     // but merge the "VOZ DE LA MAESTRA" examples across ALL same-type templates for a richer
     // few-shot voice (more samples = better fidelity), capped + deduped.
@@ -367,18 +413,16 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: students } = await (supabase as any)
       .from('students')
-      .select('first_name_encrypted, last_name_encrypted, has_nee, nee_notes')
+      .select('has_nee, nee_notes')
       .eq('group_id', fn.group_id)
-    // Decrypt names (server-side) only for the NEE students we actually inject.
+    // LFPDPPP: disability + name is sensitive data. NEVER pass real student names into the
+    // prompt/output — anonymize to positional labels (Alumno A, B…). Names are not decrypted.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const neeRows = (students ?? []).filter((s: any) => s.has_nee)
-    const neeStudents = await Promise.all(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      neeRows.map(async (s: any) => ({
-        display_name: (await decryptName(s)).name,
-        nee_notes: s.nee_notes,
-      }))
-    )
+    const neeStudents = neeRows.map((s: { nee_notes: string | null }, i: number) => ({
+      display_name: `Alumno ${i < 26 ? String.fromCharCode(65 + i) : String(i + 1)}`,
+      nee_notes: s.nee_notes,
+    }))
 
     // Vocabulary
     let vocabList = ''
@@ -404,6 +448,8 @@ export async function POST(req: NextRequest) {
     }
 
     const systemPrompt = planType === 'taller' ? TALLER_SYSTEM : QUINCENA_SYSTEM
+    // Cached grounding prefix — identical across the main + all sub-plan calls in this generation.
+    const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni)}`
     const userPrompt =
       planType === 'taller'
         ? buildTallerPrompt(fn, neeStudents, profile, evalColumns, schedule)
@@ -426,7 +472,10 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`))
 
         try {
-          const raw = await callPlannerModel(systemPrompt, userPrompt, { maxTokens: 16384 })
+          const raw = await callPlannerModel(systemPrompt, userPrompt, {
+            maxTokens: 16384,
+            cachePrefix,
+          })
           const planDocument = parsePlanJson(raw)
 
           // Quincena: auto-generate the Letter & Number + Números sub-plans inline so the
@@ -443,6 +492,7 @@ export async function POST(req: NextRequest) {
               includeProni,
               pdaBank: profile?.pda_bank,
               evalColumns,
+              cachePrefix,
             }
             const [letterSub, numSub] = await Promise.allSettled([
               generateSubplan(fn, 'letter_number', subOpts),
@@ -455,18 +505,46 @@ export async function POST(req: NextRequest) {
               console.error('[generate-document] letter_number subplan failed:', letterSub.reason)
             if (numSub.status === 'rejected')
               console.error('[generate-document] numeros subplan failed:', numSub.reason)
+
+            // Mirror the teacher's example: auto-generate the extra sub-plans it contains
+            // (Taller, ABJ, etc.) beyond the standard Proyecto + Letter&Number + Números.
+            // Best-effort (allSettled), capped, non-fatal. Centro de Interés is already covered
+            // by letter_number/numeros, and Proyecto is the top-level field.
+            const extras = (profile?.subplan_inventory ?? [])
+              .filter(
+                (s) => !/proyecto|centro de inter/i.test(s.metodologia) && !!s.metodologia?.trim()
+              )
+              .slice(0, 3)
+            if (extras.length) {
+              const extraResults = await Promise.allSettled(
+                extras.map((s) =>
+                  generateCustomSubplan(
+                    fn,
+                    { methodology: s.metodologia, name: s.nombre || s.metodologia },
+                    { evalColumns, pdaBank: profile?.pda_bank, cachePrefix }
+                  )
+                )
+              )
+              for (const r of extraResults) {
+                if (r.status === 'fulfilled') subPlanes.push(r.value)
+                else console.error('[generate-document] extra subplan failed:', r.reason)
+              }
+            }
             planDocument.sub_planes = subPlanes
           }
 
-          // Preserve any prior sub_planes only if we produced none this run.
+          // Keep any teacher-added CUSTOM sub-plans across a regeneration (don't wipe them).
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const existingSubPlanes = ((fn as any).plan_document as any)?.sub_planes
-          if (
-            (!Array.isArray(planDocument.sub_planes) || planDocument.sub_planes.length === 0) &&
-            Array.isArray(existingSubPlanes) &&
-            existingSubPlanes.length > 0
-          ) {
-            planDocument.sub_planes = existingSubPlanes
+          if (Array.isArray(existingSubPlanes) && existingSubPlanes.length > 0) {
+            if (!Array.isArray(planDocument.sub_planes) || planDocument.sub_planes.length === 0) {
+              planDocument.sub_planes = existingSubPlanes
+            } else {
+              const custom = (existingSubPlanes as unknown[]).filter(
+                (s) => !['letter_number', 'numeros'].includes((s as { tipo?: string })?.tipo ?? '')
+              )
+              ;(planDocument.sub_planes as unknown[]).push(...custom)
+            }
           }
 
           // Persist the evaluation columns so the viewer + DOCX export render this school's scale.

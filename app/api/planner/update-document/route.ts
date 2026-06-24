@@ -6,6 +6,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 const EDITABLE_SECTIONS = new Set([
   'actividades_iniciales',
   'actividades_rutina',
+  'aventura_lectora',
   'estrategia_comunitaria',
   'pausas_activas',
   'ajustes_razonables',
