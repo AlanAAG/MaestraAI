@@ -26,6 +26,17 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+
+  // Scrub request bodies, cookies, and auth headers before sending (student PII protection).
+  beforeSend(event) {
+    if (event.request?.data) delete event.request.data
+    if (event.request?.cookies) delete event.request.cookies
+    if (event.request?.headers) {
+      delete event.request.headers['authorization']
+      delete event.request.headers['cookie']
+    }
+    return event
+  },
 })
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart

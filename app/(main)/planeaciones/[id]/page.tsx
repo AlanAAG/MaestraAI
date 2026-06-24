@@ -97,7 +97,7 @@ export default function PlaneacionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [generationPhase, setGenerationPhase] = useState<
-    'preparing' | 'analyzing' | 'generating' | 'done'
+    'preparing' | 'analyzing' | 'generating' | 'subplanes' | 'done'
   >('preparing')
   const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([])
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)

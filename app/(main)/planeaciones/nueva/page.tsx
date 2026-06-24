@@ -45,6 +45,8 @@ export default function NuevaPlaneacionPage() {
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const [groups, setGroups] = useState<{ id: string; name: string; grade: string }[]>([])
   const [groupStudents, setGroupStudents] = useState<string[]>([])
+  // All of the teacher's students (across groups) — autocomplete source for observation.
+  const [allStudentNames, setAllStudentNames] = useState<string[]>([])
   const [loadingGroups, setLoadingGroups] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -61,7 +63,8 @@ export default function NuevaPlaneacionPage() {
   const [extraMaterials, setExtraMaterials] = useState<string[]>([])
   const [manualMaterial, setManualMaterial] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
-  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  // Binary choice: use the teacher's uploaded format, or MaestraIA's built-in design.
+  const [useSystemTemplate, setUseSystemTemplate] = useState(false)
   const [groupSchedule, setGroupSchedule] = useState<{
     letter_number_day?: string
     numeros_day?: string
@@ -73,6 +76,12 @@ export default function NuevaPlaneacionPage() {
       .then((r) => r.json())
       .then((d) => setAllVocab(d.items ?? []))
       .catch((err) => console.error('Failed to load vocabulary:', err))
+    fetch('/api/students?group_id=all')
+      .then((r) => (r.ok ? r.json() : { students: [] }))
+      .then(({ students }: { students: { name: string }[] }) =>
+        setAllStudentNames((students ?? []).map((s) => s.name))
+      )
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -106,7 +115,6 @@ export default function NuevaPlaneacionPage() {
       .then((r) => r.json())
       .then((d) => {
         setTemplates(d.templates ?? [])
-        setSelectedTemplateId('')
       })
       .catch(() => {})
   }, [planType])
@@ -225,6 +233,17 @@ export default function NuevaPlaneacionPage() {
         .single()
 
       if (fortnightError) throw fortnightError
+
+      // Best-effort: record the "use system design" choice. Ignored (no throw) if migration 050
+      // isn't applied yet — so creation never breaks and the default stays "use my format".
+      if (useSystemTemplate) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('fortnights')
+          .update({ use_system_template: true })
+          .eq('id', fortnight.id)
+      }
+
       router.push(`/planeaciones/${fortnight.id}`)
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -584,7 +603,7 @@ export default function NuevaPlaneacionPage() {
               Selecciona qué alumnos observarás cada día de la quincena
             </p>
             <ObservationCalendar
-              students={groupStudents}
+              students={allStudentNames.length > 0 ? allStudentNames : groupStudents}
               value={observationCalendar}
               onChange={setObservationCalendar}
             />
@@ -690,39 +709,45 @@ export default function NuevaPlaneacionPage() {
           </p>
         )}
 
-        {/* Template selector */}
+        {/* Template choice: the teacher's uploaded format, or MaestraIA's built-in design */}
         {templates.length > 0 && (
           <Card className="p-6 border-2">
-            <h3 className="text-sm font-semibold text-text-primary mb-2">
-              Formato escolar <span className="font-normal text-text-secondary">(opcional)</span>
+            <h3 className="text-sm font-semibold text-text-primary mb-3">
+              Formato de la planeación
             </h3>
-            <p className="text-xs text-text-secondary mb-3">
-              Si tienes un formato guardado, Claude lo seguirá exactamente
-            </p>
-            <div className="space-y-2">
-              {templates.map((t) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(
+                [
+                  {
+                    val: false,
+                    title: 'Mi formato escolar',
+                    desc: 'MaestraIA seguirá el formato que subiste',
+                  },
+                  {
+                    val: true,
+                    title: 'Diseño de MaestraIA',
+                    desc: 'Usa el diseño y estructura predeterminados',
+                  },
+                ] as const
+              ).map((opt) => (
                 <button
-                  key={t.id}
+                  key={String(opt.val)}
                   type="button"
-                  onClick={() => setSelectedTemplateId(selectedTemplateId === t.id ? '' : t.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
-                    selectedTemplateId === t.id
-                      ? 'bg-primary/10 border-primary text-primary'
-                      : 'bg-surface border-border text-text-primary hover:border-primary'
+                  onClick={() => setUseSystemTemplate(opt.val)}
+                  className={`text-left px-4 py-3 rounded-lg border transition-colors ${
+                    useSystemTemplate === opt.val
+                      ? 'bg-primary/10 border-primary'
+                      : 'bg-surface border-border hover:border-primary'
                   }`}
                 >
-                  {t.label}
+                  <p
+                    className={`text-sm font-medium ${useSystemTemplate === opt.val ? 'text-primary' : 'text-text-primary'}`}
+                  >
+                    {opt.title}
+                  </p>
+                  <p className="text-xs text-text-secondary mt-0.5">{opt.desc}</p>
                 </button>
               ))}
-              {selectedTemplateId && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedTemplateId('')}
-                  className="text-xs text-text-secondary hover:text-text-primary cursor-pointer"
-                >
-                  Usar formato predeterminado
-                </button>
-              )}
             </div>
           </Card>
         )}

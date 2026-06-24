@@ -343,7 +343,10 @@ export async function POST(req: NextRequest) {
       .order('created_at', { ascending: false })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = (templates ?? []).map((t: any) => t.template).filter(Boolean) as TeacherProfile[]
-    let profile: TeacherProfile | null = rows[0] ?? null
+    // If the teacher chose "Diseño de MaestraIA" for this plan, ignore their uploaded format.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const useSystem = (fn as any).use_system_template === true
+    let profile: TeacherProfile | null = useSystem ? null : (rows[0] ?? null)
     if (profile && rows.length > 1) {
       // Merge voice samples + PDA bank across all same-type formats for richer few-shot.
       const mergedVoice = Array.from(

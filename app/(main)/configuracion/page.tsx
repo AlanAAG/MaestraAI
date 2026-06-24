@@ -12,6 +12,7 @@ import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
 import { X, ExternalLink, CheckCircle2, Clock } from 'lucide-react'
 import { RichmondExtensionGuide } from '@/components/app/RichmondExtensionGuide'
 import { getEditorialConfig } from '@/lib/editorial/registry'
+import { progressToast } from '@/lib/ui/progress-toast'
 
 // Replace with the real Chrome Web Store URL after the extension is approved.
 // Format: https://chromewebstore.google.com/detail/maestraai-richmond-sync/[extension-id]
@@ -176,6 +177,13 @@ export default function ConfiguracionPage() {
       const [header, base64] = dataUrl.split(',')
       const mimeType = header.match(/:(.*?);/)?.[1] ?? file.type
       const isImage = file.type.startsWith('image/')
+      const p = progressToast([
+        'Leyendo tu formato…',
+        'Identificando las secciones…',
+        'Capturando tu estilo de redacción…',
+        'Guardando los Procesos de Aprendizaje (PDAs)…',
+        'Casi listo, esto puede tardar un poco…',
+      ])
       try {
         const body = isImage
           ? {
@@ -201,9 +209,10 @@ export default function ConfiguracionPage() {
         setAddingTemplate('saved')
         setShowAddTemplate(false)
         setNewTemplateLabel('')
+        p.success('Formato guardado ✨')
         setTimeout(() => setAddingTemplate('idle'), 2000)
       } catch (err) {
-        alert(err instanceof Error ? err.message : 'No pude analizar el archivo.')
+        p.error(err instanceof Error ? err.message : 'No pude analizar el archivo.')
         setAddingTemplate('idle')
       }
     }

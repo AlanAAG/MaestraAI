@@ -1,15 +1,4 @@
-import * as Sentry from '@sentry/nextjs'
-
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
-  beforeSend(event) {
-    if (event.request?.data) delete event.request.data
-    if (event.request?.cookies) delete event.request.cookies
-    if (event.request?.headers) {
-      delete event.request.headers['authorization']
-      delete event.request.headers['cookie']
-    }
-    return event
-  },
-})
+// Client-side Sentry is initialized ONCE in `instrumentation-client.ts` (the current
+// @sentry/nextjs convention). This legacy file intentionally does NOT call Sentry.init()
+// to avoid the "Sentry.init() called more than once on the client" double-initialization.
+export {}

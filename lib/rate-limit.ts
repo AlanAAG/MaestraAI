@@ -26,13 +26,17 @@ if (!isRedisConfigured) {
 
 type RateLimitTier = 'strict' | 'standard' | 'relaxed'
 
+// NOTE: most routes call checkRateLimit(userId, tier) WITHOUT an endpoint, so they all share
+// one bucket per tier (e.g. every "standard" write shares `standard:default`). These limits are
+// therefore per-USER-across-the-whole-app, not per-route — they must be generous enough for an
+// active teacher (many saves/loads per session) while still capping abuse.
 const RATE_LIMITS: Record<
   RateLimitTier,
   { tokens: number; window: `${number} ${'ms' | 's' | 'm' | 'h' | 'd'}` }
 > = {
-  strict: { tokens: 10, window: '1 h' },
-  standard: { tokens: 50, window: '1 h' },
-  relaxed: { tokens: 100, window: '1 h' },
+  strict: { tokens: 40, window: '1 h' }, // expensive AI (generation/extraction) — bounds cost
+  standard: { tokens: 300, window: '1 h' }, // writes (saves, edits, notifies)
+  relaxed: { tokens: 1000, window: '1 h' }, // reads
 }
 
 /**

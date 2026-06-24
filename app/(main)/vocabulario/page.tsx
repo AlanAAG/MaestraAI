@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { progressToast } from '@/lib/ui/progress-toast'
 
 type VocabularyItem = {
   id: string
@@ -186,6 +187,7 @@ export default function VocabularioPage() {
     }
 
     setExtracting(true)
+    const p = progressToast(['Leyendo tu lista…', 'Identificando las palabras…'])
     try {
       const response = await fetch('/api/vocabulary/extract', {
         method: 'POST',
@@ -197,13 +199,13 @@ export default function VocabularioPage() {
 
       if (data.items && data.items.length > 0) {
         setExtractedItems(data.items)
-        toast.success(`Encontré ${data.items.length} palabras`)
+        p.success(`Encontré ${data.items.length} palabras`)
       } else {
-        toast.error('No encontré vocabulario en el texto')
+        p.error(data.error ?? 'No encontré vocabulario en el texto')
       }
     } catch (error) {
       console.error('Extract error:', error)
-      toast.error('No pude extraer vocabulario')
+      p.error('No pude extraer vocabulario')
     } finally {
       setExtracting(false)
     }
@@ -216,39 +218,48 @@ export default function VocabularioPage() {
     }
 
     setExtracting(true)
+    const p = progressToast([
+      'Leyendo el archivo…',
+      'Extrayendo el vocabulario…',
+      'Identificando las palabras (puede tardar un poco)…',
+    ])
     try {
       const reader = new FileReader()
       reader.onload = async (e) => {
-        const base64 = e.target?.result as string
-        const base64Data = base64.split(',')[1]
+        try {
+          const base64 = e.target?.result as string
+          const base64Data = base64.split(',')[1]
 
-        const isImage = selectedFile.type.startsWith('image/')
-        const response = await fetch('/api/vocabulary/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(
-            isImage
-              ? { imageBase64: base64Data, imageMimeType: selectedFile.type }
-              : { documentBase64: base64Data, documentMimeType: selectedFile.type }
-          ),
-        })
+          const isImage = selectedFile.type.startsWith('image/')
+          const response = await fetch('/api/vocabulary/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              isImage
+                ? { imageBase64: base64Data, imageMimeType: selectedFile.type }
+                : { documentBase64: base64Data, documentMimeType: selectedFile.type }
+            ),
+          })
 
-        const data = await response.json()
+          const data = await response.json()
 
-        if (data.items && data.items.length > 0) {
-          setExtractedItems(data.items)
-          toast.success(`Encontré ${data.items.length} palabras`)
-        } else {
-          toast.error('No encontré vocabulario en la imagen')
+          if (data.items && data.items.length > 0) {
+            setExtractedItems(data.items)
+            p.success(`Encontré ${data.items.length} palabras`)
+          } else {
+            p.error(data.error ?? 'No encontré vocabulario en el archivo')
+          }
+        } catch {
+          p.error('No pude extraer vocabulario')
+        } finally {
+          setExtracting(false)
         }
-
-        setExtracting(false)
       }
 
       reader.readAsDataURL(selectedFile)
     } catch (error) {
       console.error('Extract error:', error)
-      toast.error('No pude extraer vocabulario')
+      p.error('No pude extraer vocabulario')
       setExtracting(false)
     }
   }
