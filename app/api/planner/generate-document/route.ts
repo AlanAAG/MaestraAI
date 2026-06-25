@@ -4,6 +4,12 @@ import { z } from 'zod'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { nemGroundingBlock } from '@/lib/nem/grounding'
 import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
+import {
+  matchPlaneaciones,
+  storePlaneacionEmbedding,
+  styleExamplesBlock,
+  planEmbeddingText,
+} from '@/lib/planner/embeddings'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
@@ -168,7 +174,8 @@ function buildQuincenaPrompt(
   richmondInstructions: string,
   profile: TeacherProfile | null,
   evalColumns: string[],
-  schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> }
+  schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> },
+  styleBlock: string = ''
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
 
@@ -254,8 +261,8 @@ ${scheduleCtx}
 Genera la planeación completa en el formato JSON especificado. sub_planes debe ser [] (los sub-planes se generan por separado).`
 
   // Grounding (NEM synthesis + PDA bank) is injected as a cached SYSTEM prefix, not here.
-  // Order: teacher voice → PDAs → requests → continuity → schema → request.
-  return [profileCtx, teacherReq, continuityBlock, QUINCENA_OUTPUT_SCHEMA, requestData]
+  // Order: style examples → teacher voice → PDAs → requests → continuity → schema → request.
+  return [styleBlock, profileCtx, teacherReq, continuityBlock, QUINCENA_OUTPUT_SCHEMA, requestData]
     .filter(Boolean)
     .join('\n\n')
 }
@@ -266,7 +273,8 @@ function buildTallerPrompt(
   neeStudents: { display_name: string }[],
   profile: TeacherProfile | null,
   evalColumns: string[],
-  schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> }
+  schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> },
+  styleBlock: string = ''
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
   const startStr = new Date(fn.start_date).toLocaleDateString('es-MX', {
@@ -310,7 +318,7 @@ ${scheduleCtx}
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
 
   // Grounding is injected as a cached system prefix, not here.
-  return [profileCtx, requestData].filter(Boolean).join('\n\n')
+  return [styleBlock, profileCtx, requestData].filter(Boolean).join('\n\n')
 }
 
 export async function POST(req: NextRequest) {
@@ -450,9 +458,19 @@ export async function POST(req: NextRequest) {
     const systemPrompt = planType === 'taller' ? TALLER_SYSTEM : QUINCENA_SYSTEM
     // Cached grounding prefix — identical across the main + all sub-plan calls in this generation.
     const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni)}`
+
+    // RAG: retrieve THIS teacher's most-similar past plans → inject as style examples (her voice).
+    // Best-effort; empty if no key / migration 054 not pushed / no prior plans.
+    const styleExamples = await matchPlaneaciones(supabase, {
+      queryText: `${String(fn.project_name ?? '')} ${String(fn.monthly_value ?? '')}`.trim(),
+      teacherId,
+      excludeFortnight: fn.id,
+    })
+    const styleBlock = styleExamplesBlock(styleExamples)
+
     const userPrompt =
       planType === 'taller'
-        ? buildTallerPrompt(fn, neeStudents, profile, evalColumns, schedule)
+        ? buildTallerPrompt(fn, neeStudents, profile, evalColumns, schedule, styleBlock)
         : buildQuincenaPrompt(
             fn,
             includeProni,
@@ -461,7 +479,8 @@ export async function POST(req: NextRequest) {
             richmondInstructions,
             profile,
             evalColumns,
-            schedule
+            schedule,
+            styleBlock
           )
 
     const encoder = new TextEncoder()
@@ -557,6 +576,14 @@ export async function POST(req: NextRequest) {
             .update({ plan_document: planDocument })
             .eq('id', fn.id)
           if (saveError) throw saveError
+
+          // Embed this plan for future style-example retrieval (best-effort, non-fatal).
+          await storePlaneacionEmbedding(supabase, {
+            fortnightId: fn.id,
+            teacherId,
+            projectName: String(fn.project_name ?? ''),
+            content: planEmbeddingText(planDocument),
+          })
 
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
         } catch (err) {
