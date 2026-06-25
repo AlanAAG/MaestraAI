@@ -425,11 +425,15 @@ export default function PlaneacionDetailPage() {
   return (
     <div className="p-4 sm:p-8">
       <div className="mb-6">
-        <Button variant="ghost" onClick={() => router.push('/planeaciones')} className="mb-4 -ml-2">
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/planeaciones')}
+          className="mb-4 -ml-2 print:hidden"
+        >
           <ArrowLeft size={16} className="mr-2" />
           Volver a Planeaciones
         </Button>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
           <div>
             <h1 className="text-2xl font-semibold text-text-primary">
               {fortnight.plan_type === 'taller' ? 'Taller' : 'Quincena'} {fortnight.number}:{' '}
@@ -472,11 +476,22 @@ export default function PlaneacionDetailPage() {
                             icon: <FileText size={15} />,
                             onSelect: handleExportDocx,
                           },
+                          {
+                            // Prints the on-screen document (design + logo + content) → "Guardar como PDF".
+                            label: 'PDF (imprimir)',
+                            icon: <FileType size={15} />,
+                            onSelect: () => window.print(),
+                          },
                         ]
-                      : []),
-                    ...(lessonPlans.length > 0
-                      ? [{ label: 'PDF', icon: <FileType size={15} />, onSelect: handleExportPdf }]
-                      : []),
+                      : lessonPlans.length > 0
+                        ? [
+                            {
+                              label: 'PDF',
+                              icon: <FileType size={15} />,
+                              onSelect: handleExportPdf,
+                            },
+                          ]
+                        : []),
                     {
                       label: 'Copiar enlace',
                       icon: <Link2 size={15} />,

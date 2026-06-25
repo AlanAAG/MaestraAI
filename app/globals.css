@@ -75,3 +75,24 @@
     line-height: 1.6;
   }
 }
+
+/* Print: isolate page content (hide app chrome) so window.print() / "Save as PDF" of the
+   planeación document yields a clean sheet that matches the on-screen design + logo. */
+@media print {
+  aside,
+  nav,
+  footer {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  main > div {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}
