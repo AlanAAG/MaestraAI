@@ -148,7 +148,8 @@ These block completing the landing page redesign — everything else is built:
 - **Word-search drag-select**: replaced the confusing tap-endpoint-A / tap-endpoint-B model with **pointer drag** (mouse or finger) across letters, with a **live highlight** of the selected line and match-on-release. Touch works via `elementFromPoint` hit-testing (`touch-none` on the grid). Supports the new horizontal+vertical layouts.
 - **Dedup**: removed the inline `seededShuffle` copies in `StudentBingoCard` + `BingoCallerMode` → shared `lib/utils/shuffle`.
 - **Memorama difficulty levels**: `MaterialGenerator` shows a size selector (Pequeño 4 / Mediano 6 / Grande 8 pares) when memorama is selected → sends `options.memory_pairs` → generate route passes it to `buildGameContent(maxPairs)` (caps the generated pairs, 3–10). The standalone `materiales` inline creator still defaults to 6.
-- **Deferred** (own pass): unified game-shell consolidation, real/gen-AI image source (the `imageMap`/`VocabVisual` seams are ready for it).
+- **Shell consolidation**: extracted shared `components/games/GameProgress.tsx` (the step counter/bar, was copy-pasted in 3 games) and `GameComplete.tsx` (the win screen, was ~5 copies including GameShell). No behavior change. Left MemoryMatch's Trophy overlay + Bingo's banner as bespoke game-specific celebrations.
+- **Deferred** (own pass): real/gen-AI image source — held off pending a provider decision (~$1–2 one-time for cheap gen-AI + per-word cache, ~$0/game after; or free photo API). The `imageMap`/`VocabVisual` seams are ready; swapping is one function (`lib/images.ts`).
 
 ## Batch 1 — breaking bugs + LFPDPPP (current)
 

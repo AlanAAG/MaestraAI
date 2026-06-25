@@ -1,11 +1,13 @@
 'use client'
 import { useCallback, useEffect, useState, useMemo } from 'react'
-import { CheckCircle, Volume2 } from 'lucide-react'
+import { Volume2 } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
 import { useSound } from '@/hooks/useSound'
 import { celebrate } from '@/lib/ui/celebrate'
 import { seededShuffle } from '@/lib/utils/shuffle'
 import { VocabVisual } from '@/components/games/VocabVisual'
+import { GameProgress } from '@/components/games/GameProgress'
+import { GameComplete } from '@/components/games/GameComplete'
 
 type PictureWordMatchItem = {
   word: string
@@ -79,31 +81,14 @@ export function PictureWordMatch({ content, onComplete }: Props) {
   )
 
   if (complete) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-10">
-        <CheckCircle className="h-16 w-16 text-emerald-500" />
-        <p className="text-2xl font-bold text-gray-800">¡Excelente!</p>
-        <p className="text-gray-500 text-sm">{content.items.length} palabras completadas</p>
-      </div>
-    )
+    return <GameComplete title="¡Excelente!" sub={`${content.items.length} palabras completadas`} />
   }
 
   if (!item) return null
 
   return (
     <div className="flex flex-col items-center gap-5 p-5">
-      {/* Progress bar */}
-      <div className="w-full flex items-center gap-2">
-        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-          <div
-            className="h-full bg-indigo-400 rounded-full transition-all duration-500"
-            style={{ width: `${(index / content.items.length) * 100}%` }}
-          />
-        </div>
-        <span className="text-xs text-gray-400 tabular-nums">
-          {index + 1}/{content.items.length}
-        </span>
-      </div>
+      <GameProgress current={index} total={content.items.length} />
 
       {/* Visual card — emoji-first, image/text fallback */}
       <div

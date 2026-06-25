@@ -5,6 +5,7 @@ import { StudentBingoCard } from './StudentBingoCard'
 import { MemoryMatch } from './MemoryMatch'
 import { PictureWordMatch } from './PictureWordMatch'
 import { SortingGame } from './SortingGame'
+import { GameComplete } from './GameComplete'
 
 const GAME_TITLES: Record<string, string> = {
   word_search: 'Sopa de Letras',
@@ -36,16 +37,7 @@ export function GameShell({ type, content, vocabulary }: Props) {
       </div>
 
       {done ? (
-        <div className="flex flex-col items-center gap-4 py-12 px-6 text-center">
-          <span className="text-5xl">🌟</span>
-          <p className="text-xl font-bold text-gray-800">¡Muy bien!</p>
-          <button
-            onClick={() => setDone(false)}
-            className="mt-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl font-medium transition-colors"
-          >
-            Jugar de nuevo
-          </button>
-        </div>
+        <GameComplete title="¡Muy bien!" onReplay={() => setDone(false)} />
       ) : type === 'word_search' ? (
         <WordSearchGame
           content={content as Parameters<typeof WordSearchGame>[0]['content']}

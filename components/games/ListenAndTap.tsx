@@ -1,11 +1,13 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle, Volume2 } from 'lucide-react'
+import { Volume2 } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
 import { useSound } from '@/hooks/useSound'
 import { celebrate } from '@/lib/ui/celebrate'
 import { seededShuffle } from '@/lib/utils/shuffle'
 import { VocabVisual } from '@/components/games/VocabVisual'
+import { GameProgress } from '@/components/games/GameProgress'
+import { GameComplete } from '@/components/games/GameComplete'
 
 export type ListenPair = { word: string; image_url?: string; emoji?: string }
 
@@ -93,29 +95,12 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
   }
 
   if (complete) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-10">
-        <CheckCircle className="h-16 w-16 text-emerald-500" />
-        <p className="text-2xl font-bold text-gray-800">¡Muy bien!</p>
-        <p className="text-gray-500 text-sm">¡Escuchaste todas las palabras!</p>
-      </div>
-    )
+    return <GameComplete title="¡Muy bien!" sub="¡Escuchaste todas las palabras!" />
   }
 
   return (
     <div className="flex flex-col items-center gap-5 p-4">
-      {/* Progress */}
-      <div className="w-full flex items-center gap-2">
-        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-          <div
-            className="h-full bg-indigo-400 rounded-full transition-all"
-            style={{ width: `${(round / total) * 100}%` }}
-          />
-        </div>
-        <span className="text-xs text-gray-400">
-          {round + 1}/{total}
-        </span>
-      </div>
+      <GameProgress current={round} total={total} />
 
       {/* Instruction + speak button */}
       <div className="flex flex-col items-center gap-3">

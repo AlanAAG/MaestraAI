@@ -1,9 +1,9 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
 import { useSound } from '@/hooks/useSound'
 import { celebrate } from '@/lib/ui/celebrate'
+import { GameComplete } from '@/components/games/GameComplete'
 
 type WordSearchContent = {
   grid: string[][]
@@ -134,10 +134,7 @@ export function WordSearchGame({ content, onComplete }: Props) {
   return (
     <div className="flex flex-col items-center gap-4 p-4">
       {complete ? (
-        <div className="flex flex-col items-center gap-3 py-8">
-          <CheckCircle className="h-16 w-16 text-emerald-500" />
-          <p className="text-2xl font-bold text-gray-800">¡Encontraste todas!</p>
-        </div>
+        <GameComplete title="¡Encontraste todas!" />
       ) : (
         <>
           {/* Grid — drag (mouse or finger) across letters to select a word */}
