@@ -113,9 +113,9 @@ These block completing the landing page redesign — everything else is built:
 
 - **Report cards generator** — trimestral qualitative reports for parents (post-launch)
 - **Admin dashboard** — school-admin-specific analytics and management views
-- **Game audio feedback** — match/wrong/complete sounds in Memory Match and other games
-- **Game difficulty levels** — small/medium/large card set modes in Memory Match
+- **Game difficulty levels** — small/medium/large card set modes (deferred; needs a UX decision + UI)
 - **Word Scramble / Simon Says** — additional game types
+- _(Game audio feedback now EXISTS — Web Audio SFX + confetti, see "Games quality — Phase 2")_
 
 ---
 
