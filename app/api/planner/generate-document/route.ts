@@ -10,6 +10,7 @@ import {
   styleExamplesBlock,
   planEmbeddingText,
 } from '@/lib/planner/embeddings'
+import { refreshLearnedProfileIfStale, getLearnedProfile } from '@/lib/planner/learning'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
@@ -417,6 +418,18 @@ export async function POST(req: NextRequest) {
       ? profile.evaluation_columns
       : DEFAULT_EVAL_COLUMNS
 
+    // Self-improving: refresh (if stale) + load the teacher's LEARNED style (from her edited plans
+    // + corrections), merge her learned voice samples into the profile. Best-effort.
+    await refreshLearnedProfileIfStale(supabase, teacherId, planType)
+    const learned = await getLearnedProfile(supabase, teacherId, planType)
+    const learnedSamples = learned?.profile?.writing_style_samples ?? []
+    if (learnedSamples.length) {
+      const merged = Array.from(
+        new Set([...(profile?.writing_style_samples ?? []), ...learnedSamples])
+      ).slice(0, 6)
+      profile = { ...(profile ?? {}), writing_style_samples: merged }
+    }
+
     // Fetch NEE students
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: students } = await (supabase as any)
@@ -466,7 +479,11 @@ export async function POST(req: NextRequest) {
       teacherId,
       excludeFortnight: fn.id,
     })
-    const styleBlock = styleExamplesBlock(styleExamples)
+    // High-signal learned preferences (distilled from her corrections) — the accuracy lever.
+    const prefsBlock = learned?.preferences?.trim()
+      ? `<preferencias_aprendidas>\nPreferencias de ESTA maestra, aprendidas de sus correcciones anteriores. Respétalas:\n${learned.preferences.trim()}\n</preferencias_aprendidas>`
+      : ''
+    const styleBlock = [styleExamplesBlock(styleExamples), prefsBlock].filter(Boolean).join('\n\n')
 
     const userPrompt =
       planType === 'taller'
@@ -585,6 +602,16 @@ export async function POST(req: NextRequest) {
             content: planEmbeddingText(planDocument),
           })
 
+          // Transparency: tell the client how much of HER history informed this plan.
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                phase: 'meta',
+                learnedFrom: styleExamples.length,
+                preferencesApplied: !!prefsBlock,
+              })}\n\n`
+            )
+          )
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)

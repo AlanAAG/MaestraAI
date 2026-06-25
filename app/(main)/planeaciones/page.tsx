@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { ZeroState } from '@/components/app/ZeroState'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Calendar, Plus, AlertCircle, Trash2 } from 'lucide-react'
+import { Calendar, Plus, AlertCircle, Trash2, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { toast } from 'sonner'
 
 interface Fortnight {
   id: string
@@ -26,6 +27,25 @@ export default function PlaneacionesPage() {
   const router = useRouter()
   const [fortnights, setFortnights] = useState<Fortnight[]>([])
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'loading' })
+  const [learning, setLearning] = useState(false)
+
+  async function handleLearn() {
+    setLearning(true)
+    try {
+      const res = await fetch('/api/planner/learn', { method: 'POST' })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error)
+      toast.success(
+        d.source_count > 0
+          ? `Aprendí de ${d.source_count} elementos de tus planeaciones`
+          : 'Aún no hay suficientes planeaciones para aprender'
+      )
+    } catch {
+      toast.error('No pude actualizar el aprendizaje. Intenta de nuevo.')
+    } finally {
+      setLearning(false)
+    }
+  }
 
   useEffect(() => {
     loadFortnights()
@@ -176,13 +196,27 @@ export default function PlaneacionesPage() {
             Tienes {fortnights.length} {fortnights.length === 1 ? 'planeación' : 'planeaciones'}
           </p>
         </div>
-        <Button
-          onClick={() => router.push('/planeaciones/nueva')}
-          className="min-h-[44px] gap-2 bg-primary hover:bg-primary-dark whitespace-nowrap"
-        >
-          <Plus size={18} />
-          Crear Planeación
-        </Button>
+        <div className="flex items-center gap-2">
+          {fortnights.length >= 2 && (
+            <Button
+              variant="outline"
+              onClick={handleLearn}
+              disabled={learning}
+              className="min-h-[44px] gap-2 whitespace-nowrap"
+              title="Mejora tu estilo aprendiendo de tus planeaciones anteriores"
+            >
+              <Sparkles size={16} />
+              {learning ? 'Aprendiendo…' : 'Aprender de mis planeaciones'}
+            </Button>
+          )}
+          <Button
+            onClick={() => router.push('/planeaciones/nueva')}
+            className="min-h-[44px] gap-2 bg-primary hover:bg-primary-dark whitespace-nowrap"
+          >
+            <Plus size={18} />
+            Crear Planeación
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4">

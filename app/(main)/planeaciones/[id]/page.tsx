@@ -15,6 +15,7 @@ import {
   Package,
   Share2,
   FileText,
+  X,
 } from 'lucide-react'
 import Link from 'next/link'
 import { DownloadMenu } from '@/components/ui/download-menu'
@@ -114,6 +115,7 @@ export default function PlaneacionDetailPage() {
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [addingYoutube, setAddingYoutube] = useState(false)
   const [activeTab, setActiveTab] = useState<'document' | 'days'>('document')
+  const [learnedNote, setLearnedNote] = useState<{ from: number; prefs: boolean } | null>(null)
   const [generatingDocument, setGeneratingDocument] = useState(false)
   const [exportingDocx, setExportingDocx] = useState(false)
   const [teacherName, setTeacherName] = useState('')
@@ -314,7 +316,13 @@ export default function PlaneacionDetailPage() {
           }
           try {
             const parsed = JSON.parse(data)
-            if (parsed.phase) setGenerationPhase(parsed.phase as typeof generationPhase)
+            if (parsed.phase === 'meta') {
+              if (parsed.learnedFrom > 0 || parsed.preferencesApplied)
+                setLearnedNote({
+                  from: parsed.learnedFrom ?? 0,
+                  prefs: !!parsed.preferencesApplied,
+                })
+            } else if (parsed.phase) setGenerationPhase(parsed.phase as typeof generationPhase)
             else if (parsed.error) throw new Error(parsed.error)
           } catch (e) {
             if (e instanceof SyntaxError) continue
@@ -581,6 +589,25 @@ export default function PlaneacionDetailPage() {
           {/* Plan document view */}
           {fortnight.plan_document && (activeTab === 'document' || lessonPlans.length === 0) && (
             <>
+              {learnedNote && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-text-secondary print:hidden">
+                  <span>
+                    ✨ Esta planeación aprendió de{' '}
+                    <strong className="text-text-primary">
+                      {learnedNote.from} planeación{learnedNote.from === 1 ? '' : 'es'} tuya
+                      {learnedNote.from === 1 ? '' : 's'}
+                    </strong>
+                    {learnedNote.prefs ? ' y de tus preferencias' : ''}.
+                  </span>
+                  <button
+                    onClick={() => setLearnedNote(null)}
+                    className="text-text-disabled hover:text-text-primary"
+                    aria-label="Cerrar"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              )}
               <div className="flex justify-end">
                 <Button
                   variant="outline"

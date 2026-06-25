@@ -165,6 +165,16 @@ These block completing the landing page redesign — everything else is built:
 - **Deduped** the NEM rule blocks out of `QUINCENA_SYSTEM`/`TALLER_SYSTEM` (the synthesis owns them; also fixed a stale ejes list there).
 - **Slimmed `context/`**: deleted `La_Nueva_Escuela_Mexicana.md` (superseded by Plan 2022) and `LFPDPPP.md` (reduced to the `<privacidad>` rule). No runtime refs.
 - **Teacher's-own-planeaciones RAG — BUILT** (`lib/planner/embeddings.ts`, migration `054`): each generated plan's voice-bearing text is embedded (OpenAI `text-embedding-3-small`, 1536d) into `planeacion_embeddings` (pgvector, RLS owner-only). On a new generation, the project topic is embedded → `match_planeaciones` RPC returns the teacher's 3 most-similar past plans → injected FIRST in the user prompt as `<ejemplos_estilo_maestra>` so the model writes in her real voice. Fully best-effort: no `OPENAI_API_KEY` / migration 054 not pushed / no prior plans → empty block, generation unaffected. Tested (pure helpers). **Requires pushing migration 054** (enables `vector` extension) to switch on.
+
+## Self-improving planeaciones — learning loop (current)
+
+The compounding system on top of the RAG: **generate → she edits → corrections logged + plan re-embedded → distilled "learned profile" refreshes → next generations use her corrected plans + learned preferences.** Migration `055` (RLS owner-only). All best-effort/graceful.
+
+- **Learn from edits** (`update-document`): on each inline edit, re-embeds the EDITED doc (RAG now retrieves her corrected text, not stale AI output) AND captures the `original→edited` correction into `plan_corrections` (skips no-ops).
+- **Evolving profile** (`lib/planner/learning.ts`, `teacher_learned_profile`): a Haiku distillation reads her recent edited plans + last 20 corrections → refreshed `writing_style_samples` + a short `preferences` note. Auto-refreshes when stale (≥5 new corrections or >14 days), gated so most generations skip it.
+- **Injected** in `generate-document`: learned voice samples merged into the profile (→ `<teacher_voice>`); `preferences` injected as `<preferencias_aprendidas>` (the accuracy lever). SSE emits a `meta` event → the `[id]` page shows "✨ aprendió de N planeaciones tuyas".
+- **On-demand control**: `/api/planner/learn` (POST) + "Aprender de mis planeaciones" button on the planeaciones list (shown at ≥2 plans).
+- Tested (`lib/planner/learning.test.ts`: staleness gate + distill prompt). **Requires pushing migrations 054 + 055.**
 - Tested (`lib/nem/synthesis.test.ts`). No migration.
 
 ## Batch 2 — official NEM grounding (current)

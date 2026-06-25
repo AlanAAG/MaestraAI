@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { storePlaneacionEmbedding, planEmbeddingText } from '@/lib/planner/embeddings'
 
 const EDITABLE_SECTIONS = new Set([
   'actividades_iniciales',
@@ -58,7 +59,7 @@ export async function PATCH(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fn } = await (supabase as any)
       .from('fortnights')
-      .select('id, teacher_id, plan_document')
+      .select('id, teacher_id, plan_type, project_name, plan_document')
       .eq('id', fortnight_id)
       .single()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,6 +70,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'No plan document exists' }, { status: 422 })
     }
 
+    const original = (fn.plan_document as Record<string, unknown>)[section]
     const updated = { ...(fn.plan_document as Record<string, unknown>), [section]: value }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,6 +79,31 @@ export async function PATCH(req: NextRequest) {
       .update({ plan_document: updated })
       .eq('id', fortnight_id)
     if (error) throw error
+
+    // Learning loop (best-effort, non-fatal):
+    // (1) capture the original→edited correction — the strongest accuracy signal;
+    // (2) re-embed the EDITED doc so RAG retrieves her corrected text, not stale AI output.
+    const teacherId = (teacher as { id: string }).id
+    if (typeof original === 'string' && original.trim() && original !== value) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('plan_corrections').insert({
+          teacher_id: teacherId,
+          fortnight_id,
+          section,
+          original: original.slice(0, 6000),
+          edited: value.slice(0, 6000),
+        })
+      } catch (e) {
+        console.error('[update-document] correction capture skipped:', e)
+      }
+    }
+    await storePlaneacionEmbedding(supabase, {
+      fortnightId: fortnight_id,
+      teacherId,
+      projectName: String((fn as { project_name?: string }).project_name ?? ''),
+      content: planEmbeddingText(updated),
+    })
 
     return NextResponse.json({ ok: true })
   } catch (err) {
