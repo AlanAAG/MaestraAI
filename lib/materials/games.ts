@@ -21,7 +21,8 @@ export async function buildGameContent(
   vocabulary: string[],
   gameType: string = 'memory_match',
   context?: FortnightContext,
-  imageMap?: Record<string, string>
+  imageMap?: Record<string, string>,
+  maxPairs: number = 6
 ): Promise<GameContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -51,7 +52,8 @@ Genera pares de memoria para este vocabulario.`
 
   const result = extractJson(content.text) as GameContent
 
-  // Enforce the 6-pair cap (working memory) + dedup by word; the prompt asks but didn't enforce it.
+  // Enforce the pair cap (working memory) + dedup by word; the prompt asks but didn't enforce it.
+  const cap = Math.min(Math.max(maxPairs, 3), 10)
   const seen = new Set<string>()
   result.pairs = (result.pairs ?? [])
     .filter((p) => {
@@ -60,7 +62,7 @@ Genera pares de memoria para este vocabulario.`
       seen.add(key)
       return true
     })
-    .slice(0, 6)
+    .slice(0, cap)
     .map((pair) => ({
       ...pair,
       id: String(pair.id),

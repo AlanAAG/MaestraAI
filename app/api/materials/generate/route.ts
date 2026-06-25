@@ -34,6 +34,12 @@ const GenerateMaterialsSchema = z
         'sorting_game',
       ])
     ),
+    options: z
+      .object({
+        memory_pairs: z.number().int().min(3).max(10).optional(),
+        letter_activity_type: z.string().optional(),
+      })
+      .optional(),
   })
   .refine((d) => d.lesson_plan_id || (d.vocabulary && d.vocabulary.length > 0), {
     message: 'Provide lesson_plan_id or vocabulary[]',
@@ -167,7 +173,13 @@ export async function POST(req: NextRequest) {
             break
 
           case 'games':
-            content = await buildGameContent(vocabulary, 'memory_match', ctx, imageMap)
+            content = await buildGameContent(
+              vocabulary,
+              'memory_match',
+              ctx,
+              imageMap,
+              input.options?.memory_pairs ?? 6
+            )
             type = 'memory_game'
             isProjectable = true
             break

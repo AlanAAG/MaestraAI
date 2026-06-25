@@ -83,6 +83,7 @@ export function MaterialGenerator({
   const [difficulty, setDifficulty] = useState<Difficulty>('kinder')
   const [letterActivityType, setLetterActivityType] =
     useState<LetterActivityType>('hear_and_circle')
+  const [memoryPairs, setMemoryPairs] = useState(6)
   const [generating, setGenerating] = useState(false)
   const [currentPhase, setCurrentPhase] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -126,9 +127,12 @@ export function MaterialGenerator({
             lesson_plan_id: lessonPlanId,
             vocabulary: vocabulary?.length ? vocabulary : undefined,
             material_types: generateTypes,
-            options: selectedTypes.has('letter_recognition')
-              ? { letter_activity_type: letterActivityType }
-              : undefined,
+            options: {
+              ...(selectedTypes.has('letter_recognition')
+                ? { letter_activity_type: letterActivityType }
+                : {}),
+              ...(selectedTypes.has('games') ? { memory_pairs: memoryPairs } : {}),
+            },
           }),
         })
         if (!res.ok) {
@@ -312,6 +316,36 @@ export function MaterialGenerator({
                       onClick={() => setLetterActivityType(opt.id)}
                       className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors text-center ${
                         letterActivityType === opt.id
+                          ? 'border-indigo-500 bg-indigo-100 text-indigo-900 font-semibold'
+                          : 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50'
+                      }`}
+                    >
+                      <div className="font-medium">{opt.label}</div>
+                      <div className="text-indigo-400 text-xs mt-0.5">{opt.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Memorama size */}
+            {selectedTypes.has('games') && (
+              <div className="mb-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+                <label className="block text-sm font-medium text-indigo-900 mb-2">
+                  Tamaño del memorama
+                </label>
+                <div className="flex gap-1.5">
+                  {[
+                    { pairs: 4, label: 'Pequeño', sub: '4 pares' },
+                    { pairs: 6, label: 'Mediano', sub: '6 pares' },
+                    { pairs: 8, label: 'Grande', sub: '8 pares' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.pairs}
+                      type="button"
+                      onClick={() => setMemoryPairs(opt.pairs)}
+                      className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors text-center ${
+                        memoryPairs === opt.pairs
                           ? 'border-indigo-500 bg-indigo-100 text-indigo-900 font-semibold'
                           : 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50'
                       }`}

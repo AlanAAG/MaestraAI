@@ -147,7 +147,8 @@ These block completing the landing page redesign — everything else is built:
 
 - **Word-search drag-select**: replaced the confusing tap-endpoint-A / tap-endpoint-B model with **pointer drag** (mouse or finger) across letters, with a **live highlight** of the selected line and match-on-release. Touch works via `elementFromPoint` hit-testing (`touch-none` on the grid). Supports the new horizontal+vertical layouts.
 - **Dedup**: removed the inline `seededShuffle` copies in `StudentBingoCard` + `BingoCallerMode` → shared `lib/utils/shuffle`.
-- **Deferred** (own pass): difficulty levels (needs a UX decision — pair-count axis vs reusing kinder/standard — plus UI), unified game-shell consolidation, real/gen-AI image source (the `imageMap`/`VocabVisual` seams are ready for it).
+- **Memorama difficulty levels**: `MaterialGenerator` shows a size selector (Pequeño 4 / Mediano 6 / Grande 8 pares) when memorama is selected → sends `options.memory_pairs` → generate route passes it to `buildGameContent(maxPairs)` (caps the generated pairs, 3–10). The standalone `materiales` inline creator still defaults to 6.
+- **Deferred** (own pass): unified game-shell consolidation, real/gen-AI image source (the `imageMap`/`VocabVisual` seams are ready for it).
 
 ## Batch 1 — breaking bugs + LFPDPPP (current)
 
