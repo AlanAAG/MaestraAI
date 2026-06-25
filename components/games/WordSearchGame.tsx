@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
+import { useSound } from '@/hooks/useSound'
+import { celebrate } from '@/lib/ui/celebrate'
 
 type WordSearchContent = {
   grid: string[][]
@@ -20,8 +22,10 @@ type Cell = { row: number; col: number }
 export function WordSearchGame({ content, onComplete }: Props) {
   const { grid, words, wordPaths } = content
   const { speak } = useSpeech()
+  const sfx = useSound()
 
-  const [firstTap, setFirstTap] = useState<Cell | null>(null)
+  const [dragStart, setDragStart] = useState<Cell | null>(null)
+  const [dragCells, setDragCells] = useState<Cell[]>([])
   const [foundWordKeys, setFoundWordKeys] = useState<Set<string>>(new Set())
   const [wrongFlash, setWrongFlash] = useState<Cell | null>(null)
   const [complete, setComplete] = useState(false)
@@ -59,42 +63,71 @@ export function WordSearchGame({ content, onComplete }: Props) {
             return next
           })
           speak(word, 'en-US')
+          sfx.correct()
           return true
         }
       }
       return false
     },
-    [words, wordPaths, speak]
+    [words, wordPaths, speak, sfx]
   )
 
-  function handleCellTap(row: number, col: number) {
+  // Straight horizontal/vertical line of cells from start to end (kinder grid has no diagonals).
+  function lineCells(start: Cell, end: Cell): Cell[] {
+    if (start.row === end.row) {
+      const [a, b] = [start.col, end.col].sort((x, y) => x - y)
+      return Array.from({ length: b - a + 1 }, (_, i) => ({ row: start.row, col: a + i }))
+    }
+    if (start.col === end.col) {
+      const [a, b] = [start.row, end.row].sort((x, y) => x - y)
+      return Array.from({ length: b - a + 1 }, (_, i) => ({ row: a + i, col: start.col }))
+    }
+    return [start]
+  }
+
+  // Hit-test the cell under a pointer (works for touch, where pointerenter on siblings won't fire).
+  function cellFromPoint(x: number, y: number): Cell | null {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null
+    const r = el?.dataset?.r
+    const c = el?.dataset?.c
+    if (r === undefined || c === undefined) return null
+    return { row: Number(r), col: Number(c) }
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
     if (complete) return
-    const cell: Cell = { row, col }
+    const cell = cellFromPoint(e.clientX, e.clientY)
+    if (!cell) return
+    setDragStart(cell)
+    setDragCells([cell])
+  }
 
-    if (!firstTap) {
-      setFirstTap(cell)
-      return
-    }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!dragStart) return
+    const cell = cellFromPoint(e.clientX, e.clientY)
+    if (cell) setDragCells(lineCells(dragStart, cell))
+  }
 
-    if (firstTap.row === row && firstTap.col === col) {
-      setFirstTap(null)
-      return
-    }
-
-    const matched = tryMatch(firstTap, cell)
-    if (!matched) {
-      setWrongFlash(cell)
+  function onPointerUp() {
+    if (!dragStart) return
+    const end = dragCells[dragCells.length - 1]
+    if (dragCells.length >= 2 && !tryMatch(dragStart, end)) {
+      setWrongFlash(end)
+      sfx.wrong()
       setTimeout(() => setWrongFlash(null), 400)
     }
-    setFirstTap(null)
+    setDragStart(null)
+    setDragCells([])
   }
 
   useEffect(() => {
     if (foundWordKeys.size > 0 && foundWordKeys.size >= words.length) {
       setComplete(true)
+      sfx.win()
+      celebrate()
       onComplete?.()
     }
-  }, [foundWordKeys, words.length, onComplete])
+  }, [foundWordKeys, words.length, onComplete, sfx])
 
   const remainingWords = words.filter((w) => !foundWordKeys.has(w))
 
@@ -107,36 +140,41 @@ export function WordSearchGame({ content, onComplete }: Props) {
         </div>
       ) : (
         <>
-          {/* Grid */}
+          {/* Grid — drag (mouse or finger) across letters to select a word */}
           <div
-            className="inline-grid gap-0.5 select-none"
+            className="inline-grid gap-0.5 select-none touch-none"
             style={{ gridTemplateColumns: `repeat(${grid[0]?.length ?? 8}, minmax(0, 1fr))` }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
           >
             {grid.map((row, r) =>
               row.map((letter, c) => {
                 const key = `${r}-${c}`
-                const isFirst = firstTap?.row === r && firstTap?.col === c
+                const isSelected = dragCells.some((d) => d.row === r && d.col === c)
                 const isFound = foundCells.has(key)
                 const isWrong = wrongFlash?.row === r && wrongFlash?.col === c
 
                 return (
-                  <button
+                  <div
                     key={key}
-                    onClick={() => handleCellTap(r, c)}
+                    data-r={r}
+                    data-c={c}
                     className={[
-                      'flex items-center justify-center rounded font-bold text-sm transition-all',
-                      'h-9 w-9 min-h-[36px] min-w-[36px]',
+                      'flex items-center justify-center rounded font-bold transition-colors cursor-pointer',
+                      'h-[clamp(2.75rem,7vmin,4rem)] w-[clamp(2.75rem,7vmin,4rem)] text-[clamp(1.1rem,3.5vmin,1.75rem)]',
                       isFound
                         ? 'bg-emerald-400 text-white'
-                        : isFirst
-                          ? 'bg-indigo-500 text-white scale-110'
+                        : isSelected
+                          ? 'bg-indigo-500 text-white'
                           : isWrong
                             ? 'bg-red-300 text-white'
-                            : 'bg-gray-100 text-gray-800 active:bg-indigo-100',
+                            : 'bg-gray-100 text-gray-800',
                     ].join(' ')}
                   >
                     {letter}
-                  </button>
+                  </div>
                 )
               })
             )}

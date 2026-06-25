@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { ListenAndTap, type ListenPair } from '@/components/games/ListenAndTap'
+import { wordToEmoji } from '@/lib/materials/emoji'
 
 type Material = {
   id: string
@@ -234,11 +235,12 @@ export default function MaterialDetailPage() {
             </Link>
             {(() => {
               const imagePairs: ListenPair[] = (material.content?.cards ?? [])
-                .filter((c: { word: string; image_url?: string }) => c.image_url)
-                .map((c: { word: string; image_url: string }) => ({
+                .map((c: { word: string; image_url?: string; emoji?: string }) => ({
                   word: c.word,
                   image_url: c.image_url,
+                  emoji: c.emoji,
                 }))
+                .filter((c: ListenPair) => c.emoji || wordToEmoji(c.word) || c.image_url)
               if (imagePairs.length < 2) return null
               return (
                 <Button
@@ -291,11 +293,12 @@ export default function MaterialDetailPage() {
             </Button>
             {(() => {
               const imagePairs: ListenPair[] = (material.content?.pairs ?? [])
-                .filter((p: { word: string; image_url?: string }) => p.image_url)
-                .map((p: { word: string; image_url: string }) => ({
+                .map((p: { word: string; image_url?: string; emoji?: string }) => ({
                   word: p.word,
                   image_url: p.image_url,
+                  emoji: p.emoji,
                 }))
+                .filter((p: ListenPair) => p.emoji || wordToEmoji(p.word) || p.image_url)
               if (imagePairs.length < 2) return null
               return (
                 <Button

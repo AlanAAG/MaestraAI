@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { FortnightContext } from './types'
+import { extractJson } from './ai-json'
 
 export type SortingCategory = {
   name: string
@@ -10,6 +11,7 @@ export type SortingItem = {
   word: string
   category: string
   image_url?: string
+  emoji?: string
 }
 
 export type SortingContent = {
@@ -17,11 +19,13 @@ export type SortingContent = {
   items: SortingItem[]
 }
 
-// Tailwind classes for bins — 3 distinct palettes
+// Tailwind classes for bins — distinct palettes (supports up to 5 categories)
 const BIN_COLORS = [
   'bg-blue-100 border-blue-300 text-blue-800',
   'bg-rose-100 border-rose-300 text-rose-800',
   'bg-amber-100 border-amber-300 text-amber-800',
+  'bg-emerald-100 border-emerald-300 text-emerald-800',
+  'bg-violet-100 border-violet-300 text-violet-800',
 ]
 
 export async function buildSortingGame(
@@ -41,6 +45,8 @@ Group these English words into 2 or 3 simple, concrete categories. Categories mu
 - Named in SPANISH (the teacher will say the category name aloud)
 - Clearly distinct — no word could fit in two categories
 
+For each item also give "emoji": the single best emoji for that word's exact sense (🐱 for cat). Use "" if none fits.
+
 Return ONLY valid JSON with no markdown or explanation:
 {
   "categories": [
@@ -48,8 +54,8 @@ Return ONLY valid JSON with no markdown or explanation:
     { "name": "Juguetes" }
   ],
   "items": [
-    { "word": "cat", "category": "Animales" },
-    { "word": "ball", "category": "Juguetes" }
+    { "word": "cat", "category": "Animales", "emoji": "🐱" },
+    { "word": "ball", "category": "Juguetes", "emoji": "⚽" }
   ]
 }
 
@@ -65,23 +71,25 @@ Assign EVERY vocabulary word to exactly one category. Use at most 3 categories.`
   const text = response.content[0]
   if (text.type !== 'text') throw new Error('Unexpected response type')
 
-  const raw = text.text.match(/\{[\s\S]*\}/)?.[0]
-  if (!raw) throw new Error('No JSON in response')
-
-  const parsed = JSON.parse(raw) as {
+  const parsed = extractJson(text.text) as {
     categories: Array<{ name: string }>
-    items: Array<{ word: string; category: string }>
+    items: Array<{ word: string; category: string; emoji?: string }>
   }
 
-  return {
-    categories: parsed.categories.slice(0, 3).map((cat, i) => ({
-      name: cat.name,
-      color: BIN_COLORS[i] ?? BIN_COLORS[0],
-    })),
-    items: parsed.items.map((item) => ({
-      word: item.word,
-      category: item.category,
-      image_url: imageMap[item.word.toLowerCase()],
-    })),
-  }
+  const categories = parsed.categories.slice(0, BIN_COLORS.length).map((cat, i) => ({
+    name: cat.name,
+    color: BIN_COLORS[i] ?? BIN_COLORS[0],
+  }))
+  const validCats = new Set(categories.map((c) => c.name))
+  const fallbackCat = categories[0]?.name ?? 'Otros'
+
+  const items = parsed.items.map((item) => ({
+    word: item.word,
+    // Guard against an uncategorized/hallucinated category so the game stays playable.
+    category: validCats.has(item.category) ? item.category : fallbackCat,
+    emoji: item.emoji || undefined,
+    image_url: imageMap[item.word.toLowerCase()],
+  }))
+
+  return { categories, items }
 }

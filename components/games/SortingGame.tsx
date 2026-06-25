@@ -2,7 +2,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import { CheckCircle } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
+import { useSound } from '@/hooks/useSound'
+import { celebrate } from '@/lib/ui/celebrate'
 import { seededShuffle } from '@/lib/utils/shuffle'
+import { VocabVisual } from '@/components/games/VocabVisual'
 
 type SortingCategory = {
   name: string
@@ -13,6 +16,7 @@ type SortingItem = {
   word: string
   category: string
   image_url?: string
+  emoji?: string
 }
 
 type SortingContent = {
@@ -32,10 +36,13 @@ const BIN_BASE = [
   'bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100',
   'bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100',
   'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100',
+  'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100',
+  'bg-violet-50 border-violet-300 text-violet-800 hover:bg-violet-100',
 ]
 
 export function SortingGame({ content, onComplete }: Props) {
   const { speak } = useSpeech()
+  const sfx = useSound()
 
   // Shuffle items once on mount
   const shuffledItems = useMemo(() => seededShuffle(content.items, 42), [content.items])
@@ -55,12 +62,15 @@ export function SortingGame({ content, onComplete }: Props) {
       setActiveCat(catName)
       if (catName === item.category) {
         setTapState('correct')
+        sfx.correct()
         setTimeout(() => {
           setTapState('idle')
           setActiveCat(null)
           setTally((prev) => ({ ...prev, [catName]: (prev[catName] ?? 0) + 1 }))
           if (index + 1 >= shuffledItems.length) {
             setComplete(true)
+            sfx.win()
+            celebrate()
             onComplete?.()
           } else {
             setIndex((i) => i + 1)
@@ -68,13 +78,14 @@ export function SortingGame({ content, onComplete }: Props) {
         }, 900)
       } else {
         setTapState('wrong')
+        sfx.wrong()
         setTimeout(() => {
           setTapState('idle')
           setActiveCat(null)
         }, 600)
       }
     },
-    [tapState, item, index, shuffledItems.length, speak, onComplete]
+    [tapState, item, index, shuffledItems.length, speak, onComplete, sfx]
   )
 
   if (complete) {
@@ -113,25 +124,19 @@ export function SortingGame({ content, onComplete }: Props) {
         </span>
       </div>
 
-      {/* Vocabulary card */}
+      {/* Vocabulary card — emoji-first */}
       <div
         className={[
-          'w-40 h-40 rounded-2xl border-2 transition-all duration-300',
+          'w-[clamp(8rem,26vmin,14rem)] h-[clamp(8rem,26vmin,14rem)] rounded-2xl border-2 bg-indigo-50 transition-all duration-300',
           tapState === 'correct' ? 'border-emerald-400 scale-110' : 'border-gray-200',
         ].join(' ')}
       >
-        {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt={item.word}
-            className="w-full h-full object-contain rounded-2xl p-2"
-          />
-        ) : (
-          <div className="w-full h-full bg-indigo-50 rounded-2xl flex items-center justify-center">
-            <p className="text-2xl font-bold text-indigo-800">{item.word}</p>
-          </div>
-        )}
+        <VocabVisual
+          word={item.word}
+          emoji={item.emoji}
+          imageUrl={item.image_url}
+          className="w-full h-full rounded-2xl p-2"
+        />
       </div>
       <p className="text-xl font-bold text-gray-900">{item.word}</p>
 

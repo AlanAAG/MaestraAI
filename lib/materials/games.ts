@@ -2,6 +2,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { GAMES_PROMPT } from '@/prompts/materials'
 import type { FortnightContext } from './types'
+import { extractJson } from './ai-json'
 
 export type GameContent = {
   game_type: 'memory_match'
@@ -12,6 +13,7 @@ export type GameContent = {
     pair_type?: 'word_to_picture' | 'word_to_word'
     image_query?: string
     image_url?: string
+    emoji?: string
   }>
 }
 
@@ -47,19 +49,23 @@ Genera pares de memoria para este vocabulario.`
     throw new Error('Unexpected response type from Claude')
   }
 
-  const jsonMatch =
-    content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
-  const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
-  if (!raw) throw new Error('Claude no devolvió JSON válido')
+  const result = extractJson(content.text) as GameContent
 
-  const result = JSON.parse(raw) as GameContent
-
-  if (imageMap && Object.keys(imageMap).length > 0) {
-    result.pairs = result.pairs.map((pair) => ({
+  // Enforce the 6-pair cap (working memory) + dedup by word; the prompt asks but didn't enforce it.
+  const seen = new Set<string>()
+  result.pairs = (result.pairs ?? [])
+    .filter((p) => {
+      const key = p.word?.toLowerCase().trim()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 6)
+    .map((pair) => ({
       ...pair,
-      image_url: imageMap[pair.word.toLowerCase()] ?? pair.image_url,
+      id: String(pair.id),
+      image_url: imageMap?.[pair.word.toLowerCase()] ?? pair.image_url,
     }))
-  }
 
   return result
 }

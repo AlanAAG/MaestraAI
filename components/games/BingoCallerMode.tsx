@@ -1,22 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { X, ChevronLeft, ChevronRight, RotateCcw, List } from 'lucide-react'
+import { useSpeech } from '@/hooks/useSpeech'
+import { seededShuffle } from '@/lib/utils/shuffle'
 
 interface BingoCallerModeProps {
   vocabulary: string[]
   title: string
   onExit: () => void
-}
-
-function seededShuffle(arr: string[], seed: number): string[] {
-  const result = [...arr]
-  let s = seed | 0
-  for (let i = result.length - 1; i > 0; i--) {
-    s = (Math.imul(1664525, s) + 1013904223) | 0
-    const j = Math.abs(s) % (i + 1)
-    ;[result[i], result[j]] = [result[j], result[i]]
-  }
-  return result
 }
 
 export function BingoCallerMode({ vocabulary, title, onExit }: BingoCallerModeProps) {
@@ -25,8 +16,16 @@ export function BingoCallerMode({ vocabulary, title, onExit }: BingoCallerModePr
   )
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showSidebar, setShowSidebar] = useState(false)
+  const { speak } = useSpeech()
 
   const isComplete = currentIndex >= words.length
+
+  // Speak each called word aloud — the whole point of a caller mode.
+  useEffect(() => {
+    const word = words[currentIndex]
+    if (word) speak(word, 'en-US')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, words])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

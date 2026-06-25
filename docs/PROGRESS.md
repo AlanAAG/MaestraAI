@@ -129,6 +129,26 @@ These block completing the landing page redesign — everything else is built:
 
 ---
 
+## Games quality — Phase 1 (visuals + accuracy)
+
+- **Emoji visuals** (fixes the #1 problem: Unsplash first-result-wins returned wrong/photographic images, and image-games degraded to text). New `lib/materials/emoji.ts` `wordToEmoji` (curated ~260-word preschool map + normalization) and `components/games/VocabVisual.tsx` (resolution: stored `emoji` → curated map → Unsplash image → text). AI builders (flashcards, games/memorama, matching, picture-word-match, sorting) now also emit a sense-correct `emoji`. Players render emoji-first: MemoryMatch, PictureWordMatch, ListenAndTap, SortingGame, FlashcardProjector. ListenAndTap no longer requires images (was showing empty). Unsplash plumbing kept as the seam for a future real/gen-AI image source.
+- **Correctness**: shared `lib/materials/ai-json.ts` `extractJson` adopted across builders (was duplicated regex); memorama enforces the 6-pair cap + dedups + normalizes id; sorting validates every word lands in a real category (+5-color palette); **bingo guards `< required` words** so a card never repeats a word (3×3 had no guard); **kinder word-search rewritten** — content-based seed (was near-static), horizontal+vertical placement (was horizontal-only top-aligned), 10×10, up to 10 words.
+- **Polish**: WordSearch cells responsive ≥44px (were 36px, under tablet min) + larger letters; "Memory Match" → "Memorama"; public `/jugar/[token]` widened `max-w-lg` → `max-w-3xl` for projectors.
+- Tested: `lib/materials/emoji.test.ts`, `lib/materials/games-correctness.test.ts` (bingo no-repeat + guard, word-search fill + seed variance). No migration.
+
+## Games quality — Phase 2 (feel: audio + celebration)
+
+- **Sound effects** (`hooks/useSound.ts`): generated via the Web Audio API — correct (rising ding), wrong (soft low buzz), win (major arpeggio). Zero audio assets, zero audio dependency. Wired into PictureWordMatch, ListenAndTap, SortingGame, WordSearchGame, MemoryMatch (+ StudentBingoCard win). Return is memoized for stable effect deps.
+- **Confetti** (`lib/ui/celebrate.ts`, `canvas-confetti`): kid-friendly burst on every game win.
+- **TTS improved** (`hooks/useSpeech.ts`): natural-voice selection (`getVoices` + `voiceschanged`, prefers Google/Microsoft/local matching the lang), and a microtask gap on `cancel()→speak()` to fix browser flakiness.
+- **Filled the audio gaps**: MemoryMatch now pronounces the word on a match (had no audio); BingoCallerMode now speaks each called word (the obvious gap for a caller mode).
+
+## Games quality — Phase 3 (functionality)
+
+- **Word-search drag-select**: replaced the confusing tap-endpoint-A / tap-endpoint-B model with **pointer drag** (mouse or finger) across letters, with a **live highlight** of the selected line and match-on-release. Touch works via `elementFromPoint` hit-testing (`touch-none` on the grid). Supports the new horizontal+vertical layouts.
+- **Dedup**: removed the inline `seededShuffle` copies in `StudentBingoCard` + `BingoCallerMode` → shared `lib/utils/shuffle`.
+- **Deferred** (own pass): difficulty levels (needs a UX decision — pair-count axis vs reusing kinder/standard — plus UI), unified game-shell consolidation, real/gen-AI image source (the `imageMap`/`VocabVisual` seams are ready for it).
+
 ## Batch 1 — breaking bugs + LFPDPPP (current)
 
 - **Materials/games 400 fixed**: the document-view `MaterialGenerator` now forwards `fortnights.vocabulary` (was sending the empty `vocabulary_items` bank → "Provide lesson_plan_id or vocabulary[]"). `bingo` + `word-search` routes also fall back to `fortnights.vocabulary` and accept a `vocabulary` override; `materials/generate` letter_recognition guarded against null lessonPlan.

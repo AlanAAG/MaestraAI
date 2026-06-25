@@ -4,12 +4,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Trophy, RotateCcw } from 'lucide-react'
 import { seededShuffle } from '@/lib/utils/shuffle'
+import { VocabVisual } from '@/components/games/VocabVisual'
+import { useSound } from '@/hooks/useSound'
+import { useSpeech } from '@/hooks/useSpeech'
+import { celebrate } from '@/lib/ui/celebrate'
 
 type CardPair = {
   id: string
   word: string
   visual_hint: string
   image_url?: string
+  emoji?: string
 }
 
 type Card = {
@@ -31,6 +36,8 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
   const [isChecking, setIsChecking] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [moves, setMoves] = useState(0)
+  const sfx = useSound()
+  const { speak } = useSpeech()
 
   // Initialize cards on mount with a deterministic seed derived from pair IDs
   useEffect(() => {
@@ -58,10 +65,13 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
   useEffect(() => {
     if (matched.length === pairs.length && pairs.length > 0) {
       setIsComplete(true)
+      sfx.win()
+      celebrate()
       if (onComplete) {
         setTimeout(() => onComplete(), 2000)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matched, pairs.length, onComplete])
 
   function handleCardClick(cardId: string) {
@@ -90,8 +100,12 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
         setMatched([...matched, firstCard.pairId])
         setFlipped([])
         setIsChecking(false)
+        sfx.correct()
+        const word = pairs.find((p) => String(p.id) === firstCard.pairId)?.word
+        if (word) speak(word, 'en-US')
       } else {
         // No match, flip back after delay
+        sfx.wrong()
         setTimeout(() => {
           setFlipped([])
           setIsChecking(false)
@@ -122,7 +136,7 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
     <div className="relative w-full h-full flex flex-col items-center justify-center p-8">
       {/* Header */}
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold text-text-primary mb-2">Memory Match</h2>
+        <h2 className="text-3xl font-bold text-text-primary mb-2">Memorama</h2>
         <p className="text-text-secondary">Encuentra las parejas de palabras e imágenes</p>
         <div className="mt-4 flex items-center justify-center gap-6">
           <span className="text-sm text-text-secondary">
@@ -176,23 +190,15 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
                         </>
                       ) : (
                         (() => {
-                          const pair = pairs.find((p) => p.id === card.pairId)
-                          return pair?.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={pair.image_url}
-                              alt={pair.word}
-                              className="w-full h-full object-contain p-1 rounded-lg"
+                          const pair = pairs.find((p) => String(p.id) === card.pairId)
+                          return (
+                            <VocabVisual
+                              word={pair?.word ?? card.content}
+                              emoji={pair?.emoji}
+                              imageUrl={pair?.image_url}
+                              className="w-full h-full p-1"
+                              emojiClassName="text-[clamp(1.75rem,9vmin,4rem)] leading-none"
                             />
-                          ) : (
-                            <div className="flex flex-col items-center gap-1">
-                              <div className="w-10 h-10 rounded-lg border-2 border-dashed border-emerald-300 flex items-center justify-center bg-emerald-50">
-                                <span className="text-emerald-500 text-lg">🖼</span>
-                              </div>
-                              <p className="text-xs text-emerald-700 font-medium text-center leading-tight mt-1">
-                                {card.content}
-                              </p>
-                            </div>
                           )
                         })()
                       )}

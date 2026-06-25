@@ -55,7 +55,17 @@ export function generateAllCards(
   freeSpace: boolean,
   gridSize: 3 | 5 = 3
 ): BingoResult {
-  if (vocabulary.length === 0) throw new Error('Se necesita al menos una palabra para el bingo')
+  const vocab = Array.from(new Set(vocabulary.map((w) => w.trim()).filter(Boolean)))
+  if (vocab.length === 0) throw new Error('Se necesita al menos una palabra para el bingo')
+
+  // A card must have enough distinct words to fill every cell, or a word would repeat on it.
+  const required = gridSize * gridSize - (freeSpace ? 1 : 0)
+  if (vocab.length < required) {
+    throw new Error(
+      `El bingo ${gridSize}×${gridSize} necesita al menos ${required} palabras (hay ${vocab.length}).`
+    )
+  }
+  vocabulary = vocab
   const clampedCount = Math.min(Math.max(count, 1), 35)
 
   const cards: BingoCard[] = []

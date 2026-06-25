@@ -2,6 +2,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { FLASHCARDS_PROMPT } from '@/prompts/materials'
 import type { FortnightContext } from './types'
+import { extractJson } from './ai-json'
 
 export type FlashcardContent = {
   cards: Array<{
@@ -11,6 +12,7 @@ export type FlashcardContent = {
     phonetic?: string
     image_query?: string
     image_url?: string
+    emoji?: string
     // kept for backward compat with older stored content
     example?: string
   }>
@@ -45,12 +47,7 @@ Genera una flashcard para cada palabra del vocabulario.`
     throw new Error('Unexpected response type from Claude')
   }
 
-  const jsonMatch =
-    content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
-  const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
-  if (!raw) throw new Error('Claude no devolvió JSON válido')
-
-  const result = JSON.parse(raw) as FlashcardContent
+  const result = extractJson(content.text) as FlashcardContent
 
   if (imageMap && Object.keys(imageMap).length > 0) {
     result.cards = result.cards.map((card) => ({

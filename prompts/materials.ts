@@ -13,7 +13,8 @@ REGLAS:
 2. "phonetic": pronunciación silabificada para docentes no nativos — MAYÚSCULAS y guiones (ÆP-ul, KÆT, BLU, TRES)
 3. "image_query": 4-6 palabras en inglés para buscar una ilustración clara en Google/Unsplash — siempre incluir "illustration" o "clipart" y "white background"
 4. "color": categoría del concepto — rojo=colores, azul=animales, verde=naturaleza/comida, amarillo=objetos, morado=acciones
-5. NO incluir oraciones de ejemplo — son para lectores, no para preescolar
+5. "emoji": el ÚNICO emoji que mejor representa esa palabra en su sentido exacto (🍎 para apple, 🦇 para bat-animal). Si ningún emoji aplica, usa cadena vacía ""
+6. NO incluir oraciones de ejemplo — son para lectores, no para preescolar
 
 FORMATO JSON exacto (sin texto adicional):
 {
@@ -23,6 +24,7 @@ FORMATO JSON exacto (sin texto adicional):
       "definition": "manzana",
       "color": "verde",
       "phonetic": "ÆP-ul",
+      "emoji": "🍎",
       "image_query": "red apple fruit illustration clipart white background"
     }
   ]
@@ -96,9 +98,10 @@ CONTEXTO CRÍTICO:
 REGLAS:
 1. MÁXIMO 6 pares — memoria de trabajo limitada en preescolar
 2. "visual_hint": descripción breve en español de lo que muestra la imagen (docente la menciona si ayuda)
-3. "image_query": 4-6 palabras en inglés para buscar la ilustración — incluir "cartoon" o "illustration" + "white background"
-4. Usar objetos, animales y alimentos concretos y familiares para niños mexicanos
-5. "pair_type": siempre "word_to_picture" para Kinder 3
+3. "emoji": el ÚNICO emoji que mejor representa esa palabra en su sentido exacto (🍎 para apple). Si ninguno aplica, usa ""
+4. "image_query": 4-6 palabras en inglés para buscar la ilustración — incluir "cartoon" o "illustration" + "white background"
+5. Usar objetos, animales y alimentos concretos y familiares para niños mexicanos
+6. "pair_type": siempre "word_to_picture" para Kinder 3
 
 FORMATO JSON exacto:
 {
@@ -108,6 +111,7 @@ FORMATO JSON exacto:
       "id": 1,
       "word": "apple",
       "visual_hint": "manzana roja",
+      "emoji": "🍎",
       "pair_type": "word_to_picture",
       "image_query": "red apple cartoon illustration white background"
     }
@@ -222,6 +226,7 @@ REGLAS:
 - Exactamente entre 4 y 6 pares
 - "word": la palabra en inglés tal como aparece en el vocabulario
 - "image_description": descripción visual en español de la imagen (qué se ve)
+- "emoji": el ÚNICO emoji que mejor representa esa palabra (🐱 para cat). Si ninguno aplica, usa ""
 - "image_query": 4-6 palabras en inglés para buscar la ilustración — incluir "cartoon" o "illustration" + "white background"
 - "translation": traducción al español corta (1-2 palabras) — el docente la dice en español también
 - "teacher_note": instrucción de 1 oración para el docente
@@ -232,6 +237,7 @@ Responde SOLO con JSON:
     {
       "word": "cat",
       "image_description": "gato gris sentado",
+      "emoji": "🐱",
       "image_query": "cat cartoon illustration white background",
       "translation": "gato"
     }

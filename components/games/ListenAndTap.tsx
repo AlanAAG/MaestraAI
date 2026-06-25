@@ -2,9 +2,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle, Volume2 } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
+import { useSound } from '@/hooks/useSound'
+import { celebrate } from '@/lib/ui/celebrate'
 import { seededShuffle } from '@/lib/utils/shuffle'
+import { VocabVisual } from '@/components/games/VocabVisual'
 
-export type ListenPair = { word: string; image_url: string }
+export type ListenPair = { word: string; image_url?: string; emoji?: string }
 
 interface Props {
   pairs: ListenPair[]
@@ -15,6 +18,7 @@ type SelectState = 'idle' | 'correct' | 'wrong'
 
 export function ListenAndTap({ pairs, onComplete }: Props) {
   const { speak } = useSpeech()
+  const sfx = useSound()
   const [round, setRound] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [selectState, setSelectState] = useState<SelectState>('idle')
@@ -53,12 +57,15 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
       if (tapped.word === target.word) {
         setSelectState('correct')
         setRevealed(true)
+        sfx.correct()
         speak(target.word, 'en-US')
         setTimeout(() => {
           setSelectState('idle')
           setWrongIdx(null)
           if (round + 1 >= total) {
             setComplete(true)
+            sfx.win()
+            celebrate()
             onComplete?.()
           } else {
             setRound((r) => r + 1)
@@ -67,13 +74,14 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
       } else {
         setWrongIdx(idx)
         setSelectState('wrong')
+        sfx.wrong()
         setTimeout(() => {
           setSelectState('idle')
           setWrongIdx(null)
         }, 700)
       }
     },
-    [selectState, options, target, round, total, speak, onComplete]
+    [selectState, options, target, round, total, speak, onComplete, sfx]
   )
 
   if (total === 0 || !target) {
@@ -142,8 +150,12 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
               ].join(' ')}
               aria-label={`imagen ${idx + 1}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pair.image_url} alt="imagen" className="w-full h-full object-cover" />
+              <VocabVisual
+                word={pair.word}
+                emoji={pair.emoji}
+                imageUrl={pair.image_url}
+                className="w-full h-full bg-indigo-50"
+              />
             </button>
           )
         })}

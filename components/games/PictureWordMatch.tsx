@@ -2,11 +2,15 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { CheckCircle, Volume2 } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
+import { useSound } from '@/hooks/useSound'
+import { celebrate } from '@/lib/ui/celebrate'
 import { seededShuffle } from '@/lib/utils/shuffle'
+import { VocabVisual } from '@/components/games/VocabVisual'
 
 type PictureWordMatchItem = {
   word: string
   image_url?: string
+  emoji?: string
   foils: string[]
 }
 
@@ -23,6 +27,7 @@ type AnswerState = 'idle' | 'correct' | 'wrong'
 
 export function PictureWordMatch({ content, onComplete }: Props) {
   const { speak } = useSpeech()
+  const sfx = useSound()
   const [index, setIndex] = useState(0)
   const [answerState, setAnswerState] = useState<AnswerState>('idle')
   const [wrongWord, setWrongWord] = useState<string | null>(null)
@@ -46,12 +51,15 @@ export function PictureWordMatch({ content, onComplete }: Props) {
       if (answerState !== 'idle' || !item) return
       if (word === item.word) {
         setAnswerState('correct')
+        sfx.correct()
         speak(item.word, 'en-US')
         setTimeout(() => {
           setAnswerState('idle')
           setWrongWord(null)
           if (index + 1 >= content.items.length) {
             setComplete(true)
+            sfx.win()
+            celebrate()
             onComplete?.()
           } else {
             setIndex((i) => i + 1)
@@ -60,13 +68,14 @@ export function PictureWordMatch({ content, onComplete }: Props) {
       } else {
         setWrongWord(word)
         setAnswerState('wrong')
+        sfx.wrong()
         setTimeout(() => {
           setAnswerState('idle')
           setWrongWord(null)
         }, 600)
       }
     },
-    [answerState, item, index, content.items.length, speak, onComplete]
+    [answerState, item, index, content.items.length, speak, onComplete, sfx]
   )
 
   if (complete) {
@@ -96,25 +105,19 @@ export function PictureWordMatch({ content, onComplete }: Props) {
         </span>
       </div>
 
-      {/* Image card */}
+      {/* Visual card — emoji-first, image/text fallback */}
       <div
         className={[
-          'w-44 h-44 rounded-2xl flex items-center justify-center transition-all duration-300',
+          'w-[clamp(9rem,30vmin,16rem)] h-[clamp(9rem,30vmin,16rem)] rounded-2xl flex items-center justify-center bg-indigo-50 transition-all duration-300',
           answerState === 'correct' ? 'ring-4 ring-emerald-400 scale-105' : 'ring-2 ring-gray-200',
         ].join(' ')}
       >
-        {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt="imagen"
-            className="w-full h-full object-contain rounded-2xl"
-          />
-        ) : (
-          <div className="w-full h-full bg-indigo-50 rounded-2xl flex items-center justify-center">
-            <span className="text-5xl">🖼️</span>
-          </div>
-        )}
+        <VocabVisual
+          word={item.word}
+          emoji={item.emoji}
+          imageUrl={item.image_url}
+          className="w-full h-full rounded-2xl p-2"
+        />
       </div>
 
       {/* Replay pronunciation */}

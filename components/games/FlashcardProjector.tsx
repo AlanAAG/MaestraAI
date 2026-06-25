@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Volume2 } from 'lucide-react'
 import { ProjectorControls } from './ProjectorControls'
 import { useSpeech } from '@/hooks/useSpeech'
+import { VocabVisual } from './VocabVisual'
+import { wordToEmoji } from '@/lib/materials/emoji'
 
 export type Flashcard = {
   word: string
@@ -11,6 +13,7 @@ export type Flashcard = {
   color: string
   phonetic?: string
   image_url?: string
+  emoji?: string
   // kept for backward compat with older stored content
   example?: string
 }
@@ -168,50 +171,57 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
             }}
           >
             {!isFlipped ? (
-              <div className="flex flex-col items-center justify-center h-full w-full gap-4">
-                {/* Image (when available) */}
-                {card.image_url && (
-                  <div className="flex-shrink-0" style={{ maxHeight: '40%' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={card.image_url}
-                      alt={card.word}
-                      className="h-full max-h-56 w-auto object-contain rounded-2xl"
-                    />
+              (() => {
+                const hasVisual = !!(card.emoji || wordToEmoji(card.word) || card.image_url)
+                return (
+                  <div className="flex flex-col items-center justify-center h-full w-full gap-4">
+                    {/* Visual — emoji-first, image fallback */}
+                    {hasVisual && (
+                      <VocabVisual
+                        word={card.word}
+                        emoji={card.emoji}
+                        imageUrl={card.image_url}
+                        className="flex-shrink-0 max-h-[40%]"
+                        emojiClassName="text-[clamp(5rem,22vmin,12rem)] leading-none"
+                      />
+                    )}
+
+                    {/* Main word + speaker */}
+                    <div className="flex items-center gap-4">
+                      <h1
+                        className={`${colors.text} font-bold`}
+                        style={{ fontSize: hasVisual ? '72px' : '96px', lineHeight: '1.1' }}
+                      >
+                        {card.word}
+                      </h1>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          speak(card.word, 'en-US')
+                        }}
+                        className={`${colors.text} opacity-60 hover:opacity-100 transition-opacity cursor-pointer`}
+                        aria-label="Pronunciar"
+                      >
+                        <Volume2 size={card.image_url ? 40 : 52} />
+                      </button>
+                    </div>
+
+                    {card.phonetic && (
+                      <p
+                        className={`${colors.text} opacity-50 font-mono`}
+                        style={{ fontSize: '32px' }}
+                      >
+                        {card.phonetic}
+                      </p>
+                    )}
+
+                    {/* Flip hint */}
+                    <p style={{ fontSize: '22px' }} className="opacity-40 mt-4">
+                      Presiona ESPACIO o haz clic para voltear
+                    </p>
                   </div>
-                )}
-
-                {/* Main word + speaker */}
-                <div className="flex items-center gap-4">
-                  <h1
-                    className={`${colors.text} font-bold`}
-                    style={{ fontSize: card.image_url ? '72px' : '96px', lineHeight: '1.1' }}
-                  >
-                    {card.word}
-                  </h1>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      speak(card.word, 'en-US')
-                    }}
-                    className={`${colors.text} opacity-60 hover:opacity-100 transition-opacity cursor-pointer`}
-                    aria-label="Pronunciar"
-                  >
-                    <Volume2 size={card.image_url ? 40 : 52} />
-                  </button>
-                </div>
-
-                {card.phonetic && (
-                  <p className={`${colors.text} opacity-50 font-mono`} style={{ fontSize: '32px' }}>
-                    {card.phonetic}
-                  </p>
-                )}
-
-                {/* Flip hint */}
-                <p style={{ fontSize: '22px' }} className="opacity-40 mt-4">
-                  Presiona ESPACIO o haz clic para voltear
-                </p>
-              </div>
+                )
+              })()
             ) : (
               <div className="text-center space-y-8 w-full">
                 {/* Definition title */}

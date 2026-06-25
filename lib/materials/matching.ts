@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { MATCHING_PROMPT } from '@/prompts/materials'
 import type { FortnightContext } from './types'
+import { extractJson } from './ai-json'
 
 export type MatchingPair = {
   word: string
@@ -8,6 +9,7 @@ export type MatchingPair = {
   image_query: string
   translation: string
   image_url?: string
+  emoji?: string
 }
 
 export type MatchingContent = {
@@ -38,12 +40,7 @@ export async function buildMatching(
   const content = response.content[0]
   if (content.type !== 'text') throw new Error('Unexpected response type from Claude')
 
-  const jsonMatch =
-    content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
-  const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
-  if (!raw) throw new Error('Claude no devolvió JSON válido')
-
-  const result = JSON.parse(raw) as MatchingContent
+  const result = extractJson(content.text) as MatchingContent
 
   if (imageMap && Object.keys(imageMap).length > 0) {
     result.pairs = result.pairs.map((pair) => ({
