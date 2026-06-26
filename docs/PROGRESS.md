@@ -239,10 +239,21 @@ The compounding system on top of the RAG: **generate → she edits → correctio
 - **Tests**: `lib/planner/section-map.test.ts` — 11 tests covering canonical names, accent folding, alias variants, dedup, custom:N slots, DEFAULT_QUINCENA_ORDER completeness. Suite: 88 passing.
 - **Vocab bank bug fixed**: `nueva/page.tsx` was reading `d.items` (undefined) instead of `d.vocabulary` from the GET response — teacher's word bank was always empty in the form. Fixed.
 
+## Per-grade planeaciones + vocab-by-letter + UX batch (current)
+
+- **Planeaciones are per-GRADE, inclusive of all groups** (migration `059_fortnights_grade.sql`: adds `fortnights.grade`, backfilled from the group; keeps `group_id` as a representative group for schedule/roster). Form's "Grupo" selector → "Grado" (shows which groups it covers). Generation fans out to ALL groups of the grade — NEE/ajustes razonables span every group; prompt labels by grade + all group names and states inclusivity. Viewer + DOCX header show "Grado: X". **Requires pushing migration 059.**
+- **Teacher vocab driven by quincena letters, not hand-picked**: `VocabularySections` section B now shows every one of her words for Letra semana 1 + 2 (read-only), derived in `nueva/page.tsx` (`letterVocab` memo). Tests updated.
+- **Richmond vocab shown by unit/lesson** (not seeded into the letter bank): `/vocabulario` reads `richmond_units` + `richmond_lesson_groups` live for Richmond teachers; `seedRichmondVocabulary` removed; GET returns `editorial`. (Migration 058 column now unused — harmless.)
+- **Project description renders first** (immediately below the title) in viewer + DOCX.
+- **Extension v1.0.2**: badge warns amber when the current group isn't linked (green only if THIS group is) + context-invalidation guards + SW-inactive retry.
+- **"Ir a Richmond"** button added to `/dashboard/richmond`.
+- Schedule day (Letter & Number / Números) confirmed already configurable per group in Configuración → group editor; "martes/jueves" are only defaults.
+
 ## Deployment
 
 - Vercel auto-deploys on push to main
-- **All migrations applied through 057**; migration 058 (`richmond_vocab_seeded_at` on teachers) **pending push by Alan**
+- **Schema applied through 058** (per Alan); **migration 059 (`fortnights.grade`) pending push** — per-grade planeaciones need it (creation degrades gracefully until then via best-effort update)
+- Richmond TG5A catalog content (migration 057) loaded via SQL editor by Alan
 - After pushing migrations: run `supabase gen types typescript --linked > lib/database.types.ts` (may be stale), and hit `/api/cron/backfill-diary` once with the CRON_SECRET bearer to encrypt pre-existing diary rows
 - `NEXT_PUBLIC_SUPPORT_EMAIL` — optional, defaults to soporte@maestraia.com on verify-email page
 - Upstash Redis, CSRF_SECRET, RESEND_API_KEY, ENCRYPTION_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY set in Vercel env
