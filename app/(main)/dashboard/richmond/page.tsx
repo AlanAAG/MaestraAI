@@ -314,16 +314,12 @@ export default function RichmondDashboard() {
         </div>
       )}
 
-      {/* Extension linkage banner — shown when at least one group hasn't been linked yet */}
-      {groups.length > 0 && groups.some((g) => !g.richmond_group_name) && !sessionExpired && (
+      {/* Extension linkage banner — only shown when no assignment data has ever been synced */}
+      {!loading && groups.length > 0 && overview.length === 0 && !sessionExpired && (
         <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
           <PuzzleIcon size={20} className="text-amber-600 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">
-              {groups.every((g) => !g.richmond_group_name)
-                ? 'Extensión no configurada'
-                : 'Algunos grupos sin vincular'}
-            </p>
+            <p className="text-sm font-semibold text-amber-800">Extensión no configurada</p>
             <p className="text-sm text-amber-700 mt-0.5">
               Abre la extensión de MaestraIA en Chrome, inicia sesión en richmondlp.com y sincroniza
               tu Markbook para vincular tus grupos.

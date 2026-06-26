@@ -3,6 +3,50 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit } from '@/lib/audit'
+import { VOCAB_COLORS } from '@/lib/vocabulary/parse'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function seedRichmondVocabulary(supabase: any, teacherId: string) {
+  try {
+    const { data: groups } = await supabase.from('richmond_lesson_groups').select('vocabulary')
+    if (!groups?.length) return
+
+    const seen = new Set<string>()
+    const items: { word: string; letter: string; color: string; teacher_id: string }[] = []
+    let ci = 0
+
+    for (const g of groups) {
+      for (const raw of (g.vocabulary as string[]) ?? []) {
+        const word = raw.trim().toLowerCase()
+        if (!word || word.length > 50) continue
+        const letter = word[0].toUpperCase()
+        if (!/[A-Z]/.test(letter)) continue
+        const key = `${letter}:${word}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        items.push({
+          word,
+          letter,
+          color: VOCAB_COLORS[ci++ % VOCAB_COLORS.length],
+          teacher_id: teacherId,
+        })
+      }
+    }
+
+    if (items.length) {
+      await supabase
+        .from('vocabulary_items')
+        .upsert(items, { onConflict: 'letter,word,teacher_id', ignoreDuplicates: true })
+    }
+
+    await supabase
+      .from('teachers')
+      .update({ richmond_vocab_seeded_at: new Date().toISOString() })
+      .eq('id', teacherId)
+  } catch (err) {
+    console.error('Richmond vocab seed error (non-fatal):', err)
+  }
+}
 
 const VocabularyCreateSchema = z.object({
   word: z.string().min(1).max(50),
@@ -37,12 +81,19 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)
       .from('teachers')
-      .select('id')
+      .select('id, editorial, richmond_vocab_seeded_at')
       .eq('auth_id', user.id)
       .single()
 
     if (!teacher) {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    // Auto-seed Richmond book vocabulary on first visit for Richmond teachers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((teacher as any).editorial === 'richmond' && !(teacher as any).richmond_vocab_seeded_at) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await seedRichmondVocabulary(supabase as any, teacher.id)
     }
 
     // Each teacher owns their vocabulary — seeded from system words on signup

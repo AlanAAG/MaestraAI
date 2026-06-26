@@ -17,6 +17,14 @@ const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quir�
     {"metodologia": "Taller Crítico", "nombre": "Transformemos la basura", "secciones": ["..."]}
   ],
   "evaluation_columns": ["Sí", "No", "Proceso"],
+  "section_samples": {
+    "proyecto": "fragmento VERBATIM ≥300 chars del cuerpo principal del proyecto/desarrollo didáctico — la parte más redactada y representativa de la voz de la maestra",
+    "actividades_iniciales": "fragmento VERBATIM ≥200 chars de la sección de actividades de inicio/apertura/bienvenida",
+    "actividades_rutina": "fragmento VERBATIM ≥200 chars de las rutinas permanentes del grupo",
+    "estrategia_comunitaria": "fragmento VERBATIM ≥200 chars de la estrategia comunitaria, fichero de paz, o actividad SEL",
+    "aventura_lectora": "fragmento VERBATIM ≥150 chars de la sección de lectura/aventura lectora si existe — omite si no existe",
+    "ajustes_razonables": "fragmento VERBATIM ≥150 chars de la sección de ajustes razonables/NEE si existe — omite si no existe"
+  },
   "writing_style_samples": [
     "fragmento VERBATIM de ≥250 caracteres que muestre cómo redacta la maestra las actividades del proyecto",
     "fragmento VERBATIM de ≥250 caracteres de la estructura didáctica o momentos",
@@ -42,6 +50,7 @@ const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quir�
 }
 
 REGLAS CRÍTICAS:
+- section_samples: copia LITERAL de cada sección — identifica la sección por su nombre (aunque sea "Desarrollo del Proyecto", "Momentos Pedagógicos", "A trabajar" — mapea al campo más cercano). Solo omite claves de section_samples que genuinamente no existen en el documento.
 - writing_style_samples: copia LITERAL ≥250 chars por fragmento — no parafrasees, no resumas
 - pda_bank: copia los Procesos de Desarrollo de Aprendizaje (PDAs) COMPLETOS tal como aparecen — son la fuente de verdad para la generación; NO los abrevies
 - evaluation_columns: detecta el formato real ("Sí/No/Proceso", "Logrado/En proceso/Requiere apoyo", u otro)

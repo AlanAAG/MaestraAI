@@ -72,19 +72,35 @@ type PlanDocument = {
   campos_formativos?: CampoFormativo[]
   evaluacion_items?: { aspecto: string }[]
   evaluation_columns?: string[]
+  custom_sections?: Array<{ title: string; content: string }>
   sub_planes?: SubPlan[]
+  _section_order?: string[]
+  _section_titles?: Record<string, string>
 }
 
-// Convert a simple markdown string to docx Paragraph array (handles bullets and bold)
+// Convert a simple markdown string to docx Paragraph array (handles bullets, bold, blank lines)
 function mdToParas(text: string, heading?: string): Paragraph[] {
   const paras: Paragraph[] = []
   if (heading) {
     paras.push(new Paragraph({ text: heading, heading: HeadingLevel.HEADING_2 }))
   }
   if (!text) return paras
+  let prevWasBlank = false
   for (const line of text.split('\n')) {
     const trimmed = line.trim()
-    if (!trimmed) continue
+    if (!trimmed) {
+      // Preserve blank lines as paragraph breaks (one per consecutive run)
+      if (!prevWasBlank) paras.push(new Paragraph(''))
+      prevWasBlank = true
+      continue
+    }
+    prevWasBlank = false
+    // Skip markdown heading markers (## / ###) — render as bold paragraph instead
+    const headingMatch = trimmed.match(/^#{1,3}\s+(.+)$/)
+    if (headingMatch) {
+      paras.push(new Paragraph({ children: [new TextRun({ text: headingMatch[1], bold: true })] }))
+      continue
+    }
     const isBullet =
       trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ')
     const content = isBullet ? trimmed.slice(2) : trimmed
@@ -102,6 +118,36 @@ function mdToParas(text: string, heading?: string): Paragraph[] {
   }
   return paras
 }
+
+// Default title map — mirrors DEFAULT_TITLES in the viewer
+const DEFAULT_SECTION_TITLES: Record<string, string> = {
+  actividades_iniciales: 'Actividades Iniciales',
+  actividades_rutina: 'Actividades de Rutina y Permanentes',
+  aventura_lectora: 'Aventura Lectora',
+  estrategia_comunitaria: 'Estrategias Comunitarias para Espacios Libres de Violencia',
+  pausas_activas: 'Pausas Activas',
+  ajustes_razonables: 'Ajustes Razonables',
+  ejes_articuladores: 'Ejes Articuladores',
+  campos_formativos: 'Campos Formativos',
+  proyecto: 'Del Proyecto',
+  cronograma: 'Cronograma de Actividades Diarias',
+  evaluacion_items: 'Evaluación de Aprendizajes',
+  desarrollo_taller: 'Desarrollo del Taller',
+}
+
+const DEFAULT_QUINCENA_ORDER = [
+  'actividades_iniciales',
+  'actividades_rutina',
+  'aventura_lectora',
+  'estrategia_comunitaria',
+  'pausas_activas',
+  'ajustes_razonables',
+  'cronograma',
+  'ejes_articuladores',
+  'campos_formativos',
+  'proyecto',
+  'evaluacion_items',
+]
 
 function cronogramaTable(cronograma: Record<string, string[]>, borderColor: string): Table {
   const days = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
@@ -396,75 +442,110 @@ export async function POST(req: NextRequest) {
     )
     children.push(new Paragraph(''))
 
-    if (pd.tipo === 'quincena') {
-      if (pd.actividades_iniciales)
-        children.push(...mdToParas(pd.actividades_iniciales, 'Actividades Iniciales'))
-      if (pd.actividades_rutina)
-        children.push(...mdToParas(pd.actividades_rutina, 'Actividades de Rutina y Permanentes'))
-      if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, 'Aventura Lectora'))
-      if (pd.estrategia_comunitaria)
-        children.push(...mdToParas(pd.estrategia_comunitaria, 'Estrategia Comunitaria'))
-      if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, 'Pausas Activas'))
-      if (pd.ajustes_razonables)
-        children.push(...mdToParas(pd.ajustes_razonables, 'Ajustes Razonables'))
-    } else {
-      if (pd.ajustes_razonables)
-        children.push(...mdToParas(pd.ajustes_razonables, 'Ajustes Razonables'))
-    }
-
-    if (pd.cronograma) {
-      children.push(
-        new Paragraph({
-          text: 'Cronograma de Actividades Diarias',
-          heading: HeadingLevel.HEADING_2,
-        })
-      )
-      children.push(cronogramaTable(pd.cronograma, borderHex))
-      children.push(new Paragraph(''))
-    }
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const obsCal = (fn as any).observation_calendar as Record<string, string[]> | null
-    if (obsCal && Object.values(obsCal).some((v) => v?.length)) {
-      children.push(
-        new Paragraph({
-          text: 'Calendario de Observación de Alumnos',
-          heading: HeadingLevel.HEADING_2,
-        })
-      )
-      children.push(observationCalendarTable(obsCal, borderHex))
-      children.push(new Paragraph(''))
+    const userTitles = pd._section_titles ?? {}
+    const t = (key: string) => userTitles[key] ?? DEFAULT_SECTION_TITLES[key] ?? key
+
+    const appendSection = (key: string) => {
+      if (key.startsWith('custom:')) {
+        const idx = parseInt(key.slice(7), 10)
+        if (isNaN(idx)) return
+        const cs = pd.custom_sections?.[idx]
+        if (cs?.title && cs?.content) {
+          children.push(new Paragraph({ text: cs.title, heading: HeadingLevel.HEADING_2 }))
+          children.push(...mdToParas(cs.content))
+          children.push(new Paragraph(''))
+        }
+        return
+      }
+      switch (key) {
+        case 'actividades_iniciales':
+          if (pd.actividades_iniciales)
+            children.push(...mdToParas(pd.actividades_iniciales, t(key)))
+          break
+        case 'actividades_rutina':
+          if (pd.actividades_rutina) children.push(...mdToParas(pd.actividades_rutina, t(key)))
+          break
+        case 'aventura_lectora':
+          if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, t(key)))
+          break
+        case 'estrategia_comunitaria':
+          if (pd.estrategia_comunitaria)
+            children.push(...mdToParas(pd.estrategia_comunitaria, t(key)))
+          break
+        case 'pausas_activas':
+          if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, t(key)))
+          break
+        case 'ajustes_razonables':
+          if (pd.ajustes_razonables) children.push(...mdToParas(pd.ajustes_razonables, t(key)))
+          break
+        case 'ejes_articuladores':
+          if (pd.ejes_articuladores) children.push(...mdToParas(pd.ejes_articuladores, t(key)))
+          break
+        case 'campos_formativos':
+          if (pd.campos_formativos?.length)
+            children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
+          break
+        case 'proyecto':
+          if (pd.proyecto) children.push(...mdToParas(pd.proyecto, t(key)))
+          break
+        case 'desarrollo_taller':
+          if (pd.desarrollo_taller) children.push(...mdToParas(pd.desarrollo_taller, t(key)))
+          break
+        case 'cronograma':
+          if (pd.cronograma) {
+            children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
+            children.push(cronogramaTable(pd.cronograma, borderHex))
+            children.push(new Paragraph(''))
+          }
+          if (obsCal && Object.values(obsCal).some((v) => v?.length)) {
+            children.push(
+              new Paragraph({
+                text: 'Calendario de Observación de Alumnos',
+                heading: HeadingLevel.HEADING_2,
+              })
+            )
+            children.push(observationCalendarTable(obsCal, borderHex))
+            children.push(new Paragraph(''))
+          }
+          break
+        case 'evaluacion_items':
+          if (pd.evaluacion_items?.length) {
+            children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
+            children.push(evaluacionTable(pd.evaluacion_items, borderHex, pd.evaluation_columns))
+            children.push(new Paragraph(''))
+          }
+          break
+      }
     }
 
-    if (pd.ejes_articuladores)
-      children.push(...mdToParas(pd.ejes_articuladores, 'Ejes Articuladores'))
-
-    if (pd.campos_formativos?.length) {
-      children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
-    }
-
-    if (pd.tipo === 'quincena' && pd.proyecto) {
-      children.push(...mdToParas(pd.proyecto, 'Del Proyecto'))
-    }
-    if (pd.tipo === 'taller' && pd.desarrollo_taller) {
-      children.push(...mdToParas(pd.desarrollo_taller, 'Desarrollo del Taller'))
-    }
-
-    if (pd.tipo === 'taller') {
-      if (pd.actividades_iniciales)
-        children.push(...mdToParas(pd.actividades_iniciales, 'Actividades Iniciales'))
-      if (pd.actividades_rutina)
-        children.push(...mdToParas(pd.actividades_rutina, 'Actividades de Rutina y Permanentes'))
-      if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, 'Aventura Lectora'))
-      if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, 'Pausas Activas'))
-    }
-
-    if (pd.evaluacion_items?.length) {
-      children.push(
-        new Paragraph({ text: 'Evaluación de Aprendizajes', heading: HeadingLevel.HEADING_2 })
-      )
-      children.push(evaluacionTable(pd.evaluacion_items, borderHex, pd.evaluation_columns))
-      children.push(new Paragraph(''))
+    if (pd.tipo === 'quincena') {
+      // Respect teacher's section order if stored, otherwise canonical default.
+      const order = [...(pd._section_order ?? DEFAULT_QUINCENA_ORDER)]
+      const covered = new Set(order)
+      for (const key of DEFAULT_QUINCENA_ORDER) {
+        if (!covered.has(key)) order.push(key)
+      }
+      for (const key of order) appendSection(key)
+    } else {
+      // Taller: fixed order (teacher order not yet tracked for taller plans)
+      for (const key of [
+        'ajustes_razonables',
+        'desarrollo_taller',
+        'actividades_iniciales',
+        'actividades_rutina',
+        'aventura_lectora',
+        'pausas_activas',
+        'cronograma',
+        'evaluacion_items',
+      ] as const) {
+        appendSection(key)
+      }
+      // taller custom sections appended after evaluacion
+      for (let i = 0; i < (pd.custom_sections?.length ?? 0); i++) {
+        appendSection(`custom:${i}`)
+      }
     }
 
     // Sub-plans
@@ -496,7 +577,7 @@ export async function POST(req: NextRequest) {
       if (sp.evaluacion?.length) {
         children.push(evaluacionTable(sp.evaluacion, borderHex, pd.evaluation_columns))
       }
-      children.push(...mdToParas(sp.observaciones || '', 'Observaciones y ajustes'))
+      if (sp.observaciones) children.push(...mdToParas(sp.observaciones, 'Observaciones y ajustes'))
       children.push(new Paragraph(''))
     }
 

@@ -87,7 +87,7 @@ export default function NuevaPlaneacionPage() {
     loadGroups()
     fetch('/api/vocabulary')
       .then((r) => r.json())
-      .then((d) => setAllVocab(d.items ?? []))
+      .then((d) => setAllVocab(d.vocabulary ?? []))
       .catch((err) => console.error('Failed to load vocabulary:', err))
     fetch('/api/students?group_id=all')
       .then((r) => (r.ok ? r.json() : { students: [] }))

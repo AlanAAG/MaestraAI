@@ -20,6 +20,7 @@ import { TALLER_SYSTEM } from '@/prompts/planner-taller'
 import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
 import { generateSubplan, generateCustomSubplan } from '@/lib/planner/subplan'
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
+import { buildSectionMeta } from '@/lib/planner/section-map'
 
 export const maxDuration = 300
 
@@ -98,16 +99,29 @@ function getGroupSchedule(fn: any) {
   }
 }
 
-// Builds rich, attention-ordered teacher context: voice samples → PDA bank → eval format →
-// section examples → structure. Placed BEFORE the output schema so it gets high attention.
-function profileContext(p: TeacherProfile | null, evalColumns: string[]): string {
+// Builds rich, attention-ordered teacher context: per-section voice → PDA bank → eval format →
+// structure → custom sections. Placed BEFORE the output schema so it gets high attention.
+function profileContext(p: TeacherProfile | null, evalColumns: string[]): { context: string } {
   const parts: string[] = []
 
-  // 1. Teacher voice (verbatim style samples; fall back to legacy short examples)
+  // 1a. Per-section labeled voice samples (new — higher fidelity than generic samples)
+  //     Each key matches a plan_document field; the model is told to match that section's style.
+  const sectionSamples = p?.section_samples ?? {}
+  const sectionKeys = Object.keys(sectionSamples).filter((k) => sectionSamples[k]?.trim())
+  if (sectionKeys.length) {
+    const blocks = sectionKeys
+      .map((k) => `<example_section_${k}>\n${sectionSamples[k]}\n</example_section_${k}>`)
+      .join('\n\n')
+    parts.push(
+      `<per_section_voice>\nEscribo en la voz EXACTA de esta maestra. Cuando generes cada campo del JSON, imita el estilo del ejemplo etiquetado para esa sección:\n\n${blocks}\n</per_section_voice>`
+    )
+  }
+
+  // 1b. Generic voice samples (fallback / supplement — keep for backwards compat with older profiles)
   const samples = p?.writing_style_samples?.length ? p.writing_style_samples : (p?.examples ?? [])
   if (samples.length) {
     parts.push(
-      `<teacher_voice>\nEscribe EXACTAMENTE como esta maestra. Estos son fragmentos VERBATIM de su planeación anterior — imita su estilo, vocabulario, nivel de detalle y voz:\n\n${samples
+      `<teacher_voice>\nVoz general de la maestra (usa como referencia para secciones sin ejemplo específico):\n\n${samples
         .map((s, i) => `Ejemplo ${i + 1}:\n"${s}"`)
         .join('\n\n')}\n</teacher_voice>`
     )
@@ -132,17 +146,17 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): string
     `<evaluation_format>\nColumnas de evaluación para ESTA escuela: ${evalColumns.join(' / ')}\nUsa SIEMPRE estas columnas en evaluacion_items. NUNCA numérica.\n</evaluation_format>`
   )
 
-  // 4. Verbatim section examples from the teacher's real document
+  // 4. Full verbatim section examples (legacy fields — supplement per-section samples above)
   const ex: string[] = []
-  if (p?.actividades_iniciales_example)
+  if (p?.actividades_iniciales_example && !sectionSamples['actividades_iniciales'])
     ex.push(
       `<example_actividades_iniciales>\n${p.actividades_iniciales_example}\n</example_actividades_iniciales>`
     )
-  if (p?.actividades_rutina_example)
+  if (p?.actividades_rutina_example && !sectionSamples['actividades_rutina'])
     ex.push(
       `<example_actividades_rutina>\n${p.actividades_rutina_example}\n</example_actividades_rutina>`
     )
-  if (p?.estrategia_comunitaria_example)
+  if (p?.estrategia_comunitaria_example && !sectionSamples['estrategia_comunitaria'])
     ex.push(
       `<example_estrategia_comunitaria>\n${p.estrategia_comunitaria_example}\n</example_estrategia_comunitaria>`
     )
@@ -158,15 +172,24 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): string
         )
         .join('\n')}\n</estructura_subplaneaciones>`
     )
+
+  // 5b. Custom sections — detect unmapped teacher sections to generate in custom_sections array.
+  const { customSectionNames } = buildSectionMeta(p?.sections ?? [])
+  if (customSectionNames.length) {
+    parts.push(
+      `<secciones_personalizadas>\nEsta maestra usa secciones propias de su escuela que NO son campos estándar. Genera su contenido en el array "custom_sections" del JSON:\n${customSectionNames.map((s) => `• "${s}"`).join('\n')}\n</secciones_personalizadas>`
+    )
+  }
   if (p?.sections?.length)
-    parts.push(`FORMATO ESCOLAR (secciones en orden): ${p.sections.join(' → ')}`)
+    parts.push(`FORMATO ESCOLAR (orden de secciones): ${p.sections.join(' → ')}`)
+
   if (p?.activity_blocks?.length && p.block_descriptions)
     parts.push(
       `BLOQUES DE ACTIVIDAD:\n${p.activity_blocks.map((b) => `• ${b}: ${p.block_descriptions?.[b] ?? ''}`).join('\n')}`
     )
   if (p?.notes) parts.push(`ESTILO Y TONO DE LA MAESTRA: ${p.notes}`)
 
-  return parts.filter(Boolean).join('\n\n')
+  return { context: parts.filter(Boolean).join('\n\n') }
 }
 
 function buildQuincenaPrompt(
@@ -231,7 +254,17 @@ function buildQuincenaPrompt(
     ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? '\n' + richmondInstructions.slice(0, 300) : ''}\n${richmondBooks}`
     : richmondBooks
 
-  const profileCtx = profileContext(profile, evalColumns)
+  const { context: profileCtx } = profileContext(profile, evalColumns)
+
+  // Inject teacher's actual proyecto sub-sections (replaces hardcoded "Punto de Partida / Planeación…").
+  const proyectoInv = profile?.subplan_inventory?.find(
+    (s) =>
+      s.metodologia?.toLowerCase().includes('proyecto') ||
+      s.metodologia?.toLowerCase().includes('situacion')
+  )
+  const proyectoSecciones = proyectoInv?.secciones?.length
+    ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
+    : ''
 
   // High-priority: the teacher's explicit requests + continuity with the previous quincena.
   const tNotes = String(fn.teacher_notes ?? '').slice(0, 1500)
@@ -268,8 +301,16 @@ ${richmondBlock}${gameHint ? '\n' + gameHint : ''}
 Genera la planeación completa en el formato JSON especificado. sub_planes debe ser [] (los sub-planes se generan por separado).`
 
   // Grounding (NEM synthesis + PDA bank) is injected as a cached SYSTEM prefix, not here.
-  // Order: style examples → teacher voice → PDAs → requests → continuity → schema → request.
-  return [styleBlock, profileCtx, teacherReq, continuityBlock, QUINCENA_OUTPUT_SCHEMA, requestData]
+  // Order: style examples → teacher voice → PDAs → proyecto structure → requests → continuity → schema → request.
+  return [
+    styleBlock,
+    profileCtx,
+    proyectoSecciones,
+    teacherReq,
+    continuityBlock,
+    QUINCENA_OUTPUT_SCHEMA,
+    requestData,
+  ]
     .filter(Boolean)
     .join('\n\n')
 }
@@ -307,7 +348,7 @@ function buildTallerPrompt(
       ? `ALUMNOS CON NEE:\n${neeStudents.map((s) => `- ${s.display_name}`).join('\n')}`
       : ''
 
-  const profileCtx = profileContext(profile, evalColumns)
+  const { context: profileCtx } = profileContext(profile, evalColumns)
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma):
 ${JSON.stringify(schedule.cronograma)}
@@ -442,6 +483,9 @@ export async function POST(req: NextRequest) {
       ? profile.evaluation_columns
       : DEFAULT_EVAL_COLUMNS
 
+    // Compute section order/titles from teacher's format for dynamic viewer rendering.
+    const { sectionOrder, sectionTitles } = buildSectionMeta(profile?.sections ?? [])
+
     // Self-improving: refresh (if stale) + load the teacher's LEARNED style (from her edited plans
     // + corrections), merge her learned voice samples into the profile. Best-effort.
     await refreshLearnedProfileIfStale(supabase, teacherId, planType)
@@ -548,6 +592,12 @@ export async function POST(req: NextRequest) {
             cachePrefix,
           })
           const planDocument = parsePlanJson(raw)
+
+          // Embed teacher's section order + titles so the viewer renders in the right order.
+          if (sectionOrder.length) {
+            planDocument._section_order = sectionOrder
+            planDocument._section_titles = sectionTitles
+          }
 
           // Quincena: auto-generate the Letter & Number + Números sub-plans inline so the
           // document is a complete bundle on first generation (matches the teacher's format).

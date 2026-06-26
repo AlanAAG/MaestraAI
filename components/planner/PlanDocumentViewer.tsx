@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Loader2, BookOpen, Hash, Pencil, Check, X, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -77,7 +77,11 @@ type PlanDoc = {
   campos_formativos?: CampoFormativo[]
   evaluacion_items?: { aspecto: string }[]
   evaluation_columns?: string[]
+  custom_sections?: Array<{ title: string; content: string }>
   sub_planes?: SubPlan[]
+  // Embedded at generation time from teacher's profile — drives dynamic section order + titles.
+  _section_order?: string[]
+  _section_titles?: Record<string, string>
 }
 
 type GroupSchedule = {
@@ -692,6 +696,205 @@ function DesignPanel({ design, onChange }: { design: Design; onChange: (d: Desig
   )
 }
 
+// Default titles used when the teacher hasn't supplied their own.
+const DEFAULT_TITLES: Record<string, string> = {
+  actividades_iniciales: 'Actividades Iniciales',
+  actividades_rutina: 'Actividades de Rutina y Permanentes',
+  aventura_lectora: 'Aventura Lectora',
+  estrategia_comunitaria: 'Estrategias Comunitarias para Espacios Libres de Violencia',
+  pausas_activas: 'Pausas Activas',
+  ajustes_razonables: 'Ajustes Razonables',
+  ejes_articuladores: 'Ejes Articuladores',
+  campos_formativos: 'Campos Formativos',
+  proyecto: 'Del Proyecto',
+  cronograma: 'Cronograma de Actividades Diarias',
+  evaluacion_items: 'Evaluación de Aprendizajes',
+}
+
+// ponytail: intentionally re-declared to avoid client-bundle shipping section-map (server util)
+const DEFAULT_QUINCENA_ORDER = [
+  'actividades_iniciales',
+  'actividades_rutina',
+  'aventura_lectora',
+  'estrategia_comunitaria',
+  'pausas_activas',
+  'ajustes_razonables',
+  'cronograma',
+  'ejes_articuladores',
+  'campos_formativos',
+  'proyecto',
+  'evaluacion_items',
+]
+
+function QuincenaSections({
+  pd,
+  observationCalendar,
+  handleEdit,
+}: {
+  pd: PlanDoc
+  observationCalendar?: Record<string, string[]> | null
+  handleEdit: (section: string, value: string) => Promise<void>
+}) {
+  const titles = pd._section_titles ?? {}
+  const t = (key: string) => titles[key] ?? DEFAULT_TITLES[key] ?? key
+
+  // Build full order: teacher's order (if stored), or the canonical default.
+  // Always copy — never mutate pd._section_order (it's a shared prop reference).
+  const order: string[] = [...(pd._section_order ?? DEFAULT_QUINCENA_ORDER)]
+
+  // Ensure every standard key with content appears at least once (safety net for old plans).
+  const covered = new Set(order)
+  for (const key of DEFAULT_QUINCENA_ORDER) {
+    if (!covered.has(key)) order.push(key)
+  }
+
+  const renderKey = (key: string): React.ReactNode => {
+    if (key.startsWith('custom:')) {
+      const idx = parseInt(key.slice(7), 10)
+      if (isNaN(idx)) return null
+      const cs = pd.custom_sections?.[idx]
+      if (!cs?.title || !cs?.content) return null
+      return (
+        <DocSection
+          key={key}
+          title={cs.title}
+          editValue={cs.content}
+          onSave={async (v) => {
+            const updated = [...(pd.custom_sections ?? [])]
+            updated[idx] = { ...updated[idx], content: v }
+            // update-document expects a JSON-encoded string for structured fields
+            await handleEdit('custom_sections', JSON.stringify(updated))
+          }}
+        >
+          <MdContent text={cs.content} />
+        </DocSection>
+      )
+    }
+
+    switch (key) {
+      case 'actividades_iniciales':
+        return pd.actividades_iniciales ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.actividades_iniciales}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.actividades_iniciales} />
+          </DocSection>
+        ) : null
+      case 'actividades_rutina':
+        return pd.actividades_rutina ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.actividades_rutina}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.actividades_rutina} />
+          </DocSection>
+        ) : null
+      case 'aventura_lectora':
+        return pd.aventura_lectora ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.aventura_lectora}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.aventura_lectora} />
+          </DocSection>
+        ) : null
+      case 'estrategia_comunitaria':
+        return pd.estrategia_comunitaria ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.estrategia_comunitaria}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.estrategia_comunitaria} />
+          </DocSection>
+        ) : null
+      case 'pausas_activas':
+        return pd.pausas_activas ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.pausas_activas}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.pausas_activas} />
+          </DocSection>
+        ) : null
+      case 'ajustes_razonables':
+        return pd.ajustes_razonables ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.ajustes_razonables}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.ajustes_razonables} />
+          </DocSection>
+        ) : null
+      case 'ejes_articuladores':
+        return pd.ejes_articuladores ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.ejes_articuladores}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.ejes_articuladores} />
+          </DocSection>
+        ) : null
+      case 'campos_formativos':
+        return pd.campos_formativos?.length ? (
+          <DocSection key={key} title={t(key)}>
+            <CamposFormativosView campos={pd.campos_formativos} />
+          </DocSection>
+        ) : null
+      case 'proyecto':
+        return pd.proyecto ? (
+          <DocSection
+            key={key}
+            title={t(key)}
+            editValue={pd.proyecto}
+            onSave={(v) => handleEdit(key, v)}
+          >
+            <MdContent text={pd.proyecto} />
+          </DocSection>
+        ) : null
+      case 'cronograma':
+        return (
+          <React.Fragment key={key}>
+            {pd.cronograma && (
+              <DocSection title={t(key)}>
+                <CronogramaGrid cronograma={pd.cronograma} />
+              </DocSection>
+            )}
+            {observationCalendar && Object.values(observationCalendar).some((v) => v?.length) && (
+              <DocSection title="Calendario de Observación de Alumnos">
+                <ObservationCalendarSection cal={observationCalendar} />
+              </DocSection>
+            )}
+          </React.Fragment>
+        )
+      case 'evaluacion_items':
+        return pd.evaluacion_items?.length ? (
+          <DocSection key={key} title={t(key)}>
+            <EvaluacionGrid items={pd.evaluacion_items} columns={pd.evaluation_columns} />
+          </DocSection>
+        ) : null
+      default:
+        return null
+    }
+  }
+
+  return <>{order.map((key) => renderKey(key))}</>
+}
+
 interface PlanDocumentViewerProps {
   planDocument: PlanDoc
   fortnightId: string
@@ -815,104 +1018,19 @@ export function PlanDocumentViewer({
           )}
         </header>
 
-        {isQuincena && (
-          <>
-            {pd.actividades_iniciales && (
-              <DocSection
-                title="Actividades Iniciales"
-                editValue={pd.actividades_iniciales}
-                onSave={(v) => handleEdit('actividades_iniciales', v)}
-              >
-                <MdContent text={pd.actividades_iniciales} />
-              </DocSection>
-            )}
-            {pd.actividades_rutina && (
-              <DocSection
-                title="Actividades de Rutina y Permanentes"
-                editValue={pd.actividades_rutina}
-                onSave={(v) => handleEdit('actividades_rutina', v)}
-              >
-                <MdContent text={pd.actividades_rutina} />
-              </DocSection>
-            )}
-            {pd.aventura_lectora && (
-              <DocSection
-                title="Aventura Lectora"
-                editValue={pd.aventura_lectora}
-                onSave={(v) => handleEdit('aventura_lectora', v)}
-              >
-                <MdContent text={pd.aventura_lectora} />
-              </DocSection>
-            )}
-            {pd.estrategia_comunitaria && (
-              <DocSection
-                title="Estrategias Comunitarias para Espacios Libres de Violencia"
-                editValue={pd.estrategia_comunitaria}
-                onSave={(v) => handleEdit('estrategia_comunitaria', v)}
-              >
-                <MdContent text={pd.estrategia_comunitaria} />
-              </DocSection>
-            )}
-            {pd.pausas_activas && (
-              <DocSection
-                title="Pausas Activas"
-                editValue={pd.pausas_activas}
-                onSave={(v) => handleEdit('pausas_activas', v)}
-              >
-                <MdContent text={pd.pausas_activas} />
-              </DocSection>
-            )}
-            {pd.ajustes_razonables && (
-              <DocSection
-                title="Ajustes Razonables"
-                editValue={pd.ajustes_razonables}
-                onSave={(v) => handleEdit('ajustes_razonables', v)}
-              >
-                <MdContent text={pd.ajustes_razonables} />
-              </DocSection>
-            )}
-          </>
-        )}
-
-        {pd.cronograma && (
-          <DocSection title="Cronograma de Actividades Diarias">
-            <CronogramaGrid cronograma={pd.cronograma} />
-          </DocSection>
-        )}
-
-        {observationCalendar && Object.values(observationCalendar).some((v) => v?.length) && (
-          <DocSection title="Calendario de Observación de Alumnos">
-            <ObservationCalendarSection cal={observationCalendar} />
-          </DocSection>
-        )}
-
-        {pd.ejes_articuladores && (
-          <DocSection
-            title="Ejes Articuladores"
-            editValue={pd.ejes_articuladores}
-            onSave={(v) => handleEdit('ejes_articuladores', v)}
-          >
-            <MdContent text={pd.ejes_articuladores} />
-          </DocSection>
-        )}
-
-        {pd.campos_formativos?.length ? (
-          <DocSection title="Campos Formativos">
-            <CamposFormativosView campos={pd.campos_formativos} />
-          </DocSection>
-        ) : null}
-
-        {isQuincena && pd.proyecto && (
-          <DocSection
-            title="Del Proyecto"
-            editValue={pd.proyecto}
-            onSave={(v) => handleEdit('proyecto', v)}
-          >
-            <MdContent text={pd.proyecto} />
-          </DocSection>
-        )}
-
-        {!isQuincena && (
+        {/* ── Dynamic section rendering ─────────────────────────────────────────────
+             Quincena: sections render in the teacher's order (_section_order),
+             with the teacher's exact titles (_section_titles). Falls back to the
+             canonical order when no profile was used (older plans / system template).
+             Taller: fixed order (simpler format, fewer sections).
+        ─────────────────────────────────────────────────────────────────────────── */}
+        {isQuincena ? (
+          <QuincenaSections
+            pd={pd}
+            observationCalendar={observationCalendar}
+            handleEdit={handleEdit}
+          />
+        ) : (
           <>
             {pd.ajustes_razonables && (
               <DocSection
@@ -968,14 +1086,37 @@ export function PlanDocumentViewer({
                 <MdContent text={pd.pausas_activas} />
               </DocSection>
             )}
+            {pd.cronograma && (
+              <DocSection title="Cronograma de Actividades Diarias">
+                <CronogramaGrid cronograma={pd.cronograma} />
+              </DocSection>
+            )}
+            {pd.evaluacion_items?.length ? (
+              <DocSection title="Evaluación de Aprendizajes">
+                <EvaluacionGrid items={pd.evaluacion_items} columns={pd.evaluation_columns} />
+              </DocSection>
+            ) : null}
           </>
         )}
 
-        {pd.evaluacion_items?.length ? (
-          <DocSection title="Evaluación de Aprendizajes">
-            <EvaluacionGrid items={pd.evaluacion_items} columns={pd.evaluation_columns} />
-          </DocSection>
-        ) : null}
+        {/* Custom sections for taller (quincena custom sections handled inside QuincenaSections) */}
+        {!isQuincena &&
+          pd.custom_sections
+            ?.filter((s) => s.title && s.content)
+            .map((s, i) => (
+              <DocSection
+                key={`custom-${i}`}
+                title={s.title}
+                editValue={s.content}
+                onSave={async (v) => {
+                  const updated = [...(pd.custom_sections ?? [])]
+                  updated[i] = { ...updated[i], content: v }
+                  await handleEdit('custom_sections', JSON.stringify(updated))
+                }}
+              >
+                <MdContent text={s.content} />
+              </DocSection>
+            ))}
 
         {/* Sub-plans (quincena only) — rendered as continuation document sections */}
         {isQuincena && (

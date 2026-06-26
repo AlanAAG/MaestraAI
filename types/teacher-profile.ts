@@ -10,7 +10,9 @@ export type TeacherProfile = {
   evaluation_columns?: string[] // e.g. ["Sí", "No", "Proceso"] or ["Logrado", "En proceso", "Requiere apoyo"]
 
   // Writing voice (the most important few-shot material)
-  writing_style_samples?: string[] // verbatim excerpts, ≥250 chars each
+  writing_style_samples?: string[] // verbatim excerpts, ≥250 chars each — generic fallback
+  // Per-section labeled samples. Keys match plan_document field names (proyecto, actividades_iniciales…)
+  section_samples?: Record<string, string>
   actividades_iniciales_example?: string
   actividades_rutina_example?: string
   estrategia_comunitaria_example?: string

@@ -16,12 +16,14 @@ const EDITABLE_SECTIONS = new Set([
   'desarrollo_taller',
   'nombre_proyecto',
   'metodologia',
+  'custom_sections', // structured field — value is a JSON-encoded array
 ])
 
+// `value` is a string for all text sections; `custom_sections` sends a JSON-encoded array.
 const Schema = z.object({
   fortnight_id: z.string().uuid(),
   section: z.string().min(1).max(60),
-  value: z.string(),
+  value: z.string().max(60000), // max ~60k chars to prevent oversized JSONB writes
 })
 
 export async function PATCH(req: NextRequest) {
@@ -70,8 +72,21 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'No plan document exists' }, { status: 422 })
     }
 
-    const original = (fn.plan_document as Record<string, unknown>)[section]
-    const updated = { ...(fn.plan_document as Record<string, unknown>), [section]: value }
+    const STRUCTURED_SECTIONS = new Set(['custom_sections'])
+    const originalRaw = (fn.plan_document as Record<string, unknown>)[section]
+
+    // Structured sections send value as a JSON-encoded payload; parse it so JSONB stays typed.
+    let parsedValue: unknown = value
+    if (STRUCTURED_SECTIONS.has(section)) {
+      try {
+        parsedValue = JSON.parse(value)
+      } catch {
+        return NextResponse.json({ error: 'Invalid JSON for structured section' }, { status: 400 })
+      }
+    }
+
+    const original = typeof originalRaw === 'string' ? originalRaw : JSON.stringify(originalRaw)
+    const updated = { ...(fn.plan_document as Record<string, unknown>), [section]: parsedValue }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)
@@ -84,7 +99,8 @@ export async function PATCH(req: NextRequest) {
     // (1) capture the original→edited correction — the strongest accuracy signal;
     // (2) re-embed the EDITED doc so RAG retrieves her corrected text, not stale AI output.
     const teacherId = (teacher as { id: string }).id
-    if (typeof original === 'string' && original.trim() && original !== value) {
+    const changed = original !== value
+    if (changed && typeof originalRaw === 'string' && originalRaw.trim()) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any).from('plan_corrections').insert({
@@ -98,12 +114,15 @@ export async function PATCH(req: NextRequest) {
         console.error('[update-document] correction capture skipped:', e)
       }
     }
-    await storePlaneacionEmbedding(supabase, {
-      fortnightId: fortnight_id,
-      teacherId,
-      projectName: String((fn as { project_name?: string }).project_name ?? ''),
-      content: planEmbeddingText(updated),
-    })
+    // Only re-embed when a text field actually changed (skip no-ops + structured saves).
+    if (changed && !STRUCTURED_SECTIONS.has(section)) {
+      await storePlaneacionEmbedding(supabase, {
+        fortnightId: fortnight_id,
+        teacherId,
+        projectName: String((fn as { project_name?: string }).project_name ?? ''),
+        content: planEmbeddingText(updated),
+      })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

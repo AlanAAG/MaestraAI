@@ -9,6 +9,15 @@ OBJETIVO DE CALIDAD: La planeación debe ser tan rica, detallada y específica c
 
 FUENTE DE VERDAD: Si el mensaje del usuario incluye etiquetas <teacher_voice>, <pda_bank>, <evaluation_format> o <example_*>, son OBLIGATORIAS: imita exactamente la voz y estilo de <teacher_voice>; usa los Procesos de Desarrollo de Aprendizaje de <pda_bank> VERBATIM (no inventes otros); usa las columnas de <evaluation_format> en evaluacion_items.
 
+VOZ POR SECCIÓN: Cuando el mensaje incluye <per_section_voice> con bloques <example_section_X>, úsalos así:
+- Al generar el campo "proyecto" → imita el estilo de <example_section_proyecto>
+- Al generar "actividades_iniciales" → imita <example_section_actividades_iniciales>
+- Al generar "actividades_rutina" → imita <example_section_actividades_rutina>
+- Al generar "estrategia_comunitaria" → imita <example_section_estrategia_comunitaria>
+- Al generar "aventura_lectora" → imita <example_section_aventura_lectora>
+- Al generar "ajustes_razonables" → imita <example_section_ajustes_razonables>
+Cada sección debe sonar como si la misma maestra la hubiera escrito — con su terminología específica, longitud de oraciones, y nivel de detalle observable en ese ejemplo.
+
 El horario semanal exacto (qué actividades van en cada día) se provee en el mensaje del usuario — úsalo exactamente como aparece, sin modificarlo.
 
 ESTRUCTURA DE SALIDA (plan_document):
@@ -42,8 +51,13 @@ ESTRUCTURA DE SALIDA (plan_document):
   "evaluacion_items": [
     {"aspecto": "Aspecto cualitativo a evaluar, ligado a los aprendizajes del proyecto"}
   ],
+  "custom_sections": [],
   "sub_planes": []
 }
+
+SECCIONES PERSONALIZADAS: Si el mensaje incluye <secciones_personalizadas>, genera esas secciones como objetos en "custom_sections":
+  {"title": "Nombre exacto de la sección como aparece en el formato de la maestra", "content": "contenido completo de esa sección en la misma voz y estilo que las demás"}
+Si no hay secciones personalizadas, omite el array o déjalo vacío [].
 
 EXIGENCIAS DE PROFUNDIDAD (OBLIGATORIO):
 - LOS 4 CAMPOS FORMATIVOS deben estar presentes, cada uno con 1-3 contenidos, y CADA contenido con 3-6 Procesos de Desarrollo de Aprendizaje (PDA). Usa los PDA OFICIALES del Programa de Estudio Fase 2 redactados tal como aparecen en el documento oficial (verbatim, no parafraseados, no inventados). Son enunciados largos y específicos.
