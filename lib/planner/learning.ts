@@ -8,6 +8,9 @@ import { planEmbeddingText } from './embeddings'
 const REFRESH_AFTER_CORRECTIONS = 5
 const REFRESH_AFTER_DAYS = 14
 const ONE_DAY = 86_400_000
+// Hard cap so the injected <preferencias_aprendidas> can't drift toward verbosity as corrections
+// accumulate (~200 words ≈ 1400 chars). Enforced in the prompt AND defensively on store.
+const MAX_PREFERENCIAS_CHARS = 1400
 
 export type LearnedProfile = {
   profile: TeacherProfile
@@ -48,10 +51,10 @@ const DISTILL_SYSTEM = `Eres un analista de estilo docente. A partir de las plan
 Responde SOLO con JSON válido:
 {
   "writing_style_samples": ["2-4 fragmentos VERBATIM y cortos (de su texto, preferentemente del DESPUÉS de sus correcciones) que mejor capturan su voz"],
-  "preferences": "1 párrafo conciso y accionable: qué agrega, cómo reformula, qué evita o elimina, su tono, vocabulario y nivel de detalle. Basado en patrones de sus correcciones."
+  "preferences": "MÁXIMO 200 palabras. Resume sus preferencias accionables (qué agrega, cómo reformula, qué evita, tono, vocabulario, nivel de detalle), PRIORIZANDO patrones que aparecen en 3+ planeaciones o correcciones. No listes casos aislados."
 }
 
-Reglas: NO inventes; usa solo lo observado. NUNCA incluyas nombres de alumnos (sustituye por 'Alumno'). Si no hay señal suficiente, devuelve writing_style_samples: [] y preferences: "".`
+Reglas: NO inventes; usa solo lo observado. NUNCA incluyas nombres de alumnos (sustituye por 'Alumno'). "preferences" NUNCA debe exceder 200 palabras. Si no hay señal suficiente, devuelve writing_style_samples: [] y preferences: "".`
 
 // --- DB-backed ---
 
@@ -153,7 +156,7 @@ export async function refreshLearnedProfile(
         teacher_id: teacherId,
         plan_type: planType,
         profile: { writing_style_samples: parsed.writing_style_samples ?? [] },
-        preferences: parsed.preferences ?? '',
+        preferences: (parsed.preferences ?? '').slice(0, MAX_PREFERENCIAS_CHARS),
         source_count: sourceCount,
         refreshed_at: new Date().toISOString(),
       },

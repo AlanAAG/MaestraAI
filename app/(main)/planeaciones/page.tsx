@@ -32,6 +32,8 @@ export default function PlaneacionesPage() {
   async function handleLearn() {
     setLearning(true)
     try {
+      // Index any not-yet-embedded plans first, then distill her style from them.
+      await fetch('/api/planner/backfill-embeddings', { method: 'POST' }).catch(() => {})
       const res = await fetch('/api/planner/learn', { method: 'POST' })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error)

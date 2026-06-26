@@ -174,6 +174,8 @@ The compounding system on top of the RAG: **generate → she edits → correctio
 - **Evolving profile** (`lib/planner/learning.ts`, `teacher_learned_profile`): a Haiku distillation reads her recent edited plans + last 20 corrections → refreshed `writing_style_samples` + a short `preferences` note. Auto-refreshes when stale (≥5 new corrections or >14 days), gated so most generations skip it.
 - **Injected** in `generate-document`: learned voice samples merged into the profile (→ `<teacher_voice>`); `preferences` injected as `<preferencias_aprendidas>` (the accuracy lever). SSE emits a `meta` event → the `[id]` page shows "✨ aprendió de N planeaciones tuyas".
 - **On-demand control**: `/api/planner/learn` (POST) + "Aprender de mis planeaciones" button on the planeaciones list (shown at ≥2 plans).
+- **Preferences length capped**: distillation prompt enforces "máximo 200 palabras, priorizando patrones en 3+ planeaciones" + a defensive `MAX_PREFERENCIAS_CHARS = 1400` slice on store, so `<preferencias_aprendidas>` can't drift verbose as corrections accumulate.
+- **Backfill** (`/api/planner/backfill-embeddings`, POST, teacher-scoped, idempotent — skips already-embedded): embeds pre-existing plans so retrieval works retroactively. The "Aprender de mis planeaciones" button runs backfill → distill in one click.
 - Tested (`lib/planner/learning.test.ts`: staleness gate + distill prompt). **Requires pushing migrations 054 + 055.**
 - Tested (`lib/nem/synthesis.test.ts`). No migration.
 
