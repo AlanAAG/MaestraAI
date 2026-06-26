@@ -416,6 +416,61 @@ export default function NuevaPlaneacionPage() {
           )}
         </Card>
 
+        {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only. The single Richmond section. */}
+        {proniActive && (
+          <Card className="p-6 border-2">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">
+              📚 Libro Richmond <span className="font-normal text-text-secondary">(opcional)</span>
+            </h3>
+            <p className="text-xs text-text-secondary mb-4">
+              Elige la unidad y lecciones; su vocabulario y modelos de lenguaje se usan al generar.
+            </p>
+            <UnitSelector onChange={setRichmondSelection} onResolved={setRichmondContent} />
+            <div className="mt-4 pt-4 border-t border-border">
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                Páginas a trabajar{' '}
+                <span className="font-normal text-text-secondary">(opcional)</span>
+              </label>
+              <p className="mb-2 text-xs text-text-secondary">
+                Uno o varios rangos separados por comas, sin “pp.” — ej. 10-15, 21-24, 30
+              </p>
+              {planType === 'quincena' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Semana 1</label>
+                    <Input
+                      value={richmondBookPages.week1}
+                      onChange={(e) =>
+                        setRichmondBookPages((p) => ({ ...p, week1: e.target.value }))
+                      }
+                      placeholder="10-15, 21-24, 30"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Semana 2</label>
+                    <Input
+                      value={richmondBookPages.week2}
+                      onChange={(e) =>
+                        setRichmondBookPages((p) => ({ ...p, week2: e.target.value }))
+                      }
+                      placeholder="16-20, 28"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Input
+                  value={richmondBookPages.week1}
+                  onChange={(e) => setRichmondBookPages((p) => ({ ...p, week1: e.target.value }))}
+                  placeholder="10-15, 21-24, 30"
+                  className="h-9 text-sm"
+                />
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* El proyecto — name + description together, then value & number */}
         <Card className="p-6 border-2">
           <h3 className="text-sm font-semibold text-text-primary mb-1">El proyecto</h3>
@@ -665,58 +720,6 @@ export default function NuevaPlaneacionPage() {
               value={observationCalendar}
               onChange={setObservationCalendar}
             />
-          </Card>
-        )}
-
-        {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only. The single Richmond section. */}
-        {proniActive && (
-          <Card className="p-6 border-2">
-            <h3 className="text-sm font-semibold text-text-primary mb-1">
-              📚 Libro Richmond <span className="font-normal text-text-secondary">(opcional)</span>
-            </h3>
-            <p className="text-xs text-text-secondary mb-4">
-              Elige la unidad y lecciones; su vocabulario y modelos de lenguaje se usan al generar.
-            </p>
-            <UnitSelector onChange={setRichmondSelection} onResolved={setRichmondContent} />
-            <div className="mt-4 pt-4 border-t border-border">
-              <label className="block text-sm font-medium text-text-primary mb-2">
-                Páginas a trabajar{' '}
-                <span className="font-normal text-text-secondary">(opcional)</span>
-              </label>
-              {planType === 'quincena' ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-text-secondary mb-1">Semana 1</label>
-                    <Input
-                      value={richmondBookPages.week1}
-                      onChange={(e) =>
-                        setRichmondBookPages((p) => ({ ...p, week1: e.target.value }))
-                      }
-                      placeholder="pp. 10-15"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-text-secondary mb-1">Semana 2</label>
-                    <Input
-                      value={richmondBookPages.week2}
-                      onChange={(e) =>
-                        setRichmondBookPages((p) => ({ ...p, week2: e.target.value }))
-                      }
-                      placeholder="pp. 16-20"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <Input
-                  value={richmondBookPages.week1}
-                  onChange={(e) => setRichmondBookPages((p) => ({ ...p, week1: e.target.value }))}
-                  placeholder="pp. 10-20"
-                  className="h-9 text-sm"
-                />
-              )}
-            </div>
           </Card>
         )}
 
