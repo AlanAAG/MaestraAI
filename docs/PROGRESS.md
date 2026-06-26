@@ -223,8 +223,8 @@ The compounding system on top of the RAG: **generate → she edits → correctio
 ## Deployment
 
 - Vercel auto-deploys on push to main
-- All migrations applied through 042; **044 + 045 + 046 + 047 + 048 + 049 pending push by Alan** (Docker unavailable locally). 049 = add `teachers.teaching_style` + `teachers.profile_notes` (Mi Perfil personalization; GET/PATCH degrade gracefully until pushed). 048 = add `teachers.parent_email_template jsonb` (parent-email template editor; until pushed, notifications still send using the built-in default template). 046 = drop dead students.special_needs_encrypted; 047 = drop students.display_name (names now encrypted-only). After pushing, regen types: `supabase gen types typescript --linked > lib/database.types.ts`
-- After pushing migrations: run `supabase gen types typescript --linked > lib/database.types.ts` (it is stale — missing fortnight_packs, richmond_interactive_content, parent_contacts, teacher_plan_templates + several columns), and hit `/api/cron/backfill-diary` once with the CRON_SECRET bearer to encrypt pre-existing diary rows
+- **All migrations applied through 057** (including 056 richmond_units tables + 057 TG5A seed content)
+- After pushing migrations: run `supabase gen types typescript --linked > lib/database.types.ts` (may be stale), and hit `/api/cron/backfill-diary` once with the CRON_SECRET bearer to encrypt pre-existing diary rows
 - `NEXT_PUBLIC_SUPPORT_EMAIL` — optional, defaults to soporte@maestraia.com on verify-email page
 - Upstash Redis, CSRF_SECRET, RESEND_API_KEY, ENCRYPTION_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY set in Vercel env
 - Production domain: maestraia.com / maestraai.mx
