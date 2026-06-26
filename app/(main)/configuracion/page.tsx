@@ -9,10 +9,9 @@ import { GroupList } from '@/components/settings/GroupList'
 import { GroupEditor } from '@/components/settings/GroupEditor'
 import { StudentRoster } from '@/components/settings/StudentRoster'
 import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
-import { X, ExternalLink, CheckCircle2, Clock } from 'lucide-react'
+import { X, ExternalLink, CheckCircle2, Clock, Loader2, AlertCircle } from 'lucide-react'
 import { RichmondExtensionGuide } from '@/components/app/RichmondExtensionGuide'
 import { getEditorialConfig } from '@/lib/editorial/registry'
-import { progressToast } from '@/lib/ui/progress-toast'
 
 // Replace with the real Chrome Web Store URL after the extension is approved.
 // Format: https://chromewebstore.google.com/detail/maestraai-richmond-sync/[extension-id]
@@ -55,7 +54,14 @@ export default function ConfiguracionPage() {
   const [showAddTemplate, setShowAddTemplate] = useState(false)
   const [newTemplateLabel, setNewTemplateLabel] = useState('')
   const [newTemplatePlanType, setNewTemplatePlanType] = useState<'quincena' | 'taller'>('quincena')
-  const [addingTemplate, setAddingTemplate] = useState<'idle' | 'analyzing' | 'saved'>('idle')
+  // Honest upload status shown INLINE in the upload box (spinner → success → failure).
+  const [uploadStatus, setUploadStatus] = useState<
+    | { phase: 'idle' }
+    | { phase: 'uploading'; msg: string }
+    | { phase: 'success'; msg: string }
+    | { phase: 'error'; msg: string }
+  >({ phase: 'idle' })
+  const uploadMsgTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null)
   const multiTemplateFileRef = useRef<HTMLInputElement>(null)
 
@@ -170,20 +176,35 @@ export default function ConfiguracionPage() {
   async function handleMultiTemplateFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !newTemplateLabel.trim()) return
-    setAddingTemplate('analyzing')
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
       const [header, base64] = dataUrl.split(',')
       const mimeType = header.match(/:(.*?);/)?.[1] ?? file.type
       const isImage = file.type.startsWith('image/')
-      const p = progressToast([
+
+      // Cycle the loading sub-message while the request is genuinely in flight.
+      const MESSAGES = [
         'Leyendo tu formato…',
         'Identificando las secciones…',
         'Capturando tu estilo de redacción…',
-        'Guardando los Procesos de Aprendizaje (PDAs)…',
+        'Detectando reglas de formato y PDAs…',
         'Casi listo, esto puede tardar un poco…',
-      ])
+      ]
+      let mi = 0
+      setUploadStatus({ phase: 'uploading', msg: MESSAGES[0] })
+      if (uploadMsgTimer.current) clearInterval(uploadMsgTimer.current)
+      uploadMsgTimer.current = setInterval(() => {
+        mi = Math.min(mi + 1, MESSAGES.length - 1)
+        setUploadStatus({ phase: 'uploading', msg: MESSAGES[mi] })
+      }, 3500)
+      const stopCycle = () => {
+        if (uploadMsgTimer.current) {
+          clearInterval(uploadMsgTimer.current)
+          uploadMsgTimer.current = null
+        }
+      }
+
       try {
         const body = isImage
           ? {
@@ -198,7 +219,7 @@ export default function ConfiguracionPage() {
               documentBase64: base64,
               documentMimeType: mimeType,
             }
-        // Hard client timeout so the toast can never spin forever if the response is lost.
+        // Hard client timeout so the spinner can never spin forever if the response is lost.
         const ac = new AbortController()
         const timer = setTimeout(() => ac.abort(), 125_000)
         const res = await fetch('/api/teachers/templates', {
@@ -211,12 +232,18 @@ export default function ConfiguracionPage() {
         if (!res.ok) throw new Error((await res.json()).error)
         const { template_record: template } = await res.json()
         setMultiTemplates((prev) => [template, ...prev])
-        setAddingTemplate('saved')
-        setShowAddTemplate(false)
         setNewTemplateLabel('')
-        p.success('Formato guardado ✨')
-        setTimeout(() => setAddingTemplate('idle'), 2000)
+        stopCycle()
+        setUploadStatus({
+          phase: 'success',
+          msg: '¡Formato guardado! Generaré tus planeaciones siguiendo este estilo.',
+        })
+        setTimeout(() => {
+          setShowAddTemplate(false)
+          setUploadStatus({ phase: 'idle' })
+        }, 2500)
       } catch (err) {
+        stopCycle()
         // On timeout/lost response the extraction may still have saved — refetch to recover it.
         if (err instanceof DOMException && err.name === 'AbortError') {
           try {
@@ -225,11 +252,16 @@ export default function ConfiguracionPage() {
           } catch {
             /* ignore */
           }
-          p.error('Tardó más de lo normal. Revisa la lista — puede que ya se haya guardado.')
+          setUploadStatus({
+            phase: 'error',
+            msg: 'Tardó más de lo normal. Revisa la lista — puede que ya se haya guardado.',
+          })
         } else {
-          p.error(err instanceof Error ? err.message : 'No pude analizar el archivo.')
+          setUploadStatus({
+            phase: 'error',
+            msg: err instanceof Error ? err.message : 'No pude analizar el archivo.',
+          })
         }
-        setAddingTemplate('idle')
       }
     }
     reader.readAsDataURL(file)
@@ -541,10 +573,10 @@ export default function ConfiguracionPage() {
                 type="button"
                 variant="outline"
                 className="min-h-[40px] text-sm"
-                disabled={!newTemplateLabel.trim() || addingTemplate === 'analyzing'}
+                disabled={!newTemplateLabel.trim() || uploadStatus.phase === 'uploading'}
                 onClick={() => multiTemplateFileRef.current?.click()}
               >
-                {addingTemplate === 'analyzing'
+                {uploadStatus.phase === 'uploading'
                   ? 'Analizando...'
                   : 'Subir archivo (.docx, PDF o foto)'}
               </Button>
@@ -552,7 +584,11 @@ export default function ConfiguracionPage() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowAddTemplate(false)}
+                disabled={uploadStatus.phase === 'uploading'}
+                onClick={() => {
+                  setShowAddTemplate(false)
+                  setUploadStatus({ phase: 'idle' })
+                }}
               >
                 Cancelar
               </Button>
@@ -564,9 +600,41 @@ export default function ConfiguracionPage() {
               className="hidden"
               onChange={handleMultiTemplateFile}
             />
-            <p className="text-xs text-text-secondary">
-              Se recomienda .docx — es el formato más fácil de leer para la IA.
-            </p>
+
+            {/* Inline status — honest states, in the same box, with color contrast */}
+            {uploadStatus.phase === 'idle' ? (
+              <p className="text-xs text-text-secondary">
+                Se recomienda .docx — es el formato más fácil de leer para la IA.
+              </p>
+            ) : (
+              <div
+                className={`flex items-start gap-3 rounded-lg border p-3 ${
+                  uploadStatus.phase === 'uploading'
+                    ? 'border-indigo-200 bg-indigo-50 text-indigo-900'
+                    : uploadStatus.phase === 'success'
+                      ? 'border-green-200 bg-green-50 text-green-800'
+                      : 'border-red-200 bg-red-50 text-red-800'
+                }`}
+              >
+                {uploadStatus.phase === 'uploading' ? (
+                  <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin" />
+                ) : uploadStatus.phase === 'success' ? (
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                ) : (
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">
+                    {uploadStatus.phase === 'uploading'
+                      ? 'Analizando tu formato…'
+                      : uploadStatus.phase === 'success'
+                        ? '¡Listo!'
+                        : 'No se pudo'}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed">{uploadStatus.msg}</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
