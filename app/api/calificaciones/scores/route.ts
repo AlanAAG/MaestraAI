@@ -50,13 +50,6 @@ export async function GET(req: NextRequest) {
   if (assignments.length === 0) return NextResponse.json({ groups, assignments: [], students: [] })
 
   const assignmentIds = assignments.map((a) => a.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scoreData } = await (supabase as any)
-    .from('richmond_scores')
-    .select(
-      'assignment_id, student_id, richmond_student_id, first_name_encrypted, last_name_encrypted, done, total_score'
-    )
-    .in('assignment_id', assignmentIds)
 
   type Row = {
     assignment_id: string
@@ -67,7 +60,26 @@ export async function GET(req: NextRequest) {
     done: boolean
     total_score: number | null
   }
-  const rows = (scoreData ?? []) as Row[]
+
+  // Supabase caps a single response at 1000 rows. In the "Ambos grupos" view the score rows
+  // for all groups easily exceed that, so the later groups (e.g. Group B) were truncated and
+  // showed "Sin datos individuales". Page through with .range() until every row is fetched.
+  const rows: Row[] = []
+  const PAGE = 1000
+  for (let from = 0; ; from += PAGE) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: page, error } = await (supabase as any)
+      .from('richmond_scores')
+      .select(
+        'assignment_id, student_id, richmond_student_id, first_name_encrypted, last_name_encrypted, done, total_score'
+      )
+      .in('assignment_id', assignmentIds)
+      .order('assignment_id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error || !page?.length) break
+    rows.push(...(page as Row[]))
+    if (page.length < PAGE) break
+  }
 
   // Stable per-student key: prefer the linked students.id; fall back to richmond_student_id
   // (only matters for legacy rows synced before student linking).
