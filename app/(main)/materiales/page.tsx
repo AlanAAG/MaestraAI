@@ -129,7 +129,9 @@ export default function MaterialesPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase as any)
         .from('materials')
-        .select('id, type, created_at, lesson_plan_id, fortnight_id')
+        // The column is generated_at; alias it to created_at so the rest of the page is unchanged.
+        // (Selecting a non-existent created_at returned PostgREST 42703 → 400 → empty list.)
+        .select('id, type, created_at:generated_at, lesson_plan_id, fortnight_id')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .eq('teacher_id', (teacher as any).id)
         .order('generated_at', { ascending: false })
