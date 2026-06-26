@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { DownloadMenu } from '@/components/ui/download-menu'
 import { FileType, Link2 } from 'lucide-react'
@@ -608,25 +609,57 @@ export default function PlaneacionDetailPage() {
           {/* Plan document view */}
           {fortnight.plan_document && (activeTab === 'document' || lessonPlans.length === 0) && (
             <>
-              {learnedNote && (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-text-secondary print:hidden">
-                  <span>
-                    ✨ Esta planeación aprendió de{' '}
-                    <strong className="text-text-primary">
-                      {learnedNote.from} planeación{learnedNote.from === 1 ? '' : 'es'} tuya
-                      {learnedNote.from === 1 ? '' : 's'}
-                    </strong>
-                    {learnedNote.prefs ? ' y de tus preferencias' : ''}.
-                  </span>
-                  <button
-                    onClick={() => setLearnedNote(null)}
-                    className="text-text-disabled hover:text-text-primary"
-                    aria-label="Cerrar"
+              <AnimatePresence>
+                {learnedNote && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                    className="relative overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 print:hidden"
                   >
-                    <X size={15} />
-                  </button>
-                </div>
-              )}
+                    {/* subtle moving shimmer */}
+                    <motion.div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                      initial={{ x: '-120%' }}
+                      animate={{ x: '320%' }}
+                      transition={{ duration: 1.8, ease: 'easeInOut', delay: 0.2 }}
+                    />
+                    <button
+                      onClick={() => setLearnedNote(null)}
+                      className="absolute right-2 top-2 text-text-disabled hover:text-text-primary"
+                      aria-label="Cerrar"
+                    >
+                      <X size={15} />
+                    </button>
+                    <div className="flex items-start gap-3">
+                      <motion.div
+                        initial={{ rotate: -20, scale: 0.6 }}
+                        animate={{ rotate: 0, scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.1 }}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
+                      >
+                        <Sparkles size={18} />
+                      </motion.div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-text-primary">
+                          MaestraIA aprendió de ti ✨
+                        </p>
+                        <p className="mt-0.5 text-sm text-text-secondary">
+                          Esta planeación se escribió usando{' '}
+                          <strong className="text-text-primary">
+                            {learnedNote.from} planeación{learnedNote.from === 1 ? '' : 'es'} tuya
+                            {learnedNote.from === 1 ? '' : 's'}
+                          </strong>
+                          {learnedNote.prefs ? ' y tus preferencias aprendidas' : ''}. Mientras más
+                          creas, más se parece a tu estilo.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div className="flex justify-end">
                 <Button
                   variant="outline"
