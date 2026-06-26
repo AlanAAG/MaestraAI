@@ -142,7 +142,8 @@ export default function MaterialDetailPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from('materials' as any)
       .select(
-        'id, type, content, vocabulary, created_at, lesson_plan_id, lesson_plans(day_number), fortnights(project_name)'
+        // Column is generated_at; alias to created_at (selecting created_at 400s → "no encontrado").
+        'id, type, content, vocabulary, created_at:generated_at, lesson_plan_id, lesson_plans(day_number), fortnights(project_name)'
       )
       .eq('id', id)
       .single()

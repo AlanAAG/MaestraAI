@@ -17,10 +17,30 @@ import {
   Trash2,
   Plus,
   X,
+  CheckCircle2,
+  Circle,
+  Share2,
+  CheckSquare,
 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+
+// material type → school resource_type (mirrors the detail page's share-to-school mapping).
+const RESOURCE_TYPE_MAP: Record<string, string> = {
+  flashcards: 'flashcard',
+  memory_game: 'game',
+  bingo: 'game',
+  matching: 'game',
+  picture_word_match: 'game',
+  sorting_game: 'game',
+  word_search: 'worksheet',
+  song_worksheet: 'worksheet',
+  letter_recognition: 'worksheet',
+  worksheets: 'worksheet',
+  worksheet: 'worksheet',
+}
 
 type Material = {
   id: string
@@ -96,6 +116,9 @@ export default function MaterialesPage() {
   const router = useRouter()
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [batchBusy, setBatchBusy] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [allVocab, setAllVocab] = useState<{ id: string; word: string }[]>([])
   const [selectedVocab, setSelectedVocab] = useState<string[]>([])
@@ -180,6 +203,64 @@ export default function MaterialesPage() {
     if (res.ok) setMaterials((prev) => prev.filter((m) => m.id !== id))
   }
 
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelected(new Set())
+  }
+
+  async function handleBatchDelete() {
+    const ids = Array.from(selected)
+    if (ids.length === 0 || !confirm(`¿Eliminar ${ids.length} material(es)?`)) return
+    setBatchBusy(true)
+    const results = await Promise.allSettled(
+      ids.map((id) => fetch(`/api/materials/${id}`, { method: 'DELETE' }))
+    )
+    const okIds = ids.filter(
+      (_, i) =>
+        results[i].status === 'fulfilled' &&
+        (results[i] as PromiseFulfilledResult<Response>).value.ok
+    )
+    setMaterials((prev) => prev.filter((m) => !okIds.includes(m.id)))
+    setBatchBusy(false)
+    exitSelectMode()
+    if (okIds.length < ids.length) toast.error(`No pude eliminar ${ids.length - okIds.length}`)
+    else toast.success(`${okIds.length} eliminado(s)`)
+  }
+
+  async function handleBatchShare() {
+    const sel = materials.filter((m) => selected.has(m.id))
+    if (sel.length === 0) return
+    setBatchBusy(true)
+    const results = await Promise.allSettled(
+      sel.map((m) =>
+        fetch('/api/school/resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: TYPE_LABELS[m.type] ?? m.type,
+            file_url: `${window.location.origin}/materiales/${m.id}`,
+            resource_type: RESOURCE_TYPE_MAP[m.type] ?? 'other',
+          }),
+        })
+      )
+    )
+    const ok = results.filter(
+      (r) => r.status === 'fulfilled' && (r as PromiseFulfilledResult<Response>).value.ok
+    ).length
+    setBatchBusy(false)
+    exitSelectMode()
+    if (ok === sel.length) toast.success(`${ok} compartido(s) con la escuela`)
+    else toast.error(`Compartí ${ok} de ${sel.length}`)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -198,14 +279,30 @@ export default function MaterialesPage() {
           <h1 className="text-2xl font-semibold text-gray-900">Mis Materiales</h1>
           <p className="text-sm text-gray-600 mt-1">Todos los materiales que has creado</p>
         </div>
-        <Button
-          onClick={() => setShowCreate((v) => !v)}
-          variant={showCreate ? 'outline' : 'default'}
-          className="min-h-[44px]"
-        >
-          {showCreate ? <X size={16} className="mr-2" /> : <Plus size={16} className="mr-2" />}
-          {showCreate ? 'Cancelar' : 'Crear material'}
-        </Button>
+        <div className="flex gap-2">
+          {materials.length > 0 && (
+            <Button
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              variant="outline"
+              className="min-h-[44px]"
+            >
+              {selectMode ? (
+                <X size={16} className="mr-2" />
+              ) : (
+                <CheckSquare size={16} className="mr-2" />
+              )}
+              {selectMode ? 'Cancelar' : 'Seleccionar'}
+            </Button>
+          )}
+          <Button
+            onClick={() => setShowCreate((v) => !v)}
+            variant={showCreate ? 'outline' : 'default'}
+            className="min-h-[44px]"
+          >
+            {showCreate ? <X size={16} className="mr-2" /> : <Plus size={16} className="mr-2" />}
+            {showCreate ? 'Cancelar' : 'Crear material'}
+          </Button>
+        </div>
       </div>
 
       {showCreate && (
@@ -333,20 +430,43 @@ export default function MaterialesPage() {
                   const colorClass =
                     TYPE_COLORS[m.type] ?? 'bg-gray-50 text-gray-700 border-gray-200'
                   const label = TYPE_LABELS[m.type] ?? m.type
-                  return (
+                  const isSel = selected.has(m.id)
+                  const body = (
+                    <Card
+                      className={`p-4 border transition-shadow ${colorClass} ${
+                        selectMode ? '' : 'cursor-pointer hover:shadow-md'
+                      } ${isSel ? 'ring-2 ring-primary' : ''}`}
+                    >
+                      <Icon className="h-6 w-6 mb-2" />
+                      <p className="text-sm font-semibold">{label}</p>
+                      <p className="text-xs opacity-70 mt-0.5">
+                        {new Date(m.created_at).toLocaleTimeString('es-MX', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </Card>
+                  )
+                  // Select mode: clicking toggles selection. Normal mode: navigate to detail.
+                  return selectMode ? (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => toggleSelect(m.id)}
+                      className="relative text-left"
+                    >
+                      <span className="absolute top-1.5 left-1.5 z-10">
+                        {isSel ? (
+                          <CheckCircle2 size={18} className="text-primary fill-white" />
+                        ) : (
+                          <Circle size={18} className="text-gray-400" />
+                        )}
+                      </span>
+                      {body}
+                    </button>
+                  ) : (
                     <Link key={m.id} href={`/materiales/${m.id}`} className="relative group">
-                      <Card
-                        className={`p-4 border cursor-pointer hover:shadow-md transition-shadow ${colorClass}`}
-                      >
-                        <Icon className="h-6 w-6 mb-2" />
-                        <p className="text-sm font-semibold">{label}</p>
-                        <p className="text-xs opacity-70 mt-0.5">
-                          {new Date(m.created_at).toLocaleTimeString('es-MX', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </Card>
+                      {body}
                       <button
                         onClick={(e) => handleDelete(e, m.id)}
                         className="absolute top-1.5 right-1.5 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-red-50 text-gray-400 hover:text-red-600"
@@ -360,6 +480,40 @@ export default function MaterialesPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Batch action bar — appears while selecting */}
+      {selectMode && selected.size > 0 && (
+        <div className="sticky bottom-4 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-3 shadow-lg">
+          <span className="text-sm font-medium text-text-primary">
+            {selected.size} seleccionado{selected.size === 1 ? '' : 's'}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelected(new Set(materials.map((m) => m.id)))}
+          >
+            Seleccionar todo
+          </Button>
+          <div className="flex-1" />
+          <Button variant="outline" size="sm" disabled={batchBusy} onClick={handleBatchShare}>
+            <Share2 size={15} className="mr-1.5" /> Compartir
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={batchBusy}
+            onClick={handleBatchDelete}
+            className="text-red-600 hover:text-red-700"
+          >
+            {batchBusy ? (
+              <Loader2 size={15} className="mr-1.5 animate-spin" />
+            ) : (
+              <Trash2 size={15} className="mr-1.5" />
+            )}{' '}
+            Eliminar
+          </Button>
         </div>
       )}
     </div>
