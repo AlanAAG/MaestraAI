@@ -103,11 +103,11 @@ function DocSection({
 }: {
   title: string
   children: React.ReactNode
-  editValue?: string
+  editValue?: unknown
   onSave?: (v: string) => Promise<void>
 }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(editValue ?? '')
+  const [draft, setDraft] = useState(toText(editValue))
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -129,7 +129,7 @@ function DocSection({
           <button
             type="button"
             onClick={() => {
-              setDraft(editValue ?? '')
+              setDraft(toText(editValue))
               setEditing(true)
             }}
             className="flex items-center gap-1 text-[0.75em] text-primary hover:underline print:hidden py-1 px-2 -my-1 -mr-2 rounded hover:bg-primary/5"
@@ -174,10 +174,21 @@ function DocSection({
   )
 }
 
-function MdContent({ text }: { text: string }) {
+// Section values are usually markdown strings, but generation occasionally emits an array (or
+// object). ReactMarkdown renders nothing for a non-string, so the section looked empty while the
+// edit textarea coerced it to comma-joined text. Coerce here (and for the editor draft) so both agree.
+function toText(v: unknown): string {
+  if (typeof v === 'string') return v
+  if (v == null) return ''
+  if (Array.isArray(v))
+    return v.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join('\n\n')
+  return JSON.stringify(v, null, 2)
+}
+
+function MdContent({ text }: { text: unknown }) {
   return (
     <div className="prose prose-sm max-w-none text-gray-800 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900">
-      <ReactMarkdown>{text}</ReactMarkdown>
+      <ReactMarkdown>{toText(text)}</ReactMarkdown>
     </div>
   )
 }
