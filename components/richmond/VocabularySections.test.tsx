@@ -15,29 +15,23 @@ const richmond: SelectedRichmondContent = {
 
 describe('VocabularySections', () => {
   it('renders BOTH sections when richmond content is present', () => {
-    render(
-      <VocabularySections
-        richmondContent={richmond}
-        allVocab={[{ id: '1', word: 'sun', letter: 'S' }]}
-        selectedVocab={[]}
-        onToggle={() => {}}
-      />
-    )
+    render(<VocabularySections richmondContent={richmond} letters={['S']} teacherWords={['sun']} />)
     expect(screen.getByTestId('richmond-vocab-section')).toBeInTheDocument()
     expect(screen.getByTestId('teacher-vocab-section')).toBeInTheDocument()
     expect(screen.getByText('Monday')).toBeInTheDocument()
   })
 
-  it('renders ONLY the teacher section when there is no richmond content', () => {
-    render(
-      <VocabularySections
-        richmondContent={null}
-        allVocab={[{ id: '1', word: 'sun', letter: 'S' }]}
-        selectedVocab={[]}
-        onToggle={() => {}}
-      />
-    )
+  it('shows the teacher words derived from the quincena letters', () => {
+    render(<VocabularySections richmondContent={null} letters={['S']} teacherWords={['sun']} />)
     expect(screen.queryByTestId('richmond-vocab-section')).not.toBeInTheDocument()
     expect(screen.getByTestId('teacher-vocab-section')).toBeInTheDocument()
+    expect(screen.getByText('sun')).toBeInTheDocument()
+  })
+
+  it('renders nothing when there is no richmond content and no letters chosen', () => {
+    const { container } = render(
+      <VocabularySections richmondContent={null} letters={[]} teacherWords={[]} />
+    )
+    expect(container).toBeEmptyDOMElement()
   })
 })

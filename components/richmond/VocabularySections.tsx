@@ -1,23 +1,20 @@
-import { X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
 
-type VocabWord = { id: string; word: string; letter: string }
-
 // Two clearly-separated vocabulary sources: read-only Richmond (book) vocab + the teacher's own.
+// The teacher's words are NOT hand-picked — they're derived from the quincena's letters
+// (Letra semana 1 + 2): every word of hers for those letters is included automatically.
 export function VocabularySections({
   richmondContent,
-  allVocab,
-  selectedVocab,
-  onToggle,
+  letters,
+  teacherWords,
 }: {
   richmondContent: SelectedRichmondContent | null
-  allVocab: VocabWord[]
-  selectedVocab: string[]
-  onToggle: (word: string) => void
+  letters: string[]
+  teacherWords: string[]
 }) {
   const hasRichmond = !!richmondContent && richmondContent.vocabulary.length > 0
-  if (!hasRichmond && allVocab.length === 0) return null
+  if (!hasRichmond && letters.length === 0) return null
 
   return (
     <Card className="space-y-5 border-2 p-6">
@@ -49,41 +46,40 @@ export function VocabularySections({
         </div>
       )}
 
-      {/* Section B — teacher's own (editable) */}
+      {/* Section B — teacher's own words, derived from the quincena's letters (read-only) */}
       <div data-testid="teacher-vocab-section">
-        <h4 className="mb-2 text-sm font-medium text-text-primary">✏️ Vocabulario de la maestra</h4>
-        {allVocab.length > 0 ? (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <h4 className="text-sm font-medium text-text-primary">✏️ Vocabulario de la maestra</h4>
+          {letters.length > 0 && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-text-secondary">
+              Letras {letters.join(', ')}
+            </span>
+          )}
+        </div>
+        {letters.length === 0 ? (
+          <p className="text-xs text-text-secondary">
+            Elige las letras de la quincena arriba para incluir tu vocabulario.
+          </p>
+        ) : teacherWords.length > 0 ? (
           <>
             <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">
-              {allVocab.map((v) => {
-                const selected = selectedVocab.includes(v.word)
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => onToggle(v.word)}
-                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                      selected
-                        ? 'border-primary bg-primary text-white'
-                        : 'border-border bg-surface text-text-secondary hover:border-primary'
-                    }`}
-                  >
-                    {selected && <X size={10} className="mr-1 inline" />}
-                    {v.word}
-                  </button>
-                )
-              })}
+              {teacherWords.map((w) => (
+                <span
+                  key={w}
+                  className="rounded-full border border-border bg-primary/10 px-3 py-1 text-sm text-primary"
+                >
+                  {w}
+                </span>
+              ))}
             </div>
-            {selectedVocab.length > 0 && (
-              <p className="mt-2 text-xs text-primary">
-                {selectedVocab.length} palabra{selectedVocab.length !== 1 ? 's' : ''} seleccionada
-                {selectedVocab.length !== 1 ? 's' : ''}
-              </p>
-            )}
+            <p className="mt-1.5 text-xs text-text-disabled">
+              Tus palabras de las letras {letters.join(', ')} · se incluyen automáticamente
+            </p>
           </>
         ) : (
           <p className="text-xs text-text-secondary">
-            Agrega palabras adicionales para esta quincena…
+            No tienes palabras para {letters.join(', ')} en tu vocabulario. Agrégalas en
+            Vocabulario.
           </p>
         )}
       </div>

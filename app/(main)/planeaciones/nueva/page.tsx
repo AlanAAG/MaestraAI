@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -66,7 +66,6 @@ export default function NuevaPlaneacionPage() {
   const [richmondContent, setRichmondContent] = useState<SelectedRichmondContent | null>(null)
   const [observationCalendar, setObservationCalendar] = useState<Record<string, string[]>>({})
   const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter: string }[]>([])
-  const [selectedVocab, setSelectedVocab] = useState<string[]>([])
   const [extraMaterials, setExtraMaterials] = useState<string[]>([])
   const [manualMaterial, setManualMaterial] = useState('')
   // Optional teacher details (general + project-specific) — both feed generation.
@@ -82,6 +81,25 @@ export default function NuevaPlaneacionPage() {
 
   // PRONI (Kinder 3) gates the Richmond unit selector + the read-only Richmond vocabulary section.
   const proniActive = isProniApplicable(groups.find((g) => g.id === selectedGroupId)?.grade ?? '')
+
+  // The teacher's vocabulary for the planeación is NOT hand-picked — it's every one of her words
+  // for the letters she's working this quincena (Letra semana 1 + 2). Letters drive the vocab.
+  const quincenaLetters = useMemo(
+    () =>
+      [formData.letter_week1, formData.letter_week2]
+        .map((l) => l.trim().toUpperCase())
+        .filter(Boolean),
+    [formData.letter_week1, formData.letter_week2]
+  )
+  const letterVocab = useMemo(
+    () =>
+      quincenaLetters.length === 0
+        ? []
+        : allVocab
+            .filter((v) => quincenaLetters.includes((v.letter ?? '').toUpperCase()))
+            .map((v) => v.word),
+    [quincenaLetters, allVocab]
+  )
 
   useEffect(() => {
     loadGroups()
@@ -236,7 +254,7 @@ export default function NuevaPlaneacionPage() {
           ...validated,
           plan_type: planType,
           status: 'draft',
-          vocabulary: selectedVocab.length > 0 ? selectedVocab : null,
+          vocabulary: letterVocab.length > 0 ? letterVocab : null,
           physical_materials: extraMaterials.length > 0 ? extraMaterials : null,
           ...(richmondUnit ? { richmond_unit: richmondUnit } : {}),
           ...(hasBookPages ? { richmond_book_pages: richmondBookPages } : {}),
@@ -645,16 +663,11 @@ export default function NuevaPlaneacionPage() {
           <UnitSelector onChange={setRichmondSelection} onResolved={setRichmondContent} />
         )}
 
-        {/* Vocabulary — two clearly-separated sources (Richmond read-only + teacher's own) */}
+        {/* Vocabulary — Richmond (read-only) + the teacher's words for this quincena's letters */}
         <VocabularySections
           richmondContent={richmondContent}
-          allVocab={allVocab}
-          selectedVocab={selectedVocab}
-          onToggle={(word) =>
-            setSelectedVocab((prev) =>
-              prev.includes(word) ? prev.filter((w) => w !== word) : [...prev, word]
-            )
-          }
+          letters={quincenaLetters}
+          teacherWords={letterVocab}
         />
 
         {/* Extra Materials */}

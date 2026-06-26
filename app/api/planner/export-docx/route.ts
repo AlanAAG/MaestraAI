@@ -527,6 +527,12 @@ export async function POST(req: NextRequest) {
       for (const key of DEFAULT_QUINCENA_ORDER) {
         if (!covered.has(key)) order.push(key)
       }
+      // Mirror the viewer: project description renders first, right under the title.
+      const pIdx = order.indexOf('proyecto')
+      if (pIdx > 0) {
+        order.splice(pIdx, 1)
+        order.unshift('proyecto')
+      }
       for (const key of order) appendSection(key)
     } else {
       // Taller: fixed order (teacher order not yet tracked for taller plans)

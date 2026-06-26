@@ -748,6 +748,14 @@ function QuincenaSections({
     if (!covered.has(key)) order.push(key)
   }
 
+  // The project description belongs immediately below the project title (which is in the
+  // header), so render "proyecto" first regardless of the teacher's stored section order.
+  const pIdx = order.indexOf('proyecto')
+  if (pIdx > 0) {
+    order.splice(pIdx, 1)
+    order.unshift('proyecto')
+  }
+
   const renderKey = (key: string): React.ReactNode => {
     if (key.startsWith('custom:')) {
       const idx = parseInt(key.slice(7), 10)
