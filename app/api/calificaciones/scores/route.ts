@@ -118,5 +118,28 @@ export async function GET(req: NextRequest) {
     `${a.last}${a.first}`.localeCompare(`${b.last}${b.first}`)
   )
 
-  return NextResponse.json({ groups, assignments, students })
+  // Recompute total_submitted from the actual score rows so the header count always
+  // matches what the expanded student list shows. The pre-aggregated field in
+  // richmond_assignments can drift when score rows are updated without re-syncing the aggregate.
+  const submittedByAssignment = new Map<string, number>()
+  const studentsByAssignment = new Map<string, number>()
+  for (const r of rows) {
+    studentsByAssignment.set(r.assignment_id, (studentsByAssignment.get(r.assignment_id) ?? 0) + 1)
+    if (r.done)
+      submittedByAssignment.set(
+        r.assignment_id,
+        (submittedByAssignment.get(r.assignment_id) ?? 0) + 1
+      )
+  }
+  const processedAssignments = assignments.map((a) => {
+    const rowCount = studentsByAssignment.get(a.id) ?? 0
+    return {
+      ...a,
+      // Use computed count if we have score rows; fall back to stored value only when rows are absent.
+      total_submitted: rowCount > 0 ? (submittedByAssignment.get(a.id) ?? 0) : a.total_submitted,
+      total_students: rowCount > 0 ? Math.max(a.total_students, rowCount) : a.total_students,
+    }
+  })
+
+  return NextResponse.json({ groups, assignments: processedAssignments, students })
 }

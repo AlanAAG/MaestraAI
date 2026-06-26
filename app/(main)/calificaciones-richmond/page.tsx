@@ -612,42 +612,55 @@ export default function CalificacionesRichmondPage() {
                             </button>
                           )}
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                          {sortStudents(
+                        {(() => {
+                          const groupStudents = sortStudents(
                             students.filter((s) => s.group_id === a.group_id),
                             (s) => (s.submitted[a.id] ? 1 : 0)
-                          ).map((s) => (
-                            <div
-                              key={s.key}
-                              className="flex items-center justify-between gap-2 text-sm py-1"
-                            >
-                              <button
-                                onClick={() => openStudent(s)}
-                                className="truncate hover:text-primary text-left"
-                              >
-                                {displayName(s)}
-                              </button>
-                              {s.submitted[a.id] ? (
-                                <span className="text-green-700 text-xs font-medium shrink-0">
-                                  ✓ Entregó
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-2 shrink-0">
-                                  {ridFor(s) && (
-                                    <button
-                                      onClick={() => handleNotify(a, s)}
-                                      disabled={sending}
-                                      className="text-primary text-xs hover:underline disabled:opacity-50"
-                                    >
-                                      Notificar
-                                    </button>
+                          )
+                          if (groupStudents.length === 0) {
+                            return (
+                              <p className="text-xs text-text-disabled py-1">
+                                Sin datos individuales para este grupo. Abre Markbook → Scores en
+                                Richmond con la extensión activa para sincronizar.
+                              </p>
+                            )
+                          }
+                          return (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                              {groupStudents.map((s) => (
+                                <div
+                                  key={s.key}
+                                  className="flex items-center justify-between gap-2 text-sm py-1"
+                                >
+                                  <button
+                                    onClick={() => openStudent(s)}
+                                    className="truncate hover:text-primary text-left"
+                                  >
+                                    {displayName(s)}
+                                  </button>
+                                  {s.submitted[a.id] ? (
+                                    <span className="text-green-700 text-xs font-medium shrink-0">
+                                      ✓ Entregó
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-2 shrink-0">
+                                      {ridFor(s) && (
+                                        <button
+                                          onClick={() => handleNotify(a, s)}
+                                          disabled={sending}
+                                          className="text-primary text-xs hover:underline disabled:opacity-50"
+                                        >
+                                          Notificar
+                                        </button>
+                                      )}
+                                      <span className="text-text-disabled text-xs">Pendiente</span>
+                                    </span>
                                   )}
-                                  <span className="text-text-disabled text-xs">Pendiente</span>
-                                </span>
-                              )}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
