@@ -252,7 +252,8 @@ The compounding system on top of the RAG: **generate → she edits → correctio
 ## Deployment
 
 - Vercel auto-deploys on push to main
-- **Schema applied through 058** (per Alan); **migration 059 (`fortnights.grade`) pending push** — per-grade planeaciones need it (creation degrades gracefully until then via best-effort update)
+- **Schema applied through 058** (per Alan); **migrations 059 (`fortnights.grade`) + 060 (template school-sharing) pending push** — per-grade planeaciones + format sharing need them (both degrade gracefully until pushed)
+- **Format sharing (migration 060)**: teachers can share their own formats with their school (others use read-only); admins mark official "Formato de la escuela". RLS adds a school-shared SELECT policy on `teacher_plan_templates` (`school_id` + `shared_with_school` + `is_school_official` columns); API GET returns own+shared, PATCH toggles share/official (official admin-only), generation prefers own formats then official/shared. Requires pushing migration 060.
 - Richmond TG5A catalog content (migration 057) loaded via SQL editor by Alan
 - After pushing migrations: run `supabase gen types typescript --linked > lib/database.types.ts` (may be stale), and hit `/api/cron/backfill-diary` once with the CRON_SECRET bearer to encrypt pre-existing diary rows
 - `NEXT_PUBLIC_SUPPORT_EMAIL` — optional, defaults to soporte@maestraia.com on verify-email page

@@ -511,18 +511,27 @@ export async function POST(req: NextRequest) {
         `Planeación anterior (#${prev.number}): proyecto "${prevProj}", valor del mes "${prev.monthly_value}".`
     }
 
-    // Load teacher templates for this plan type. Use the newest for STRUCTURE (sections/blocks),
-    // but merge the "VOZ DE LA MAESTRA" examples across ALL same-type templates for a richer
-    // few-shot voice (more samples = better fidelity), capped + deduped.
+    // Load templates for this plan type — the teacher's OWN plus any shared with their school
+    // (RLS returns both; no teacher_id filter). Prefer her own for STRUCTURE (own-first), and merge
+    // the "VOZ DE LA MAESTRA" examples across all same-type templates for richer voice. A teacher
+    // with no own format inherits the school's shared/official one.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: templates } = await (supabase as any)
       .from('teacher_plan_templates')
-      .select('template')
-      .eq('teacher_id', teacherId)
+      .select('template, teacher_id, is_school_official, created_at')
       .eq('plan_type', planType)
       .order('created_at', { ascending: false })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = (templates ?? []).map((t: any) => t.template).filter(Boolean) as TeacherProfile[]
+    const rows = ((templates ?? []) as any[])
+      // Own formats first, then official school formats, then the rest.
+      .sort(
+        (a, b) =>
+          Number(b.teacher_id === teacherId) - Number(a.teacher_id === teacherId) ||
+          Number(!!b.is_school_official) - Number(!!a.is_school_official) ||
+          (a.created_at < b.created_at ? 1 : -1)
+      )
+      .map((t) => t.template)
+      .filter(Boolean) as TeacherProfile[]
     // If the teacher chose "Diseño de MaestraIA" for this plan, ignore their uploaded format.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const useSystem = (fn as any).use_system_template === true

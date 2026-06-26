@@ -12,6 +12,7 @@ import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
 import { X, ExternalLink, CheckCircle2, Clock, Loader2, AlertCircle } from 'lucide-react'
 import { RichmondExtensionGuide } from '@/components/app/RichmondExtensionGuide'
 import { getEditorialConfig } from '@/lib/editorial/registry'
+import { toast } from 'sonner'
 
 // Replace with the real Chrome Web Store URL after the extension is approved.
 // Format: https://chromewebstore.google.com/detail/maestraai-richmond-sync/[extension-id]
@@ -62,6 +63,7 @@ export default function ConfiguracionPage() {
     | { phase: 'error'; msg: string }
   >({ phase: 'idle' })
   const uploadMsgTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null)
   const multiTemplateFileRef = useRef<HTMLInputElement>(null)
 
@@ -143,10 +145,13 @@ export default function ConfiguracionPage() {
           .order('created_at', { ascending: false })
         setApiKeys(keysData || [])
 
-        // Load multi-templates
+        // Load multi-templates (own + shared with the school)
         fetch('/api/teachers/templates')
           .then((r) => r.json())
-          .then((d) => setMultiTemplates(d.templates ?? []))
+          .then((d) => {
+            setMultiTemplates(d.templates ?? [])
+            setIsAdmin(!!d.is_admin)
+          })
           .catch(() => {})
       }
     } catch (err) {
@@ -231,7 +236,10 @@ export default function ConfiguracionPage() {
         clearTimeout(timer)
         if (!res.ok) throw new Error((await res.json()).error)
         const { template_record: template } = await res.json()
-        setMultiTemplates((prev) => [template, ...prev])
+        setMultiTemplates((prev) => [
+          { ...template, is_owner: true, shared_with_school: false, is_school_official: false },
+          ...prev,
+        ])
         setNewTemplateLabel('')
         stopCycle()
         setUploadStatus({
@@ -276,6 +284,28 @@ export default function ConfiguracionPage() {
     } finally {
       setDeletingTemplateId(null)
     }
+  }
+
+  async function patchTemplate(
+    id: string,
+    patch: { shared_with_school?: boolean; is_school_official?: boolean }
+  ) {
+    const res = await fetch('/api/teachers/templates', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...patch }),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || 'No se pudo actualizar')
+      return
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setMultiTemplates((prev: any[]) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+    if (patch.shared_with_school !== undefined)
+      toast.success(patch.shared_with_school ? 'Compartido con tu escuela' : 'Dejó de compartirse')
+    if (patch.is_school_official !== undefined)
+      toast.success(patch.is_school_official ? 'Marcado como formato oficial' : 'Ya no es oficial')
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -518,26 +548,79 @@ export default function ConfiguracionPage() {
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {/* ponytail: filter(Boolean) guards against a malformed upload response */}
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {multiTemplates.filter(Boolean).map((t: any) => (
-              <div
-                key={t.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"
-              >
-                <div>
-                  <p className="text-sm font-medium text-green-800">{t.label}</p>
-                  <p className="text-xs text-green-600">
-                    {t.plan_type === 'taller' ? 'Taller' : 'Quincena'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleDeleteTemplate(t.id)}
-                  disabled={deletingTemplateId === t.id}
-                  className="text-xs text-green-600 hover:text-red-500 cursor-pointer disabled:opacity-50"
+            {multiTemplates.filter(Boolean).map((t: any) => {
+              const isOwner = t.is_owner !== false // older responses lack the flag → treat as own
+              return (
+                <div
+                  key={t.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border ${
+                    isOwner ? 'bg-green-50 border-green-200' : 'bg-indigo-50 border-indigo-200'
+                  }`}
                 >
-                  {deletingTemplateId === t.id ? '...' : 'Eliminar'}
-                </button>
-              </div>
-            ))}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p
+                        className={`text-sm font-medium ${isOwner ? 'text-green-800' : 'text-indigo-900'}`}
+                      >
+                        {t.label}
+                      </p>
+                      {t.is_school_official && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[0.65rem] font-semibold text-amber-800">
+                          Formato de la escuela
+                        </span>
+                      )}
+                      {isOwner && t.shared_with_school && !t.is_school_official && (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[0.65rem] font-semibold text-green-700">
+                          Compartido
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-xs ${isOwner ? 'text-green-600' : 'text-indigo-600'}`}>
+                      {t.plan_type === 'taller' ? 'Taller' : 'Quincena'}
+                      {!isOwner && t.owner_name ? ` · de ${t.owner_name}` : ''}
+                    </p>
+                  </div>
+
+                  {isOwner ? (
+                    <div className="flex items-center gap-3">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-green-700">
+                        <input
+                          type="checkbox"
+                          checked={!!t.shared_with_school}
+                          onChange={(e) =>
+                            patchTemplate(t.id, { shared_with_school: e.target.checked })
+                          }
+                          className="h-3.5 w-3.5"
+                        />
+                        Compartir con escuela
+                      </label>
+                      {isAdmin && t.shared_with_school && (
+                        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
+                          <input
+                            type="checkbox"
+                            checked={!!t.is_school_official}
+                            onChange={(e) =>
+                              patchTemplate(t.id, { is_school_official: e.target.checked })
+                            }
+                            className="h-3.5 w-3.5"
+                          />
+                          Oficial
+                        </label>
+                      )}
+                      <button
+                        onClick={() => handleDeleteTemplate(t.id)}
+                        disabled={deletingTemplateId === t.id}
+                        className="text-xs text-green-600 hover:text-red-500 cursor-pointer disabled:opacity-50"
+                      >
+                        {deletingTemplateId === t.id ? '...' : 'Eliminar'}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-indigo-500">Solo lectura</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
