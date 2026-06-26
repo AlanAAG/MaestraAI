@@ -99,7 +99,20 @@ if (document.readyState === 'loading') {
 
 // --- Group mappings ---
 
+// Returns false when the extension was reloaded/updated while this tab was open.
+// In that state all chrome.runtime calls throw — the only recovery is a page reload.
+function isContextValid() {
+  try { return !!chrome.runtime?.id } catch { return false }
+}
+
+let loadRetryTimer = null
+
 async function loadGroupMappings() {
+  if (!isContextValid()) {
+    setBadge('amber', '⚠ MaestraAI · Recarga la página')
+    console.warn('[MaestraAI] Extension context invalidated — reload the page to re-activate')
+    return
+  }
   try {
     const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
 
@@ -112,22 +125,34 @@ async function loadGroupMappings() {
     // Route through background service worker — content scripts are subject to CORS,
     // the service worker bypasses it for URLs in host_permissions.
     const result = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.warn('[MaestraAI] Service worker inactive:', chrome.runtime.lastError.message)
-          resolve({ ok: false, error: 'service_worker_inactive' })
-        } else {
-          resolve(response)
-        }
-      })
+      try {
+        chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[MaestraAI] Service worker inactive:', chrome.runtime.lastError.message)
+            resolve({ ok: false, error: 'service_worker_inactive' })
+          } else {
+            resolve(response)
+          }
+        })
+      } catch (err) {
+        resolve({ ok: false, error: err.message })
+      }
     })
 
     if (!result?.ok) {
       console.error('[MaestraAI] Failed to load groups:', result?.statusCode, result?.error)
-      setBadge('red', 'MaestraAI · Error de conexión')
+      if (result?.error === 'service_worker_inactive') {
+        // MV3 service worker was killed by Chrome — it wakes on next message, retry shortly.
+        setBadge('amber', 'MaestraAI · Reintentando...')
+        clearTimeout(loadRetryTimer)
+        loadRetryTimer = setTimeout(loadGroupMappings, 3000)
+      } else {
+        setBadge('red', 'MaestraAI · Error de conexión')
+      }
       return
     }
 
+    clearTimeout(loadRetryTimer)
     GROUP_UUID_MAP = result.data.groupMap || {}
     isInitialized = true
 
@@ -147,8 +172,14 @@ async function loadGroupMappings() {
       })
     }
   } catch (error) {
-    console.error('[MaestraAI] Failed to load group mappings:', error)
-    setBadge('red', 'MaestraAI · Error')
+    const msg = String(error)
+    if (msg.includes('context invalidated') || msg.includes('Extension context')) {
+      setBadge('amber', '⚠ MaestraAI · Recarga la página')
+      console.warn('[MaestraAI] Extension context invalidated:', error)
+    } else {
+      console.error('[MaestraAI] Failed to load group mappings:', error)
+      setBadge('red', 'MaestraAI · Error')
+    }
   }
 }
 
@@ -159,8 +190,24 @@ function sendToBackground(groupSlug, data) {
     return
   }
   if (!Array.isArray(data) || data.length === 0) return
+  if (!isContextValid()) {
+    setBadge('amber', '⚠ MaestraAI · Recarga la página')
+    console.warn('[MaestraAI] Extension context invalidated — reload the page to re-activate')
+    return
+  }
   setBadge('gray', 'MaestraAI · Sincronizando...')
-  chrome.runtime.sendMessage({ type: 'ASSIGNMENT_SCORES_INTERCEPTED', groupId, groupSlug, data })
+  try {
+    chrome.runtime.sendMessage({ type: 'ASSIGNMENT_SCORES_INTERCEPTED', groupId, groupSlug, data })
+  } catch (err) {
+    const msg = String(err)
+    if (msg.includes('context invalidated') || msg.includes('Extension context')) {
+      setBadge('amber', '⚠ MaestraAI · Recarga la página')
+      console.warn('[MaestraAI] Extension context invalidated — reload the page to re-activate')
+    } else {
+      setBadge('red', 'MaestraAI · Error al enviar datos')
+      console.error('[MaestraAI] sendMessage failed:', err)
+    }
+  }
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
