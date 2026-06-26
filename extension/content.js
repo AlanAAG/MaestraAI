@@ -48,11 +48,22 @@ function ensureBadge() {
   return badge
 }
 
+// The Richmond group slug for the page currently open, or null when not on a course page.
+function currentSlug() {
+  const m = window.location.pathname.match(/\/courses\/([^/]+)\//)
+  return m ? m[1] : null
+}
+
 // Single source of truth for the resting badge state, so every code path agrees.
+// Green requires that THIS page's group is linked — not merely that some group is.
+// (A green badge while viewing an unlinked group was why data dropped silently.)
 function idleBadge() {
-  return Object.keys(GROUP_UUID_MAP).length > 0
-    ? { state: 'green', text: 'MaestraAI ✓' }
-    : { state: 'amber', text: '⚠ MaestraAI sin vincular' }
+  const slug = currentSlug()
+  const total = Object.keys(GROUP_UUID_MAP).length
+  if (total === 0) return { state: 'amber', text: '⚠ MaestraAI sin vincular' }
+  if (slug && !GROUP_UUID_MAP[slug])
+    return { state: 'amber', text: '⚠ Este grupo no está vinculado → clic en el ícono ↗' }
+  return { state: 'green', text: 'MaestraAI ✓' }
 }
 
 const BADGE_STYLES = {
@@ -156,14 +167,11 @@ async function loadGroupMappings() {
     GROUP_UUID_MAP = result.data.groupMap || {}
     isInitialized = true
 
-    const mappedCount = Object.keys(GROUP_UUID_MAP).length
-    const onCoursePage = /\/courses\/[^/]+\//.test(window.location.pathname)
-    if (mappedCount === 0) {
-      // Pulsing amber CTA — clicking the extension icon is the next action.
-      setBadge('amber', onCoursePage ? '⚠ Vincula este grupo → clic en el ícono ↗' : '⚠ MaestraAI sin vincular')
-      console.warn('[MaestraAI] Connected but no groups mapped — open the extension popup to link this class.')
-    } else {
-      setBadge('green', 'MaestraAI ✓')
+    // Resting badge: green only if THIS page's group is linked, amber otherwise.
+    const idle = idleBadge()
+    setBadge(idle.state, idle.text)
+    if (idle.state === 'amber') {
+      console.warn('[MaestraAI]', idle.text, '— current slug:', currentSlug(), 'known:', Object.keys(GROUP_UUID_MAP))
     }
 
     if (pendingPayloads.length > 0) {
@@ -186,7 +194,9 @@ async function loadGroupMappings() {
 function sendToBackground(groupSlug, data) {
   const groupId = GROUP_UUID_MAP[groupSlug]
   if (!groupId) {
-    console.warn('[MaestraAI] No mapping for Richmond slug:', groupSlug, '— known slugs:', Object.keys(GROUP_UUID_MAP))
+    // Data arrived for a group that was never linked — surface it instead of dropping silently.
+    setBadge('amber', '⚠ Grupo no vinculado → clic en el ícono ↗')
+    console.warn('[MaestraAI] No mapping for Richmond slug:', groupSlug, '— known slugs:', Object.keys(GROUP_UUID_MAP), '→ link this group in the popup.')
     return
   }
   if (!Array.isArray(data) || data.length === 0) return
