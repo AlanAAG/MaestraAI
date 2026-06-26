@@ -190,6 +190,43 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): { cont
     )
   if (p?.notes) parts.push(`ESTILO Y TONO DE LA MAESTRA: ${p.notes}`)
 
+  // Formatting rules detected in her document — placed LAST so they sit closest to the output
+  // schema (highest attention). Every rule traces back to something extracted, never hardcoded.
+  const fr = p?.formatting_rules
+  if (fr) {
+    const lines = [
+      fr.bullet_label_bold === true
+        ? '• En actividades_iniciales y actividades_rutina: cada viñeta DEBE empezar con "**Nombre:** descripción" (etiqueta en negritas + dos puntos).'
+        : fr.bullet_label_bold === false
+          ? '• Actividades: texto plano sin negritas en la etiqueta.'
+          : '',
+      fr.estrategia_comunitaria_format === 'numbered_steps'
+        ? '• estrategia_comunitaria: usa pasos numerados (1. 2. 3...), NO viñetas ni párrafos.'
+        : fr.estrategia_comunitaria_format === 'paragraphs'
+          ? '• estrategia_comunitaria: redacta en párrafos, no en lista.'
+          : '',
+      fr.ejes_articuladores_format === 'bold_label_paragraph'
+        ? '• ejes_articuladores: cada eje como "• **Nombre del eje:** párrafo de 2-3 oraciones."'
+        : '',
+      fr.proyecto_subheadings?.length
+        ? `• proyecto: usa EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${fr.proyecto_subheadings.map((s) => `   **${s}**`).join('\n')}`
+        : '',
+      fr.ajustes_subheadings?.length
+        ? `• ajustes_razonables: usa estos sub-encabezados con "## " en este orden:\n${fr.ajustes_subheadings.map((s) => `   ## ${s}`).join('\n')}`
+        : '',
+      fr.section_title_case === 'ALL_CAPS'
+        ? '• Títulos de sección en MAYÚSCULAS.'
+        : fr.section_title_case === 'Title Case'
+          ? '• Títulos de sección en Mayúscula Inicial.'
+          : '',
+    ].filter(Boolean)
+    if (lines.length) {
+      parts.push(
+        `<formatting_rules>\nREGLAS DE FORMATO DETECTADAS EN EL DOCUMENTO DE ESTA MAESTRA — SÍGUELAS EXACTAMENTE:\n${lines.join('\n')}\n</formatting_rules>`
+      )
+    }
+  }
+
   return { context: parts.filter(Boolean).join('\n\n') }
 }
 
@@ -620,6 +657,10 @@ export async function POST(req: NextRequest) {
           if (sectionOrder.length) {
             planDocument._section_order = sectionOrder
             planDocument._section_titles = sectionTitles
+          }
+          // Embed the detected formatting rules so the DOCX exporter can mirror them.
+          if (profile?.formatting_rules) {
+            planDocument._formatting_rules = profile.formatting_rules
           }
 
           // Quincena: auto-generate the Letter & Number + Números sub-plans inline so the

@@ -45,6 +45,15 @@ const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quir�
     "special_programs": ["PRONI", "Fichero de la Paz"],
     "valor_del_mes_format": "VALOR DEL MES GRATITUD"
   },
+  "formatting_rules": {
+    "bullet_label_bold": true,
+    "section_title_case": "ALL_CAPS",
+    "estrategia_comunitaria_format": "numbered_steps",
+    "ejes_articuladores_format": "bold_label_paragraph",
+    "proyecto_subheadings": ["Punto de Partida", "Planeación", "A trabajar", "Comunicamos Nuestros Logros", "Reflexión sobre el aprendizaje"],
+    "ajustes_subheadings": ["Ubicación del Aula", "Ajustes en los Tiempos", "Consignas Accesibles y Claras"],
+    "section_separator": "line"
+  },
   "verb_person": "primera_singular",
   "notes": "tono y estilo en máx 200 chars"
 }
@@ -57,6 +66,13 @@ REGLAS CRÍTICAS:
 - sections: TODOS los encabezados en orden exacto, con la ortografía del documento
 - subplan_inventory: lista CADA sub-planeación que contiene el documento (Proyecto, Centros de Interés, Talleres, ABJ, etc.) con su metodología, su nombre/título y sus secciones internas. Es CLAVE para reproducir la misma estructura.
 - verb_person: detecta si la maestra escribe en primera persona singular, plural, o infinitivo
+- formatting_rules: detecta los PATRONES DE FORMATO reales del documento (no inventes, observa):
+  · bullet_label_bold: true si las viñetas usan etiqueta en negritas ("**Clima:** texto"), false si es texto plano ("Clima: texto")
+  · section_title_case: "ALL_CAPS" | "Title Case" | "Sentence case" según cómo escribe los títulos de sección
+  · estrategia_comunitaria_format: "numbered_steps" si usa pasos numerados (1. 2. 3.), "paragraphs" si son párrafos
+  · ejes_articuladores_format: "bold_label_paragraph" si cada eje es "**Nombre:** párrafo", "plain" si no
+  · proyecto_subheadings / ajustes_subheadings: los sub-encabezados EXACTOS y EN ORDEN de esas secciones (omite si no existen)
+  · section_separator: "line" si hay una línea/borde entre secciones, "space" si solo espacio, "none" si nada
 - Si una sección no existe en el documento, omite ese campo (NO inventes)
 - PRIVACIDAD (LFPDPPP): NUNCA copies nombres propios de alumnos. Si un fragmento contiene el nombre de un alumno, sustitúyelo por "Alumno". No extraigas datos personales de menores.`
 

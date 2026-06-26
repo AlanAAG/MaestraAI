@@ -31,6 +31,18 @@ export type TeacherProfile = {
     valor_del_mes_format?: string
   }
 
+  // Formatting signals detected in the uploaded doc — drive generation markdown + Word rendering
+  // so the output matches the teacher's format (bold labels, numbered steps, sub-headings, etc.).
+  formatting_rules?: {
+    bullet_label_bold?: boolean
+    section_title_case?: 'ALL_CAPS' | 'Title Case' | 'Sentence case'
+    estrategia_comunitaria_format?: 'numbered_steps' | 'paragraphs'
+    ejes_articuladores_format?: 'bold_label_paragraph' | 'plain'
+    proyecto_subheadings?: string[]
+    ajustes_subheadings?: string[]
+    section_separator?: 'line' | 'none' | 'space'
+  }
+
   verb_person?: 'primera_singular' | 'primera_plural' | 'infinitivo'
   notes?: string
 

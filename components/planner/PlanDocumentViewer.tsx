@@ -723,7 +723,9 @@ const DEFAULT_TITLES: Record<string, string> = {
 }
 
 // ponytail: intentionally re-declared to avoid client-bundle shipping section-map (server util)
+// Default (no uploaded template): project description first. Template plans use _section_order.
 const DEFAULT_QUINCENA_ORDER = [
+  'proyecto',
   'actividades_iniciales',
   'actividades_rutina',
   'aventura_lectora',
@@ -733,7 +735,6 @@ const DEFAULT_QUINCENA_ORDER = [
   'cronograma',
   'ejes_articuladores',
   'campos_formativos',
-  'proyecto',
   'evaluacion_items',
 ]
 
@@ -758,14 +759,8 @@ function QuincenaSections({
   for (const key of DEFAULT_QUINCENA_ORDER) {
     if (!covered.has(key)) order.push(key)
   }
-
-  // The project description belongs immediately below the project title (which is in the
-  // header), so render "proyecto" first regardless of the teacher's stored section order.
-  const pIdx = order.indexOf('proyecto')
-  if (pIdx > 0) {
-    order.splice(pIdx, 1)
-    order.unshift('proyecto')
-  }
+  // Order + titles flow entirely from the teacher's extracted profile (_section_order). No
+  // hardcoded reorder — DEFAULT_QUINCENA_ORDER (proyecto first) applies only with no template.
 
   const renderKey = (key: string): React.ReactNode => {
     if (key.startsWith('custom:')) {

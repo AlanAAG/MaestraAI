@@ -76,6 +76,15 @@ type PlanDocument = {
   sub_planes?: SubPlan[]
   _section_order?: string[]
   _section_titles?: Record<string, string>
+  _formatting_rules?: { section_separator?: 'line' | 'none' | 'space' }
+}
+
+// A thin horizontal rule between sections (when the teacher's format uses one).
+function sectionSeparator(color: string): Paragraph {
+  return new Paragraph({
+    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color, space: 1 } },
+    spacing: { after: 120 },
+  })
 }
 
 // Convert a simple markdown string to docx Paragraph array (handles bullets, bold, blank lines)
@@ -145,7 +154,10 @@ const DEFAULT_SECTION_TITLES: Record<string, string> = {
   desarrollo_taller: 'Desarrollo del Taller',
 }
 
+// Default (no uploaded template): project description first, so it sits just under the title.
+// Teachers WITH a template get their own extracted order via _section_order instead.
 const DEFAULT_QUINCENA_ORDER = [
+  'proyecto',
   'actividades_iniciales',
   'actividades_rutina',
   'aventura_lectora',
@@ -155,7 +167,6 @@ const DEFAULT_QUINCENA_ORDER = [
   'cronograma',
   'ejes_articuladores',
   'campos_formativos',
-  'proyecto',
   'evaluacion_items',
 ]
 
@@ -542,13 +553,13 @@ export async function POST(req: NextRequest) {
       for (const key of DEFAULT_QUINCENA_ORDER) {
         if (!covered.has(key)) order.push(key)
       }
-      // Mirror the viewer: project description renders first, right under the title.
-      const pIdx = order.indexOf('proyecto')
-      if (pIdx > 0) {
-        order.splice(pIdx, 1)
-        order.unshift('proyecto')
+      // Order + titles come entirely from the teacher's extracted profile (_section_order). No
+      // hardcoded reordering — DEFAULT_QUINCENA_ORDER (proyecto first) only applies with no template.
+      const sep = pd._formatting_rules?.section_separator
+      for (const key of order) {
+        appendSection(key)
+        if (sep === 'line') children.push(sectionSeparator(borderHex))
       }
-      for (const key of order) appendSection(key)
     } else {
       // Taller: fixed order (teacher order not yet tracked for taller plans)
       for (const key of [
