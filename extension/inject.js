@@ -19,8 +19,8 @@
     if (DEBUG || window.__MAESTRAAI_DEBUG) {
       const sample = Array.isArray(payload) ? payload[0] : payload
       const firstStudents = sample && (sample.students || sample.scores || sample.student_scores)
-      console.log('[MaestraAI] Assignment keys:', sample ? Object.keys(sample) : 'none')
-      console.log('[MaestraAI] First student object:', JSON.stringify(firstStudents && firstStudents[0]))
+      console.log('[MaestraIA] Assignment keys:', sample ? Object.keys(sample) : 'none')
+      console.log('[MaestraIA] First student object:', JSON.stringify(firstStudents && firstStudents[0]))
     }
     // Same-origin postMessage; content.js validates origin + the source tag.
     window.postMessage({ source: 'maestraai-richmond', payload, path: location.pathname }, location.origin)

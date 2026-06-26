@@ -1,6 +1,6 @@
-# MaestraAI Sync - Chrome Extension
+# MaestraIA Sync - Chrome Extension
 
-Extensión de Chrome que intercepta automáticamente las calificaciones del LMS y las sincroniza con MaestraAI.
+Extensión de Chrome que intercepta automáticamente las calificaciones del LMS y las sincroniza con MaestraIA.
 
 ## Instalación
 
@@ -12,7 +12,7 @@ Extensión de Chrome que intercepta automáticamente las calificaciones del LMS 
 ## Configuración
 
 1. Click en el ícono de la extensión en la barra de herramientas
-2. Ingresa tu token de sync (proporcionado por MaestraAI)
+2. Ingresa tu token de sync (proporcionado por MaestraIA)
 3. Click en "Guardar Configuración"
 
 El token apunta siempre a producción (`https://www.maestraia.com`). Para desarrollo,
@@ -33,7 +33,7 @@ sobreescribe `apiUrl` manualmente en `chrome.storage.sync`.
 - **background.js**: envía los datos a `/api/richmond/ingest` con autenticación Bearer.
 - **popup.js**: UI para configurar el token y ver el último sync.
 
-El mapeo de grupos (slug de Richmond → grupo de MaestraAI) se obtiene dinámicamente desde
+El mapeo de grupos (slug de Richmond → grupo de MaestraIA) se obtiene dinámicamente desde
 `/api/richmond/groups` — no hay UUIDs hardcodeados.
 
 ## Iconos

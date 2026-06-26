@@ -79,7 +79,7 @@ function buildMappingUI(classCode, unmappedGroups, apiUrl, onMapped) {
 
   const label = document.createElement('p')
   label.className = 'setup-step'
-  label.textContent = '¿A qué grupo de MaestraAI corresponde esta clase?'
+  label.textContent = '¿A qué grupo de MaestraIA corresponde esta clase?'
   div.appendChild(label)
 
   const select = document.createElement('select')
@@ -242,8 +242,8 @@ async function testConnection(apiKey, apiUrl) {
     // On an unmapped Richmond course → one-tap picker
     nodes.push(buildMappingUI(classCode, unmappedGroups, apiUrl, () => testConnection(apiKey, apiUrl)))
   } else if (classCode && mappedGroups === 0) {
-    // On a Richmond course but teacher has no MaestraAI groups yet
-    nodes.push(statusRow('Crea un grupo en MaestraAI primero', null, { labelColor: '#f59e0b' }))
+    // On a Richmond course but teacher has no MaestraIA groups yet
+    nodes.push(statusRow('Crea un grupo en MaestraIA primero', null, { labelColor: '#f59e0b' }))
   } else if (classCode) {
     // On a Richmond course, not mapped, but all groups already linked elsewhere
     nodes.push(statusRow('Esta clase no coincide con tus grupos', null, { labelColor: '#f59e0b' }))

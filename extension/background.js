@@ -1,4 +1,4 @@
-// background.js - Service worker for MaestraAI extension
+// background.js - Service worker for MaestraIA extension
 // All fetch() calls live here — the service worker bypasses CORS for host_permissions URLs.
 // popup.js and content.js never fetch directly; they send messages to this worker instead.
 
@@ -62,7 +62,7 @@ async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
   try {
     const { apiKey } = await chrome.storage.sync.get('apiKey')
     if (!apiKey) {
-      console.error('[MaestraAI] No API key configured')
+      console.error('[MaestraIA] No API key configured')
       return
     }
     const targetUrl = await getApiUrl()
@@ -93,12 +93,12 @@ async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icon128.png',
-        title: 'MaestraAI Sync',
+        title: 'MaestraIA Sync',
         message: `${groupSlug}: ${assignmentCount} actividades, ${scoreCount} alumnos sincronizados`,
       })
     } else {
       const errorText = await response.text().catch(() => response.status.toString())
-      console.error('[MaestraAI] Sync failed:', response.status, errorText)
+      console.error('[MaestraIA] Sync failed:', response.status, errorText)
 
       chrome.action.setBadgeText({ text: '!' })
       chrome.action.setBadgeBackgroundColor({ color: '#ef4444' })
@@ -112,7 +112,7 @@ async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
       })
     }
   } catch (error) {
-    console.error('[MaestraAI] Sync error:', error)
+    console.error('[MaestraIA] Sync error:', error)
 
     chrome.action.setBadgeText({ text: '!' })
     chrome.action.setBadgeBackgroundColor({ color: '#ef4444' })

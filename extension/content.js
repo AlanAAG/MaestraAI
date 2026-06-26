@@ -1,5 +1,5 @@
 // content.js - Intercepts Richmond markbook XHRs and forwards them to the
-// background service worker, which posts them to the MaestraAI ingest API.
+// background service worker, which posts them to the MaestraIA ingest API.
 
 let GROUP_UUID_MAP = {}
 let isInitialized = false
@@ -60,10 +60,10 @@ function currentSlug() {
 function idleBadge() {
   const slug = currentSlug()
   const total = Object.keys(GROUP_UUID_MAP).length
-  if (total === 0) return { state: 'amber', text: '⚠ MaestraAI sin vincular' }
+  if (total === 0) return { state: 'amber', text: '⚠ MaestraIA sin vincular' }
   if (slug && !GROUP_UUID_MAP[slug])
     return { state: 'amber', text: '⚠ Este grupo no está vinculado → clic en el ícono ↗' }
-  return { state: 'green', text: 'MaestraAI ✓' }
+  return { state: 'green', text: 'MaestraIA ✓' }
 }
 
 const BADGE_STYLES = {
@@ -103,9 +103,9 @@ function setBadgeTemp(state, text, thenState, thenText, ms = 3000) {
 
 // Show gray badge as soon as DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => setBadge('gray', 'MaestraAI'))
+  document.addEventListener('DOMContentLoaded', () => setBadge('gray', 'MaestraIA'))
 } else {
-  setBadge('gray', 'MaestraAI')
+  setBadge('gray', 'MaestraIA')
 }
 
 // --- Group mappings ---
@@ -120,16 +120,16 @@ let loadRetryTimer = null
 
 async function loadGroupMappings() {
   if (!isContextValid()) {
-    setBadge('amber', '⚠ MaestraAI · Recarga la página')
-    console.warn('[MaestraAI] Extension context invalidated — reload the page to re-activate')
+    setBadge('amber', '⚠ MaestraIA · Recarga la página')
+    console.warn('[MaestraIA] Extension context invalidated — reload the page to re-activate')
     return
   }
   try {
     const { apiKey, apiUrl } = await chrome.storage.sync.get(['apiKey', 'apiUrl'])
 
     if (!apiKey) {
-      console.warn('[MaestraAI] API key not configured')
-      setBadge('amber', 'MaestraAI · Sin clave API')
+      console.warn('[MaestraIA] API key not configured')
+      setBadge('amber', 'MaestraIA · Sin clave API')
       return
     }
 
@@ -139,7 +139,7 @@ async function loadGroupMappings() {
       try {
         chrome.runtime.sendMessage({ type: 'FETCH_GROUPS', apiKey, apiUrl }, (response) => {
           if (chrome.runtime.lastError) {
-            console.warn('[MaestraAI] Service worker inactive:', chrome.runtime.lastError.message)
+            console.warn('[MaestraIA] Service worker inactive:', chrome.runtime.lastError.message)
             resolve({ ok: false, error: 'service_worker_inactive' })
           } else {
             resolve(response)
@@ -151,14 +151,14 @@ async function loadGroupMappings() {
     })
 
     if (!result?.ok) {
-      console.error('[MaestraAI] Failed to load groups:', result?.statusCode, result?.error)
+      console.error('[MaestraIA] Failed to load groups:', result?.statusCode, result?.error)
       if (result?.error === 'service_worker_inactive') {
         // MV3 service worker was killed by Chrome — it wakes on next message, retry shortly.
-        setBadge('amber', 'MaestraAI · Reintentando...')
+        setBadge('amber', 'MaestraIA · Reintentando...')
         clearTimeout(loadRetryTimer)
         loadRetryTimer = setTimeout(loadGroupMappings, 3000)
       } else {
-        setBadge('red', 'MaestraAI · Error de conexión')
+        setBadge('red', 'MaestraIA · Error de conexión')
       }
       return
     }
@@ -171,7 +171,7 @@ async function loadGroupMappings() {
     const idle = idleBadge()
     setBadge(idle.state, idle.text)
     if (idle.state === 'amber') {
-      console.warn('[MaestraAI]', idle.text, '— current slug:', currentSlug(), 'known:', Object.keys(GROUP_UUID_MAP))
+      console.warn('[MaestraIA]', idle.text, '— current slug:', currentSlug(), 'known:', Object.keys(GROUP_UUID_MAP))
     }
 
     if (pendingPayloads.length > 0) {
@@ -182,11 +182,11 @@ async function loadGroupMappings() {
   } catch (error) {
     const msg = String(error)
     if (msg.includes('context invalidated') || msg.includes('Extension context')) {
-      setBadge('amber', '⚠ MaestraAI · Recarga la página')
-      console.warn('[MaestraAI] Extension context invalidated:', error)
+      setBadge('amber', '⚠ MaestraIA · Recarga la página')
+      console.warn('[MaestraIA] Extension context invalidated:', error)
     } else {
-      console.error('[MaestraAI] Failed to load group mappings:', error)
-      setBadge('red', 'MaestraAI · Error')
+      console.error('[MaestraIA] Failed to load group mappings:', error)
+      setBadge('red', 'MaestraIA · Error')
     }
   }
 }
@@ -196,33 +196,33 @@ function sendToBackground(groupSlug, data) {
   if (!groupId) {
     // Data arrived for a group that was never linked — surface it instead of dropping silently.
     setBadge('amber', '⚠ Grupo no vinculado → clic en el ícono ↗')
-    console.warn('[MaestraAI] No mapping for Richmond slug:', groupSlug, '— known slugs:', Object.keys(GROUP_UUID_MAP), '→ link this group in the popup.')
+    console.warn('[MaestraIA] No mapping for Richmond slug:', groupSlug, '— known slugs:', Object.keys(GROUP_UUID_MAP), '→ link this group in the popup.')
     return
   }
   if (!Array.isArray(data) || data.length === 0) return
   if (!isContextValid()) {
-    setBadge('amber', '⚠ MaestraAI · Recarga la página')
-    console.warn('[MaestraAI] Extension context invalidated — reload the page to re-activate')
+    setBadge('amber', '⚠ MaestraIA · Recarga la página')
+    console.warn('[MaestraIA] Extension context invalidated — reload the page to re-activate')
     return
   }
-  setBadge('gray', 'MaestraAI · Sincronizando...')
+  setBadge('gray', 'MaestraIA · Sincronizando...')
   try {
     chrome.runtime.sendMessage({ type: 'ASSIGNMENT_SCORES_INTERCEPTED', groupId, groupSlug, data })
   } catch (err) {
     const msg = String(err)
     if (msg.includes('context invalidated') || msg.includes('Extension context')) {
-      setBadge('amber', '⚠ MaestraAI · Recarga la página')
-      console.warn('[MaestraAI] Extension context invalidated — reload the page to re-activate')
+      setBadge('amber', '⚠ MaestraIA · Recarga la página')
+      console.warn('[MaestraIA] Extension context invalidated — reload the page to re-activate')
     } else {
-      setBadge('red', 'MaestraAI · Error al enviar datos')
-      console.error('[MaestraAI] sendMessage failed:', err)
+      setBadge('red', 'MaestraIA · Error al enviar datos')
+      console.error('[MaestraIA] sendMessage failed:', err)
     }
   }
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && (changes.apiKey || changes.apiUrl)) {
-    console.log('[MaestraAI] Config changed, reloading group mappings...')
+    console.log('[MaestraIA] Config changed, reloading group mappings...')
     isInitialized = false
     loadGroupMappings()
   }
@@ -235,11 +235,11 @@ chrome.runtime.onMessage.addListener((message) => {
   } else if (message.type === 'SYNC_STATUS') {
     const idle = idleBadge()
     if (message.status === 'ok') {
-      const label = message.count != null ? `MaestraAI ✓ ${message.count} registros` : 'MaestraAI ✓ Sincronizado'
+      const label = message.count != null ? `MaestraIA ✓ ${message.count} registros` : 'MaestraIA ✓ Sincronizado'
       setBadgeTemp('green', label, idle.state, idle.text)
     } else {
       // Reset to the real resting state (green/amber), not an unconditional green.
-      setBadgeTemp('red', 'MaestraAI · Error al sincronizar', idle.state, idle.text)
+      setBadgeTemp('red', 'MaestraIA · Error al sincronizar', idle.state, idle.text)
     }
   }
 })
