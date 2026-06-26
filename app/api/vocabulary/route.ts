@@ -3,59 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit } from '@/lib/audit'
-import { VOCAB_COLORS } from '@/lib/vocabulary/parse'
-
-async function seedRichmondVocabulary(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  teacherId: string
-): Promise<{ groups: number; items: number; error?: string }> {
-  try {
-    const { data: groups, error: groupsErr } = await supabase
-      .from('richmond_lesson_groups')
-      .select('vocabulary')
-    if (groupsErr) return { groups: 0, items: 0, error: groupsErr.message }
-    if (!groups?.length) return { groups: 0, items: 0 }
-
-    const seen = new Set<string>()
-    const items: { word: string; letter: string; color: string; teacher_id: string }[] = []
-    let ci = 0
-
-    for (const g of groups) {
-      for (const raw of (g.vocabulary as string[]) ?? []) {
-        const word = raw.trim().toLowerCase()
-        if (!word || word.length > 50) continue
-        const letter = word[0].toUpperCase()
-        if (!/[A-Z]/.test(letter)) continue
-        const key = `${letter}:${word}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        items.push({
-          word,
-          letter,
-          color: VOCAB_COLORS[ci++ % VOCAB_COLORS.length],
-          teacher_id: teacherId,
-        })
-      }
-    }
-
-    if (items.length) {
-      const { error: upsertErr } = await supabase
-        .from('vocabulary_items')
-        .upsert(items, { onConflict: 'letter,word,teacher_id', ignoreDuplicates: true })
-      if (upsertErr) return { groups: groups.length, items: 0, error: upsertErr.message }
-      await supabase
-        .from('teachers')
-        .update({ richmond_vocab_seeded_at: new Date().toISOString() })
-        .eq('id', teacherId)
-    }
-    return { groups: groups.length, items: items.length }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('Richmond vocab seed error:', msg)
-    return { groups: 0, items: 0, error: msg }
-  }
-}
+// Richmond book vocabulary is NOT merged into the letter-organized word bank — it's shown
+// separately on /vocabulario grouped by unit/lesson (read live from richmond_lesson_groups).
+// Only the teacher's own words live in vocabulary_items (by letter).
 
 const VocabularyCreateSchema = z.object({
   word: z.string().min(1).max(50),
@@ -98,16 +48,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
-    // Auto-seed Richmond book vocabulary on every load — upsert is ignoreDuplicates so idempotent.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let seedInfo: { groups: number; items: number; error?: string } | null = null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((teacher as any).editorial === 'richmond') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      seedInfo = await seedRichmondVocabulary(supabase as any, teacher.id)
-    }
-
-    // Each teacher owns their vocabulary — seeded from system words on signup
+    // Each teacher owns their vocabulary (their own words, by letter). Richmond book vocabulary
+    // is shown separately by unit/lesson — not merged here.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: vocabulary } = await (supabase as any)
       .from('vocabulary_items')
@@ -116,7 +58,7 @@ export async function GET() {
       .order('letter', { ascending: true })
       .order('word', { ascending: true })
 
-    return NextResponse.json({ vocabulary: vocabulary || [], _seed: seedInfo })
+    return NextResponse.json({ vocabulary: vocabulary || [], editorial: teacher.editorial ?? null })
   } catch (error) {
     console.error('Vocabulary GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

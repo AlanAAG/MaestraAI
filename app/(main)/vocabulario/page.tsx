@@ -33,9 +33,17 @@ type ExtractedItem = {
   color: string
 }
 
+type RichmondUnitCatalog = {
+  id: string
+  unit_number: number
+  unit_title: string
+  groups: { id: string; lesson_range: string; sort_order: number; vocabulary: string[] }[]
+}
+
 export default function VocabularioPage() {
   const router = useRouter()
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
+  const [richmondCatalog, setRichmondCatalog] = useState<RichmondUnitCatalog[]>([])
   const [wordUsageMap, setWordUsageMap] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'list' | 'add' | 'bulk' | 'extract'>('list')
@@ -129,6 +137,39 @@ export default function VocabularioPage() {
       const vocabData = await vocabResp.json()
       if (vocabData.vocabulary) {
         setVocabulary(vocabData.vocabulary)
+      }
+
+      // Richmond teachers also see the book catalog vocabulary, grouped by unit/lesson
+      // (read-only, public-read RLS — never merged into the letter bank).
+      if (vocabData.editorial === 'richmond') {
+        type Row = {
+          id: string
+          unit_number: number
+          unit_title: string
+          richmond_lesson_groups: RichmondUnitCatalog['groups'] | null
+        }
+        // richmond_* tables aren't in the generated DB types; cast through the codebase's pattern.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (supabase as any)
+          .from('richmond_units')
+          .select(
+            'id, unit_number, unit_title, richmond_lesson_groups(id, lesson_range, sort_order, vocabulary)'
+          )
+          .eq('book_code', 'TG5A')
+          .order('unit_number', { ascending: true })
+        const units = data as Row[] | null
+        if (Array.isArray(units)) {
+          setRichmondCatalog(
+            units.map((u) => ({
+              id: u.id,
+              unit_number: u.unit_number,
+              unit_title: u.unit_title,
+              groups: [...(u.richmond_lesson_groups ?? [])].sort(
+                (a, b) => a.sort_order - b.sort_order
+              ),
+            }))
+          )
+        }
       }
 
       // Build word → plan count map
@@ -647,6 +688,55 @@ export default function VocabularioPage() {
         {/* Vocabulary List */}
         {mode === 'list' && (
           <div className="space-y-6">
+            {/* Richmond book vocabulary — by unit/lesson, read-only reference catalog */}
+            {richmondCatalog.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-text-primary">📚 Vocabulario Richmond</h2>
+                  <span className="text-xs text-text-secondary">
+                    Del libro · organizado por unidad y lección
+                  </span>
+                </div>
+                {richmondCatalog
+                  .filter((u) => u.groups.some((g) => g.vocabulary?.length))
+                  .map((u) => (
+                    <Card key={u.id} className="p-6 border-l-4 border-l-primary">
+                      <h3 className="text-base font-bold text-text-primary mb-3">
+                        Unidad {u.unit_number}: {u.unit_title}
+                      </h3>
+                      <div className="space-y-3">
+                        {u.groups
+                          .filter((g) => g.vocabulary?.length)
+                          .map((g) => (
+                            <div key={g.id}>
+                              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+                                Lecciones {g.lesson_range}
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {g.vocabulary.map((w, i) => (
+                                  <span
+                                    key={`${g.id}-${i}`}
+                                    className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-sm"
+                                  >
+                                    {w}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </Card>
+                  ))}
+              </div>
+            )}
+
+            {/* Teacher's own vocabulary — by letter */}
+            {richmondCatalog.length > 0 && vocabulary.length > 0 && (
+              <h2 className="text-lg font-bold text-text-primary pt-2">
+                ✏️ Mi vocabulario{' '}
+                <span className="text-xs font-normal text-text-secondary">· por letra</span>
+              </h2>
+            )}
             {Object.keys(groupedVocabulary)
               .sort()
               .map((letter) => {
