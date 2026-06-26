@@ -224,13 +224,18 @@ function buildQuincenaPrompt(
     ? `CALENDARIO DE OBSERVACIÓN:\n${['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map((d) => `${d}: ${(obsCal[d] ?? []).join(', ') || '(ninguno)'}`).join('\n')}`
     : ''
 
+  // Book pages to cover, per week (new shape). Older plans used student_book/activity_book/assessment.
   const bookPages = fn.richmond_book_pages as {
+    week1?: string
+    week2?: string
     student_book?: string
     activity_book?: string
     assessment?: string
   } | null
   const richmondBooks = bookPages
     ? [
+        bookPages.week1 ? `- Semana 1: páginas del libro ${bookPages.week1}` : '',
+        bookPages.week2 ? `- Semana 2: páginas del libro ${bookPages.week2}` : '',
         bookPages.student_book ? `- STUDENT BOOK páginas ${bookPages.student_book}` : '',
         bookPages.activity_book ? `- ACTIVITY BOOK páginas ${bookPages.activity_book}` : '',
         bookPages.assessment ? `- ASSESSMENT: ${bookPages.assessment}` : '',

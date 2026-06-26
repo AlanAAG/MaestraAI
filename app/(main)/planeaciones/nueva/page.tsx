@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { z } from 'zod'
 import { AlertCircle, Loader2, X } from 'lucide-react'
 import Link from 'next/link'
-import { RichmondUnitSelector } from '@/components/app/RichmondUnitSelector'
 import { ObservationCalendar } from '@/components/planner/ObservationCalendar'
 import { UnitSelector, type RichmondSelection } from '@/components/richmond/UnitSelector'
 import { VocabularySections } from '@/components/richmond/VocabularySections'
@@ -59,11 +58,10 @@ export default function NuevaPlaneacionPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [richmondUnit, setRichmondUnit] = useState('')
+  // Optional book pages to cover, per week (quincena) — week1 doubles as the single field for taller.
   const [richmondBookPages, setRichmondBookPages] = useState({
-    student_book: '',
-    activity_book: '',
-    assessment: '',
+    week1: '',
+    week2: '',
   })
   // Richmond Unit Overview (book catalog) — PRONI / Kinder 3 only.
   const [richmondSelection, setRichmondSelection] = useState<RichmondSelection | null>(null)
@@ -261,10 +259,7 @@ export default function NuevaPlaneacionPage() {
         return
       }
 
-      const hasBookPages =
-        richmondBookPages.student_book ||
-        richmondBookPages.activity_book ||
-        richmondBookPages.assessment
+      const hasBookPages = !!(richmondBookPages.week1 || richmondBookPages.week2)
       const hasObsCal = Object.values(observationCalendar).some((v) => v.length > 0)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -278,7 +273,6 @@ export default function NuevaPlaneacionPage() {
           status: 'draft',
           vocabulary: letterVocab.length > 0 ? letterVocab : null,
           physical_materials: extraMaterials.length > 0 ? extraMaterials : null,
-          ...(richmondUnit ? { richmond_unit: richmondUnit } : {}),
           ...(hasBookPages ? { richmond_book_pages: richmondBookPages } : {}),
           ...(hasObsCal ? { observation_calendar: observationCalendar } : {}),
         })
@@ -422,10 +416,57 @@ export default function NuevaPlaneacionPage() {
           )}
         </Card>
 
-        {/* Basic Info */}
+        {/* El proyecto — name + description together, then value & number */}
         <Card className="p-6 border-2">
-          <h3 className="text-sm font-semibold text-text-primary mb-4">Información básica</h3>
+          <h3 className="text-sm font-semibold text-text-primary mb-1">El proyecto</h3>
+          <p className="text-xs text-text-secondary mb-4">
+            El corazón de tu planeación: de qué trata y qué valor trabaja.
+          </p>
           <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="project_name"
+                className="block text-sm font-medium text-text-primary mb-2"
+              >
+                Nombre del proyecto
+              </label>
+              <Input
+                id="project_name"
+                value={formData.project_name}
+                onChange={(e) => {
+                  setFormData({ ...formData, project_name: e.target.value })
+                  setFieldErrors({ ...fieldErrors, project_name: '' })
+                }}
+                placeholder="Ej: Los animales de la granja"
+                required
+                className={`min-h-[44px] ${fieldErrors.project_name ? 'border-red-500' : ''}`}
+              />
+              {fieldErrors.project_name && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {fieldErrors.project_name}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="project_desc"
+                className="block text-sm font-medium text-text-primary mb-2"
+              >
+                Descripción{' '}
+                <span className="font-normal text-text-secondary">
+                  (¿de qué trata? ideas, producto final — opcional)
+                </span>
+              </label>
+              <textarea
+                id="project_desc"
+                value={projectNotes}
+                onChange={(e) => setProjectNotes(e.target.value)}
+                rows={3}
+                placeholder="Ej: Trata sobre los animales del mar. Me gustaría que terminen con una maqueta."
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label
@@ -479,31 +520,6 @@ export default function NuevaPlaneacionPage() {
                   </p>
                 )}
               </div>
-            </div>
-            <div>
-              <label
-                htmlFor="project_name"
-                className="block text-sm font-medium text-text-primary mb-2"
-              >
-                Nombre del proyecto
-              </label>
-              <Input
-                id="project_name"
-                value={formData.project_name}
-                onChange={(e) => {
-                  setFormData({ ...formData, project_name: e.target.value })
-                  setFieldErrors({ ...fieldErrors, project_name: '' })
-                }}
-                placeholder="Ej: Los animales de la granja"
-                required
-                className={`min-h-[44px] ${fieldErrors.project_name ? 'border-red-500' : ''}`}
-              />
-              {fieldErrors.project_name && (
-                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {fieldErrors.project_name}
-                </p>
-              )}
             </div>
           </div>
         </Card>
@@ -564,49 +580,6 @@ export default function NuevaPlaneacionPage() {
             </div>
           </div>
         </Card>
-
-        {/* Richmond Unit + Book Pages — only when dates filled */}
-        {formData.start_date && formData.end_date && (
-          <Card className="p-6 border-2">
-            <h3 className="text-sm font-semibold text-text-primary mb-4">
-              Unidad Richmond <span className="font-normal text-text-secondary">(opcional)</span>
-            </h3>
-            <RichmondUnitSelector
-              startDate={formData.start_date}
-              endDate={formData.end_date}
-              value={richmondUnit}
-              onChange={setRichmondUnit}
-            />
-            {richmondUnit && (
-              <div className="mt-4 pt-4 border-t border-border space-y-3">
-                <p className="text-xs font-medium text-text-secondary uppercase tracking-wide">
-                  Páginas del libro
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['student_book', 'activity_book', 'assessment'] as const).map((key) => (
-                    <div key={key}>
-                      <label className="block text-xs text-text-secondary mb-1">
-                        {key === 'student_book'
-                          ? 'Student Book'
-                          : key === 'activity_book'
-                            ? 'Activity Book'
-                            : 'Assessment'}
-                      </label>
-                      <Input
-                        value={richmondBookPages[key]}
-                        onChange={(e) =>
-                          setRichmondBookPages((p) => ({ ...p, [key]: e.target.value }))
-                        }
-                        placeholder="pp. 1-10"
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Card>
-        )}
 
         {/* Letters — quincena only */}
         {planType === 'quincena' && (
@@ -695,9 +668,56 @@ export default function NuevaPlaneacionPage() {
           </Card>
         )}
 
-        {/* Richmond unit (book catalog) — PRONI / Kinder 3 only */}
+        {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only. The single Richmond section. */}
         {proniActive && (
-          <UnitSelector onChange={setRichmondSelection} onResolved={setRichmondContent} />
+          <Card className="p-6 border-2">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">
+              📚 Libro Richmond <span className="font-normal text-text-secondary">(opcional)</span>
+            </h3>
+            <p className="text-xs text-text-secondary mb-4">
+              Elige la unidad y lecciones; su vocabulario y modelos de lenguaje se usan al generar.
+            </p>
+            <UnitSelector onChange={setRichmondSelection} onResolved={setRichmondContent} />
+            <div className="mt-4 pt-4 border-t border-border">
+              <label className="block text-sm font-medium text-text-primary mb-2">
+                Páginas a trabajar{' '}
+                <span className="font-normal text-text-secondary">(opcional)</span>
+              </label>
+              {planType === 'quincena' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Semana 1</label>
+                    <Input
+                      value={richmondBookPages.week1}
+                      onChange={(e) =>
+                        setRichmondBookPages((p) => ({ ...p, week1: e.target.value }))
+                      }
+                      placeholder="pp. 10-15"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Semana 2</label>
+                    <Input
+                      value={richmondBookPages.week2}
+                      onChange={(e) =>
+                        setRichmondBookPages((p) => ({ ...p, week2: e.target.value }))
+                      }
+                      placeholder="pp. 16-20"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Input
+                  value={richmondBookPages.week1}
+                  onChange={(e) => setRichmondBookPages((p) => ({ ...p, week1: e.target.value }))}
+                  placeholder="pp. 10-20"
+                  className="h-9 text-sm"
+                />
+              )}
+            </div>
+          </Card>
         )}
 
         {/* Vocabulary — Richmond (read-only) + the teacher's words for this quincena's letters */}
@@ -753,40 +773,22 @@ export default function NuevaPlaneacionPage() {
           )}
         </Card>
 
-        {/* Optional teacher details — general + project-specific */}
+        {/* Notas para MaestraIA — free-form guidance for the AI (general, optional) */}
         <Card className="p-6 border-2">
           <h3 className="text-sm font-semibold text-text-primary mb-1">
-            Detalles adicionales <span className="font-normal text-text-secondary">(opcional)</span>
+            Notas para MaestraIA <span className="font-normal text-text-secondary">(opcional)</span>
           </h3>
           <p className="text-xs text-text-secondary mb-3">
-            Cualquier cosa específica que quieras que MaestraIA incluya. Entre más detalles, mejor.
+            Actividades, juegos o materiales específicos que quieras incluir. Entre más detalles,
+            mejor.
           </p>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">
-                General (actividades, juegos o materiales específicos)
-              </label>
-              <textarea
-                value={teacherNotes}
-                onChange={(e) => setTeacherNotes(e.target.value)}
-                rows={3}
-                placeholder="Ej: Quiero incluir un juego de memoria el martes. Tengo plastilina y bloques."
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">
-                Sobre el proyecto (descripción, ideas, productos)
-              </label>
-              <textarea
-                value={projectNotes}
-                onChange={(e) => setProjectNotes(e.target.value)}
-                rows={3}
-                placeholder="Ej: El proyecto trata sobre los animales del mar. Me gustaría que terminen con una maqueta."
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-              />
-            </div>
-          </div>
+          <textarea
+            value={teacherNotes}
+            onChange={(e) => setTeacherNotes(e.target.value)}
+            rows={3}
+            placeholder="Ej: Quiero incluir un juego de memoria el martes. Tengo plastilina y bloques."
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+          />
         </Card>
 
         {/* Template discovery hint */}
