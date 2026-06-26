@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronDown,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -117,6 +118,16 @@ export default function CalificacionesRichmondPage() {
 
   useEffect(() => {
     loadData(filter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter])
+
+  // Refresh when the teacher comes back to this tab after visiting Richmond.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadData(filter)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
@@ -461,6 +472,15 @@ export default function CalificacionesRichmondPage() {
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
+            onClick={() => loadData(filter)}
+            disabled={loading}
+            className="min-h-[44px]"
+            title="Actualizar datos"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => window.open('https://richmondlp.com', '_blank', 'noopener')}
             className="min-h-[44px]"
             title="Abrir Richmond LP en una pestaña nueva"
@@ -622,10 +642,25 @@ export default function CalificacionesRichmondPage() {
                           )
                           if (groupStudents.length === 0) {
                             return (
-                              <p className="text-xs text-text-disabled py-1">
-                                Sin datos individuales para este grupo. Abre Markbook → Scores en
-                                Richmond con la extensión activa para sincronizar.
-                              </p>
+                              <div className="py-2">
+                                <p className="text-xs text-text-secondary font-medium mb-0.5">
+                                  Sin datos individuales para este grupo
+                                </p>
+                                <p className="text-xs text-text-disabled leading-relaxed">
+                                  Para ver quién entregó: abre{' '}
+                                  <button
+                                    onClick={() =>
+                                      window.open('https://richmondlp.com', '_blank', 'noopener')
+                                    }
+                                    className="underline hover:text-primary"
+                                  >
+                                    Richmond LP
+                                  </button>
+                                  , entra al grupo, ve a Markbook → Scores. La extensión de
+                                  MaestraIA capturará los datos automáticamente. Luego regresa aquí
+                                  — la página se actualizará sola.
+                                </p>
+                              </div>
                             )
                           }
                           return (
