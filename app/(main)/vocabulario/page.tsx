@@ -15,6 +15,9 @@ import {
   Pencil,
   Check,
   X,
+  ChevronDown,
+  BookOpen,
+  PencilLine,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { progressToast } from '@/lib/ui/progress-toast'
@@ -44,6 +47,8 @@ export default function VocabularioPage() {
   const router = useRouter()
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
   const [richmondCatalog, setRichmondCatalog] = useState<RichmondUnitCatalog[]>([])
+  const [vocabTab, setVocabTab] = useState<'richmond' | 'maestra'>('richmond')
+  const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set())
   const [wordUsageMap, setWordUsageMap] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'list' | 'add' | 'bulk' | 'extract'>('list')
@@ -159,16 +164,18 @@ export default function VocabularioPage() {
           .order('unit_number', { ascending: true })
         const units = data as Row[] | null
         if (Array.isArray(units)) {
-          setRichmondCatalog(
-            units.map((u) => ({
-              id: u.id,
-              unit_number: u.unit_number,
-              unit_title: u.unit_title,
-              groups: [...(u.richmond_lesson_groups ?? [])].sort(
-                (a, b) => a.sort_order - b.sort_order
-              ),
-            }))
-          )
+          const catalog = units.map((u) => ({
+            id: u.id,
+            unit_number: u.unit_number,
+            unit_title: u.unit_title,
+            groups: [...(u.richmond_lesson_groups ?? [])].sort(
+              (a, b) => a.sort_order - b.sort_order
+            ),
+          }))
+          setRichmondCatalog(catalog)
+          // Expand the first unit by default so the tab isn't a wall of collapsed rows.
+          const firstWithWords = catalog.find((u) => u.groups.some((g) => g.vocabulary?.length))
+          if (firstWithWords) setExpandedUnits(new Set([firstWithWords.id]))
         }
       }
 
@@ -388,6 +395,18 @@ export default function VocabularioPage() {
       </div>
     )
   }
+
+  const richmondWordCount = richmondCatalog.reduce(
+    (n, u) => n + u.groups.reduce((m, g) => m + (g.vocabulary?.length ?? 0), 0),
+    0
+  )
+  const toggleUnit = (id: string) =>
+    setExpandedUnits((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const groupedVocabulary = vocabulary.reduce(
     (acc, item) => {
@@ -688,173 +707,234 @@ export default function VocabularioPage() {
         {/* Vocabulary List */}
         {mode === 'list' && (
           <div className="space-y-6">
-            {/* Richmond book vocabulary — by unit/lesson, read-only reference catalog */}
+            {/* Tabs — only for Richmond teachers (who have a book catalog) */}
             {richmondCatalog.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-text-primary">📚 Vocabulario Richmond</h2>
-                  <span className="text-xs text-text-secondary">
-                    Del libro · organizado por unidad y lección
+              <div className="inline-flex w-full gap-1 rounded-xl border border-border bg-surface p-1 sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setVocabTab('richmond')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+                    vocabTab === 'richmond'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <BookOpen size={16} />
+                  Richmond
+                  <span
+                    className={`rounded-full px-1.5 text-xs ${vocabTab === 'richmond' ? 'bg-white/20' : 'bg-muted'}`}
+                  >
+                    {richmondWordCount}
                   </span>
-                </div>
-                {richmondCatalog
-                  .filter((u) => u.groups.some((g) => g.vocabulary?.length))
-                  .map((u) => (
-                    <Card key={u.id} className="p-6 border-l-4 border-l-primary">
-                      <h3 className="text-base font-bold text-text-primary mb-3">
-                        Unidad {u.unit_number}: {u.unit_title}
-                      </h3>
-                      <div className="space-y-3">
-                        {u.groups
-                          .filter((g) => g.vocabulary?.length)
-                          .map((g) => (
-                            <div key={g.id}>
-                              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
-                                Lecciones {g.lesson_range}
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {g.vocabulary.map((w, i) => (
-                                  <span
-                                    key={`${g.id}-${i}`}
-                                    className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-sm"
-                                  >
-                                    {w}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </Card>
-                  ))}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVocabTab('maestra')}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+                    vocabTab === 'maestra'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <PencilLine size={16} />
+                  Mi vocabulario
+                  <span
+                    className={`rounded-full px-1.5 text-xs ${vocabTab === 'maestra' ? 'bg-white/20' : 'bg-muted'}`}
+                  >
+                    {vocabulary.length}
+                  </span>
+                </button>
               </div>
             )}
 
-            {/* Teacher's own vocabulary — by letter */}
-            {richmondCatalog.length > 0 && vocabulary.length > 0 && (
-              <h2 className="text-lg font-bold text-text-primary pt-2">
-                ✏️ Mi vocabulario{' '}
-                <span className="text-xs font-normal text-text-secondary">· por letra</span>
-              </h2>
-            )}
-            {Object.keys(groupedVocabulary)
-              .sort()
-              .map((letter) => {
-                const words = groupedVocabulary[letter]
-                return (
-                  <Card key={letter} className="p-6">
-                    <h3 className="text-xl font-bold text-text-primary mb-4">Letra {letter}</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {words.map((item) => {
-                        const colorConfig = colors.find((c) => c.value === item.color)
-                        const usageCount = wordUsageMap[item.word.toLowerCase()] ?? 0
-                        const isEditing = editingId === item.id
-
-                        if (isEditing) {
-                          return (
-                            <div
-                              key={item.id}
-                              className="p-3 rounded-lg border-2 border-primary bg-surface flex flex-col gap-2"
-                            >
-                              <Input
-                                value={editWord}
-                                onChange={(e) => setEditWord(e.target.value)}
-                                className="h-7 text-sm"
-                                autoFocus
-                              />
-                              <div className="flex gap-1">
-                                <select
-                                  value={editLetter}
-                                  onChange={(e) => setEditLetter(e.target.value)}
-                                  className="flex-1 text-xs border rounded px-1 py-0.5 bg-background"
-                                >
-                                  {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
-                                    <option key={l} value={l}>
-                                      {l}
-                                    </option>
-                                  ))}
-                                </select>
-                                <select
-                                  value={editColor}
-                                  onChange={(e) => setEditColor(e.target.value)}
-                                  className="flex-1 text-xs border rounded px-1 py-0.5 bg-background"
-                                >
-                                  {colors.map((c) => (
-                                    <option key={c.value} value={c.value}>
-                                      {c.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="flex gap-1 justify-end">
-                                <button
-                                  onClick={() => setEditingId(null)}
-                                  className="text-text-secondary hover:text-text-primary"
-                                >
-                                  <X size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleSaveEdit(item.id)}
-                                  className="text-primary hover:text-primary/80"
-                                >
-                                  <Check size={14} />
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        }
-
-                        return (
-                          <div
-                            key={item.id}
-                            className={`p-3 rounded-lg border-2 flex flex-col gap-1 ${colorConfig?.bg} ${colorConfig?.border}`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className={`text-sm font-medium ${colorConfig?.text}`}>
-                                {item.word}
-                              </span>
-                              <div className="flex gap-1">
-                                {item.teacher_id && (
-                                  <button
-                                    onClick={() => startEdit(item)}
-                                    className="text-text-secondary hover:text-primary transition-colors"
-                                    aria-label="Editar"
-                                  >
-                                    <Pencil size={13} />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleDelete(item.id)}
-                                  className="text-text-secondary hover:text-red-600 transition-colors"
-                                  aria-label="Eliminar"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </div>
-                            <span
-                              className={`text-xs ${usageCount > 0 ? colorConfig?.text : 'text-text-secondary'} opacity-75`}
-                            >
-                              {usageCount > 0
-                                ? `En ${usageCount} plan${usageCount === 1 ? '' : 'es'}`
-                                : 'Sin usar'}
-                            </span>
+            {/* RICHMOND TAB — collapsible unit cards, scannable chips (read-only book catalog) */}
+            {richmondCatalog.length > 0 && vocabTab === 'richmond' && (
+              <div className="space-y-3">
+                <p className="text-xs text-text-secondary">
+                  Vocabulario de tu libro, por unidad y lección. Solo lectura.
+                </p>
+                {richmondCatalog
+                  .filter((u) => u.groups.some((g) => g.vocabulary?.length))
+                  .map((u) => {
+                    const open = expandedUnits.has(u.id)
+                    const count = u.groups.reduce((n, g) => n + (g.vocabulary?.length ?? 0), 0)
+                    return (
+                      <Card key={u.id} className="overflow-hidden p-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleUnit(u.id)}
+                          className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/40"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-primary">
+                              Unidad {u.unit_number}
+                            </p>
+                            <h3 className="truncate text-base font-bold text-text-primary">
+                              {u.unit_title}
+                            </h3>
                           </div>
-                        )
-                      })}
-                    </div>
-                  </Card>
-                )
-              })}
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-text-secondary">
+                              {count} palabras
+                            </span>
+                            <ChevronDown
+                              size={18}
+                              className={`text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`}
+                            />
+                          </div>
+                        </button>
+                        {open && (
+                          <div className="space-y-4 border-t border-border px-5 pb-5 pt-4">
+                            {u.groups
+                              .filter((g) => g.vocabulary?.length)
+                              .map((g) => (
+                                <div key={g.id}>
+                                  <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-wide text-text-secondary">
+                                    Lecciones {g.lesson_range}
+                                  </p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {g.vocabulary.map((w, i) => (
+                                      <span
+                                        key={`${g.id}-${i}`}
+                                        className="rounded-lg border border-border bg-surface px-2.5 py-1 text-sm text-text-primary"
+                                      >
+                                        {w}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </Card>
+                    )
+                  })}
+              </div>
+            )}
 
-            {vocabulary.length === 0 && (
-              <Card className="p-12 text-center">
-                <p className="text-text-secondary mb-4">No tienes vocabulario todavía</p>
-                <Button onClick={() => setMode('add')}>
-                  <Plus size={16} className="mr-2" />
-                  Agregar tu primera palabra
-                </Button>
-              </Card>
+            {/* MI VOCABULARIO TAB — by letter (default view for non-Richmond teachers) */}
+            {(richmondCatalog.length === 0 || vocabTab === 'maestra') && (
+              <div className="space-y-6">
+                {Object.keys(groupedVocabulary)
+                  .sort()
+                  .map((letter) => {
+                    const words = groupedVocabulary[letter]
+                    return (
+                      <Card key={letter} className="p-6">
+                        <h3 className="text-xl font-bold text-text-primary mb-4">Letra {letter}</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {words.map((item) => {
+                            const colorConfig = colors.find((c) => c.value === item.color)
+                            const usageCount = wordUsageMap[item.word.toLowerCase()] ?? 0
+                            const isEditing = editingId === item.id
+
+                            if (isEditing) {
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="p-3 rounded-lg border-2 border-primary bg-surface flex flex-col gap-2"
+                                >
+                                  <Input
+                                    value={editWord}
+                                    onChange={(e) => setEditWord(e.target.value)}
+                                    className="h-7 text-sm"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-1">
+                                    <select
+                                      value={editLetter}
+                                      onChange={(e) => setEditLetter(e.target.value)}
+                                      className="flex-1 text-xs border rounded px-1 py-0.5 bg-background"
+                                    >
+                                      {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((l) => (
+                                        <option key={l} value={l}>
+                                          {l}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      value={editColor}
+                                      onChange={(e) => setEditColor(e.target.value)}
+                                      className="flex-1 text-xs border rounded px-1 py-0.5 bg-background"
+                                    >
+                                      {colors.map((c) => (
+                                        <option key={c.value} value={c.value}>
+                                          {c.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="flex gap-1 justify-end">
+                                    <button
+                                      onClick={() => setEditingId(null)}
+                                      className="text-text-secondary hover:text-text-primary"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleSaveEdit(item.id)}
+                                      className="text-primary hover:text-primary/80"
+                                    >
+                                      <Check size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div
+                                key={item.id}
+                                className={`p-3 rounded-lg border-2 flex flex-col gap-1 ${colorConfig?.bg} ${colorConfig?.border}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-sm font-medium ${colorConfig?.text}`}>
+                                    {item.word}
+                                  </span>
+                                  <div className="flex gap-1">
+                                    {item.teacher_id && (
+                                      <button
+                                        onClick={() => startEdit(item)}
+                                        className="text-text-secondary hover:text-primary transition-colors"
+                                        aria-label="Editar"
+                                      >
+                                        <Pencil size={13} />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDelete(item.id)}
+                                      className="text-text-secondary hover:text-red-600 transition-colors"
+                                      aria-label="Eliminar"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+                                <span
+                                  className={`text-xs ${usageCount > 0 ? colorConfig?.text : 'text-text-secondary'} opacity-75`}
+                                >
+                                  {usageCount > 0
+                                    ? `En ${usageCount} plan${usageCount === 1 ? '' : 'es'}`
+                                    : 'Sin usar'}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </Card>
+                    )
+                  })}
+
+                {vocabulary.length === 0 && (
+                  <Card className="p-12 text-center">
+                    <p className="text-text-secondary mb-4">No tienes vocabulario todavía</p>
+                    <Button onClick={() => setMode('add')}>
+                      <Plus size={16} className="mr-2" />
+                      Agregar tu primera palabra
+                    </Button>
+                  </Card>
+                )}
+              </div>
             )}
           </div>
         )}
