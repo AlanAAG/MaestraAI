@@ -40,12 +40,44 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)
       .from('teachers')
-      .select('id, editorial')
+      .select('id, editorial, richmond_vocab_seeded_at')
       .eq('auth_id', user.id)
       .single()
 
     if (!teacher) {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
+    }
+
+    // One-time cleanup: an earlier version auto-seeded the Richmond catalog INTO the teacher's
+    // letter bank (vocabulary_items), so those words now show in BOTH tabs. Richmond vocab is
+    // shown separately now, so remove the seeded duplicates once. Gated on the seed timestamp
+    // so it runs a single time per affected teacher and never touches un-seeded accounts.
+    if (teacher.editorial === 'richmond' && teacher.richmond_vocab_seeded_at) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: groups } = await (supabase as any)
+        .from('richmond_lesson_groups')
+        .select('vocabulary')
+      const catalogWords = new Set<string>()
+      for (const g of (groups ?? []) as { vocabulary: string[] | null }[]) {
+        for (const raw of g.vocabulary ?? []) {
+          const w = raw.trim().toLowerCase()
+          if (w) catalogWords.add(w)
+        }
+      }
+      if (catalogWords.size > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any)
+          .from('vocabulary_items')
+          .delete()
+          .eq('teacher_id', teacher.id)
+          .in('word', Array.from(catalogWords))
+      }
+      // Clear the flag so this cleanup never runs again for this teacher.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('teachers')
+        .update({ richmond_vocab_seeded_at: null })
+        .eq('id', teacher.id)
     }
 
     // Each teacher owns their vocabulary (their own words, by letter). Richmond book vocabulary
