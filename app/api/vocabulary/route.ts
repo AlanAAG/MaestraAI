@@ -5,8 +5,8 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit } from '@/lib/audit'
 import { VOCAB_COLORS } from '@/lib/vocabulary/parse'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function seedRichmondVocabulary(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   teacherId: string
 ): Promise<{ groups: number; items: number; error?: string }> {
