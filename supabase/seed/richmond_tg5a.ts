@@ -2,13 +2,42 @@
 // arrays). Real vocabulary/goals/language_models are filled in per unit later. Idempotent (upserts).
 // Run once after migration 056 is applied:
 //   npx tsx supabase/seed/richmond_tg5a.ts
-// Requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in the environment.
+// Reads NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from .env.local (or .env).
+import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// This runs outside Next.js, which would normally inject .env.local — so load it ourselves.
+function loadEnv() {
+  for (const file of ['.env.local', '.env']) {
+    try {
+      for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+        const eq = line.indexOf('=')
+        if (eq === -1) continue
+        const k = line.slice(0, eq).trim()
+        if (!/^[A-Z0-9_]+$/.test(k) || process.env[k]) continue
+        // .trim() strips trailing CR/whitespace; then strip surrounding quotes.
+        process.env[k] = line
+          .slice(eq + 1)
+          .trim()
+          .replace(/^["']|["']$/g, '')
+      }
+      break
+    } catch {
+      /* file not found — try the next */
+    }
+  }
+}
+loadEnv()
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!url || !key) {
+  console.error(
+    'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (.env.local). Aborting.'
+  )
+  process.exit(1)
+}
+const supabase = createClient(url, key)
 
 const BOOK_CODE = 'TG5A'
 const UNIT_COUNT = 8
