@@ -233,16 +233,16 @@ function camposFormativosSection(
           }),
         ],
       }),
-      ...cf.contenidos.map(
+      ...(cf.contenidos ?? []).map(
         (c) =>
           new TableRow({
             children: [
               new TableCell({
-                children: [new Paragraph(c.contenido)],
+                children: [new Paragraph(c.contenido ?? '')],
                 width: { size: 40, type: WidthType.PERCENTAGE },
               }),
               new TableCell({
-                children: c.procesos.map((p) => new Paragraph({ text: `• ${p}` })),
+                children: (c.procesos ?? []).map((p) => new Paragraph({ text: `• ${p}` })),
                 width: { size: 60, type: WidthType.PERCENTAGE },
               }),
             ],

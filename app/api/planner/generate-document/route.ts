@@ -21,6 +21,7 @@ import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
 import { generateSubplan, generateCustomSubplan } from '@/lib/planner/subplan'
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 import { buildSectionMeta } from '@/lib/planner/section-map'
+import { normalizePlanDocument } from '@/lib/planner/normalize-document'
 
 export const maxDuration = 300
 
@@ -702,11 +703,15 @@ export async function POST(req: NextRequest) {
           // Persist the evaluation columns so the viewer + DOCX export render this school's scale.
           planDocument.evaluation_columns = evalColumns
 
+          // Normalize every section to a consistent shape (strings where strings are expected) so
+          // the saved document always renders + exports completely — never a blank/half section.
+          const normalized = normalizePlanDocument(planDocument)
+
           // Save plan_document to fortnight
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { error: saveError } = await (supabase as any)
             .from('fortnights')
-            .update({ plan_document: planDocument })
+            .update({ plan_document: normalized })
             .eq('id', fn.id)
           if (saveError) throw saveError
 
@@ -715,7 +720,7 @@ export async function POST(req: NextRequest) {
             fortnightId: fn.id,
             teacherId,
             projectName: String(fn.project_name ?? ''),
-            content: planEmbeddingText(planDocument),
+            content: planEmbeddingText(normalized),
           })
 
           // Transparency: tell the client how much of HER history informed this plan.

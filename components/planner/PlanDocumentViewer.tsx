@@ -252,14 +252,14 @@ function CamposFormativosView({ campos }: { campos: CampoFormativo[] }) {
               </tr>
             </thead>
             <tbody>
-              {cf.contenidos.map((c, j) => (
+              {(cf.contenidos ?? []).map((c, j) => (
                 <tr key={j}>
                   <td className="px-3 py-2 border border-[color:var(--doc-border,#d1d5db)] align-top text-gray-800">
                     {c.contenido}
                   </td>
                   <td className="px-3 py-2 border border-[color:var(--doc-border,#d1d5db)] align-top">
                     <ul className="space-y-1">
-                      {c.procesos.map((p, k) => (
+                      {(c.procesos ?? []).map((p, k) => (
                         <li key={k} className="text-gray-700">
                           • {p}
                         </li>
