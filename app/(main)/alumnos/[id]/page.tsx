@@ -4,7 +4,16 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ArrowLeft, Download, AlertCircle, Users, MessageCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  Download,
+  AlertCircle,
+  Users,
+  MessageCircle,
+  Mail,
+  CheckCircle2,
+} from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { StudentProgressChart } from '@/components/app/StudentProgressChart'
 import { StudentScoreTable } from '@/components/app/StudentScoreTable'
 
@@ -58,6 +67,11 @@ export default function StudentDetailPage() {
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'loading' })
   const [downloadingReport, setDownloadingReport] = useState(false)
   const [contactLoading, setContactLoading] = useState(false)
+  const [showEmailForm, setShowEmailForm] = useState(false)
+  const [parentName, setParentName] = useState('')
+  const [parentEmail, setParentEmail] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
+  const [emailSaved, setEmailSaved] = useState(false)
 
   useEffect(() => {
     if (studentId) {
@@ -157,6 +171,39 @@ export default function StudentDetailPage() {
     }
   }
 
+  async function saveParentEmail() {
+    if (!student || !parentEmail.trim()) return
+    setSavingEmail(true)
+    try {
+      const nameParts = student.name.trim().split(' ')
+      const res = await fetch('/api/calificaciones/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          group_id: student.group_id,
+          contacts: [
+            {
+              richmond_student_id: student.richmond_student_id ?? studentId,
+              student_first_name: nameParts[0] ?? '',
+              student_last_name: nameParts.slice(1).join(' ') ?? '',
+              parent_name: parentName.trim() || undefined,
+              parent_email: parentEmail.trim(),
+            },
+          ],
+        }),
+      })
+      if (!res.ok) throw new Error()
+      setEmailSaved(true)
+      setShowEmailForm(false)
+      setParentName('')
+      setParentEmail('')
+    } catch {
+      alert('No se pudo guardar el correo. Intenta de nuevo.')
+    } finally {
+      setSavingEmail(false)
+    }
+  }
+
   function getCurrentTrimester(): number {
     const month = new Date().getMonth() + 1
     if (month >= 8 && month <= 11) return 1
@@ -249,7 +296,7 @@ export default function StudentDetailPage() {
               )}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {student.has_contact && (
               <Button
                 variant="outline"
@@ -261,12 +308,45 @@ export default function StudentDetailPage() {
                 {contactLoading ? 'Abriendo...' : 'WhatsApp'}
               </Button>
             )}
+            <Button variant="outline" onClick={() => setShowEmailForm((v) => !v)} className="gap-2">
+              {emailSaved ? (
+                <CheckCircle2 size={18} className="text-green-500" />
+              ) : (
+                <Mail size={18} />
+              )}
+              {emailSaved ? 'Correo guardado' : 'Agregar correo de papás'}
+            </Button>
             <Button onClick={downloadReport} disabled={downloadingReport} className="gap-2">
               <Download size={18} />
               {downloadingReport ? 'Generando...' : 'Descargar Reporte'}
             </Button>
           </div>
         </div>
+
+        {showEmailForm && (
+          <div className="mt-5 pt-5 border-t border-border flex flex-col sm:flex-row gap-2 items-end">
+            <Input
+              placeholder="Nombre del padre/madre (opcional)"
+              value={parentName}
+              onChange={(e) => setParentName(e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              type="email"
+              placeholder="correo@ejemplo.com"
+              value={parentEmail}
+              onChange={(e) => setParentEmail(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={saveParentEmail}
+              disabled={!parentEmail.trim() || savingEmail}
+              className="shrink-0"
+            >
+              {savingEmail ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </div>
+        )}
       </Card>
 
       {!progressData || progressData.assignments.length === 0 ? (

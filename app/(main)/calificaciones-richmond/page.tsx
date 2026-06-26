@@ -803,24 +803,30 @@ export default function CalificacionesRichmondPage() {
               )}
               {contactTab === 'manual' && (
                 <div className="space-y-2">
-                  <p className="text-xs text-text-secondary mb-3">Agrega contactos uno por uno.</p>
-                  <Input
-                    placeholder="ID alumno (requerido)"
+                  <p className="text-xs text-text-secondary mb-3">Agrega el correo de un alumno.</p>
+                  {/* Student dropdown — populated from the loaded roster */}
+                  <select
                     value={manualStudentId}
-                    onChange={(e) => setManualStudentId(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Nombre"
-                      value={manualFirstName}
-                      onChange={(e) => setManualFirstName(e.target.value)}
-                    />
-                    <Input
-                      placeholder="Apellido"
-                      value={manualLastName}
-                      onChange={(e) => setManualLastName(e.target.value)}
-                    />
-                  </div>
+                    onChange={(e) => {
+                      const s = students.find((st) => st.key === e.target.value)
+                      setManualStudentId(e.target.value)
+                      setManualFirstName(s?.first ?? '')
+                      setManualLastName(s?.last ?? '')
+                    }}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Selecciona un alumno…</option>
+                    {students
+                      .filter((s) => filter === 'all' || s.group_id === filter)
+                      .sort(
+                        (a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first)
+                      )
+                      .map((s) => (
+                        <option key={s.key} value={s.key}>
+                          {titleCase(s.last)}, {titleCase(s.first)}
+                        </option>
+                      ))}
+                  </select>
                   <Input
                     placeholder="Nombre del padre/madre"
                     value={manualParentName}
