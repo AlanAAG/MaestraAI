@@ -79,14 +79,24 @@ type PlanDocument = {
 }
 
 // Convert a simple markdown string to docx Paragraph array (handles bullets, bold, blank lines)
-function mdToParas(text: string, heading?: string): Paragraph[] {
+function mdToParas(text: unknown, heading?: string): Paragraph[] {
   const paras: Paragraph[] = []
   if (heading) {
     paras.push(new Paragraph({ text: heading, heading: HeadingLevel.HEADING_2 }))
   }
-  if (!text) return paras
+  // Sections are normally markdown strings, but a malformed plan_document can hand us an
+  // object/array — coerce instead of letting `.split` throw and 500 the whole export.
+  const str =
+    typeof text === 'string'
+      ? text
+      : text == null
+        ? ''
+        : Array.isArray(text)
+          ? text.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join('\n')
+          : JSON.stringify(text, null, 2)
+  if (!str) return paras
   let prevWasBlank = false
-  for (const line of text.split('\n')) {
+  for (const line of str.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed) {
       // Preserve blank lines as paragraph breaks (one per consecutive run)
@@ -448,75 +458,80 @@ export async function POST(req: NextRequest) {
     const t = (key: string) => userTitles[key] ?? DEFAULT_SECTION_TITLES[key] ?? key
 
     const appendSection = (key: string) => {
-      if (key.startsWith('custom:')) {
-        const idx = parseInt(key.slice(7), 10)
-        if (isNaN(idx)) return
-        const cs = pd.custom_sections?.[idx]
-        if (cs?.title && cs?.content) {
-          children.push(new Paragraph({ text: cs.title, heading: HeadingLevel.HEADING_2 }))
-          children.push(...mdToParas(cs.content))
-          children.push(new Paragraph(''))
+      try {
+        if (key.startsWith('custom:')) {
+          const idx = parseInt(key.slice(7), 10)
+          if (isNaN(idx)) return
+          const cs = pd.custom_sections?.[idx]
+          if (cs?.title && cs?.content) {
+            children.push(new Paragraph({ text: cs.title, heading: HeadingLevel.HEADING_2 }))
+            children.push(...mdToParas(cs.content))
+            children.push(new Paragraph(''))
+          }
+          return
         }
-        return
-      }
-      switch (key) {
-        case 'actividades_iniciales':
-          if (pd.actividades_iniciales)
-            children.push(...mdToParas(pd.actividades_iniciales, t(key)))
-          break
-        case 'actividades_rutina':
-          if (pd.actividades_rutina) children.push(...mdToParas(pd.actividades_rutina, t(key)))
-          break
-        case 'aventura_lectora':
-          if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, t(key)))
-          break
-        case 'estrategia_comunitaria':
-          if (pd.estrategia_comunitaria)
-            children.push(...mdToParas(pd.estrategia_comunitaria, t(key)))
-          break
-        case 'pausas_activas':
-          if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, t(key)))
-          break
-        case 'ajustes_razonables':
-          if (pd.ajustes_razonables) children.push(...mdToParas(pd.ajustes_razonables, t(key)))
-          break
-        case 'ejes_articuladores':
-          if (pd.ejes_articuladores) children.push(...mdToParas(pd.ejes_articuladores, t(key)))
-          break
-        case 'campos_formativos':
-          if (pd.campos_formativos?.length)
-            children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
-          break
-        case 'proyecto':
-          if (pd.proyecto) children.push(...mdToParas(pd.proyecto, t(key)))
-          break
-        case 'desarrollo_taller':
-          if (pd.desarrollo_taller) children.push(...mdToParas(pd.desarrollo_taller, t(key)))
-          break
-        case 'cronograma':
-          if (pd.cronograma) {
-            children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
-            children.push(cronogramaTable(pd.cronograma, borderHex))
-            children.push(new Paragraph(''))
-          }
-          if (obsCal && Object.values(obsCal).some((v) => v?.length)) {
-            children.push(
-              new Paragraph({
-                text: 'Calendario de Observación de Alumnos',
-                heading: HeadingLevel.HEADING_2,
-              })
-            )
-            children.push(observationCalendarTable(obsCal, borderHex))
-            children.push(new Paragraph(''))
-          }
-          break
-        case 'evaluacion_items':
-          if (pd.evaluacion_items?.length) {
-            children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
-            children.push(evaluacionTable(pd.evaluacion_items, borderHex, pd.evaluation_columns))
-            children.push(new Paragraph(''))
-          }
-          break
+        switch (key) {
+          case 'actividades_iniciales':
+            if (pd.actividades_iniciales)
+              children.push(...mdToParas(pd.actividades_iniciales, t(key)))
+            break
+          case 'actividades_rutina':
+            if (pd.actividades_rutina) children.push(...mdToParas(pd.actividades_rutina, t(key)))
+            break
+          case 'aventura_lectora':
+            if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, t(key)))
+            break
+          case 'estrategia_comunitaria':
+            if (pd.estrategia_comunitaria)
+              children.push(...mdToParas(pd.estrategia_comunitaria, t(key)))
+            break
+          case 'pausas_activas':
+            if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, t(key)))
+            break
+          case 'ajustes_razonables':
+            if (pd.ajustes_razonables) children.push(...mdToParas(pd.ajustes_razonables, t(key)))
+            break
+          case 'ejes_articuladores':
+            if (pd.ejes_articuladores) children.push(...mdToParas(pd.ejes_articuladores, t(key)))
+            break
+          case 'campos_formativos':
+            if (pd.campos_formativos?.length)
+              children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
+            break
+          case 'proyecto':
+            if (pd.proyecto) children.push(...mdToParas(pd.proyecto, t(key)))
+            break
+          case 'desarrollo_taller':
+            if (pd.desarrollo_taller) children.push(...mdToParas(pd.desarrollo_taller, t(key)))
+            break
+          case 'cronograma':
+            if (pd.cronograma) {
+              children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
+              children.push(cronogramaTable(pd.cronograma, borderHex))
+              children.push(new Paragraph(''))
+            }
+            if (obsCal && Object.values(obsCal).some((v) => v?.length)) {
+              children.push(
+                new Paragraph({
+                  text: 'Calendario de Observación de Alumnos',
+                  heading: HeadingLevel.HEADING_2,
+                })
+              )
+              children.push(observationCalendarTable(obsCal, borderHex))
+              children.push(new Paragraph(''))
+            }
+            break
+          case 'evaluacion_items':
+            if (pd.evaluacion_items?.length) {
+              children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
+              children.push(evaluacionTable(pd.evaluacion_items, borderHex, pd.evaluation_columns))
+              children.push(new Paragraph(''))
+            }
+            break
+        }
+      } catch (e) {
+        // One malformed section must not 500 the entire export — skip it, keep the rest.
+        console.error('[export-docx] section render failed:', key, e)
       }
     }
 
@@ -603,10 +618,20 @@ export async function POST(req: NextRequest) {
     const doc = new Document({
       sections: [
         {
+          // Landscape must swap the page dimensions, not just set the flag — otherwise the
+          // page stays portrait-sized (the "horizontal/vertical looks the same" bug). Letter size.
           properties:
             body.data.orientation === 'horizontal'
-              ? { page: { size: { orientation: PageOrientation.LANDSCAPE } } }
-              : undefined,
+              ? {
+                  page: {
+                    size: { orientation: PageOrientation.LANDSCAPE, width: 15840, height: 12240 },
+                  },
+                }
+              : {
+                  page: {
+                    size: { orientation: PageOrientation.PORTRAIT, width: 12240, height: 15840 },
+                  },
+                },
           children,
         },
       ],
@@ -642,6 +667,8 @@ export async function POST(req: NextRequest) {
     })
   } catch (err) {
     console.error('[export-docx]', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    // Surface the real reason to the client (teacher's own export — no sensitive data in the message).
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
