@@ -198,11 +198,16 @@ export default function ConfiguracionPage() {
               documentBase64: base64,
               documentMimeType: mimeType,
             }
+        // Hard client timeout so the toast can never spin forever if the response is lost.
+        const ac = new AbortController()
+        const timer = setTimeout(() => ac.abort(), 125_000)
         const res = await fetch('/api/teachers/templates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
+          signal: ac.signal,
         })
+        clearTimeout(timer)
         if (!res.ok) throw new Error((await res.json()).error)
         const { template_record: template } = await res.json()
         setMultiTemplates((prev) => [template, ...prev])
@@ -212,7 +217,18 @@ export default function ConfiguracionPage() {
         p.success('Formato guardado ✨')
         setTimeout(() => setAddingTemplate('idle'), 2000)
       } catch (err) {
-        p.error(err instanceof Error ? err.message : 'No pude analizar el archivo.')
+        // On timeout/lost response the extraction may still have saved — refetch to recover it.
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          try {
+            const d = await fetch('/api/teachers/templates').then((r) => r.json())
+            if (Array.isArray(d.templates)) setMultiTemplates(d.templates)
+          } catch {
+            /* ignore */
+          }
+          p.error('Tardó más de lo normal. Revisa la lista — puede que ya se haya guardado.')
+        } else {
+          p.error(err instanceof Error ? err.message : 'No pude analizar el archivo.')
+        }
         setAddingTemplate('idle')
       }
     }
