@@ -1,7 +1,7 @@
 // lib/richmond/sync.ts
 import { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAssignmentScores, RichmondSessionExpiredError } from './client'
-import { encrypt } from '@/lib/encryption'
+import { encrypt, decrypt } from '@/lib/encryption'
 
 export interface SyncResult {
   synced: number
@@ -69,7 +69,7 @@ export async function syncGroup(
       credentials.session_encrypted
     )
 
-    // Get all students for this group
+    // Get all students for this group — decrypt names for fuzzy matching
     const { data: students, error: studentsError } = await supabase
       .from('students')
       .select('id, richmond_student_id, first_name_encrypted, last_name_encrypted')
@@ -78,6 +78,19 @@ export async function syncGroup(
     if (studentsError || !students) {
       throw new Error('Failed to fetch students')
     }
+
+    // Decrypt names once so fuzzy matching actually works (fields are AES-GCM ciphertext)
+    const studentsDecrypted = await Promise.all(
+      students.map(async (s) => ({
+        ...s,
+        _first: s.first_name_encrypted
+          ? (await decrypt(s.first_name_encrypted)).trim().toUpperCase()
+          : '',
+        _last: s.last_name_encrypted
+          ? (await decrypt(s.last_name_encrypted)).trim().toUpperCase()
+          : '',
+      }))
+    )
 
     // Process each assignment
     for (const assignment of assignments) {
@@ -109,30 +122,22 @@ export async function syncGroup(
 
       // Process each student score
       for (const score of assignment.students) {
-        // Match student: first by richmond_student_id, then by name fuzzy match
-        let matchedStudent = students.find(
+        // Match student: first by richmond_student_id, then by decrypted name
+        let matchedStudent = studentsDecrypted.find(
           (s) => s.richmond_student_id === score.richmond_student_id
         )
 
         if (!matchedStudent) {
-          // Fuzzy match by name (case-insensitive, trimmed)
-          const normalizedFirst = score.first_name.trim().toUpperCase()
-          const normalizedLast = score.last_name.trim().toUpperCase()
+          const nFirst = score.first_name.trim().toUpperCase()
+          const nLast = score.last_name.trim().toUpperCase()
+          matchedStudent = studentsDecrypted.find((s) => s._first === nFirst && s._last === nLast)
 
-          matchedStudent = students.find((s) => {
-            const studentFirst = s.first_name_encrypted.trim().toUpperCase()
-            const studentLast = s.last_name_encrypted.trim().toUpperCase()
-            return studentFirst === normalizedFirst && studentLast === normalizedLast
-          })
-
-          // Update richmond_student_id if matched
+          // Link this student for future syncs
           if (matchedStudent && !matchedStudent.richmond_student_id) {
             await supabase
               .from('students')
               .update({ richmond_student_id: score.richmond_student_id })
               .eq('id', matchedStudent.id)
-
-            // Update local cache
             matchedStudent.richmond_student_id = score.richmond_student_id
           }
         }

@@ -163,21 +163,32 @@ export default function RichmondDashboard() {
   const loadGroupData = useCallback(async (groupId: string) => {
     setLoading(true)
     try {
-      const [analyticsRes, syncRes] = await Promise.all([
+      const supabase = createClient()
+      const [analyticsRes, syncRes, credsRes] = await Promise.all([
         fetch(`/api/richmond/analytics?group_id=${groupId}`),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (createClient() as any)
+        (supabase as any)
           .from('richmond_sync_log')
           .select('started_at, status')
           .eq('group_id', groupId)
           .order('started_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
+        // Check stored session validity — proactive, no external call needed
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from('richmond_credentials')
+          .select('is_valid')
+          .eq('group_id', groupId)
+          .maybeSingle(),
       ])
       const { assignments } = await analyticsRes.json()
       setGroupAssignments(assignments || [])
       setLastSync(syncRes.data || null)
-      if (syncRes.data?.status === 'session_expired') setSessionExpired(true)
+      // Session is expired if the credentials row says so, OR the last sync log says so
+      const credInvalid = credsRes.data && credsRes.data.is_valid === false
+      const logExpired = syncRes.data?.status === 'session_expired'
+      setSessionExpired(credInvalid || logExpired)
     } finally {
       setLoading(false)
     }
@@ -291,13 +302,15 @@ export default function RichmondDashboard() {
           </Button>
           <Button
             onClick={handleSync}
-            disabled={syncing || !selectedGroupId}
-            className="min-h-[44px] gap-2 bg-primary hover:bg-primary-dark"
+            disabled={syncing || !selectedGroupId || sessionExpired}
+            className="min-h-[44px] gap-2 bg-primary hover:bg-primary-dark disabled:opacity-50"
           >
             <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
             {syncing
               ? 'Sincronizando...'
-              : `Sincronizar${activeGroupName ? ` ${activeGroupName}` : ''}`}
+              : sessionExpired
+                ? 'Sesión expirada'
+                : `Sincronizar${activeGroupName ? ` ${activeGroupName}` : ''}`}
           </Button>
         </div>
       </div>
@@ -305,10 +318,20 @@ export default function RichmondDashboard() {
       {sessionExpired && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
           <AlertCircle size={20} className="text-red-600 mt-0.5 shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-red-800">Sesión de Richmond expirada</p>
             <p className="text-sm text-red-700 mt-1">
-              Inicia sesión en richmondlp.com y abre el Markbook para reconectar.
+              Para volver a sincronizar:{' '}
+              <a
+                href="https://richmondlp.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium"
+              >
+                abre richmondlp.com
+              </a>
+              , inicia sesión, y con la extensión de MaestraIA activa abre el Markbook de tu grupo.
+              Cuando la extensión detecte la sesión, el botón de sincronizar se reactivará.
             </p>
           </div>
         </div>
