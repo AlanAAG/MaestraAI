@@ -11,6 +11,10 @@ import { AlertCircle, Loader2, X } from 'lucide-react'
 import Link from 'next/link'
 import { RichmondUnitSelector } from '@/components/app/RichmondUnitSelector'
 import { ObservationCalendar } from '@/components/planner/ObservationCalendar'
+import { UnitSelector, type RichmondSelection } from '@/components/richmond/UnitSelector'
+import { VocabularySections } from '@/components/richmond/VocabularySections'
+import type { SelectedRichmondContent } from '@/lib/richmond/types'
+import { isProniApplicable } from '@/lib/nem-official-data'
 
 const FortnightSchema = z.object({
   number: z.number().min(1, 'Debe ser entre 1 y 12').max(12, 'Debe ser entre 1 y 12'),
@@ -57,6 +61,9 @@ export default function NuevaPlaneacionPage() {
     activity_book: '',
     assessment: '',
   })
+  // Richmond Unit Overview (book catalog) — PRONI / Kinder 3 only.
+  const [richmondSelection, setRichmondSelection] = useState<RichmondSelection | null>(null)
+  const [richmondContent, setRichmondContent] = useState<SelectedRichmondContent | null>(null)
   const [observationCalendar, setObservationCalendar] = useState<Record<string, string[]>>({})
   const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter: string }[]>([])
   const [selectedVocab, setSelectedVocab] = useState<string[]>([])
@@ -72,6 +79,9 @@ export default function NuevaPlaneacionPage() {
     letter_number_day?: string
     numeros_day?: string
   } | null>(null)
+
+  // PRONI (Kinder 3) gates the Richmond unit selector + the read-only Richmond vocabulary section.
+  const proniActive = isProniApplicable(groups.find((g) => g.id === selectedGroupId)?.grade ?? '')
 
   useEffect(() => {
     loadGroups()
@@ -250,6 +260,16 @@ export default function NuevaPlaneacionPage() {
           .update({
             teacher_notes: teacherNotes.trim() || null,
             project_notes: projectNotes.trim() || null,
+          })
+          .eq('id', fortnight.id)
+      }
+      // Richmond unit selection (best-effort: ignored until migration 056 is pushed).
+      if (proniActive && richmondSelection?.unit_id) {
+        await sb
+          .from('fortnights')
+          .update({
+            richmond_unit_id: richmondSelection.unit_id,
+            richmond_lesson_group_ids: richmondSelection.lesson_group_ids,
           })
           .eq('id', fortnight.id)
       }
@@ -620,47 +640,22 @@ export default function NuevaPlaneacionPage() {
           </Card>
         )}
 
-        {/* Vocabulary */}
-        {allVocab.length > 0 && (
-          <Card className="p-6 border-2">
-            <h3 className="text-sm font-semibold text-text-primary mb-1">
-              Vocabulario <span className="font-normal text-text-secondary">(opcional)</span>
-            </h3>
-            <p className="text-xs text-text-secondary mb-3">
-              Palabras que Claude usará al generar las actividades
-            </p>
-            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
-              {allVocab.map((v) => {
-                const selected = selectedVocab.includes(v.word)
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() =>
-                      setSelectedVocab((prev) =>
-                        selected ? prev.filter((w) => w !== v.word) : [...prev, v.word]
-                      )
-                    }
-                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                      selected
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-surface text-text-secondary border-border hover:border-primary'
-                    }`}
-                  >
-                    {selected && <X size={10} className="inline mr-1" />}
-                    {v.word}
-                  </button>
-                )
-              })}
-            </div>
-            {selectedVocab.length > 0 && (
-              <p className="text-xs text-primary mt-2">
-                {selectedVocab.length} palabra{selectedVocab.length !== 1 ? 's' : ''} seleccionada
-                {selectedVocab.length !== 1 ? 's' : ''}
-              </p>
-            )}
-          </Card>
+        {/* Richmond unit (book catalog) — PRONI / Kinder 3 only */}
+        {proniActive && (
+          <UnitSelector onChange={setRichmondSelection} onResolved={setRichmondContent} />
         )}
+
+        {/* Vocabulary — two clearly-separated sources (Richmond read-only + teacher's own) */}
+        <VocabularySections
+          richmondContent={richmondContent}
+          allVocab={allVocab}
+          selectedVocab={selectedVocab}
+          onToggle={(word) =>
+            setSelectedVocab((prev) =>
+              prev.includes(word) ? prev.filter((w) => w !== word) : [...prev, word]
+            )
+          }
+        />
 
         {/* Extra Materials */}
         <Card className="p-6 border-2">

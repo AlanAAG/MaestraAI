@@ -11,6 +11,9 @@ import {
   planEmbeddingText,
 } from '@/lib/planner/embeddings'
 import { refreshLearnedProfileIfStale, getLearnedProfile } from '@/lib/planner/learning'
+import { resolveSelectedContent } from '@/lib/richmond/queries'
+import { buildRichmondBlock, buildGameVocabularyHint } from '@/lib/prompts/blocks/richmond-block'
+import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
@@ -176,7 +179,9 @@ function buildQuincenaPrompt(
   profile: TeacherProfile | null,
   evalColumns: string[],
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> },
-  styleBlock: string = ''
+  styleBlock: string = '',
+  richmondBlock: string = '',
+  gameHint: string = ''
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
 
@@ -251,12 +256,13 @@ PLANEACIÓN QUINCENA ${fn.number}: ${sanitize(fn.project_name)}
 Nivel: Kinder 3 (5-6 años) | Del ${startStr} al ${endStr}
 Grupo: ${fn.groups?.name ?? ''} | Grado: ${fn.groups?.grade ?? ''}
 Valor del mes: ${sanitize(fn.monthly_value)}
-Letras: Semana 1="${sanitize(fn.letter_week1)}" | Semana 2="${sanitize(fn.letter_week2)}"${vocabList ? `\nVocabulario inglés: ${vocabList}` : ''}
+Letras: Semana 1="${sanitize(fn.letter_week1)}" | Semana 2="${sanitize(fn.letter_week2)}"${vocabList ? `\nVocabulario maestra: ${vocabList}` : ''}
 
 ${neeSection}
 ${obsSection}
 ${richmondCtx ? 'LIBROS RICHMOND:\n' + richmondCtx : ''}
 ${scheduleCtx}
+${richmondBlock}${gameHint ? '\n' + gameHint : ''}
 </request>
 
 Genera la planeación completa en el formato JSON especificado. sub_planes debe ser [] (los sub-planes se generan por separado).`
@@ -275,7 +281,9 @@ function buildTallerPrompt(
   profile: TeacherProfile | null,
   evalColumns: string[],
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> },
-  styleBlock: string = ''
+  styleBlock: string = '',
+  richmondBlock: string = '',
+  gameHint: string = ''
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
   const startStr = new Date(fn.start_date).toLocaleDateString('es-MX', {
@@ -314,6 +322,7 @@ Grupo: ${fn.groups?.name ?? ''} | Valor: ${sanitize(fn.monthly_value)}
 ${neeSection}
 ${obsSection}
 ${scheduleCtx}
+${richmondBlock}${gameHint ? '\n' + gameHint : ''}
 </request>
 
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
@@ -366,6 +375,21 @@ export async function POST(req: NextRequest) {
     const groupGrade = fn.groups?.grade ?? ''
     const includeProni = isProniApplicable(groupGrade)
     const schedule = getGroupSchedule(fn)
+
+    // Richmond Unit Overview: resolve the teacher's selected book content (PRONI groups only).
+    let richmondContent: SelectedRichmondContent | null = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const richmondUnitId = (fn as any).richmond_unit_id as string | null
+    if (includeProni && richmondUnitId) {
+      richmondContent = await resolveSelectedContent(
+        supabase,
+        richmondUnitId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ((fn as any).richmond_lesson_group_ids as string[] | null) ?? []
+      )
+    }
+    const richmondBlock = buildRichmondBlock(richmondContent)
+    const gameHint = buildGameVocabularyHint(richmondContent)
 
     // Continuity: the most recent prior planeación for this group, so each quincena builds on the
     // cycle (continue a project, reference prior learning) instead of starting from scratch.
@@ -487,7 +511,16 @@ export async function POST(req: NextRequest) {
 
     const userPrompt =
       planType === 'taller'
-        ? buildTallerPrompt(fn, neeStudents, profile, evalColumns, schedule, styleBlock)
+        ? buildTallerPrompt(
+            fn,
+            neeStudents,
+            profile,
+            evalColumns,
+            schedule,
+            styleBlock,
+            richmondBlock,
+            gameHint
+          )
         : buildQuincenaPrompt(
             fn,
             includeProni,
@@ -497,7 +530,9 @@ export async function POST(req: NextRequest) {
             profile,
             evalColumns,
             schedule,
-            styleBlock
+            styleBlock,
+            richmondBlock,
+            gameHint
           )
 
     const encoder = new TextEncoder()
@@ -521,8 +556,17 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ phase: 'subplanes' })}\n\n`)
             )
+            // Sub-plans (Letter & Number especially) must use the Richmond book vocab when present.
+            const subVocabList = richmondContent?.vocabulary?.length
+              ? Array.from(
+                  new Set([
+                    ...richmondContent.vocabulary,
+                    ...(Array.isArray(fn.vocabulary) ? (fn.vocabulary as string[]) : []),
+                  ])
+                ).join(', ')
+              : vocabList
             const subOpts = {
-              vocabList,
+              vocabList: subVocabList,
               letterDay: schedule.letterDay,
               numDay: schedule.numDay,
               includeProni,

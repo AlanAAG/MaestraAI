@@ -46,6 +46,7 @@ Los 4 Campos formativos de la Fase 2:
 
 <proni_regla>
 PRONI (inglés) aplica SOLO a Kinder 3 (3er grado preescolar). Integrarlo en el día de Letter & Number indicado en el horario del grupo, usando los contenidos/PDAs de PRONI provistos.
+Cuando se provee <proni_unit>, usa ÚNICAMENTE el vocabulario y las frases modelo listadas para las actividades y juegos de inglés. No inventes vocabulario fuera de esa lista a menos que esté marcado como vocabulario de la maestra.
 </proni_regla>
 
 <privacidad>
