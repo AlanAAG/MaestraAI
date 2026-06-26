@@ -38,8 +38,10 @@ function parseUnit(md) {
       const s = subsections(block)
       const vocabulary = (s['Vocabulary'] ?? [])
         .join(', ')
+        // ponytail: placeholder keeps commas inside parentheses from splitting vocab items
+        .replace(/\(([^)]*)\)/g, (_, inner) => '(' + inner.replace(/,/g, '\x00') + ')')
         .split(',')
-        .map((t) => t.trim())
+        .map((t) => t.replace(/\x00/g, ',').trim())
         .filter(Boolean)
       return {
         range,
