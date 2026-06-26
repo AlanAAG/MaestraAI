@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { DownloadMenu } from '@/components/ui/download-menu'
 import { FileType, Link2 } from 'lucide-react'
 import { LoadingGeneration } from '@/components/app/LoadingGeneration'
@@ -266,7 +267,13 @@ export default function PlaneacionDetailPage() {
         }),
       })
 
-      if (!response.ok) throw new Error('Export failed')
+      if (!response.ok) {
+        const msg = await response
+          .json()
+          .then((d) => d.error as string)
+          .catch(() => null)
+        throw new Error(msg || `Error ${response.status}`)
+      }
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -277,8 +284,10 @@ export default function PlaneacionDetailPage() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+      toast.success('PDF descargado')
     } catch (error) {
       console.error('PDF export error:', error)
+      toast.error(`No pude descargar PDF: ${error instanceof Error ? error.message : 'error'}`)
     } finally {
       setExportingPdf(false)
     }
@@ -348,8 +357,15 @@ export default function PlaneacionDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fortnight_id: fortnight.id, orientation }),
       })
-      if (!res.ok) throw new Error('DOCX export failed')
+      if (!res.ok) {
+        const msg = await res
+          .json()
+          .then((d) => d.error as string)
+          .catch(() => null)
+        throw new Error(msg || `Error ${res.status}`)
+      }
       const blob = await res.blob()
+      if (blob.size === 0) throw new Error('El archivo llegó vacío')
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -358,8 +374,10 @@ export default function PlaneacionDetailPage() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+      toast.success('Word descargado')
     } catch (err) {
       console.error('DOCX export error:', err)
+      toast.error(`No pude descargar Word: ${err instanceof Error ? err.message : 'error'}`)
     } finally {
       setExportingDocx(false)
     }
@@ -506,7 +524,7 @@ export default function PlaneacionDetailPage() {
                       icon: <Link2 size={15} />,
                       onSelect: () => {
                         navigator.clipboard.writeText(window.location.href)
-                        alert('Enlace copiado al portapapeles')
+                        toast.success('Enlace copiado al portapapeles')
                       },
                     },
                   ]}
