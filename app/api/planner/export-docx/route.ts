@@ -390,7 +390,7 @@ export async function POST(req: NextRequest) {
     const { data: fn } = await (supabase as any)
       .from('fortnights')
       .select(
-        'id, teacher_id, project_name, number, plan_document, observation_calendar, groups(name, grade)'
+        'id, teacher_id, project_name, number, grade, plan_document, observation_calendar, groups(name, grade)'
       )
       .eq('id', body.data.fortnight_id)
       .single()
@@ -437,7 +437,7 @@ export async function POST(req: NextRequest) {
     )
     children.push(
       new Paragraph({
-        text: `Grupo: ${fn.groups?.name ?? ''} | Metodología: ${pd.metodologia ?? ''}`,
+        text: `Grado: ${fn.grade ?? fn.groups?.grade ?? ''} | Metodología: ${pd.metodologia ?? ''}`,
       })
     )
     children.push(new Paragraph(''))

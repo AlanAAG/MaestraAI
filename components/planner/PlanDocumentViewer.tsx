@@ -911,6 +911,7 @@ interface PlanDocumentViewerProps {
   startDate?: string
   endDate?: string
   groupName?: string
+  gradeLabel?: string
   teacherName?: string
   orientation?: 'vertical' | 'horizontal'
   logoUrl?: string | null
@@ -925,6 +926,7 @@ export function PlanDocumentViewer({
   startDate,
   endDate,
   groupName,
+  gradeLabel,
   teacherName,
   orientation = 'vertical',
   logoUrl,
@@ -974,7 +976,7 @@ export function PlanDocumentViewer({
   const dateLine = startDate && endDate ? `Del ${fmt(startDate)} al ${fmt(endDate)}` : ''
   const metaParts = [
     dateLine,
-    groupName ? `Grupo: ${groupName}` : '',
+    gradeLabel ? `Grado: ${gradeLabel}` : groupName ? `Grupo: ${groupName}` : '',
     teacherName ? `Profesora: ${teacherName}` : '',
   ].filter(Boolean)
 

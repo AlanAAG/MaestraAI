@@ -287,7 +287,7 @@ ${proniNote}`
   const requestData = `<request>
 PLANEACIÓN QUINCENA ${fn.number}: ${sanitize(fn.project_name)}
 Nivel: Kinder 3 (5-6 años) | Del ${startStr} al ${endStr}
-Grupo: ${fn.groups?.name ?? ''} | Grado: ${fn.groups?.grade ?? ''}
+Grado: ${fn._grade ?? fn.groups?.grade ?? ''} | Grupos: ${fn._gradeGroupNames ?? fn.groups?.name ?? ''} (esta planeación es para TODO el grado, inclusiva de todos sus grupos)
 Valor del mes: ${sanitize(fn.monthly_value)}
 Letras: Semana 1="${sanitize(fn.letter_week1)}" | Semana 2="${sanitize(fn.letter_week2)}"${vocabList ? `\nVocabulario maestra: ${vocabList}` : ''}
 
@@ -358,7 +358,7 @@ Números: SOLO los ${schedule.numDay}`
   const requestData = `<request>
 PLANEACIÓN TALLER: ${sanitize(fn.project_name)}
 Fechas: ${startStr} – ${endStr}
-Grupo: ${fn.groups?.name ?? ''} | Valor: ${sanitize(fn.monthly_value)}
+Grado: ${fn._grade ?? fn.groups?.grade ?? ''} | Grupos: ${fn._gradeGroupNames ?? fn.groups?.name ?? ''} | Valor: ${sanitize(fn.monthly_value)}
 
 ${neeSection}
 ${obsSection}
@@ -413,9 +413,26 @@ export async function POST(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const planType: 'quincena' | 'taller' = (fn as any).plan_type ?? 'quincena'
-    const groupGrade = fn.groups?.grade ?? ''
+    // Per-grade: the plan covers every group of the grade (migration 059). Fall back to the
+    // representative group's grade for older rows without a stored grade.
+    const groupGrade = (fn.grade as string | null) ?? fn.groups?.grade ?? ''
     const includeProni = isProniApplicable(groupGrade)
     const schedule = getGroupSchedule(fn)
+
+    // All groups of this grade (taught by this teacher) — content must be inclusive of all of them.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: gradeGroupsData } = await (supabase as any)
+      .from('groups')
+      .select('id, name')
+      .eq('titular_teacher_id', teacherId)
+      .eq('grade', groupGrade)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gradeGroups = (gradeGroupsData ?? []) as { id: string; name: string }[]
+    const gradeGroupIds = gradeGroups.length ? gradeGroups.map((g) => g.id) : [fn.group_id]
+    const gradeGroupNames = gradeGroups.map((g) => g.name).join(', ') || (fn.groups?.name ?? '')
+    // Expose the inclusive group list + resolved grade to the prompt builders (which receive fn).
+    fn._gradeGroupNames = gradeGroupNames
+    fn._grade = groupGrade
 
     // Richmond Unit Overview: resolve the teacher's selected book content (PRONI groups only).
     let richmondContent: SelectedRichmondContent | null = null
@@ -498,12 +515,12 @@ export async function POST(req: NextRequest) {
       profile = { ...(profile ?? {}), writing_style_samples: merged }
     }
 
-    // Fetch NEE students
+    // Fetch NEE students across ALL groups of the grade (plan is inclusive of every group).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: students } = await (supabase as any)
       .from('students')
       .select('has_nee, nee_notes')
-      .eq('group_id', fn.group_id)
+      .in('group_id', gradeGroupIds)
     // LFPDPPP: disability + name is sensitive data. NEVER pass real student names into the
     // prompt/output — anonymize to positional labels (Alumno A, B…). Names are not decrypted.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

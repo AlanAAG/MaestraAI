@@ -75,6 +75,7 @@ type Fortnight = {
   letter_week2: string
   status: string
   group_id: string
+  grade?: string | null
   vocabulary?: string[] | null
   plan_type?: 'quincena' | 'taller'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -629,6 +630,7 @@ export default function PlaneacionDetailPage() {
                 startDate={fortnight.start_date}
                 endDate={fortnight.end_date}
                 groupName={fortnight.groups?.name}
+                gradeLabel={fortnight.grade ?? undefined}
                 teacherName={teacherName}
                 orientation={orientation}
                 logoUrl={logoUrl}

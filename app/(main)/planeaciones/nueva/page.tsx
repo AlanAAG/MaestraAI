@@ -46,6 +46,10 @@ export default function NuevaPlaneacionPage() {
     letter_week1: '',
     letter_week2: '',
   })
+  // Planeaciones are per-GRADE. selectedGroupId is the representative group of that grade
+  // (first one) — it provides the schedule + observation roster; generation fans out to all
+  // groups of the grade.
+  const [selectedGrade, setSelectedGrade] = useState('')
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const [groups, setGroups] = useState<{ id: string; name: string; grade: string }[]>([])
   const [groupStudents, setGroupStudents] = useState<string[]>([])
@@ -79,8 +83,25 @@ export default function NuevaPlaneacionPage() {
     numeros_day?: string
   } | null>(null)
 
+  // Distinct grades the teacher has groups for — the planeación is scoped to one of these.
+  const grades = useMemo(
+    () => Array.from(new Set(groups.map((g) => g.grade).filter(Boolean))),
+    [groups]
+  )
+  const gradeGroups = useMemo(
+    () => groups.filter((g) => g.grade === selectedGrade),
+    [groups, selectedGrade]
+  )
+
+  // Switching grade picks its first group as the representative (schedule + roster source).
+  function selectGrade(grade: string) {
+    setSelectedGrade(grade)
+    const rep = groups.find((g) => g.grade === grade)
+    setSelectedGroupId(rep?.id ?? '')
+  }
+
   // PRONI (Kinder 3) gates the Richmond unit selector + the read-only Richmond vocabulary section.
-  const proniActive = isProniApplicable(groups.find((g) => g.id === selectedGroupId)?.grade ?? '')
+  const proniActive = isProniApplicable(selectedGrade)
 
   // The teacher's vocabulary for the planeación is NOT hand-picked — it's every one of her words
   // for the letters she's working this quincena (Letra semana 1 + 2). Letters drive the vocab.
@@ -191,6 +212,7 @@ export default function NuevaPlaneacionPage() {
       }
 
       setGroups(groupsData)
+      setSelectedGrade(groupsData[0].grade ?? '')
       setSelectedGroupId(groupsData[0].id)
     } catch {
       setError('Error al cargar los grupos')
@@ -201,8 +223,8 @@ export default function NuevaPlaneacionPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedGroupId) {
-      setError('Por favor selecciona un grupo')
+    if (!selectedGrade || !selectedGroupId) {
+      setError('Por favor selecciona un grado')
       return
     }
 
@@ -269,6 +291,15 @@ export default function NuevaPlaneacionPage() {
       // Each is ignored (no throw) if its column isn't applied yet — creation never breaks.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any
+      // Per-grade scope (migration 059). Best-effort so creation never breaks if not applied yet.
+      await sb
+        .from('fortnights')
+        .update({ grade: selectedGrade })
+        .eq('id', fortnight.id)
+        .then(
+          () => {},
+          () => {}
+        )
       if (useSystemTemplate) {
         await sb.from('fortnights').update({ use_system_template: true }).eq('id', fortnight.id)
       }
@@ -364,25 +395,31 @@ export default function NuevaPlaneacionPage() {
           </p>
         </Card>
 
-        {/* Group Selection */}
+        {/* Grade Selection — planeación covers the whole grade (all its groups) */}
         <Card className="p-6 border-2">
-          <label htmlFor="group" className="block text-sm font-medium text-text-primary mb-2">
-            Grupo
+          <label htmlFor="grade" className="block text-sm font-medium text-text-primary mb-2">
+            Grado
           </label>
           <select
-            id="group"
-            value={selectedGroupId}
-            onChange={(e) => setSelectedGroupId(e.target.value)}
+            id="grade"
+            value={selectedGrade}
+            onChange={(e) => selectGrade(e.target.value)}
             required
             className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           >
-            <option value="">Selecciona el grupo</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name} ({g.grade})
+            <option value="">Selecciona el grado</option>
+            {grades.map((g) => (
+              <option key={g} value={g}>
+                {g}
               </option>
             ))}
           </select>
+          {gradeGroups.length > 0 && (
+            <p className="mt-2 text-xs text-text-secondary">
+              La planeación cubre {gradeGroups.length === 1 ? 'el grupo' : 'los grupos'}:{' '}
+              {gradeGroups.map((g) => g.name).join(', ')}
+            </p>
+          )}
         </Card>
 
         {/* Basic Info */}
