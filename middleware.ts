@@ -61,8 +61,8 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // ── 2. API routes: apply headers and pass through (auth handled per-route) ──
-  if (pathname.startsWith('/api/')) {
+  // ── 2. API + auth callback: pass through without session interference ────────
+  if (pathname.startsWith('/api/') || pathname === '/auth/callback') {
     return applySecurityHeaders(NextResponse.next())
   }
 

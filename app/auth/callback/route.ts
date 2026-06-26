@@ -4,6 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 // Supabase OAuth callback — exchanges code for session, then routes new vs returning users
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
+  // Supabase redirects here with ?error= when the OAuth flow fails on their end
+  const supabaseError = searchParams.get('error_code') ?? searchParams.get('error')
+  if (supabaseError) {
+    const desc = searchParams.get('error_description') ?? supabaseError
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(desc)}`)
+  }
+
   const code = searchParams.get('code')
   // Only allow same-origin relative paths to prevent open-redirect via ?next=
   const rawNext = searchParams.get('next') ?? '/dashboard'
