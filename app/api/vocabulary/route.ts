@@ -37,12 +37,13 @@ async function seedRichmondVocabulary(supabase: any, teacherId: string) {
       await supabase
         .from('vocabulary_items')
         .upsert(items, { onConflict: 'letter,word,teacher_id', ignoreDuplicates: true })
+      // Only mark seeded if we actually had vocab to insert. If richmond_lesson_groups
+      // is empty (e.g. after a data reset), leave null so we retry on the next load.
+      await supabase
+        .from('teachers')
+        .update({ richmond_vocab_seeded_at: new Date().toISOString() })
+        .eq('id', teacherId)
     }
-
-    await supabase
-      .from('teachers')
-      .update({ richmond_vocab_seeded_at: new Date().toISOString() })
-      .eq('id', teacherId)
   } catch (err) {
     console.error('Richmond vocab seed error (non-fatal):', err)
   }
@@ -89,24 +90,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
-    // Auto-seed Richmond book vocabulary on first visit for Richmond teachers.
-    // ponytail: separate try/catch so a missing migration 058 column never breaks vocab load.
+    // Auto-seed Richmond book vocabulary on every load — upsert is ignoreDuplicates so it's
+    // idempotent. Avoids the seeded_at flag being set on an empty run (missing lesson groups)
+    // and then never retrying.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((teacher as any).editorial === 'richmond') {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: seededRow } = await (supabase as any)
-          .from('teachers')
-          .select('richmond_vocab_seeded_at')
-          .eq('id', teacher.id)
-          .single()
-        if (!seededRow?.richmond_vocab_seeded_at) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await seedRichmondVocabulary(supabase as any, teacher.id)
-        }
-      } catch {
-        // migration 058 not yet applied — seed silently skipped
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await seedRichmondVocabulary(supabase as any, teacher.id).catch(() => {})
     }
 
     // Each teacher owns their vocabulary — seeded from system words on signup

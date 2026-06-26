@@ -299,9 +299,13 @@ export default function CalificacionesRichmondPage() {
     toast.success('Contacto eliminado')
   }
 
-  // Pending students for a task = roster of that task's group who didn't submit.
+  // Students for a task = those with a score row for this assignment (regardless of group_id,
+  // because group_id in the map is set from the first-seen row which can be from another group).
+  function taskStudents(a: Assignment) {
+    return students.filter((s) => s.submitted[a.id] !== undefined)
+  }
   function pendingStudents(a: Assignment) {
-    return students.filter((s) => s.group_id === a.group_id && !s.submitted[a.id])
+    return students.filter((s) => s.submitted[a.id] === false)
   }
 
   const ridFor = (s: Student) => contactRidByName.get(norm(`${s.first} ${s.last}`))
@@ -613,9 +617,8 @@ export default function CalificacionesRichmondPage() {
                           )}
                         </div>
                         {(() => {
-                          const groupStudents = sortStudents(
-                            students.filter((s) => s.group_id === a.group_id),
-                            (s) => (s.submitted[a.id] ? 1 : 0)
+                          const groupStudents = sortStudents(taskStudents(a), (s) =>
+                            s.submitted[a.id] ? 1 : 0
                           )
                           if (groupStudents.length === 0) {
                             return (
