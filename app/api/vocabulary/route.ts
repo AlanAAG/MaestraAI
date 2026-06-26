@@ -81,7 +81,7 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)
       .from('teachers')
-      .select('id, editorial, richmond_vocab_seeded_at')
+      .select('id, editorial')
       .eq('auth_id', user.id)
       .single()
 
@@ -89,11 +89,24 @@ export async function GET() {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
-    // Auto-seed Richmond book vocabulary on first visit for Richmond teachers
+    // Auto-seed Richmond book vocabulary on first visit for Richmond teachers.
+    // ponytail: separate try/catch so a missing migration 058 column never breaks vocab load.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((teacher as any).editorial === 'richmond' && !(teacher as any).richmond_vocab_seeded_at) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await seedRichmondVocabulary(supabase as any, teacher.id)
+    if ((teacher as any).editorial === 'richmond') {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: seededRow } = await (supabase as any)
+          .from('teachers')
+          .select('richmond_vocab_seeded_at')
+          .eq('id', teacher.id)
+          .single()
+        if (!seededRow?.richmond_vocab_seeded_at) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await seedRichmondVocabulary(supabase as any, teacher.id)
+        }
+      } catch {
+        // migration 058 not yet applied — seed silently skipped
+      }
     }
 
     // Each teacher owns their vocabulary — seeded from system words on signup
