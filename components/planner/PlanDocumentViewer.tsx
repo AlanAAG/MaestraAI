@@ -988,6 +988,10 @@ export function PlanDocumentViewer({
 
   return (
     <div>
+      {/* Drives the printed/"PDF (imprimir)" page orientation — like changing page layout in Word.
+          Without this @page rule the print stays portrait no matter the toggle. */}
+      <style>{`@page { size: ${orientation === 'horizontal' ? 'landscape' : 'portrait'}; margin: 12mm; }`}</style>
+
       {/* Design toolbar (screen only) */}
       <div
         className={`mx-auto mb-2 flex justify-end print:hidden ${orientation === 'horizontal' ? 'max-w-5xl' : 'max-w-3xl'}`}
