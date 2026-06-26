@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CheckCircle2,
   PuzzleIcon,
+  ExternalLink,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ScoreDistributionChart } from '@/components/richmond/ScoreDistributionChart'
@@ -293,6 +294,13 @@ export default function RichmondDashboard() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => window.open('https://richmondlp.com', '_blank', 'noopener')}
+            className="min-h-[44px] gap-2"
+          >
+            <ExternalLink size={18} /> Ir a Richmond
+          </Button>
           <Button
             onClick={() => router.push('/richmond/subir')}
             variant="outline"
