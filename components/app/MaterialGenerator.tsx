@@ -60,6 +60,30 @@ const GENERATE_TYPES: GenerateMaterialType[] = [
   'sorting_game',
 ]
 
+// Per-game options panel with a clear game-name badge, so when extra options appear it's
+// obvious which game/material they configure.
+function OptionPanel({
+  game,
+  hint,
+  children,
+}: {
+  game: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="rounded-md bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">
+          {game}
+        </span>
+        {hint && <span className="text-xs font-medium text-indigo-900/70">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
 type MaterialGeneratorProps = {
   // Optional: omitted when creating materials at the fortnight (document) level rather than a day.
   lessonPlanId?: string
@@ -220,6 +244,13 @@ export function MaterialGenerator({
   const needsUrl = selectedTypes.has('from_youtube')
   const needsCardConfig = selectedTypes.has('bingo')
   const needsDifficulty = selectedTypes.has('bingo') || selectedTypes.has('word_search')
+  // Which game(s) the shared difficulty control applies to — shown in its panel title.
+  const difficultyGames = [
+    selectedTypes.has('bingo') ? 'Bingo' : null,
+    selectedTypes.has('word_search') ? 'Sopa de Letras' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
   const selectedCount = Array.from(selectedTypes).filter((t) => t !== 'fortnight_pack').length
 
   return (
@@ -296,18 +327,14 @@ export function MaterialGenerator({
 
             {/* Difficulty selector (bingo + word search) */}
             {needsDifficulty && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Dificultad</label>
+              <OptionPanel game={difficultyGames} hint="Dificultad">
                 <DifficultySelector value={difficulty} onChange={setDifficulty} />
-              </div>
+              </OptionPanel>
             )}
 
             {/* Letter recognition activity type */}
             {selectedTypes.has('letter_recognition') && (
-              <div className="mb-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-                <label className="block text-sm font-medium text-indigo-900 mb-2">
-                  Actividad — Reconocimiento de Letras
-                </label>
+              <OptionPanel game="Reconoc. Letras" hint="Tipo de actividad">
                 <div className="flex gap-1.5">
                   {LETTER_ACTIVITY_OPTIONS.map((opt) => (
                     <button
@@ -325,15 +352,12 @@ export function MaterialGenerator({
                     </button>
                   ))}
                 </div>
-              </div>
+              </OptionPanel>
             )}
 
             {/* Memorama size */}
             {selectedTypes.has('games') && (
-              <div className="mb-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-                <label className="block text-sm font-medium text-indigo-900 mb-2">
-                  Tamaño del memorama
-                </label>
+              <OptionPanel game="Memorama" hint="Tamaño">
                 <div className="flex gap-1.5">
                   {[
                     { pairs: 4, label: 'Pequeño', sub: '4 pares' },
@@ -355,39 +379,41 @@ export function MaterialGenerator({
                     </button>
                   ))}
                 </div>
-              </div>
+              </OptionPanel>
             )}
 
             {/* Bingo config */}
             {needsCardConfig && (
-              <div className="mb-4 p-3 rounded-lg bg-gray-50 border border-gray-200 space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Número de tarjetas: <strong>{cardCount}</strong>
-                  </label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={35}
-                    value={cardCount}
-                    onChange={(e) => setCardCount(Number(e.target.value))}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400">
-                    <span>1</span>
-                    <span>35</span>
+              <OptionPanel game="Bingo" hint="Tarjetas">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Número de tarjetas: <strong>{cardCount}</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={35}
+                      value={cardCount}
+                      onChange={(e) => setCardCount(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>1</span>
+                      <span>35</span>
+                    </div>
                   </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={freeSpace}
+                      onChange={(e) => setFreeSpace(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-sm text-gray-700">Casilla FREE en el centro</span>
+                  </label>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={freeSpace}
-                    onChange={(e) => setFreeSpace(e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                  <span className="text-sm text-gray-700">Casilla FREE en el centro</span>
-                </label>
-              </div>
+              </OptionPanel>
             )}
 
             {error && (
