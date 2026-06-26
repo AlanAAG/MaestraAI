@@ -4,7 +4,14 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { RefreshCw, Upload, AlertCircle, ChevronRight } from 'lucide-react'
+import {
+  RefreshCw,
+  Upload,
+  AlertCircle,
+  ChevronRight,
+  CheckCircle2,
+  PuzzleIcon,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ScoreDistributionChart } from '@/components/richmond/ScoreDistributionChart'
 
@@ -307,6 +314,24 @@ export default function RichmondDashboard() {
         </div>
       )}
 
+      {/* Extension linkage banner — shown when at least one group hasn't been linked yet */}
+      {groups.length > 0 && groups.some((g) => !g.richmond_group_name) && !sessionExpired && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+          <PuzzleIcon size={20} className="text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              {groups.every((g) => !g.richmond_group_name)
+                ? 'Extensión no configurada'
+                : 'Algunos grupos sin vincular'}
+            </p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Abre la extensión de MaestraIA en Chrome, inicia sesión en richmondlp.com y sincroniza
+              tu Markbook para vincular tus grupos.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
         <TabBtn id="todos" active={activeTab === 'todos'} onClick={setActiveTab}>
@@ -389,22 +414,39 @@ export default function RichmondDashboard() {
         <div className="space-y-4">
           {/* Group selector */}
           <div className="flex gap-2 flex-wrap">
-            {groups.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => {
-                  setSelectedGroupId(g.id)
-                  loadGroupData(g.id)
-                }}
-                className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
-                  selectedGroupId === g.id
-                    ? 'bg-primary text-white'
-                    : 'bg-surface border border-border text-text-secondary hover:border-primary'
-                }`}
-              >
-                {g.richmond_group_name || g.name}
-              </button>
-            ))}
+            {groups.map((g) => {
+              const linked = !!g.richmond_group_name
+              const active = selectedGroupId === g.id
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => {
+                    setSelectedGroupId(g.id)
+                    loadGroupData(g.id)
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm transition-colors ${
+                    active
+                      ? 'bg-primary text-white'
+                      : 'bg-surface border border-border text-text-secondary hover:border-primary'
+                  }`}
+                >
+                  {g.richmond_group_name || g.name}
+                  {linked ? (
+                    <CheckCircle2
+                      size={14}
+                      className={active ? 'text-white/80' : 'text-green-500'}
+                    />
+                  ) : (
+                    <span title="Grupo sin vincular — abre la extensión">
+                      <PuzzleIcon
+                        size={14}
+                        className={active ? 'text-white/70' : 'text-amber-400'}
+                      />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
 
           {/* Stats row */}
