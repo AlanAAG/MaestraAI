@@ -6,10 +6,16 @@ import { logAudit } from '@/lib/audit'
 import { VOCAB_COLORS } from '@/lib/vocabulary/parse'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function seedRichmondVocabulary(supabase: any, teacherId: string) {
+async function seedRichmondVocabulary(
+  supabase: any,
+  teacherId: string
+): Promise<{ groups: number; items: number; error?: string }> {
   try {
-    const { data: groups } = await supabase.from('richmond_lesson_groups').select('vocabulary')
-    if (!groups?.length) return
+    const { data: groups, error: groupsErr } = await supabase
+      .from('richmond_lesson_groups')
+      .select('vocabulary')
+    if (groupsErr) return { groups: 0, items: 0, error: groupsErr.message }
+    if (!groups?.length) return { groups: 0, items: 0 }
 
     const seen = new Set<string>()
     const items: { word: string; letter: string; color: string; teacher_id: string }[] = []
@@ -34,18 +40,20 @@ async function seedRichmondVocabulary(supabase: any, teacherId: string) {
     }
 
     if (items.length) {
-      await supabase
+      const { error: upsertErr } = await supabase
         .from('vocabulary_items')
         .upsert(items, { onConflict: 'letter,word,teacher_id', ignoreDuplicates: true })
-      // Only mark seeded if we actually had vocab to insert. If richmond_lesson_groups
-      // is empty (e.g. after a data reset), leave null so we retry on the next load.
+      if (upsertErr) return { groups: groups.length, items: 0, error: upsertErr.message }
       await supabase
         .from('teachers')
         .update({ richmond_vocab_seeded_at: new Date().toISOString() })
         .eq('id', teacherId)
     }
+    return { groups: groups.length, items: items.length }
   } catch (err) {
-    console.error('Richmond vocab seed error (non-fatal):', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('Richmond vocab seed error:', msg)
+    return { groups: 0, items: 0, error: msg }
   }
 }
 
@@ -90,13 +98,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 })
     }
 
-    // Auto-seed Richmond book vocabulary on every load — upsert is ignoreDuplicates so it's
-    // idempotent. Avoids the seeded_at flag being set on an empty run (missing lesson groups)
-    // and then never retrying.
+    // Auto-seed Richmond book vocabulary on every load — upsert is ignoreDuplicates so idempotent.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let seedInfo: { groups: number; items: number; error?: string } | null = null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((teacher as any).editorial === 'richmond') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await seedRichmondVocabulary(supabase as any, teacher.id).catch(() => {})
+      seedInfo = await seedRichmondVocabulary(supabase as any, teacher.id)
     }
 
     // Each teacher owns their vocabulary — seeded from system words on signup
@@ -108,7 +116,7 @@ export async function GET() {
       .order('letter', { ascending: true })
       .order('word', { ascending: true })
 
-    return NextResponse.json({ vocabulary: vocabulary || [] })
+    return NextResponse.json({ vocabulary: vocabulary || [], _seed: seedInfo })
   } catch (error) {
     console.error('Vocabulary GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
