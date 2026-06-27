@@ -165,6 +165,11 @@ export default function PlaneacionDetailPage() {
 
       setFortnight(fortnightData)
 
+      // Default the page orientation to the teacher's format (landscape format → landscape plan).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fmtOrient = (fortnightData?.plan_document as any)?._formatting_rules?.page_orientation
+      if (fmtOrient === 'horizontal' || fmtOrient === 'vertical') setOrientation(fmtOrient)
+
       // Teacher name for the document header
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: teacherRow } = await (supabase as any)

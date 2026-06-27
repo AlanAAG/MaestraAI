@@ -1,10 +1,47 @@
 import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
+import zlib from 'node:zlib'
 import { validateBase64Image } from '@/lib/file-validation'
 import type { TeacherProfile } from '@/types/teacher-profile'
 
 // Kept as an alias so existing imports of TemplateData keep compiling.
 export type TemplateData = TeacherProfile
+
+// Detect page orientation from a .docx (a ZIP) by inflating word/document.xml and reading the
+// section page size (w:pgSz orient / w vs h). Native zlib — no new dependency.
+// ponytail: parses ZIP local headers; works for Word-written docx. Returns null (→ neutral
+// 'vertical' default) on any unexpected layout (e.g. data-descriptor entries) rather than guessing.
+export function detectDocxOrientation(buf: Buffer): 'horizontal' | 'vertical' | null {
+  try {
+    let off = 0
+    while (off + 30 <= buf.length && buf.readUInt32LE(off) === 0x04034b50) {
+      const method = buf.readUInt16LE(off + 8)
+      const compSize = buf.readUInt32LE(off + 18)
+      const nameLen = buf.readUInt16LE(off + 26)
+      const extraLen = buf.readUInt16LE(off + 28)
+      const name = buf.toString('utf8', off + 30, off + 30 + nameLen)
+      const dataStart = off + 30 + nameLen + extraLen
+      if (name === 'word/document.xml') {
+        if (compSize === 0) return null // data descriptor — sizes unknown here; bail to neutral
+        const data = buf.subarray(dataStart, dataStart + compSize)
+        const xml = (method === 0 ? data : zlib.inflateRawSync(data)).toString('utf8')
+        const m = xml.match(/<w:pgSz\b[^>]*>/)
+        if (!m) return null
+        const tag = m[0]
+        if (/w:orient="landscape"/.test(tag)) return 'horizontal'
+        if (/w:orient="portrait"/.test(tag)) return 'vertical'
+        const w = Number(tag.match(/w:w="(\d+)"/)?.[1] ?? 0)
+        const h = Number(tag.match(/w:h="(\d+)"/)?.[1] ?? 0)
+        if (w && h) return w > h ? 'horizontal' : 'vertical'
+        return null
+      }
+      off = dataStart + compSize
+    }
+  } catch {
+    /* malformed/unknown zip layout → neutral default */
+  }
+  return null
+}
 
 const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quirúrgica para extraer su estructura y contenido REUTILIZABLE. Responde ÚNICAMENTE con JSON válido (sin texto adicional):
 
@@ -94,6 +131,7 @@ export async function extractTemplate(input: {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
   let userContent: Anthropic.MessageParam['content']
   let sourceText = '' // raw doc text (docx) — used for a graceful fallback if JSON extraction fails
+  let detectedOrientation: 'horizontal' | 'vertical' | null = null
 
   if (imageBase64 && imageMimeType) {
     const validation = await validateBase64Image(imageBase64, imageMimeType)
@@ -132,6 +170,7 @@ export async function extractTemplate(input: {
     } else {
       // DOCX / DOC path via mammoth
       const buffer = Buffer.from(documentBase64, 'base64')
+      detectedOrientation = detectDocxOrientation(buffer)
       const { value: docText } = await mammoth.extractRawText({ buffer })
       if (!docText || docText.trim().length < 50) {
         throw new Error('El documento no tiene suficiente texto para analizar.')
@@ -157,17 +196,26 @@ export async function extractTemplate(input: {
 
   const raw = '{' + (response.content[0].type === 'text' ? response.content[0].text : '')
   const parsed = tryParseProfile(raw)
-  if (parsed) return parsed
 
   // Graceful fallback — NEVER hard-reject a valid upload. If JSON extraction failed (e.g.
   // truncation), still store a minimal profile from the raw text so generation gets the voice.
-  if (sourceText.trim().length > 50) {
-    return {
-      writing_style_samples: chunk(sourceText, 600, 3).map(scrubNames),
-      notes: 'Formato subido; extracción automática parcial.',
+  const profile: TemplateData =
+    parsed ??
+    (sourceText.trim().length > 50
+      ? {
+          writing_style_samples: chunk(sourceText, 600, 3).map(scrubNames),
+          notes: 'Formato subido; extracción automática parcial.',
+        }
+      : { notes: 'Formato subido; extracción automática no disponible.' })
+
+  // Stamp the deterministically-detected page orientation (overrides any LLM guess).
+  if (detectedOrientation) {
+    profile.formatting_rules = {
+      ...(profile.formatting_rules ?? {}),
+      page_orientation: detectedOrientation,
     }
   }
-  return { notes: 'Formato subido; extracción automática no disponible.' }
+  return profile
 }
 
 function tryParseProfile(raw: string): TemplateData | null {

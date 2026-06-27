@@ -48,6 +48,9 @@ export type TeacherProfile = {
     // Where campos formativos live: as one top-level block, or a table inside EACH sub-plan.
     // Neutral default when absent: 'top_level' (current behavior).
     campos_position?: 'top_level' | 'per_subplan'
+    // Page orientation detected from the uploaded .docx (w:pgSz orient). Defaults the plan's
+    // orientation so a landscape format produces landscape plans. Neutral default: 'vertical'.
+    page_orientation?: 'horizontal' | 'vertical'
   }
 
   verb_person?: 'primera_singular' | 'primera_plural' | 'infinitivo'
