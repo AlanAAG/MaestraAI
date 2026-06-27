@@ -82,6 +82,7 @@ type PlanDoc = {
   // Embedded at generation time from teacher's profile — drives dynamic section order + titles.
   _section_order?: string[]
   _section_titles?: Record<string, string>
+  _formatting_rules?: { section_title_trailing_colon?: boolean }
 }
 
 type GroupSchedule = {
@@ -748,7 +749,11 @@ function QuincenaSections({
   handleEdit: (section: string, value: string) => Promise<void>
 }) {
   const titles = pd._section_titles ?? {}
-  const t = (key: string) => titles[key] ?? DEFAULT_TITLES[key] ?? key
+  // Colon is owned by the renderer (strip any stored one, then add per the rule) — same logic as
+  // the DOCX export, so screen + Word agree and never double-up the colon.
+  const colon = pd._formatting_rules?.section_title_trailing_colon ? ':' : ''
+  const t = (key: string) =>
+    (titles[key] ?? DEFAULT_TITLES[key] ?? key).replace(/\s*:\s*$/, '') + colon
 
   // Build full order: teacher's order (if stored), or the canonical default.
   // Always copy — never mutate pd._section_order (it's a shared prop reference).

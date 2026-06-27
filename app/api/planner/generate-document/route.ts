@@ -128,13 +128,16 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): { cont
     )
   }
 
-  // 2. PDA bank — the anti-hallucination source
+  // 2. PDA bank — the anti-hallucination source. Reproduce each contenido with EXACTLY its PDAs
+  //    (same count, verbatim) so the campos table matches the teacher's document fidelity.
   if (p?.pda_bank?.length) {
     parts.push(
-      `<pda_bank>\nPROCESOS DE DESARROLLO DE APRENDIZAJE DISPONIBLES (usa estos VERBATIM — no inventes otros):\n${p.pda_bank
+      `<pda_bank>\nPROCESOS DE DESARROLLO DE APRENDIZAJE DISPONIBLES (usa estos VERBATIM — no inventes otros). Para cada contenido, incluye EXACTAMENTE sus PDAs (mismo número, sin consolidar ni omitir):\n${p.pda_bank
         .map(
           (b) =>
-            `Campo: ${b.campo}\nContenido: ${b.contenido}\nPDAs:\n${(b.pdas ?? [])
+            `Campo: ${b.campo}\nContenido: ${b.contenido} (${(b.pdas ?? []).length} PDAs)\nPDAs:\n${(
+              b.pdas ?? []
+            )
               .map((x) => `  • ${x}`)
               .join('\n')}`
         )
@@ -189,6 +192,21 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): { cont
       `BLOQUES DE ACTIVIDAD:\n${p.activity_blocks.map((b) => `• ${b}: ${p.block_descriptions?.[b] ?? ''}`).join('\n')}`
     )
   if (p?.notes) parts.push(`ESTILO Y TONO DE LA MAESTRA: ${p.notes}`)
+
+  // Verb person — high-impact voice lever, especially for new teachers using a shared school
+  // format. Detected from her document; omitted (neutral) when unknown.
+  const vp = p?.verb_person
+  if (vp) {
+    const rule =
+      vp === 'primera_plural'
+        ? 'primera persona del PLURAL (nosotros/as: "presentamos", "observamos", "trabajaremos")'
+        : vp === 'infinitivo'
+          ? 'INFINITIVO ("presentar", "observar", "trabajar")'
+          : 'primera persona del SINGULAR (yo: "presento", "observo", "trabajaré")'
+    parts.push(
+      `<persona_verbal>\nRedacta TODA la planeación en ${rule}. Mantén esta persona verbal de forma consistente en cada sección.\n</persona_verbal>`
+    )
+  }
 
   // Formatting rules detected in her document — placed LAST so they sit closest to the output
   // schema (highest attention). Every rule traces back to something extracted, never hardcoded.

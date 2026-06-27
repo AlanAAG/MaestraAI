@@ -122,10 +122,17 @@ function mdToParas(
       continue
     }
     prevWasBlank = false
-    // Skip markdown heading markers (## / ###) — render as bold paragraph instead
-    const headingMatch = trimmed.match(/^#{1,3}\s+(.+)$/)
+    // Markdown sub-headings (## / ###) → real Word headings so sub-sections (e.g. each
+    // Ajustes Razonables category) stand apart with their list underneath, not flattened to prose.
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/)
     if (headingMatch) {
-      paras.push(new Paragraph({ children: [new TextRun({ text: headingMatch[1], bold: true })] }))
+      const level =
+        headingMatch[1].length <= 1
+          ? HeadingLevel.HEADING_2
+          : headingMatch[1].length === 2
+            ? HeadingLevel.HEADING_3
+            : HeadingLevel.HEADING_4
+      paras.push(new Paragraph({ text: headingMatch[2], heading: level }))
       continue
     }
     const isBullet =
@@ -482,7 +489,9 @@ export async function POST(req: NextRequest) {
         ? HeadingLevel.HEADING_1
         : HeadingLevel.HEADING_2
     const colon = pd._formatting_rules?.section_title_trailing_colon ? ':' : ''
-    const secT = (key: string) => t(key) + colon
+    // Colon is owned by the renderer: strip any colon already in the stored title, then add ours.
+    // Prevents double-colon ("Actividades Iniciales::") when an extracted title already has one.
+    const secT = (key: string) => t(key).replace(/\s*:\s*$/, '') + colon
 
     const appendSection = (key: string) => {
       try {
