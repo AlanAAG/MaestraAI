@@ -48,6 +48,9 @@ const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quir�
   "formatting_rules": {
     "bullet_label_bold": true,
     "section_title_case": "ALL_CAPS",
+    "section_heading_level": "h1",
+    "section_title_trailing_colon": true,
+    "campos_position": "per_subplan",
     "estrategia_comunitaria_format": "numbered_steps",
     "ejes_articuladores_format": "bold_label_paragraph",
     "proyecto_subheadings": ["Punto de Partida", "Planeación", "A trabajar", "Comunicamos Nuestros Logros", "Reflexión sobre el aprendizaje"],
@@ -69,6 +72,9 @@ REGLAS CRÍTICAS:
 - formatting_rules: detecta los PATRONES DE FORMATO reales del documento (no inventes, observa):
   · bullet_label_bold: true si las viñetas usan etiqueta en negritas ("**Clima:** texto"), false si es texto plano ("Clima: texto")
   · section_title_case: "ALL_CAPS" | "Title Case" | "Sentence case" según cómo escribe los títulos de sección
+  · section_heading_level: "h1" si TODAS las secciones usan el mismo nivel de encabezado grande (jerarquía plana, # en cada sección), "h2" si las secciones están anidadas bajo un título mayor. Omite si no es claro.
+  · section_title_trailing_colon: true si los títulos terminan en dos puntos ("Actividades Iniciales:"). Omite si no.
+  · campos_position: "per_subplan" si los Campos Formativos aparecen como una tabla DENTRO de cada sub-planeación (Letter&Number, Números, Taller…), "top_level" si hay UN solo bloque de campos para toda la quincena. Observa el documento; omite si no es claro.
   · estrategia_comunitaria_format: "numbered_steps" si usa pasos numerados (1. 2. 3.), "paragraphs" si son párrafos
   · ejes_articuladores_format: "bold_label_paragraph" si cada eje es "**Nombre:** párrafo", "plain" si no
   · proyecto_subheadings / ajustes_subheadings: los sub-encabezados EXACTOS y EN ORDEN de esas secciones (omite si no existen)

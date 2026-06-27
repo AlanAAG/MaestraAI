@@ -76,7 +76,11 @@ type PlanDocument = {
   sub_planes?: SubPlan[]
   _section_order?: string[]
   _section_titles?: Record<string, string>
-  _formatting_rules?: { section_separator?: 'line' | 'none' | 'space' }
+  _formatting_rules?: {
+    section_separator?: 'line' | 'none' | 'space'
+    section_heading_level?: 'h1' | 'h2'
+    section_title_trailing_colon?: boolean
+  }
 }
 
 // A thin horizontal rule between sections (when the teacher's format uses one).
@@ -88,10 +92,14 @@ function sectionSeparator(color: string): Paragraph {
 }
 
 // Convert a simple markdown string to docx Paragraph array (handles bullets, bold, blank lines)
-function mdToParas(text: unknown, heading?: string): Paragraph[] {
+function mdToParas(
+  text: unknown,
+  heading?: string,
+  headingLevel: (typeof HeadingLevel)[keyof typeof HeadingLevel] = HeadingLevel.HEADING_2
+): Paragraph[] {
   const paras: Paragraph[] = []
   if (heading) {
-    paras.push(new Paragraph({ text: heading, heading: HeadingLevel.HEADING_2 }))
+    paras.push(new Paragraph({ text: heading, heading: headingLevel }))
   }
   // Sections are normally markdown strings, but a malformed plan_document can hand us an
   // object/array — coerce instead of letting `.split` throw and 500 the whole export.
@@ -467,6 +475,14 @@ export async function POST(req: NextRequest) {
     const obsCal = (fn as any).observation_calendar as Record<string, string[]> | null
     const userTitles = pd._section_titles ?? {}
     const t = (key: string) => userTitles[key] ?? DEFAULT_SECTION_TITLES[key] ?? key
+    // Section heading level + trailing colon from the teacher's detected formatting (neutral
+    // defaults: H2, no colon). secT() decorates the title; secLevel sets the Word heading level.
+    const secLevel =
+      pd._formatting_rules?.section_heading_level === 'h1'
+        ? HeadingLevel.HEADING_1
+        : HeadingLevel.HEADING_2
+    const colon = pd._formatting_rules?.section_title_trailing_colon ? ':' : ''
+    const secT = (key: string) => t(key) + colon
 
     const appendSection = (key: string) => {
       try {
@@ -484,40 +500,46 @@ export async function POST(req: NextRequest) {
         switch (key) {
           case 'actividades_iniciales':
             if (pd.actividades_iniciales)
-              children.push(...mdToParas(pd.actividades_iniciales, t(key)))
+              children.push(...mdToParas(pd.actividades_iniciales, secT(key), secLevel))
             break
           case 'actividades_rutina':
-            if (pd.actividades_rutina) children.push(...mdToParas(pd.actividades_rutina, t(key)))
+            if (pd.actividades_rutina)
+              children.push(...mdToParas(pd.actividades_rutina, secT(key), secLevel))
             break
           case 'aventura_lectora':
-            if (pd.aventura_lectora) children.push(...mdToParas(pd.aventura_lectora, t(key)))
+            if (pd.aventura_lectora)
+              children.push(...mdToParas(pd.aventura_lectora, secT(key), secLevel))
             break
           case 'estrategia_comunitaria':
             if (pd.estrategia_comunitaria)
-              children.push(...mdToParas(pd.estrategia_comunitaria, t(key)))
+              children.push(...mdToParas(pd.estrategia_comunitaria, secT(key), secLevel))
             break
           case 'pausas_activas':
-            if (pd.pausas_activas) children.push(...mdToParas(pd.pausas_activas, t(key)))
+            if (pd.pausas_activas)
+              children.push(...mdToParas(pd.pausas_activas, secT(key), secLevel))
             break
           case 'ajustes_razonables':
-            if (pd.ajustes_razonables) children.push(...mdToParas(pd.ajustes_razonables, t(key)))
+            if (pd.ajustes_razonables)
+              children.push(...mdToParas(pd.ajustes_razonables, secT(key), secLevel))
             break
           case 'ejes_articuladores':
-            if (pd.ejes_articuladores) children.push(...mdToParas(pd.ejes_articuladores, t(key)))
+            if (pd.ejes_articuladores)
+              children.push(...mdToParas(pd.ejes_articuladores, secT(key), secLevel))
             break
           case 'campos_formativos':
             if (pd.campos_formativos?.length)
               children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
             break
           case 'proyecto':
-            if (pd.proyecto) children.push(...mdToParas(pd.proyecto, t(key)))
+            if (pd.proyecto) children.push(...mdToParas(pd.proyecto, secT(key), secLevel))
             break
           case 'desarrollo_taller':
-            if (pd.desarrollo_taller) children.push(...mdToParas(pd.desarrollo_taller, t(key)))
+            if (pd.desarrollo_taller)
+              children.push(...mdToParas(pd.desarrollo_taller, secT(key), secLevel))
             break
           case 'cronograma':
             if (pd.cronograma) {
-              children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
+              children.push(new Paragraph({ text: secT(key), heading: secLevel }))
               children.push(cronogramaTable(pd.cronograma, borderHex))
               children.push(new Paragraph(''))
             }
@@ -534,7 +556,7 @@ export async function POST(req: NextRequest) {
             break
           case 'evaluacion_items':
             if (pd.evaluacion_items?.length) {
-              children.push(new Paragraph({ text: t(key), heading: HeadingLevel.HEADING_2 }))
+              children.push(new Paragraph({ text: secT(key), heading: secLevel }))
               children.push(evaluacionTable(pd.evaluacion_items, borderHex, pd.evaluation_columns))
               children.push(new Paragraph(''))
             }

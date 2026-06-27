@@ -219,6 +219,9 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): { cont
         : fr.section_title_case === 'Title Case'
           ? '• Títulos de sección en Mayúscula Inicial.'
           : '',
+      fr.campos_position === 'per_subplan'
+        ? '• Campos Formativos: NO los pongas como bloque de nivel superior. Deja el array "campos_formativos" del documento principal VACÍO ([]); cada sub-planeación lleva su propia tabla de campos.'
+        : '',
     ].filter(Boolean)
     if (lines.length) {
       parts.push(

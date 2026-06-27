@@ -41,6 +41,13 @@ export type TeacherProfile = {
     proyecto_subheadings?: string[]
     ajustes_subheadings?: string[]
     section_separator?: 'line' | 'none' | 'space'
+    // Heading level the teacher uses for EVERY main section (flat 'h1' vs nested 'h2').
+    // Neutral default when absent/unsure: 'h2'.
+    section_heading_level?: 'h1' | 'h2'
+    section_title_trailing_colon?: boolean // "Actividades Iniciales:" vs "Actividades Iniciales"
+    // Where campos formativos live: as one top-level block, or a table inside EACH sub-plan.
+    // Neutral default when absent: 'top_level' (current behavior).
+    campos_position?: 'top_level' | 'per_subplan'
   }
 
   verb_person?: 'primera_singular' | 'primera_plural' | 'infinitivo'
