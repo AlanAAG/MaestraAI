@@ -47,15 +47,25 @@ export async function GET(req: NextRequest) {
   // RLS returns the teacher's own templates PLUS any shared with their school — no teacher_id
   // filter here. The owner's name is joined so shared rows can show who created them.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
-    .from('teacher_plan_templates')
-    .select(
-      'id, label, plan_type, template, created_at, teacher_id, shared_with_school, is_school_official, teachers(full_name)'
-    )
-    .order('created_at', { ascending: false })
-  if (plan_type) query = query.eq('plan_type', plan_type)
-
-  const { data, error } = await query
+  const runQuery = (cols: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q = (supabase as any)
+      .from('teacher_plan_templates')
+      .select(cols)
+      .order('created_at', { ascending: false })
+    if (plan_type) q = q.eq('plan_type', plan_type)
+    return q
+  }
+  // Sharing columns only exist once migration 060 is applied — fall back gracefully if not.
+  let { data, error } = await runQuery(
+    'id, label, plan_type, template, created_at, teacher_id, shared_with_school, is_school_official, teachers(full_name)'
+  )
+  if (error) {
+    ;({ data, error } = await runQuery('id, label, plan_type, template, created_at, teacher_id').eq(
+      'teacher_id',
+      teacher.id
+    ))
+  }
   if (error) return NextResponse.json({ error: 'DB error' }, { status: 500 })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,15 +135,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const baseRow = { teacher_id: teacher.id, label, plan_type, template }
+    // school_id only exists once migration 060 is applied — retry without it if absent.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    let ins = await (supabase as any)
       .from('teacher_plan_templates')
-      .insert({ teacher_id: teacher.id, label, plan_type, template, school_id: teacher.school_id })
+      .insert({ ...baseRow, school_id: teacher.school_id })
       .select('id, label, plan_type, created_at')
       .single()
-    if (error) throw error
+    if (ins.error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ins = await (supabase as any)
+        .from('teacher_plan_templates')
+        .insert(baseRow)
+        .select('id, label, plan_type, created_at')
+        .single()
+    }
+    if (ins.error) throw ins.error
 
-    return NextResponse.json({ template_record: data })
+    return NextResponse.json({ template_record: ins.data })
   } catch (err) {
     console.error('POST /api/teachers/templates error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
