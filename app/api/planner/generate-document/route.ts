@@ -536,23 +536,12 @@ export async function POST(req: NextRequest) {
     // (RLS returns both; no teacher_id filter). Prefer her own for STRUCTURE (own-first), and merge
     // the "VOZ DE LA MAESTRA" examples across all same-type templates for richer voice. A teacher
     // with no own format inherits the school's shared/official one.
-    // is_school_official + the school-shared RLS policy only exist after migration 060 — fall back
-    // to the teacher's own templates if the column/policy isn't there yet.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let { data: templates } = await (supabase as any)
+    const { data: templates } = await (supabase as any)
       .from('teacher_plan_templates')
       .select('template, teacher_id, is_school_official, created_at')
       .eq('plan_type', planType)
       .order('created_at', { ascending: false })
-    if (!templates) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;({ data: templates } = await (supabase as any)
-        .from('teacher_plan_templates')
-        .select('template, teacher_id, created_at')
-        .eq('teacher_id', teacherId)
-        .eq('plan_type', planType)
-        .order('created_at', { ascending: false }))
-    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = ((templates ?? []) as any[])
       // Own formats first, then official school formats, then the rest.
