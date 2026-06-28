@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import LandingContent from '@/components/landing/LandingContent'
+import WaitlistLanding from '@/components/landing/WaitlistLanding'
 
 export default async function RootPage({
   searchParams,
@@ -20,5 +20,5 @@ export default async function RootPage({
   } = await supabase.auth.getUser()
   if (user) redirect('/dashboard')
 
-  return <LandingContent />
+  return <WaitlistLanding />
 }
