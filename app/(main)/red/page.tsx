@@ -65,6 +65,17 @@ function formatDate(d: string) {
 export default function RedPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [resources, setResources] = useState<Resource[]>([])
+  // Planeación formats shared across the school (own-shared + others'-shared).
+  const [sharedFormats, setSharedFormats] = useState<
+    {
+      id: string
+      label: string
+      plan_type: string
+      is_owner: boolean
+      is_school_official: boolean
+      owner_name: string | null
+    }[]
+  >([])
   const [teacherId, setTeacherId] = useState<string | null>(null)
   const [roleType, setRoleType] = useState<string>('teacher')
   const [loading, setLoading] = useState(true)
@@ -85,19 +96,23 @@ export default function RedPage() {
 
   useEffect(() => {
     async function load() {
-      const [meRes, annRes, resRes] = await Promise.all([
+      const [meRes, annRes, resRes, tplRes] = await Promise.all([
         fetch('/api/teachers/me'),
         fetch('/api/school/announcements'),
         fetch('/api/school/resources'),
+        fetch('/api/teachers/templates'),
       ])
       const me = await meRes.json()
       const { announcements: ann } = await annRes.json()
       const { resources: res } = await resRes.json()
+      const { templates: tpls } = await tplRes.json().catch(() => ({ templates: [] }))
       setTeacherId(me.id)
       setRoleType(me.role_type || 'teacher')
       setSchoolName(me.schools?.name ?? '')
       setAnnouncements(ann || [])
       setResources(res || [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setSharedFormats((tpls ?? []).filter((t: any) => t.shared_with_school))
       setLoading(false)
       fetch('/api/school/logo')
         .then((r) => (r.ok ? r.json() : { logo_url: null }))
@@ -435,6 +450,45 @@ export default function RedPage() {
                           <Trash2 size={14} />
                         </button>
                       )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Shared planeación formats — what teachers across the school have made available */}
+          <h2 className="text-base font-semibold text-text-primary pt-2">
+            Formatos de planeación compartidos
+          </h2>
+          {sharedFormats.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-xs text-text-secondary">
+                Aún no hay formatos compartidos. Comparte uno desde Configuración → Formatos.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {sharedFormats.map((f) => (
+                <Card key={f.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-sm font-medium text-text-primary truncate">{f.label}</p>
+                        {f.is_school_official && (
+                          <Badge variant="outline" className="text-xs">
+                            Oficial
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-secondary mt-1">
+                        {f.plan_type === 'taller' ? 'Taller' : 'Quincena'}
+                        {f.is_owner
+                          ? ' · tú lo compartiste'
+                          : f.owner_name
+                            ? ` · de ${f.owner_name}`
+                            : ''}
+                      </p>
                     </div>
                   </div>
                 </Card>
