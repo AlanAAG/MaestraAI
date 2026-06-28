@@ -31,16 +31,6 @@ export async function verifyApiKey(key: string, hash: string): Promise<boolean> 
 }
 
 /**
- * Extracts the display prefix from an API key
- * Shows first 11 characters + ellipsis for security
- *
- * Example: mk_a1b2c3d4e5f6... (from mk_a1b2c3d4e5f6789012...)
- */
-export function getKeyPrefix(key: string): string {
-  return key.slice(0, 11) + '...'
-}
-
-/**
  * Extracts just the prefix for database storage
  * First 11 characters only (no ellipsis)
  */

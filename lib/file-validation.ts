@@ -240,9 +240,3 @@ export async function validateBase64Image(
     return { valid: false, error: 'No se pudo validar la imagen.' }
   }
 }
-
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}

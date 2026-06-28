@@ -4,7 +4,6 @@ import React from 'react'
 
 export const PAGE_SIZE = 'LETTER' as const
 export const PAGE_PADDING = 40
-export const WATERMARK_TEXT = 'maestraia.com'
 
 const styles = StyleSheet.create({
   footer: {

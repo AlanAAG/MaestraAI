@@ -1,29 +1,9 @@
 // lib/richmond/crypto.ts
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import { createDecipheriv } from 'crypto'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
 const AUTH_TAG_LENGTH = 16
-
-/**
- * Encrypts a Richmond session cookie using AES-256-GCM.
- * Returns: base64(iv + authTag + ciphertext)
- */
-export async function encryptSession(sessionCookie: string): Promise<string> {
-  const key = getEncryptionKey()
-  const iv = randomBytes(IV_LENGTH)
-  const cipher = createCipheriv(ALGORITHM, key, iv)
-
-  let encrypted = cipher.update(sessionCookie, 'utf8', 'base64')
-  encrypted += cipher.final('base64')
-
-  const authTag = cipher.getAuthTag()
-
-  // Combine iv + authTag + encrypted data
-  const combined = Buffer.concat([iv, authTag, Buffer.from(encrypted, 'base64')])
-
-  return combined.toString('base64')
-}
 
 /**
  * Decrypts a Richmond session cookie.

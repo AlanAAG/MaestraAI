@@ -83,18 +83,3 @@ export async function checkRateLimit(
     },
   }
 }
-
-export function getRateLimitTier(endpoint: string, method: string): RateLimitTier {
-  const strictEndpoints = [
-    '/api/planner/generate',
-    '/api/materials/generate',
-    '/api/diary/summarize',
-    '/api/vocabulary/extract',
-    '/api/richmond/parse-csv',
-    '/api/richmond/import-batch',
-    '/api/resources/upload',
-  ]
-  if (strictEndpoints.some((p) => endpoint.includes(p))) return 'strict'
-  if (method === 'GET') return 'relaxed'
-  return 'standard'
-}

@@ -113,9 +113,6 @@ const ALIASES: [string, string[]][] = [
   ],
 ]
 
-// Sections that don't serialize as narrative markdown — skip them in the custom-sections path.
-export const STRUCTURED_FIELDS = new Set(['cronograma', 'campos_formativos', 'evaluacion_items'])
-
 export function mapSectionName(raw: string): string | null {
   const n = normalize(raw)
   for (const [key, tokens] of ALIASES) {
@@ -172,16 +169,5 @@ export const DEFAULT_QUINCENA_ORDER: SectionOrder = [
   'ejes_articuladores',
   'campos_formativos',
   'proyecto',
-  'evaluacion_items',
-]
-
-export const DEFAULT_TALLER_ORDER: SectionOrder = [
-  'ajustes_razonables',
-  'desarrollo_taller',
-  'actividades_iniciales',
-  'actividades_rutina',
-  'aventura_lectora',
-  'pausas_activas',
-  'cronograma',
   'evaluacion_items',
 ]

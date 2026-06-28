@@ -29,11 +29,3 @@ export function deriveFortnightContext(lessonPlan: any): FortnightContext {
     methodology_types: fortnight?.methodology_types ?? null,
   }
 }
-
-export function autoMatchingLevel(grade: string): 'medio' | 'alto' {
-  return grade.includes('kinder') ? 'medio' : 'alto'
-}
-
-export function autoDifficulty(grade: string): 'kinder' | 'standard' {
-  return grade.includes('kinder') ? 'kinder' : 'standard'
-}

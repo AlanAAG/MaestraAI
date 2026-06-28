@@ -116,8 +116,6 @@ const METHODOLOGY_STRUCTURE: Record<string, { key: string; label: string }[]> = 
   ],
 }
 
-export const SUBPLAN_METHODOLOGIES = Object.keys(METHODOLOGY_STRUCTURE)
-
 // Generate a sub-planeación of ANY NEM methodology (Taller, ABJ, etc.), teacher-driven.
 export async function generateCustomSubplan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
