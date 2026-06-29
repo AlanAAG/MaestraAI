@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { Volume2, VolumeX } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Clock, Volume2, VolumeX } from 'lucide-react'
 import { useGameAudio } from '@/hooks/useGameAudio'
 import { WordSearchGame } from './WordSearchGame'
 import { StudentBingoCard } from './StudentBingoCard'
@@ -41,17 +41,31 @@ interface Props {
 
 export function GameShell({ type, content, vocabulary }: Props) {
   const [done, setDone] = useState(false)
+  const [seconds, setSeconds] = useState(0)
   const { playing, toggle } = useGameAudio()
 
   const title = GAME_TITLES[type] ?? 'Juego'
+
+  // Gentle elapsed timer (count-up, not a countdown) — freezes on win, resets on replay.
+  useEffect(() => {
+    if (done) return
+    const t = setInterval(() => setSeconds((s) => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [done])
+  const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
   return (
     <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <h1 className="font-semibold text-gray-800">{title}</h1>
         <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1 text-xs tabular-nums text-gray-400">
+            <Clock size={13} /> {clock}
+          </span>
           {vocabulary.length > 0 && (
-            <span className="text-xs text-gray-400">{vocabulary.length} palabras</span>
+            <span className="hidden text-xs text-gray-400 sm:inline">
+              {vocabulary.length} palabras
+            </span>
           )}
           <button
             type="button"
@@ -66,7 +80,14 @@ export function GameShell({ type, content, vocabulary }: Props) {
       </div>
 
       {done ? (
-        <GameComplete title="¡Muy bien!" onReplay={() => setDone(false)} />
+        <GameComplete
+          title="¡Muy bien!"
+          sub={`Terminaste en ${clock}`}
+          onReplay={() => {
+            setSeconds(0)
+            setDone(false)
+          }}
+        />
       ) : type === 'word_search' ? (
         <WordSearchGame
           content={content as Parameters<typeof WordSearchGame>[0]['content']}
