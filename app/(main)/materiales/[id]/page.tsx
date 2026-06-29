@@ -270,15 +270,35 @@ export default function MaterialDetailPage() {
               )
             })()}
           </div>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            {material.content?.cards
-              ?.slice(0, 6)
-              .map((card: { word: string; definition: string }, i: number) => (
-                <div key={i} className="rounded-lg border border-gray-200 p-3">
-                  <p className="font-semibold text-gray-900">{card.word}</p>
-                  <p className="text-sm text-gray-600 mt-1">{card.definition}</p>
+          <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3">
+            {material.content?.cards?.map(
+              (
+                card: {
+                  word: string
+                  definition: string
+                  emoji?: string
+                  image_url?: string
+                },
+                i: number
+              ) => (
+                <div
+                  key={i}
+                  className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white p-4 text-center shadow-sm"
+                >
+                  <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-50">
+                    <VocabVisual
+                      word={card.word}
+                      emoji={card.emoji}
+                      imageUrl={card.image_url}
+                      className="h-16 w-16"
+                      emojiClassName="text-4xl leading-none"
+                    />
+                  </div>
+                  <p className="font-bold text-gray-900">{card.word}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{card.definition}</p>
                 </div>
-              ))}
+              )
+            )}
           </div>
         </Card>
       )}

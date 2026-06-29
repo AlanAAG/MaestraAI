@@ -133,17 +133,13 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
   }
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center p-8">
-      {/* Header */}
-      <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold text-text-primary mb-2">Memorama</h2>
-        <p className="text-text-secondary">Encuentra las parejas de palabras e imágenes</p>
-        <div className="mt-4 flex items-center justify-center gap-6">
-          <span className="text-sm text-text-secondary">
-            Parejas: {matched.length} / {pairs.length}
-          </span>
-          <span className="text-sm text-text-secondary tabular-nums">Intentos: {moves}</span>
-        </div>
+    <div className="relative flex h-full w-full flex-col items-center justify-center p-5">
+      {/* Stats (title lives in the GameShell header) */}
+      <div className="mb-5 flex items-center justify-center gap-6">
+        <span className="text-sm text-text-secondary">
+          Parejas: {matched.length} / {pairs.length}
+        </span>
+        <span className="text-sm text-text-secondary tabular-nums">Intentos: {moves}</span>
       </div>
 
       {/* Game Grid */}
@@ -207,9 +203,9 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
                     <motion.div
                       initial={{ rotateY: 0 }}
                       animate={{ rotateY: 0 }}
-                      className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center"
+                      className="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5"
                     >
-                      <span className="text-4xl text-primary">?</span>
+                      <span className="text-5xl text-primary/70">?</span>
                     </motion.div>
                   )}
                 </div>
