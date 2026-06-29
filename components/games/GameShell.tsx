@@ -1,11 +1,22 @@
 'use client'
 import { useState } from 'react'
+import { Volume2, VolumeX } from 'lucide-react'
+import { useGameAudio } from '@/hooks/useGameAudio'
 import { WordSearchGame } from './WordSearchGame'
 import { StudentBingoCard } from './StudentBingoCard'
 import { MemoryMatch } from './MemoryMatch'
 import { PictureWordMatch } from './PictureWordMatch'
 import { SortingGame } from './SortingGame'
 import { GameComplete } from './GameComplete'
+
+// Game types with an interactive web player (drives the detail page + /jugar gating).
+export const PLAYABLE_TYPES = [
+  'word_search',
+  'bingo',
+  'memory_game',
+  'picture_word_match',
+  'sorting_game',
+]
 
 const GAME_TITLES: Record<string, string> = {
   word_search: 'Sopa de Letras',
@@ -24,16 +35,28 @@ interface Props {
 
 export function GameShell({ type, content, vocabulary }: Props) {
   const [done, setDone] = useState(false)
+  const { playing, toggle } = useGameAudio()
 
   const title = GAME_TITLES[type] ?? 'Juego'
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+    <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <h1 className="font-semibold text-gray-800">{title}</h1>
-        {vocabulary.length > 0 && (
-          <span className="text-xs text-gray-400">{vocabulary.length} palabras</span>
-        )}
+        <div className="flex items-center gap-3">
+          {vocabulary.length > 0 && (
+            <span className="text-xs text-gray-400">{vocabulary.length} palabras</span>
+          )}
+          <button
+            type="button"
+            onClick={toggle}
+            title={playing ? 'Silenciar música' : 'Música de fondo'}
+            aria-label={playing ? 'Silenciar música' : 'Música de fondo'}
+            className={`rounded-full p-1.5 transition-colors ${playing ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            {playing ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+        </div>
       </div>
 
       {done ? (

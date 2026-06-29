@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { GameContainer } from '@/components/games/GameContainer'
-import { GameShell } from '@/components/games/GameShell'
+import { GameShell, PLAYABLE_TYPES } from '@/components/games/GameShell'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -53,15 +53,8 @@ export default function JugarMaterialPage() {
         return
       }
 
-      // Verify it's a playable material type
-      const playableTypes = [
-        'memory_game',
-        'picture_word_match',
-        'sorting_game',
-        'word_search',
-        'bingo',
-      ]
-      if (!playableTypes.includes(materialData.type)) {
+      // Verify it's a playable material type (shared with GameShell)
+      if (!PLAYABLE_TYPES.includes(materialData.type)) {
         setError('Este material no es un juego interactivo')
         setLoading(false)
         return

@@ -19,6 +19,7 @@ import {
 import Link from 'next/link'
 import { ListenAndTap, type ListenPair } from '@/components/games/ListenAndTap'
 import { VocabVisual } from '@/components/games/VocabVisual'
+import { GameShell, PLAYABLE_TYPES } from '@/components/games/GameShell'
 import { wordToEmoji } from '@/lib/materials/emoji'
 
 type Material = {
@@ -222,6 +223,20 @@ export default function MaterialDetailPage() {
               : 'Compartir con escuela'}
         </Button>
       </div>
+
+      {/* Playable game front-and-center — the detail page IS the game for these types.
+          Teacher tools (PDF / caller / share) stay available in the per-type blocks below. */}
+      {PLAYABLE_TYPES.includes(material.type) && (
+        <GameShell
+          type={material.type}
+          content={(material.content ?? {}) as Record<string, unknown>}
+          vocabulary={
+            (material.vocabulary ??
+              (material.content as { vocabulary?: string[] })?.vocabulary ??
+              []) as string[]
+          }
+        />
+      )}
 
       {/* Flashcards */}
       {material.type === 'flashcards' && (
