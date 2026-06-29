@@ -290,6 +290,35 @@ const EMOJI: Record<string, string> = {
   wave: '👋',
   sit: '🪑',
   stand: '🧍',
+  // Seeded-vocab additions (TG5A / common preschool)
+  ape: '🦍',
+  arrow: '🏹',
+  astronaut: '👨‍🚀',
+  box: '📦',
+}
+
+// True only when `s` is a real emoji glyph (contains a pictographic codepoint and NO ascii letters).
+// Rejects the garbage the AI sometimes returns in an `emoji` field (a stray letter like "h"/"v"/"n",
+// or plain text). Keycap digits (1️⃣) and bare symbols correctly fail and fall through to a real visual.
+export function isEmoji(s: string | null | undefined): boolean {
+  if (!s) return false
+  const t = s.trim()
+  if (!t || t.length > 12) return false
+  if (/[a-zA-Z]/.test(t)) return false
+  // No \p{} / u-flag (TS target) — detect via codepoints: astral surrogate (most emoji),
+  // a variation selector (emoji presentation), or BMP symbol/arrow/dingbat ranges.
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charCodeAt(i)
+    if (c >= 0xd800 && c <= 0xdbff) return true
+    if (c === 0xfe0f) return true
+    if (c >= 0x2190 && c <= 0x2bff) return true
+  }
+  return false
+}
+
+// For builders: keep the model's `emoji` only if it's actually an emoji, else drop it.
+export function sanitizeEmoji(s: string | null | undefined): string | undefined {
+  return isEmoji(s) ? s!.trim() : undefined
 }
 
 // Normalize a word and look up its emoji. Handles articles, casing, and simple plurals.

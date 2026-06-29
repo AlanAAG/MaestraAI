@@ -1,8 +1,11 @@
-import { wordToEmoji } from '@/lib/materials/emoji'
+'use client'
+import { useState } from 'react'
+import { isEmoji, wordToEmoji } from '@/lib/materials/emoji'
 
 // The single visual seam for every game. Resolution order:
-//   stored emoji (AI sense-correct) → curated word→emoji map → Unsplash image → text fallback.
-// Swap the image branch later for a real/gen-AI source without touching any game.
+//   VALID stored emoji (AI sense-correct, validated) → curated word→emoji map → image → text.
+// The stored emoji is validated so a stray letter/text the model returned can't render as the
+// "visual"; a dead image URL falls through to text instead of a broken-image icon.
 export function VocabVisual({
   word,
   emoji,
@@ -16,7 +19,8 @@ export function VocabVisual({
   className?: string
   emojiClassName?: string
 }) {
-  const glyph = emoji || wordToEmoji(word)
+  const [imgFailed, setImgFailed] = useState(false)
+  const glyph = (isEmoji(emoji) ? emoji : null) || wordToEmoji(word)
   if (glyph) {
     return (
       <span
@@ -28,10 +32,16 @@ export function VocabVisual({
       </span>
     )
   }
-  if (imageUrl) {
+  if (imageUrl && !imgFailed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={imageUrl} alt={word} className={`object-contain ${className}`} draggable={false} />
+      <img
+        src={imageUrl}
+        alt={word}
+        onError={() => setImgFailed(true)}
+        className={`object-contain ${className}`}
+        draggable={false}
+      />
     )
   }
   return (

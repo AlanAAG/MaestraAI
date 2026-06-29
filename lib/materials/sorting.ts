@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { FortnightContext } from './types'
 import { extractJson } from './ai-json'
+import { sanitizeEmoji } from './emoji'
 
 export type SortingCategory = {
   name: string
@@ -87,7 +88,7 @@ Assign EVERY vocabulary word to exactly one category. Use at most 3 categories.`
     word: item.word,
     // Guard against an uncategorized/hallucinated category so the game stays playable.
     category: validCats.has(item.category) ? item.category : fallbackCat,
-    emoji: item.emoji || undefined,
+    emoji: sanitizeEmoji(item.emoji),
     image_url: imageMap[item.word.toLowerCase()],
   }))
 

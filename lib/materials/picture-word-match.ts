@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { FortnightContext } from './types'
 import { extractJson } from './ai-json'
+import { sanitizeEmoji } from './emoji'
 
 export type PictureWordMatchItem = {
   word: string
@@ -59,7 +60,7 @@ Include ALL ${vocabulary.length} vocabulary words.`
     items: parsed.items.map((item) => ({
       word: item.word,
       foils: item.foils.slice(0, 3),
-      emoji: item.emoji || undefined,
+      emoji: sanitizeEmoji(item.emoji),
       image_url: imageMap[item.word.toLowerCase()],
     })),
   }
