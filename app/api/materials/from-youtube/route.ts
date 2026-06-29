@@ -12,6 +12,24 @@ import { buildLetterRecognition } from '@/lib/materials/letter-recognition'
 import { buildFlashcardContent } from '@/lib/materials/flashcards'
 import { YoutubeTranscript } from 'youtube-transcript'
 
+// The youtube-transcript scraper is flaky (YouTube changes formats; some videos only expose a
+// specific caption language). Try the default then en/es before giving up.
+// ponytail: still scrapes from Vercel IPs — if YouTube hard-blocks the datacenter, upgrade path is
+// the YouTube Data API captions endpoint or a transcript microservice.
+async function fetchTranscriptRobust(url: string): Promise<Array<{ text: string }>> {
+  const attempts: Array<{ lang?: string } | undefined> = [undefined, { lang: 'en' }, { lang: 'es' }]
+  let lastErr: unknown
+  for (const cfg of attempts) {
+    try {
+      const segs = await YoutubeTranscript.fetchTranscript(url, cfg)
+      if (segs?.length) return segs
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr ?? new Error('No transcript segments')
+}
+
 const Schema = z.object({
   url: z.string().url(),
   fortnight_id: z.string().uuid(),
@@ -81,10 +99,19 @@ export async function POST(req: NextRequest) {
   // 2. Fetch transcript
   let transcriptSegments: Array<{ text: string }>
   try {
-    transcriptSegments = await YoutubeTranscript.fetchTranscript(url)
-  } catch {
+    transcriptSegments = await fetchTranscriptRobust(url)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[from-youtube] transcript fetch failed:', msg)
+    // Distinguish "this video has no captions" from "YouTube is blocking the fetch" so the teacher
+    // gets an honest message instead of always being told the video has no subtitles.
+    const noCaptions = /disabled|no transcript|not available|unavailable|could not find/i.test(msg)
     return NextResponse.json(
-      { error: 'No se pudo obtener la transcripción. Verifica que el video tenga subtítulos.' },
+      {
+        error: noCaptions
+          ? 'Este video no tiene subtítulos disponibles. Prueba con uno que muestre el ícono "CC" en YouTube.'
+          : 'No pude leer los subtítulos en este momento (YouTube los está bloqueando). Intenta de nuevo en unos minutos o prueba con otro video.',
+      },
       { status: 422 }
     )
   }
