@@ -12,11 +12,62 @@ import { buildLetterRecognition } from '@/lib/materials/letter-recognition'
 import { buildFlashcardContent } from '@/lib/materials/flashcards'
 import { YoutubeTranscript } from 'youtube-transcript'
 
-// The youtube-transcript scraper is flaky (YouTube changes formats; some videos only expose a
-// specific caption language). Try the default then en/es before giving up.
-// ponytail: still scrapes from Vercel IPs — if YouTube hard-blocks the datacenter, upgrade path is
-// the YouTube Data API captions endpoint or a transcript microservice.
+function extractVideoId(url: string): string | null {
+  return url.match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/)([\w-]{11})/)?.[1] ?? null
+}
+
+// Primary: YouTube's internal "innertube" player API (the same one youtube.com uses) with the
+// ANDROID client — returns the caption track list far more reliably than scraping the watch page,
+// and the web innertube key below is public (shipped in every YouTube page), not a secret.
+// ponytail: still hits YouTube from Vercel IPs — if they hard-block the datacenter, the upgrade path
+// is a paid transcript service (Supadata/Tactiq) since the Data API can't download arbitrary captions.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+async function fetchCaptionsInnertube(videoId: string): Promise<string | null> {
+  const res = await fetch(
+    'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'ANDROID',
+            clientVersion: '19.09.37',
+            androidSdkVersion: 30,
+            hl: 'en',
+          },
+        },
+      }),
+    }
+  )
+  if (!res.ok) return null
+  const data = await res.json()
+  const tracks: any[] = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? []
+  if (!tracks.length) return null
+  const track =
+    tracks.find((t) => t.languageCode?.startsWith('en')) ??
+    tracks.find((t) => t.languageCode?.startsWith('es')) ??
+    tracks[0]
+  const tt = await fetch(`${track.baseUrl}&fmt=json3`)
+  if (!tt.ok) return null
+  const json = await tt.json()
+  const text: string = (json.events ?? [])
+    .flatMap((e: any) => (e.segs ?? []).map((s: any) => s.utf8 ?? ''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text || null
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+// Innertube first, then the youtube-transcript scraper (en/es) as a fallback.
 async function fetchTranscriptRobust(url: string): Promise<Array<{ text: string }>> {
+  const id = extractVideoId(url)
+  if (id) {
+    const viaInnertube = await fetchCaptionsInnertube(id).catch(() => null)
+    if (viaInnertube) return [{ text: viaInnertube }]
+  }
   const attempts: Array<{ lang?: string } | undefined> = [undefined, { lang: 'en' }, { lang: 'es' }]
   let lastErr: unknown
   for (const cfg of attempts) {
