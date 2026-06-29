@@ -9,6 +9,7 @@ import { PictureWordMatch } from './PictureWordMatch'
 import { SortingGame } from './SortingGame'
 import { MatchingGame } from './MatchingGame'
 import { LetterRecognitionGame } from './LetterRecognitionGame'
+import { FlashcardsGame } from './FlashcardsGame'
 import { GameComplete } from './GameComplete'
 
 // Game types with an interactive web player (drives the detail page + /jugar gating).
@@ -20,6 +21,7 @@ export const PLAYABLE_TYPES = [
   'sorting_game',
   'matching',
   'letter_recognition',
+  'flashcards',
 ]
 
 const GAME_TITLES: Record<string, string> = {
@@ -118,6 +120,11 @@ export function GameShell({ type, content, vocabulary }: Props) {
       ) : type === 'letter_recognition' ? (
         <LetterRecognitionGame
           content={content as Parameters<typeof LetterRecognitionGame>[0]['content']}
+          onComplete={() => setDone(true)}
+        />
+      ) : type === 'flashcards' ? (
+        <FlashcardsGame
+          content={content as Parameters<typeof FlashcardsGame>[0]['content']}
           onComplete={() => setDone(true)}
         />
       ) : (
