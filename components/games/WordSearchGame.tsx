@@ -4,6 +4,7 @@ import { useSpeech } from '@/hooks/useSpeech'
 import { useSound } from '@/hooks/useSound'
 import { celebrate } from '@/lib/ui/celebrate'
 import { GameComplete } from '@/components/games/GameComplete'
+import { VocabVisual } from '@/components/games/VocabVisual'
 
 type WordSearchContent = {
   grid: string[][]
@@ -177,17 +178,22 @@ export function WordSearchGame({ content, onComplete }: Props) {
             )}
           </div>
 
-          {/* Word list */}
-          <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+          {/* Word list with a picture hint per word (pre-literate kids find by image) */}
+          <div className="flex max-w-sm flex-wrap justify-center gap-2">
             {words.map((word) => (
               <span
                 key={word}
-                className={`px-3 py-1 rounded-full text-sm font-medium border transition-all ${
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-all ${
                   foundWordKeys.has(word)
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300 line-through opacity-60'
-                    : 'bg-white text-gray-700 border-gray-300'
+                    ? 'border-emerald-300 bg-emerald-100 text-emerald-700 line-through opacity-60'
+                    : 'border-gray-300 bg-white text-gray-700'
                 }`}
               >
+                <VocabVisual
+                  word={word}
+                  className="h-5 w-5"
+                  emojiClassName="text-lg leading-none"
+                />
                 {word}
               </span>
             ))}
