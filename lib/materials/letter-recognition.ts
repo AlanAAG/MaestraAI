@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { LETTER_RECOGNITION_PROMPT } from '@/prompts/materials'
+import { wordToEmoji } from './emoji'
 
 export type ActivityType = 'hear_and_circle' | 'match_to_letter' | 'trace_and_say'
 
@@ -8,6 +9,9 @@ export type LetterRecognitionItem = {
   target_letter: string
   image_description: string
   foil_letters: string[]
+  // A real visual for the word (so kids see a picture, not just the distractor letters).
+  emoji?: string
+  image_url?: string
 }
 
 export type LetterRecognitionContent = {
@@ -20,7 +24,8 @@ export type LetterRecognitionContent = {
 export async function buildLetterRecognition(
   vocabulary: string[],
   letter: string,
-  activityType: ActivityType = 'hear_and_circle'
+  activityType: ActivityType = 'hear_and_circle',
+  imageMap: Record<string, string> = {}
 ): Promise<LetterRecognitionContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -42,9 +47,18 @@ export async function buildLetterRecognition(
     content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
   const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
   if (!raw) throw new Error('Claude no devolvió JSON válido')
+  let parsed: LetterRecognitionContent
   try {
-    return JSON.parse(raw) as LetterRecognitionContent
+    parsed = JSON.parse(raw) as LetterRecognitionContent
   } catch {
     throw new Error('Respuesta de Claude no es JSON válido')
   }
+  // Attach a real visual per item (deterministic emoji + optional fetched image) so the activity
+  // shows pictures, not just the distractor letters.
+  parsed.items = (parsed.items ?? []).map((it) => ({
+    ...it,
+    emoji: wordToEmoji(it.word) ?? undefined,
+    image_url: imageMap[it.word.toLowerCase()],
+  }))
+  return parsed
 }

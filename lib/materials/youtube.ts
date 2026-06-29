@@ -24,6 +24,13 @@ export type YoutubeVideo = {
   keywords: string[]
   has_subtitles?: boolean
   verified?: boolean
+  // A YouTube SEARCH url (these are AI recommendations, not verified video ids) — always present
+  // so the teacher can open and pick the real video. Derived from title+channel if absent.
+  search_url?: string
+}
+
+function youtubeSearchUrl(title: string, channel: string): string {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${channel}`.trim())}`
 }
 
 export type YoutubeContent = {
@@ -68,9 +75,16 @@ Recomienda videos educativos de YouTube apropiados para este vocabulario y tema.
     content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
   const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
   if (!raw) throw new Error('Claude no devolvió JSON válido')
+  let parsed: YoutubeContent
   try {
-    return JSON.parse(raw) as YoutubeContent
+    parsed = JSON.parse(raw) as YoutubeContent
   } catch {
     throw new Error('Respuesta de Claude no es JSON válido')
   }
+  // Guarantee a working (search) link for every recommendation.
+  parsed.videos = (parsed.videos ?? []).map((v) => ({
+    ...v,
+    search_url: v.search_url || youtubeSearchUrl(v.title, v.channel),
+  }))
+  return parsed
 }

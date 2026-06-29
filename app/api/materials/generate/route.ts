@@ -193,7 +193,13 @@ export async function POST(req: NextRequest) {
           case 'letter_recognition': {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const letter = (lessonPlan as any)?.fortnights?.letter_week1 || 'A'
-            content = await buildLetterRecognition(vocabulary, letter, 'hear_and_circle')
+            const act = input.options?.letter_activity_type
+            const activity = (
+              ['hear_and_circle', 'match_to_letter', 'trace_and_say'].includes(act ?? '')
+                ? act
+                : 'hear_and_circle'
+            ) as 'hear_and_circle' | 'match_to_letter' | 'trace_and_say'
+            content = await buildLetterRecognition(vocabulary, letter, activity, imageMap)
             type = 'letter_recognition'
             isProjectable = false
             break

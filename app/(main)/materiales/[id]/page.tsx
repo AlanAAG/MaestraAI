@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { ListenAndTap, type ListenPair } from '@/components/games/ListenAndTap'
+import { VocabVisual } from '@/components/games/VocabVisual'
 import { wordToEmoji } from '@/lib/materials/emoji'
 
 type Material = {
@@ -548,29 +549,28 @@ export default function MaterialDetailPage() {
                   target_letter: string
                   image_description: string
                   foil_letters: string[]
+                  emoji?: string
+                  image_url?: string
                 },
                 i: number
               ) => (
-                <div key={i} className="rounded-lg bg-gray-50 p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-800 font-mono font-bold text-lg">
-                      {item.target_letter}
-                    </span>
-                    <p className="font-medium text-gray-900">{item.word}</p>
-                  </div>
-                  <p className="text-sm text-gray-600">{item.image_description}</p>
-                  {item.foil_letters?.length > 0 && (
-                    <div className="flex gap-2 mt-2">
-                      {item.foil_letters.map((l: string, j: number) => (
-                        <span
-                          key={j}
-                          className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 font-mono font-bold"
-                        >
-                          {l}
-                        </span>
-                      ))}
+                <div key={i} className="flex items-center gap-3 rounded-lg bg-gray-50 p-4">
+                  <VocabVisual
+                    word={item.word}
+                    emoji={item.emoji}
+                    imageUrl={item.image_url}
+                    className="h-14 w-14 shrink-0"
+                    emojiClassName="text-4xl leading-none"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 font-mono text-lg font-bold text-blue-800">
+                        {item.target_letter}
+                      </span>
+                      <p className="font-medium text-gray-900">{item.word}</p>
                     </div>
-                  )}
+                    <p className="text-sm text-gray-600">{item.image_description}</p>
+                  </div>
                 </div>
               )
             )}
@@ -645,29 +645,50 @@ export default function MaterialDetailPage() {
                   description: string
                   verified?: boolean
                   has_subtitles?: boolean
+                  search_url?: string
                 },
                 i: number
-              ) => (
-                <div key={i} className="rounded-lg border border-gray-200 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-gray-900">{v.title}</p>
-                      <p className="text-sm text-gray-500">
-                        {v.channel} · {v.duration}
-                      </p>
+              ) => {
+                const url =
+                  v.search_url ||
+                  `https://www.youtube.com/results?search_query=${encodeURIComponent(`${v.title} ${v.channel}`)}`
+                return (
+                  <div key={i} className="rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary hover:underline"
+                        >
+                          ▶ {v.title}
+                        </a>
+                        <p className="text-sm text-gray-500">
+                          {v.channel} · {v.duration}
+                        </p>
+                      </div>
+                      {v.has_subtitles && (
+                        <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                          CC
+                        </span>
+                      )}
                     </div>
-                    {v.has_subtitles && (
-                      <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full flex-shrink-0">
-                        CC
-                      </span>
-                    )}
+                    <p className="text-sm text-gray-600 mt-2">{v.description}</p>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
+                    >
+                      Buscar en YouTube →
+                    </a>
+                    <p className="text-xs text-amber-600 font-medium mt-1">
+                      ⚠ Verifica antes de usar en clase
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600 mt-2">{v.description}</p>
-                  <p className="text-xs text-amber-600 font-medium mt-2">
-                    ⚠ Verifica antes de usar en clase
-                  </p>
-                </div>
-              )
+                )
+              }
             )}
           </div>
         </Card>
