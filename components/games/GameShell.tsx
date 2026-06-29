@@ -7,6 +7,8 @@ import { StudentBingoCard } from './StudentBingoCard'
 import { MemoryMatch } from './MemoryMatch'
 import { PictureWordMatch } from './PictureWordMatch'
 import { SortingGame } from './SortingGame'
+import { MatchingGame } from './MatchingGame'
+import { LetterRecognitionGame } from './LetterRecognitionGame'
 import { GameComplete } from './GameComplete'
 
 // Game types with an interactive web player (drives the detail page + /jugar gating).
@@ -16,6 +18,8 @@ export const PLAYABLE_TYPES = [
   'memory_game',
   'picture_word_match',
   'sorting_game',
+  'matching',
+  'letter_recognition',
 ]
 
 const GAME_TITLES: Record<string, string> = {
@@ -25,6 +29,8 @@ const GAME_TITLES: Record<string, string> = {
   flashcards: 'Flashcards',
   picture_word_match: '¿Cuál es la palabra?',
   sorting_game: 'Ordena y clasifica',
+  matching: 'Relaciona',
+  letter_recognition: 'Reconoce la letra',
 }
 
 interface Props {
@@ -81,6 +87,16 @@ export function GameShell({ type, content, vocabulary }: Props) {
       ) : type === 'sorting_game' ? (
         <SortingGame
           content={content as Parameters<typeof SortingGame>[0]['content']}
+          onComplete={() => setDone(true)}
+        />
+      ) : type === 'matching' ? (
+        <MatchingGame
+          content={content as Parameters<typeof MatchingGame>[0]['content']}
+          onComplete={() => setDone(true)}
+        />
+      ) : type === 'letter_recognition' ? (
+        <LetterRecognitionGame
+          content={content as Parameters<typeof LetterRecognitionGame>[0]['content']}
           onComplete={() => setDone(true)}
         />
       ) : (
