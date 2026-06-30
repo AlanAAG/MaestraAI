@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { nemGroundingBlock } from '@/lib/nem/grounding'
 import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
+import { selectRelevantContenidos, contenidosSugeridosBlock } from '@/lib/nem/select-contenidos'
 import {
   matchPlaneaciones,
   storePlaneacionEmbedding,
@@ -237,6 +238,8 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): { cont
         : fr.section_title_case === 'Title Case'
           ? '• Títulos de sección en Mayúscula Inicial.'
           : '',
+      // ponytail: per_subplan can leave the main doc missing a campo with no union check.
+      // Rare (only fires for a teacher template that requests it); revisit if it surfaces.
       fr.campos_position === 'per_subplan'
         ? '• Campos Formativos: NO los pongas como bloque de nivel superior. Deja el array "campos_formativos" del documento principal VACÍO ([]); cada sub-planeación lleva su propia tabla de campos.'
         : '',
@@ -263,7 +266,8 @@ function buildQuincenaPrompt(
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> },
   styleBlock: string = '',
   richmondBlock: string = '',
-  gameHint: string = ''
+  gameHint: string = '',
+  contenidosBlock: string = ''
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
 
@@ -369,6 +373,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
   return [
     styleBlock,
     profileCtx,
+    contenidosBlock,
     proyectoSecciones,
     teacherReq,
     continuityBlock,
@@ -628,7 +633,21 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = planType === 'taller' ? TALLER_SYSTEM : QUINCENA_SYSTEM
     // Cached grounding prefix — identical across the main + all sub-plan calls in this generation.
+    // Keeps the FULL bank so the Números sub-plan (legitimately Saberes/matemático) stays grounded.
     const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni)}`
+
+    // Topic-relevance pre-selection: shortlist the contenidos that authentically fit THIS project's
+    // theme so the main doc's campos_formativos stop including an irrelevant Saberes (Alejandra's #1).
+    // Best-effort: empty block → prompt keeps full-bank behavior. Only the main quincena prompt uses it.
+    const contenidosBlock =
+      planType === 'quincena'
+        ? contenidosSugeridosBlock(
+            await selectRelevantContenidos(
+              String(fn.project_name ?? ''),
+              String(fn.project_notes ?? '')
+            )
+          )
+        : ''
 
     // RAG: retrieve THIS teacher's most-similar past plans → inject as style examples (her voice).
     // Best-effort; empty if no key / migration 054 not pushed / no prior plans.
@@ -666,7 +685,8 @@ export async function POST(req: NextRequest) {
             schedule,
             styleBlock,
             richmondBlock,
-            gameHint
+            gameHint,
+            contenidosBlock
           )
 
     const encoder = new TextEncoder()

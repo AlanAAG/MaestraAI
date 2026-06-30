@@ -31,9 +31,11 @@ ESTRUCTURA DE SALIDA (plan_document):
   "estrategia_comunitaria": "estrategia SEL/cultura de paz del mes. Desarrolla una actividad COMPLETA paso a paso (8-12 pasos numerados): planteamiento, preguntas detonadoras, desarrollo, reglas, cierre en plenaria con preguntas de reflexión. Como una ficha del Fichero de la Paz.",
   "pausas_activas": "descripción del tipo de pausas activas del mes con variación (seguimiento de ritmos, canciones, movimientos). Especifica progresión a lo largo de las semanas.",
   "ajustes_razonables": "estrategias DETALLADAS por cada alumno con NEE usando SIEMPRE la etiqueta anónima provista (Alumno A, Alumno B…), NUNCA el nombre real. Organiza por categorías: Ubicación del aula, Ajustes en los tiempos, Consignas accesibles, Estrategias de atención, Estrategias de ejecución y autorregulación. Estrategias concretas y específicas por alumno.",
-  "ejes_articuladores": "UNA oración breve por cada eje aplicable (normalmente 3 ejes), como en el documento real — NO párrafos largos. Formato: viñeta por eje.",
+  "ejes_articuladores": "una viñeta por cada eje aplicable (2-3 ejes), cada una CONECTADA a una actividad o momento CONCRETO de ESTA planeación — NO la definición genérica del eje. Ej: '• Igualdad de género: al repartir los roles del friso del proyecto sin distinción entre niñas y niños.'",
   "proyecto": "el CORAZÓN del documento, desarrollado a profundidad. DEBE incluir con encabezados en **negritas**: **Punto de Partida** (situación detonadora, video/material, preguntas a los niños — párrafo completo), **Planeación** (4-6 viñetas de lo que reconocerán/realizarán; incluye la construcción del **friso** —mural de planeación con los niños donde se ven las acciones del mes—), **A trabajar** (actividades concretas y variadas, incluyendo libros Richmond con formato 'STUDENT BOOK páginas X a Y', 'ACTIVITY BOOK páginas X', 'ASSESSMENT: Unit N páginas X', talleres, investigaciones, productos), **Comunicamos Nuestros Logros** (cómo presentan/comparten el producto final), **Reflexión sobre el aprendizaje** (cómo cierran y metacognición). Cada sección con varias frases o viñetas detalladas.",
   "cronograma": {
+    // En cada actividad escribe el NOMBRE COMPLETO de la estrategia/actividad — NUNCA abrevies
+    // (ej. "Estrategias Comunitarias para Espacios Libres de Violencia", no "Estrategias Com." ni "ECEL").
     "lunes": ["lista completa de actividades del lunes en orden, tal como el horario del grupo"],
     "martes": ["..."],
     "miercoles": ["..."],
@@ -60,14 +62,15 @@ SECCIONES PERSONALIZADAS: Si el mensaje incluye <secciones_personalizadas>, gene
 Si no hay secciones personalizadas, omite el array o déjalo vacío [].
 
 EXIGENCIAS DE PROFUNDIDAD (OBLIGATORIO):
-- LOS 4 CAMPOS FORMATIVOS deben estar presentes, cada uno con 1-3 contenidos, y CADA contenido con 3-6 Procesos de Desarrollo de Aprendizaje (PDA). Usa los PDA OFICIALES del Programa de Estudio Fase 2 redactados tal como aparecen en el documento oficial (verbatim, no parafraseados, no inventados). Son enunciados largos y específicos.
+- CAMPOS FORMATIVOS: incluye SOLO los campos cuyos contenidos se relacionen DIRECTAMENTE con el tema del proyecto (normalmente 2-3, mínimo 1). NO incluyas un campo solo por "completar los 4" — un campo forzado y sin relación con el tema es un ERROR. Si el mensaje incluye <contenidos_sugeridos>, esa es la lista EXACTA de campos y contenidos que debes usar (cópialos VERBATIM, no agregues otros). Cada contenido con 3-6 Procesos de Desarrollo de Aprendizaje (PDA) OFICIALES del Programa de Estudio Fase 2, verbatim (no parafraseados, no inventados).
+- Si incluyes "Saberes y Pensamiento Científico", conéctalo a la exploración del entorno inmediato del niño relacionada con el tema (no a conceptos abstractos sin relación con el proyecto).
 - evaluacion_items: 5-6 aspectos concretos ligados al proyecto.
 - actividades_iniciales y actividades_rutina: al menos 6 viñetas cada una.
 - NO resumas, NO uses placeholders, NO escribas "etc.". Desarrolla todo.
 
 REGLAS NEM INVIOLABLES:
 - Respeta TODA la normativa de los bloques <ejes_articuladores>, <perfil_egreso_fase2>, <campos_formativos>, <evaluacion_reglas>, <proni_regla> y <privacidad> provistos al inicio (NEM_SYNTHESIS).
-- Los 4 Campos Formativos deben estar presentes; usa SOLO sus nombres oficiales.
+- Usa SOLO los nombres oficiales de los campos. NO es obligatorio incluir los 4: incluye únicamente los pertinentes al tema.
 - Evaluación: usa las columnas de <evaluation_format> del mensaje (por defecto Logrado / En proceso / Requiere apoyo) — cualitativa, NUNCA numérica.
 - Citar: "Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024".
 - NUNCA el nombre real de un alumno: en ajustes_razonables usa SOLO las etiquetas anónimas provistas (Alumno A, B…).`
@@ -75,6 +78,7 @@ REGLAS NEM INVIOLABLES:
 export const QUINCENA_OUTPUT_SCHEMA = `
 FORMATO OBLIGATORIO DE SALIDA — el valor de cada clave de texto es markdown en español mexicano:
 - NUNCA escribas la palabra "markdown" ni etiquetas de formato dentro del contenido; escribe directamente el texto.
+- PUNTO Y APARTE: cada momento, paso o actividad distinta va en su PROPIO párrafo, separado por una línea en blanco. NUNCA encadenes actividades o momentos distintos con punto y seguido dentro del mismo párrafo.
 - Usa viñetas (•) o numeración donde aplique
 - Negritas (**texto**) para encabezados dentro de secciones (especialmente en "proyecto")
 - Sin encabezados markdown (#) — las secciones ya tienen su propio nombre

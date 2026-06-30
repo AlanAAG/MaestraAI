@@ -428,11 +428,12 @@ export default function NuevaPlaneacionPage() {
             <UnitSelector onChange={setRichmondSelection} onResolved={setRichmondContent} />
             <div className="mt-4 pt-4 border-t border-border">
               <label className="block text-sm font-medium text-text-primary mb-1">
-                Páginas a trabajar{' '}
+                Páginas del libro a trabajar{' '}
                 <span className="font-normal text-text-secondary">(opcional)</span>
               </label>
               <p className="mb-2 text-xs text-text-secondary">
-                Uno o varios rangos separados por comas, sin “pp.” — ej. 10-15, 21-24, 30
+                Se citarán dentro del proyecto (ej. “Student Book pp. 10-15”). Uno o varios rangos
+                separados por comas, sin “pp.” — ej. 10-15, 21-24, 30
               </p>
               {planType === 'quincena' ? (
                 <div className="grid grid-cols-2 gap-3">

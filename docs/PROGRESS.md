@@ -249,6 +249,18 @@ The compounding system on top of the RAG: **generate → she edits → correctio
 - **"Ir a Richmond"** button added to `/dashboard/richmond`.
 - Schedule day (Letter & Number / Números) confirmed already configurable per group in Configuración → group editor; "martes/jueves" are only defaults.
 
+## Alejandra feedback — planeaciones quality (Phase 1+2, current)
+
+Source: `assets/alejandra_feedback.md`. Prompt/render-only — **no migrations**. Plan in `~/.claude/plans/theres-a-new-lexical-mountain.md`. Phase 3 (draft chat, modalidades, 4-week) deferred + Alejandra-gated.
+
+- **Aprendizajes now match the topic (her #1 complaint).** Root cause: the prompt FORCED all 4 campos (`prompts/planner-quincena.ts`) → shoehorned an irrelevant "Saberes". Fix: (1) dropped the "los 4 campos obligatorios" rule → "incluye SOLO los campos relevantes al tema, mínimo 1" + a Saberes-must-relate-to-entorno guard; (2) new `lib/nem/select-contenidos.ts` — a cheap Haiku pre-selection (`selectRelevantContenidos`) shortlists the topic-relevant contenidos from the 35-item bank and injects a `<contenidos_sugeridos>` block into the main quincena prompt (best-effort, empty → full-bank fallback). **ponytail: a Haiku shortlist, not embeddings/RAG — 35 items.** The shared `cachePrefix` keeps the FULL bank so the Números sub-plan stays grounded. `per_subplan` campos union left as a marked rare-edge (`// ponytail:`). Tested.
+- **Fixed document order (her sequence).** Unified the THREE competing `DEFAULT_QUINCENA_ORDER` arrays (`section-map.ts`, `PlanDocumentViewer.tsx`, `export-docx/route.ts`) to: iniciales → rutina → aventura → estrategia (libres de violencia) → pausas → ajustes → cronograma (+calendario) → ejes → **campos/aprendizajes** → **proyecto LAST** → evaluación. (Reverses the earlier "proyecto/description first" default; `nombre_proyecto` still shows as the `<h1>` title.) Calendario de Observación already renders right after cronograma in viewer + DOCX — no new field.
+- **Redacción + ejes + cronograma prompt rules.** Punto y aparte: each momento/activity is its own paragraph (no punto y seguido between distinct activities). Cronograma: full names, never abbreviate (e.g. "Estrategias Comunitarias para Espacios Libres de Violencia"). Ejes: one bullet per eje tied to a CONCRETE activity of this plan, not the generic definition.
+- **Centro de interés: metodología + nombre.** Sub-plan headers (viewer + DOCX) now show "{metodología}: {nombre}" (e.g. "Centro de Interés: Conozcamos las letras"), metodología first.
+- **Letters sub-plan no longer mentions numbers.** Reframed the `letter_number` prompt from "LETTER & NUMBER" → "LETTERS" with an explicit no-numbers guard (`lib/planner/subplan.ts`). **Note:** the shared vocab/pdaBank was NOT the leak (it's thematic English vocab, not numeric) — the prompt framing was; fixed there. Tested.
+- **Format controls (her "century gotic" + spacing).** `Design` gains `font: 'century'` (web stack `'Century Gothic', Futura, 'Trebuchet MS'…`; real Century Gothic in Word via `DOCX_FONT`) and a `spacing` knob (line-height: Compacto/Normal/Amplio → viewer `lineHeight` + DOCX `paragraph.spacing.line`). Both surfaced in the Diseño panel. **ponytail: no webfont dep, no WYSIWYG.**
+- **Book-pages UI clarity.** `nueva` page: relabeled to "Páginas del libro a trabajar" + note that they're cited in the project. **ponytail: skipped the `{libro,unidad,paginas}` repeater** — `UnitSelector` already captures book/unit, week1/week2 already reach the prompt, and a multi-row repeater fights the "max 4 fields" rule.
+
 ## Deployment
 
 - Vercel auto-deploys on push to main

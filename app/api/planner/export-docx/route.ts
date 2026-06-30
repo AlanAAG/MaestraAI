@@ -24,6 +24,13 @@ const DOCX_FONT: Record<string, string> = {
   sans: 'Calibri',
   serif: 'Georgia',
   rounded: 'Comic Sans MS',
+  century: 'Century Gothic', // real Office font on the teacher's machine
+}
+// Line spacing → docx line value (240 = single). Mirrors the viewer's SPACING_MAP.
+const DOCX_LINE: Record<string, number> = {
+  compact: 264,
+  normal: 300,
+  relaxed: 360,
 }
 const DOCX_BORDER: Record<string, string> = {
   light: 'E5E7EB',
@@ -171,8 +178,9 @@ const DEFAULT_SECTION_TITLES: Record<string, string> = {
 
 // Default (no uploaded template): project description first, so it sits just under the title.
 // Teachers WITH a template get their own extracted order via _section_order instead.
+// Order per Alejandra's feedback: global routine sections → cronograma (+calendario) → ejes →
+// aprendizajes (campos) → proyecto LAST. Mirrors lib/planner/section-map.ts + the viewer.
 const DEFAULT_QUINCENA_ORDER = [
-  'proyecto',
   'actividades_iniciales',
   'actividades_rutina',
   'aventura_lectora',
@@ -182,6 +190,7 @@ const DEFAULT_QUINCENA_ORDER = [
   'cronograma',
   'ejes_articuladores',
   'campos_formativos',
+  'proyecto',
   'evaluacion_items',
 ]
 
@@ -397,8 +406,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Teacher design preferences (font, size, accent, line intensity) — best-effort.
-    let design = { font: 'sans', size: 16, accent: '#1f2937', lineIntensity: 'medium' }
+    // Teacher design preferences (font, size, accent, line intensity, spacing) — best-effort.
+    let design = {
+      font: 'sans',
+      size: 16,
+      accent: '#1f2937',
+      lineIntensity: 'medium',
+      spacing: 'normal',
+    }
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: dRow } = await (supabase as any)
@@ -414,6 +429,7 @@ export async function POST(req: NextRequest) {
     const docSize = Math.round(design.size * 1.375) // px → half-points (16px ≈ 22 ≈ 11pt)
     const accentHex = (design.accent || '#1f2937').replace('#', '').toUpperCase()
     const borderHex = DOCX_BORDER[design.lineIntensity] ?? 'D1D5DB'
+    const docLine = DOCX_LINE[design.spacing] ?? 300
 
     const { success } = await checkRateLimit((teacher as { id: string }).id, 'standard')
     if (!success)
@@ -623,7 +639,8 @@ export async function POST(req: NextRequest) {
         new Paragraph({
           children: [
             new TextRun({
-              text: `Metodología: ${sp.metodologia ?? ''} — ${sp.nombre ?? ''}`,
+              // metodología first, then centro de interés name (Alejandra's order)
+              text: [sp.metodologia, sp.nombre].filter(Boolean).join(': '),
               italics: true,
             }),
           ],
@@ -679,7 +696,11 @@ export async function POST(req: NextRequest) {
       ],
       styles: {
         paragraphStyles: [
-          { id: 'Normal', run: { font: docFont, size: docSize } },
+          {
+            id: 'Normal',
+            run: { font: docFont, size: docSize },
+            paragraph: { spacing: { line: docLine } },
+          },
           {
             id: 'Heading1',
             name: 'Heading 1',

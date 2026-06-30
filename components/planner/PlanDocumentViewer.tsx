@@ -5,21 +5,31 @@ import { Loader2, BookOpen, Hash, Pencil, Check, X, Palette } from 'lucide-react
 import { Button } from '@/components/ui/button'
 
 type Design = {
-  font: 'sans' | 'serif' | 'rounded'
+  font: 'sans' | 'serif' | 'rounded' | 'century'
   size: number
   accent: string
   lineIntensity: 'light' | 'medium' | 'strong'
+  spacing: 'compact' | 'normal' | 'relaxed'
 }
 const DEFAULT_DESIGN: Design = {
   font: 'sans',
   size: 16,
   accent: '#1f2937',
   lineIntensity: 'medium',
+  spacing: 'normal',
 }
 const FONT_MAP: Record<Design['font'], string> = {
   sans: 'ui-sans-serif, system-ui, sans-serif',
   serif: 'Georgia, "Times New Roman", serif',
   rounded: '"Baloo 2", "Comic Sans MS", ui-rounded, sans-serif',
+  // ponytail: Century Gothic isn't web-safe — rely on the fallback stack (real Century Gothic
+  // shows in Word/Office; on screen Futura/Trebuchet is the close cousin). No webfont dependency.
+  century: '"Century Gothic", Futura, "Trebuchet MS", "URW Gothic", sans-serif',
+}
+const SPACING_MAP: Record<Design['spacing'], number> = {
+  compact: 1.4,
+  normal: 1.6,
+  relaxed: 1.9,
 }
 const INTENSITY_MAP: Record<Design['lineIntensity'], string> = {
   light: '#e5e7eb',
@@ -405,8 +415,12 @@ function SubPlanBlock({
         <h2 className="flex items-center gap-2 text-[0.8125em] font-bold uppercase tracking-wide text-gray-800">
           {icon}
           {label}
-          {subPlan.nombre ? (
-            <span className="normal-case font-normal text-gray-500">— {subPlan.nombre}</span>
+          {/* Metodología FIRST, then centro de interés name (Alejandra: "primero la metodología
+              y luego el nombre del centro de interés") → "Centro de Interés: Conozcamos las letras". */}
+          {subPlan.metodologia || subPlan.nombre ? (
+            <span className="normal-case font-normal text-gray-500">
+              — {[subPlan.metodologia, subPlan.nombre].filter(Boolean).join(': ')}
+            </span>
           ) : null}
         </h2>
         <button
@@ -420,9 +434,7 @@ function SubPlanBlock({
         </button>
       </div>
       <div className="space-y-3">
-        {subPlan.metodologia && (
-          <p className="text-[0.75em] text-gray-500 italic">Metodología: {subPlan.metodologia}</p>
-        )}
+        {/* metodología now shown in the header next to the name (see h2 above) */}
         {subPlan.campos_formativos?.length ? (
           <CamposFormativosView campos={subPlan.campos_formativos} />
         ) : null}
@@ -545,7 +557,7 @@ function CustomSubPlansSection({
             <h2 className="text-[0.8125em] font-bold uppercase tracking-wide text-gray-800">
               {sp.metodologia}
               {sp.nombre ? (
-                <span className="normal-case font-normal text-gray-500"> — {sp.nombre}</span>
+                <span className="normal-case font-normal text-gray-500">: {sp.nombre}</span>
               ) : null}
             </h2>
           </div>
@@ -651,14 +663,34 @@ function DesignPanel({ design, onChange }: { design: Design; onChange: (d: Desig
     <div className="absolute right-0 z-50 mt-1 w-64 rounded-lg border border-border bg-surface shadow-lg p-3 space-y-3">
       <div>
         <label className="text-xs font-medium text-text-secondary">Tipografía</label>
-        <div className="flex gap-1 mt-1">
-          {(['sans', 'serif', 'rounded'] as const).map((f) => (
+        <div className="flex gap-1 mt-1 flex-wrap">
+          {(['sans', 'serif', 'rounded', 'century'] as const).map((f) => (
             <button
               key={f}
               onClick={() => onChange({ ...design, font: f })}
               className={chip(design.font === f)}
             >
-              {f === 'sans' ? 'Sans' : f === 'serif' ? 'Serif' : 'Redonda'}
+              {f === 'sans'
+                ? 'Sans'
+                : f === 'serif'
+                  ? 'Serif'
+                  : f === 'rounded'
+                    ? 'Redonda'
+                    : 'Century'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-text-secondary">Espaciado</label>
+        <div className="flex gap-1 mt-1">
+          {(['compact', 'normal', 'relaxed'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => onChange({ ...design, spacing: s })}
+              className={chip((design.spacing ?? 'normal') === s)}
+            >
+              {s === 'compact' ? 'Compacto' : s === 'normal' ? 'Normal' : 'Amplio'}
             </button>
           ))}
         </div>
@@ -724,9 +756,10 @@ const DEFAULT_TITLES: Record<string, string> = {
 }
 
 // ponytail: intentionally re-declared to avoid client-bundle shipping section-map (server util)
-// Default (no uploaded template): project description first. Template plans use _section_order.
+// Order per Alejandra's feedback: routine sections → cronograma (+calendario) → ejes →
+// aprendizajes (campos) → proyecto LAST. Mirrors section-map.ts + export-docx. Template plans
+// use their own _section_order. (nombre_proyecto still shows as the <h1> title up top.)
 const DEFAULT_QUINCENA_ORDER = [
-  'proyecto',
   'actividades_iniciales',
   'actividades_rutina',
   'aventura_lectora',
@@ -736,6 +769,7 @@ const DEFAULT_QUINCENA_ORDER = [
   'cronograma',
   'ejes_articuladores',
   'campos_formativos',
+  'proyecto',
   'evaluacion_items',
 ]
 
@@ -1017,6 +1051,7 @@ export function PlanDocumentViewer({
         style={{
           fontSize: `${design.size}px`,
           fontFamily: FONT_MAP[design.font],
+          lineHeight: SPACING_MAP[design.spacing ?? 'normal'],
           ['--doc-accent' as string]: design.accent,
           ['--doc-border' as string]: INTENSITY_MAP[design.lineIntensity],
         }}
