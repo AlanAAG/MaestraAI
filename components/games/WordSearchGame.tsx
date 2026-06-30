@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Volume2, X } from 'lucide-react'
 import { useSpeech } from '@/hooks/useSpeech'
 import { useSound } from '@/hooks/useSound'
 import { celebrate } from '@/lib/ui/celebrate'
@@ -30,6 +31,7 @@ export function WordSearchGame({ content, onComplete }: Props) {
   const [foundWordKeys, setFoundWordKeys] = useState<Set<string>>(new Set())
   const [wrongFlash, setWrongFlash] = useState<Cell | null>(null)
   const [complete, setComplete] = useState(false)
+  const [selected, setSelected] = useState<string | null>(null) // word shown in the flashcard popup
 
   const foundCells = useMemo(() => {
     const cells = new Set<string>()
@@ -178,24 +180,27 @@ export function WordSearchGame({ content, onComplete }: Props) {
             )}
           </div>
 
-          {/* Word list with a picture hint per word (pre-literate kids find by image) */}
-          <div className="flex max-w-sm flex-wrap justify-center gap-2">
+          {/* Word list with a picture hint per word — bigger, and tap to open the flashcard */}
+          <div className="flex max-w-xl flex-wrap justify-center gap-2.5">
             {words.map((word) => (
-              <span
+              <button
+                type="button"
                 key={word}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-all ${
+                onClick={() => setSelected(word)}
+                title="Toca para ver la tarjeta"
+                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-base font-semibold transition-all hover:scale-105 active:scale-95 ${
                   foundWordKeys.has(word)
                     ? 'border-emerald-300 bg-emerald-100 text-emerald-700 line-through opacity-60'
-                    : 'border-gray-300 bg-white text-gray-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-primary'
                 }`}
               >
                 <VocabVisual
                   word={word}
-                  className="h-5 w-5"
-                  emojiClassName="text-lg leading-none"
+                  className="h-8 w-8"
+                  emojiClassName="text-3xl leading-none"
                 />
                 {word}
-              </span>
+              </button>
             ))}
           </div>
 
@@ -206,6 +211,80 @@ export function WordSearchGame({ content, onComplete }: Props) {
           )}
         </>
       )}
+
+      {selected && (
+        <WordFlashcard word={selected} onClose={() => setSelected(null)} speak={speak} />
+      )}
+    </div>
+  )
+}
+
+// Big flashcard popup for a word: large picture (the meaning for pre-readers), spelling, and
+// tap-to-hear pronunciation. Word search content only stores the word, so the rest is derived
+// (image via VocabVisual, pronunciation via TTS, spelling from the letters).
+function WordFlashcard({
+  word,
+  onClose,
+  speak,
+}: {
+  word: string
+  onClose: () => void
+  speak: (text: string, lang?: 'en-US' | 'es-MX') => void
+}) {
+  // Pronounce it once on open.
+  useEffect(() => {
+    speak(word, 'en-US')
+  }, [word, speak])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute right-3 top-3 rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        >
+          <X size={20} />
+        </button>
+
+        {/* Picture = meaning for pre-readers */}
+        <div className="mx-auto mb-3 flex h-40 w-40 items-center justify-center rounded-2xl bg-gray-50">
+          <VocabVisual word={word} className="h-32 w-32" emojiClassName="text-8xl leading-none" />
+        </div>
+
+        <h3 className="text-3xl font-extrabold uppercase tracking-wide text-gray-800">{word}</h3>
+
+        {/* Spelling */}
+        <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+          {word
+            .toUpperCase()
+            .split('')
+            .map((ch, i) => (
+              <span
+                key={i}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 text-lg font-bold text-indigo-700"
+              >
+                {ch}
+              </span>
+            ))}
+        </div>
+
+        {/* Pronunciation */}
+        <button
+          type="button"
+          onClick={() => speak(word, 'en-US')}
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-white shadow-md transition-transform hover:scale-105 active:scale-95"
+        >
+          <Volume2 size={20} /> Escuchar
+        </button>
+      </div>
     </div>
   )
 }

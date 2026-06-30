@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card'
 import {
   ArrowLeft,
   Download,
-  Play,
   Monitor,
   Loader2,
   Share2,
@@ -208,20 +207,58 @@ export default function MaterialDetailPage() {
             {typeLabels[material.type] ?? material.type}
           </h1>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleShareWithSchool}
-          disabled={sharingSchool || shareSchoolSuccess}
-          className="gap-2 shrink-0"
-        >
-          <Share2 className="h-4 w-4" />
-          {shareSchoolSuccess
-            ? '¡Compartido!'
-            : sharingSchool
-              ? 'Compartiendo...'
-              : 'Compartir con escuela'}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Memorama: actions live in the top bar; the playable game below is the default. */}
+          {material.type === 'memory_game' &&
+            (() => {
+              const imagePairs: ListenPair[] = (material.content?.pairs ?? [])
+                .map((p: { word: string; image_url?: string; emoji?: string }) => ({
+                  word: p.word,
+                  image_url: p.image_url,
+                  emoji: p.emoji,
+                }))
+                .filter((p: ListenPair) => p.emoji || wordToEmoji(p.word) || p.image_url)
+              return (
+                <>
+                  {imagePairs.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setListenPairs(imagePairs)}
+                    >
+                      <Headphones className="h-4 w-4" />
+                      <span className="hidden sm:inline">Modo Escucha</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleShare}
+                    disabled={sharing}
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Compartir con alumnos</span>
+                  </Button>
+                </>
+              )
+            })()}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShareWithSchool}
+            disabled={sharingSchool || shareSchoolSuccess}
+            className="gap-2"
+          >
+            <Share2 className="h-4 w-4" />
+            {shareSchoolSuccess
+              ? '¡Compartido!'
+              : sharingSchool
+                ? 'Compartiendo...'
+                : 'Compartir con escuela'}
+          </Button>
+        </div>
       </div>
 
       {/* Playable game front-and-center — the detail page IS the game for these types.
@@ -303,53 +340,8 @@ export default function MaterialDetailPage() {
         </Card>
       )}
 
-      {/* Memory game */}
-      {material.type === 'memory_game' && (
-        <Card className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">
-            {material.content?.pairs?.length ?? 0} pares de tarjetas
-          </p>
-          <div className="flex gap-3 flex-wrap">
-            <Link href={`/materiales/${id}/jugar`}>
-              <Button className="bg-green-600 hover:bg-green-700 min-h-[44px]">
-                <Play className="mr-2 h-4 w-4" /> Jugar en clase
-              </Button>
-            </Link>
-            <Button
-              variant="outline"
-              className="min-h-[44px]"
-              onClick={handleShare}
-              disabled={sharing}
-            >
-              {sharing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Share2 className="mr-2 h-4 w-4" />
-              )}
-              Compartir con alumnos
-            </Button>
-            {(() => {
-              const imagePairs: ListenPair[] = (material.content?.pairs ?? [])
-                .map((p: { word: string; image_url?: string; emoji?: string }) => ({
-                  word: p.word,
-                  image_url: p.image_url,
-                  emoji: p.emoji,
-                }))
-                .filter((p: ListenPair) => p.emoji || wordToEmoji(p.word) || p.image_url)
-              if (imagePairs.length < 2) return null
-              return (
-                <Button
-                  variant="outline"
-                  className="min-h-[44px]"
-                  onClick={() => setListenPairs(imagePairs)}
-                >
-                  <Headphones className="mr-2 h-4 w-4" /> Modo Escucha
-                </Button>
-              )
-            })()}
-          </div>
-        </Card>
-      )}
+      {/* Memorama: bottom menu removed — the inline game above is the default; Compartir + Modo
+          Escucha live in the top bar. */}
 
       {/* Bingo */}
       {material.type === 'bingo' && (
@@ -637,6 +629,7 @@ export default function MaterialDetailPage() {
                   translation: string
                   image_description: string
                   image_url?: string
+                  emoji?: string
                 },
                 i: number
               ) => (
@@ -647,17 +640,15 @@ export default function MaterialDetailPage() {
                     <p className="text-xs text-blue-400 mt-1">{pair.translation}</p>
                   </div>
                   <span className="text-gray-400">↔</span>
-                  <div className="flex-1 text-center rounded border border-green-200 bg-green-50 p-2">
-                    {pair.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={pair.image_url}
-                        alt={pair.word}
-                        className="w-16 h-16 object-contain mx-auto rounded"
-                      />
-                    ) : (
-                      <p className="font-medium text-green-900 text-sm">{pair.image_description}</p>
-                    )}
+                  <div className="flex-1 flex flex-col items-center gap-1 rounded border border-green-200 bg-green-50 p-2">
+                    <VocabVisual
+                      word={pair.word}
+                      emoji={pair.emoji}
+                      imageUrl={pair.image_url}
+                      className="h-14 w-14"
+                      emojiClassName="text-4xl leading-none"
+                    />
+                    <p className="text-xs text-green-700">{pair.image_description}</p>
                   </div>
                 </div>
               )
@@ -680,11 +671,14 @@ export default function MaterialDetailPage() {
                   description: string
                   verified?: boolean
                   has_subtitles?: boolean
+                  url?: string
                   search_url?: string
                 },
                 i: number
               ) => {
+                // Prefer the resolved real video URL; fall back to a search only if unresolved.
                 const url =
+                  v.url ||
                   v.search_url ||
                   `https://www.youtube.com/results?search_query=${encodeURIComponent(`${v.title} ${v.channel}`)}`
                 return (
@@ -752,20 +746,29 @@ export default function MaterialDetailPage() {
           <div className="grid grid-cols-2 gap-3 pt-2">
             {material.content?.items
               ?.slice(0, 6)
-              .map((item: { word: string; image_url?: string; foils: string[] }, i: number) => (
-                <div key={i} className="rounded-lg border border-gray-200 p-3 space-y-1">
-                  <p className="font-semibold text-gray-900">{item.word}</p>
-                  {item.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.image_url}
-                      alt={item.word}
-                      className="w-12 h-12 object-contain rounded"
+              .map(
+                (
+                  item: { word: string; image_url?: string; emoji?: string; foils: string[] },
+                  i: number
+                ) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-lg border border-gray-200 p-3"
+                  >
+                    <VocabVisual
+                      word={item.word}
+                      emoji={item.emoji}
+                      imageUrl={item.image_url}
+                      className="h-12 w-12 flex-shrink-0"
+                      emojiClassName="text-4xl leading-none"
                     />
-                  )}
-                  <p className="text-xs text-gray-400">Foils: {item.foils?.join(', ')}</p>
-                </div>
-              ))}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900">{item.word}</p>
+                      <p className="text-xs text-gray-400">Foils: {item.foils?.join(', ')}</p>
+                    </div>
+                  </div>
+                )
+              )}
           </div>
         </Card>
       )}

@@ -1,11 +1,12 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// Looping background music for games, with a mute toggle. Default OFF (preschool classrooms);
-// playback starts on the first toggle click (a user gesture, which browsers require for audio).
+// Looping background music for games. Browsers block autoplay until a user gesture, so call
+// `play()` from the Start button click (a gesture). After that it plays by default; the mute
+// button stops it. `muted` reflects the teacher's choice and survives pause/resume.
 export function useGameAudio(src = '/sounds/bg_music.mp3', volume = 0.22) {
   const ref = useRef<HTMLAudioElement | null>(null)
-  const [playing, setPlaying] = useState(false)
+  const [muted, setMuted] = useState(false)
 
   useEffect(() => {
     const a = new Audio(src)
@@ -18,18 +19,26 @@ export function useGameAudio(src = '/sounds/bg_music.mp3', volume = 0.22) {
     }
   }, [src, volume])
 
-  const toggle = useCallback(() => {
+  // Start playback (from a user gesture) unless the teacher has muted.
+  const play = useCallback(() => {
     const a = ref.current
-    if (!a) return
-    if (a.paused) {
-      a.play()
-        .then(() => setPlaying(true))
-        .catch(() => setPlaying(false))
-    } else {
-      a.pause()
-      setPlaying(false)
-    }
+    if (a && a.paused && !muted) a.play().catch(() => {})
+  }, [muted])
+
+  const pause = useCallback(() => {
+    ref.current?.pause()
   }, [])
 
-  return { playing, toggle }
+  // Mute = stop hearing; unmute = resume.
+  const toggleMute = useCallback(() => {
+    const a = ref.current
+    setMuted((m) => {
+      const next = !m
+      if (next) a?.pause()
+      else a?.play().catch(() => {})
+      return next
+    })
+  }, [])
+
+  return { muted, play, pause, toggleMute }
 }

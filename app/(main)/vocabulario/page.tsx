@@ -18,6 +18,7 @@ import {
   ChevronDown,
   BookOpen,
   PencilLine,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { progressToast } from '@/lib/ui/progress-toast'
@@ -28,6 +29,7 @@ type VocabularyItem = {
   letter: string
   color: string
   teacher_id: string | null
+  image_url?: string | null
 }
 
 type ExtractedItem = {
@@ -46,6 +48,7 @@ type RichmondUnitCatalog = {
 export default function VocabularioPage() {
   const router = useRouter()
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [richmondCatalog, setRichmondCatalog] = useState<RichmondUnitCatalog[]>([])
   const [vocabTab, setVocabTab] = useState<'richmond' | 'maestra'>('richmond')
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set())
@@ -351,6 +354,24 @@ export default function VocabularioPage() {
     setEditWord(item.word)
     setEditLetter(item.letter)
     setEditColor(item.color)
+  }
+
+  // Upload a teacher photo for one word → used as the picture in flashcards/games.
+  async function uploadImage(itemId: string, file: File) {
+    setUploadingId(itemId)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('word_id', itemId)
+      const res = await fetch('/api/vocabulary/image', { method: 'POST', body: fd })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error)
+      toast.success('Imagen guardada')
+      loadVocabulary()
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'No se pudo subir la imagen')
+    } finally {
+      setUploadingId(null)
+    }
   }
 
   async function handleSaveEdit(id: string) {
@@ -891,15 +912,40 @@ export default function VocabularioPage() {
                                   <span className={`text-sm font-medium ${colorConfig?.text}`}>
                                     {item.word}
                                   </span>
-                                  <div className="flex gap-1">
+                                  <div className="flex items-center gap-1">
                                     {item.teacher_id && (
-                                      <button
-                                        onClick={() => startEdit(item)}
-                                        className="text-text-secondary hover:text-primary transition-colors"
-                                        aria-label="Editar"
-                                      >
-                                        <Pencil size={13} />
-                                      </button>
+                                      <>
+                                        {/* Per-word photo (shows in flashcards/games) */}
+                                        <label
+                                          className="cursor-pointer text-text-secondary hover:text-primary transition-colors"
+                                          aria-label="Subir imagen"
+                                          title="Subir una foto para esta palabra"
+                                        >
+                                          {uploadingId === item.id ? (
+                                            <Loader2 size={13} className="animate-spin" />
+                                          ) : (
+                                            <ImageIcon size={13} />
+                                          )}
+                                          <input
+                                            type="file"
+                                            accept="image/png,image/jpeg,image/webp"
+                                            className="hidden"
+                                            disabled={uploadingId === item.id}
+                                            onChange={(e) => {
+                                              const f = e.target.files?.[0]
+                                              if (f) uploadImage(item.id, f)
+                                              e.target.value = ''
+                                            }}
+                                          />
+                                        </label>
+                                        <button
+                                          onClick={() => startEdit(item)}
+                                          className="text-text-secondary hover:text-primary transition-colors"
+                                          aria-label="Editar"
+                                        >
+                                          <Pencil size={13} />
+                                        </button>
+                                      </>
                                     )}
                                     <button
                                       onClick={() => handleDelete(item.id)}
@@ -910,6 +956,14 @@ export default function VocabularioPage() {
                                     </button>
                                   </div>
                                 </div>
+                                {item.image_url && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={item.image_url}
+                                    alt={item.word}
+                                    className="mt-1 h-14 w-14 rounded-md object-cover ring-1 ring-black/5"
+                                  />
+                                )}
                                 <span
                                   className={`text-xs ${usageCount > 0 ? colorConfig?.text : 'text-text-secondary'} opacity-75`}
                                 >

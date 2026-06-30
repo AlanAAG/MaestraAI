@@ -172,8 +172,12 @@ export const LETTER_RECOGNITION_PROMPT = `
 Genera actividad de reconocimiento de letras para Kinder 3 (preescolar mexicano, 5-6 años).
 
 VOCABULARIO: {vocabulary}
-LETRA FOCO: {letter}
+LETRAS FOCO: {letter}
 TIPO: {activity_type}
+
+Si hay varias LETRAS FOCO (ej. "A, B"), genera ítems que cubran TODAS, balanceadas (aprox. mitad
+de ítems por cada letra). El "target_letter" de cada ítem es la inicial REAL de su palabra. Usa
+palabras del VOCABULARIO (o palabras simples y concretas) cuya inicial sea una de las letras foco.
 
 CONTEXTO: Los niños NO leen ni escriben todavía. El docente guía todo verbalmente.
 El docente muestra la imagen, dice la palabra en inglés, los niños responden con el gesto o señal del tipo de actividad.
@@ -183,15 +187,10 @@ TIPOS:
 - match_to_letter: los niños trazan una línea de la imagen a la letra inicial correcta
 - trace_and_say: los niños trazan la letra con el dedo mientras el docente dice la palabra
 
-LETRAS VISUALMENTE CONFUNDIBLES — úsalas como distractores (foil_letters):
-A→H,V,N | B→D,P,R | C→G,O,Q | D→B,O,P | E→F,B,P | F→E,P,T
-G→C,Q,O | H→M,N,K | I→J,L,T | L→I,J,T | M→N,W,H | N→M,H,U
-O→C,G,Q | P→B,D,R | R→B,P,K | S→Z,C,G | T→I,F,J | U→V,W,N
-V→U,W,Y | W→M,V,U | X→K,Y,Z | Y→V,X,T | Z→S,X,N
-
 REGLAS:
-- Exactamente 3 foil_letters del mapa de arriba para la letra foco
-- Máximo 5 ítems
+- 6 a 8 ítems en total (repartidos entre las letras foco). Palabras distintas, sin repetir.
+- "target_letter": la inicial real de la palabra (mayúscula).
+- "foil_letters": pon ["?","?","?"] — la app las reemplaza con distractores variados; NO te preocupes por ellas.
 - "teacher_instructions": qué hace el docente (en español, 1-2 oraciones)
 - "image_query": 4-6 palabras en inglés para buscar ilustración simple — incluir "illustration" + "white background"
 - NO incluir student_instructions — el docente guía verbalmente
@@ -206,7 +205,7 @@ Responde SOLO con JSON:
       "target_letter": "A",
       "image_description": "manzana roja",
       "image_query": "apple fruit cartoon illustration white background",
-      "foil_letters": ["H", "V", "N"]
+      "foil_letters": ["?", "?", "?"]
     }
   ]
 }

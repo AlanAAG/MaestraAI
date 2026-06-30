@@ -41,12 +41,18 @@ export async function buildSortingGame(
 Vocabulary: ${vocabulary.join(', ')}
 Class theme: ${ctx.project_name}
 
-Group these English words into 2 or 3 simple, concrete categories. Categories must be:
-- Based on obvious visual features a 5-year-old recognizes (animals vs objects, food vs toys, big vs small, etc.)
-- Named in SPANISH (the teacher will say the category name aloud)
-- Clearly distinct — no word could fit in two categories
+Look at the ACTUAL words and choose 2 or 3 categories that genuinely fit ALL of them. Pick the
+categories from what the words actually are — do NOT default to "animals vs objects". For example:
+- people / roles (baby, astronaut, doctor, mom) → "Personas"
+- actions / verbs (run, jump, eat) → "Acciones"
+- food, animals, toys, clothes, body parts, places, colors, transport… → use whichever fit
+Rules for the categories:
+- Every word must clearly belong to exactly ONE category (no word that fits two, no word left over).
+- If some words don't fit the others (e.g. "baby", "astronaut" among animals), ADD a category that
+  covers them (like "Personas") instead of forcing them into a wrong bin.
+- Named in SPANISH (the teacher will say the category name aloud).
 
-For each item also give "emoji": the single best emoji for that word's exact sense (🐱 for cat). Use "" if none fits.
+For each item also give "emoji": the single best emoji for that word's exact sense (🐱 for cat, 👶 for baby, 👨‍🚀 for astronaut). Use "" if none fits.
 
 Return ONLY valid JSON with no markdown or explanation:
 {

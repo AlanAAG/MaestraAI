@@ -10,7 +10,7 @@ import { buildMatching } from '@/lib/materials/matching'
 import { buildPictureWordMatch } from '@/lib/materials/picture-word-match'
 import { buildSortingGame } from '@/lib/materials/sorting'
 import { deriveFortnightContext } from '@/lib/materials/types'
-import { fetchVocabImages } from '@/lib/images'
+import { fetchVocabImages, fetchTeacherVocabImages } from '@/lib/images'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { extractVocabulary } from '@/lib/materials/vocab-utils'
 
@@ -81,7 +81,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Sin vocabulario en esta planeación' }, { status: 400 })
   }
 
-  const imageMap = await fetchVocabImages(vocabulary)
+  const imageMap = {
+    ...(await fetchVocabImages(vocabulary)),
+    ...(await fetchTeacherVocabImages(supabase, vocabulary)), // teacher's own photos win
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ctx = deriveFortnightContext(lessonPlan as any)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

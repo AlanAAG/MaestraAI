@@ -23,14 +23,43 @@ interface FlashcardProjectorProps {
   onExit: () => void
 }
 
+// Soft gradient card themes (was flat bg-*-100 — looked too basic).
 const colorMap: Record<string, { bg: string; text: string; border: string }> = {
-  red: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300' },
-  blue: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300' },
-  green: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
-  yellow: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300' },
-  purple: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300' },
-  pink: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300' },
-  orange: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' },
+  red: {
+    bg: 'bg-gradient-to-br from-rose-50 to-red-100',
+    text: 'text-rose-700',
+    border: 'border-rose-200',
+  },
+  blue: {
+    bg: 'bg-gradient-to-br from-sky-50 to-blue-100',
+    text: 'text-blue-700',
+    border: 'border-blue-200',
+  },
+  green: {
+    bg: 'bg-gradient-to-br from-emerald-50 to-green-100',
+    text: 'text-emerald-700',
+    border: 'border-emerald-200',
+  },
+  yellow: {
+    bg: 'bg-gradient-to-br from-amber-50 to-yellow-100',
+    text: 'text-amber-700',
+    border: 'border-amber-200',
+  },
+  purple: {
+    bg: 'bg-gradient-to-br from-violet-50 to-purple-100',
+    text: 'text-violet-700',
+    border: 'border-violet-200',
+  },
+  pink: {
+    bg: 'bg-gradient-to-br from-pink-50 to-rose-100',
+    text: 'text-pink-700',
+    border: 'border-pink-200',
+  },
+  orange: {
+    bg: 'bg-gradient-to-br from-orange-50 to-amber-100',
+    text: 'text-orange-700',
+    border: 'border-orange-200',
+  },
 }
 
 export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
@@ -41,22 +70,25 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const { speak, stop } = useSpeech()
 
-  // Handle keyboard navigation
+  // Keyboard navigation — functional state updates + a stable listener so the captured index is
+  // never stale (the old closure-based version could skip/stick when advancing without flipping).
   useEffect(() => {
     if (!cards || cards.length === 0) return
     function handleKeyDown(e: KeyboardEvent) {
       switch (e.key) {
         case ' ':
           e.preventDefault()
-          setIsFlipped(!isFlipped)
+          setIsFlipped((f) => !f)
           break
         case 'ArrowRight':
           e.preventDefault()
-          handleNext()
+          setIsFlipped(false)
+          setCurrentIndex((i) => Math.min(i + 1, cards.length - 1))
           break
         case 'ArrowLeft':
           e.preventDefault()
-          handlePrev()
+          setIsFlipped(false)
+          setCurrentIndex((i) => Math.max(i - 1, 0))
           break
         case 'Escape':
           e.preventDefault()
@@ -65,7 +97,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
         case 'a':
         case 'A':
           e.preventDefault()
-          setAutoAdvance(!autoAdvance)
+          setAutoAdvance((a) => !a)
           break
         default:
           break
@@ -75,7 +107,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFlipped, autoAdvance])
+  }, [cards.length])
 
   // Speak word aloud whenever card advances (teacher projection aid)
   useEffect(() => {
@@ -124,12 +156,12 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
 
   function handleNext() {
     setIsFlipped(false)
-    setCurrentIndex(Math.min(currentIndex + 1, cards.length - 1))
+    setCurrentIndex((i) => Math.min(i + 1, cards.length - 1))
   }
 
   function handlePrev() {
     setIsFlipped(false)
-    setCurrentIndex(Math.max(currentIndex - 1, 0))
+    setCurrentIndex((i) => Math.max(i - 1, 0))
   }
 
   async function handleFullscreen() {
@@ -163,7 +195,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
             animate={{ opacity: 1, rotateY: 0 }}
             exit={{ opacity: 0, rotateY: isFlipped ? 90 : -90 }}
             transition={{ duration: 0.4 }}
-            className={`w-full max-w-6xl aspect-video rounded-3xl ${colors.bg} border-4 ${colors.border} flex flex-col items-center justify-center p-12 cursor-pointer select-none`}
+            className={`w-full max-w-6xl aspect-video rounded-[2rem] ${colors.bg} border ${colors.border} shadow-2xl ring-1 ring-black/5 flex flex-col items-center justify-center p-12 cursor-pointer select-none`}
             onClick={() => setIsFlipped(!isFlipped)}
             style={{
               perspective: '1000px',
@@ -216,9 +248,12 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
                     )}
 
                     {/* Flip hint */}
-                    <p style={{ fontSize: '22px' }} className="opacity-40 mt-4">
+                    <span
+                      style={{ fontSize: '18px' }}
+                      className={`mt-4 rounded-full bg-white/60 px-4 py-1.5 font-medium ${colors.text} opacity-70`}
+                    >
                       Presiona ESPACIO o haz clic para voltear
-                    </p>
+                    </span>
                   </div>
                 )
               })()

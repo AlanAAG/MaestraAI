@@ -24,13 +24,64 @@ export type YoutubeVideo = {
   keywords: string[]
   has_subtitles?: boolean
   verified?: boolean
-  // A YouTube SEARCH url (these are AI recommendations, not verified video ids) — always present
-  // so the teacher can open and pick the real video. Derived from title+channel if absent.
+  // Real video resolved from YouTube search (when found) → opens the specific video, not a search.
+  video_id?: string
+  url?: string
+  // Fallback YouTube SEARCH url (used only if the recommendation couldn't be resolved to a real id).
   search_url?: string
 }
 
 function youtubeSearchUrl(title: string, channel: string): string {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} ${channel}`.trim())}`
+}
+
+// Public web "innertube" key (shipped in every youtube.com page, not a secret) — the same key the
+// caption fetch uses (app/api/materials/from-youtube). Lets us search YouTube without a Data API
+// key/quota and resolve an AI recommendation to a REAL video id.
+// ponytail: hits YouTube from server IPs like the caption path; if datacenter IPs get blocked, the
+// upgrade path is the YouTube Data API (needs a key + quota). Falls back to search_url on any failure.
+const INNERTUBE_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'
+
+type ResolvedVideo = { video_id: string; title: string; channel: string; duration: string }
+
+/** Resolve a free-text query to the top real YouTube video (or null). Best-effort, never throws. */
+export async function searchYoutube(query: string): Promise<ResolvedVideo | null> {
+  if (!query.trim()) return null
+  try {
+    const res = await fetch(`https://www.youtube.com/youtubei/v1/search?key=${INNERTUBE_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        context: {
+          client: { clientName: 'WEB', clientVersion: '2.20240101.00.00', hl: 'es', gl: 'MX' },
+        },
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sections: any[] =
+      data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
+        ?.contents ?? []
+    for (const sec of sections) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const item of sec?.itemSectionRenderer?.contents ?? []) {
+        const vr = item?.videoRenderer
+        if (vr?.videoId) {
+          return {
+            video_id: vr.videoId,
+            title: vr.title?.runs?.[0]?.text ?? '',
+            channel: vr.ownerText?.runs?.[0]?.text ?? vr.longBylineText?.runs?.[0]?.text ?? '',
+            duration: vr.lengthText?.simpleText ?? '',
+          }
+        }
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 export type YoutubeContent = {
@@ -81,10 +132,25 @@ Recomienda videos educativos de YouTube apropiados para este vocabulario y tema.
   } catch {
     throw new Error('Respuesta de Claude no es JSON válido')
   }
-  // Guarantee a working (search) link for every recommendation.
-  parsed.videos = (parsed.videos ?? []).map((v) => ({
-    ...v,
-    search_url: v.search_url || youtubeSearchUrl(v.title, v.channel),
-  }))
+  // Resolve each AI recommendation to a REAL YouTube video so the link opens that specific video
+  // (not a search page). Best-effort + parallel; falls back to a search url if not resolved. When
+  // resolved, show the real title/channel/duration so the card matches the video it opens.
+  parsed.videos = await Promise.all(
+    (parsed.videos ?? []).map(async (v) => {
+      const real = await searchYoutube(`${v.title} ${v.channel}`.trim())
+      if (real?.video_id) {
+        return {
+          ...v,
+          video_id: real.video_id,
+          url: `https://www.youtube.com/watch?v=${real.video_id}`,
+          title: real.title || v.title,
+          channel: real.channel || v.channel,
+          duration: real.duration || v.duration,
+          search_url: youtubeSearchUrl(v.title, v.channel),
+        }
+      }
+      return { ...v, search_url: youtubeSearchUrl(v.title, v.channel) }
+    })
+  )
   return parsed
 }

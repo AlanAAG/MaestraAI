@@ -13,7 +13,7 @@ import { buildMatching } from '@/lib/materials/matching'
 import { buildPictureWordMatch } from '@/lib/materials/picture-word-match'
 import { buildSortingGame } from '@/lib/materials/sorting'
 import { deriveFortnightContext } from '@/lib/materials/types'
-import { fetchVocabImages } from '@/lib/images'
+import { fetchVocabImages, fetchTeacherVocabImages } from '@/lib/images'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 
@@ -137,7 +137,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const imageMap = await fetchVocabImages(vocabulary)
+    const imageMap = {
+      ...(await fetchVocabImages(vocabulary)),
+      ...(await fetchTeacherVocabImages(supabase, vocabulary)), // teacher's own photos win
+    }
     const ctx = lessonPlan
       ? deriveFortnightContext(lessonPlan)
       : {
@@ -191,15 +194,18 @@ export async function POST(req: NextRequest) {
             break
 
           case 'letter_recognition': {
+            // Cover BOTH letters of the week (letter_week1 + letter_week2), not just the first.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const letter = (lessonPlan as any)?.fortnights?.letter_week1 || 'A'
+            const fn = (lessonPlan as any)?.fortnights
+            const letter = [fn?.letter_week1, fn?.letter_week2].filter(Boolean)
+            const letters = letter.length ? letter : ['A']
             const act = input.options?.letter_activity_type
             const activity = (
               ['hear_and_circle', 'match_to_letter', 'trace_and_say'].includes(act ?? '')
                 ? act
                 : 'hear_and_circle'
             ) as 'hear_and_circle' | 'match_to_letter' | 'trace_and_say'
-            content = await buildLetterRecognition(vocabulary, letter, activity, imageMap)
+            content = await buildLetterRecognition(vocabulary, letters, activity, imageMap)
             type = 'letter_recognition'
             isProjectable = false
             break

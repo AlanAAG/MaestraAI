@@ -14,6 +14,8 @@ import {
   Search,
   AlignLeft,
   Shuffle,
+  ArrowDownUp,
+  Image as ImageIcon,
   Trash2,
   Plus,
   X,
@@ -48,6 +50,12 @@ type Material = {
   created_at: string
   lesson_plan_id: string | null
   fortnight_id: string | null
+  fortnights?: {
+    project_name: string | null
+    letter_week1: string | null
+    letter_week2: string | null
+    richmond_unit: string | null
+  } | null
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -59,6 +67,9 @@ const TYPE_LABELS: Record<string, string> = {
   letter_recognition: 'Reconoc. Letras',
   matching: 'Matching',
   youtube: 'Videos YouTube',
+  youtube_videos: 'Videos YouTube',
+  sorting_game: 'Ordena y clasifica',
+  picture_word_match: '¿Cuál es la palabra?',
   worksheet: 'Hoja de Trabajo',
   worksheets: 'Hoja de Trabajo',
 }
@@ -72,22 +83,26 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   letter_recognition: FileText,
   matching: Shuffle,
   youtube: PlayCircle,
+  youtube_videos: PlayCircle,
+  sorting_game: ArrowDownUp,
+  picture_word_match: ImageIcon,
   worksheet: FileText,
   worksheets: FileText,
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  flashcards: 'bg-blue-50 text-blue-700 border-blue-200',
-  memory_game: 'bg-green-50 text-green-700 border-green-200',
-  bingo: 'bg-purple-50 text-purple-700 border-purple-200',
-  word_search: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  song_worksheet: 'bg-pink-50 text-pink-700 border-pink-200',
-  letter_recognition: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  matching: 'bg-orange-50 text-orange-700 border-orange-200',
-  youtube: 'bg-red-50 text-red-700 border-red-200',
-  worksheet: 'bg-gray-50 text-gray-700 border-gray-200',
-  worksheets: 'bg-gray-50 text-gray-700 border-gray-200',
-}
+// Card colors are assigned by POSITION (not type) from this palette so cards are vivid and no two
+// adjacent ones repeat — index%8 differs for horizontal (+1) and vertical (+2/+3) neighbors in a
+// 2- or 3-column grid.
+const CARD_PALETTE = [
+  'bg-blue-50 text-blue-700 border-blue-200',
+  'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'bg-amber-50 text-amber-700 border-amber-200',
+  'bg-violet-50 text-violet-700 border-violet-200',
+  'bg-rose-50 text-rose-700 border-rose-200',
+  'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'bg-orange-50 text-orange-700 border-orange-200',
+  'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+]
 
 function groupByDate(materials: Material[]): Record<string, Material[]> {
   const groups: Record<string, Material[]> = {}
@@ -104,12 +119,17 @@ function groupByDate(materials: Material[]): Record<string, Material[]> {
   return groups
 }
 
+// All material types creatable standalone (no planeación). word_search + bingo are intentionally
+// excluded — their routes require a fortnight_id, so they're created from a planeación instead.
 const CREATABLE_TYPES = [
   { key: 'flashcards', label: 'Flashcards' },
   { key: 'games', label: 'Memorama' },
-  { key: 'worksheets', label: 'Hoja de trabajo' },
   { key: 'matching', label: 'Matching' },
   { key: 'picture_word_match', label: 'Imagen-Palabra' },
+  { key: 'sorting_game', label: 'Ordena y clasifica' },
+  { key: 'letter_recognition', label: 'Reconoc. Letras' },
+  { key: 'worksheets', label: 'Hoja de trabajo' },
+  { key: 'youtube', label: 'Videos YouTube' },
 ]
 
 export default function MaterialesPage() {
@@ -120,7 +140,7 @@ export default function MaterialesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batchBusy, setBatchBusy] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [allVocab, setAllVocab] = useState<{ id: string; word: string }[]>([])
+  const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter?: string }[]>([])
   const [selectedVocab, setSelectedVocab] = useState<string[]>([])
   const [manualWord, setManualWord] = useState('')
   const [topic, setTopic] = useState('')
@@ -154,7 +174,9 @@ export default function MaterialesPage() {
         .from('materials')
         // The column is generated_at; alias it to created_at so the rest of the page is unchanged.
         // (Selecting a non-existent created_at returned PostgREST 42703 → 400 → empty list.)
-        .select('id, type, created_at:generated_at, lesson_plan_id, fortnight_id')
+        .select(
+          'id, type, created_at:generated_at, lesson_plan_id, fortnight_id, fortnights(project_name, letter_week1, letter_week2, richmond_unit)'
+        )
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .eq('teacher_id', (teacher as any).id)
         .order('generated_at', { ascending: false })
@@ -165,7 +187,8 @@ export default function MaterialesPage() {
     load()
     fetch('/api/vocabulary')
       .then((r) => r.json())
-      .then((d) => setAllVocab(d.items ?? []))
+      // API returns { vocabulary } (was read as d.items → chips were always empty).
+      .then((d) => setAllVocab(d.vocabulary ?? d.items ?? []))
       .catch((err) => console.error('Failed to load vocabulary:', err))
   }, [router])
 
@@ -311,7 +334,46 @@ export default function MaterialesPage() {
 
           {/* Vocab selection */}
           <div>
-            <p className="text-xs font-medium text-gray-700 mb-2">Vocabulario</p>
+            <p className="text-xs font-medium text-gray-700 mb-2">
+              Vocabulario{' '}
+              <span className="font-normal text-gray-500">(el tuyo y el de Richmond)</span>
+            </p>
+            {/* Quick-select by letter — toggles all of that letter's words. */}
+            {(() => {
+              const letters = Array.from(
+                new Set(
+                  allVocab.map((v) => (v.letter || v.word[0] || '').toUpperCase()).filter(Boolean)
+                )
+              ).sort()
+              if (letters.length < 2) return null
+              return (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {letters.map((L) => {
+                    const words = allVocab
+                      .filter((v) => (v.letter || v.word[0] || '').toUpperCase() === L)
+                      .map((v) => v.word)
+                    const allSel = words.every((w) => selectedVocab.includes(w))
+                    return (
+                      <button
+                        key={L}
+                        type="button"
+                        onClick={() =>
+                          setSelectedVocab((p) =>
+                            allSel
+                              ? p.filter((w) => !words.includes(w))
+                              : Array.from(new Set([...p, ...words]))
+                          )
+                        }
+                        className={`h-7 w-7 rounded-md text-xs font-bold transition-colors ${allSel ? 'bg-primary text-white' : 'bg-white text-gray-500 border border-gray-300 hover:border-primary'}`}
+                        title={`Seleccionar todas las palabras con ${L}`}
+                      >
+                        {L}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
             <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto mb-2">
               {allVocab.map((v) => {
                 const sel = selectedVocab.includes(v.word)
@@ -425,12 +487,24 @@ export default function MaterialesPage() {
                 {date}
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {groups[date].map((m) => {
+                {groups[date].map((m, idx) => {
                   const Icon = TYPE_ICONS[m.type] ?? Package
-                  const colorClass =
-                    TYPE_COLORS[m.type] ?? 'bg-gray-50 text-gray-700 border-gray-200'
+                  const colorClass = CARD_PALETTE[idx % CARD_PALETTE.length]
                   const label = TYPE_LABELS[m.type] ?? m.type
                   const isSel = selected.has(m.id)
+                  // Context line: if this material belongs to a planeación, show its project + the
+                  // week's letters or Richmond unit — not just the time.
+                  const fn = m.fortnights
+                  const letters = [fn?.letter_week1, fn?.letter_week2].filter(Boolean).join(' · ')
+                  const context = fn
+                    ? [fn.project_name, fn.richmond_unit || (letters && `Letras ${letters}`)]
+                        .filter(Boolean)
+                        .join(' — ')
+                    : ''
+                  const time = new Date(m.created_at).toLocaleTimeString('es-MX', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
                   const body = (
                     <Card
                       className={`p-4 border transition-shadow ${colorClass} ${
@@ -439,12 +513,12 @@ export default function MaterialesPage() {
                     >
                       <Icon className="h-6 w-6 mb-2" />
                       <p className="text-sm font-semibold">{label}</p>
-                      <p className="text-xs opacity-70 mt-0.5">
-                        {new Date(m.created_at).toLocaleTimeString('es-MX', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
+                      {context && (
+                        <p className="mt-0.5 text-xs font-medium opacity-80 line-clamp-2">
+                          {context}
+                        </p>
+                      )}
+                      <p className="text-xs opacity-60 mt-0.5">{time}</p>
                     </Card>
                   )
                   // Select mode: clicking toggles selection. Normal mode: navigate to detail.
