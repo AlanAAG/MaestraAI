@@ -15,6 +15,19 @@ import { VocabularySections } from '@/components/richmond/VocabularySections'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { isProniApplicable } from '@/lib/nem-official-data'
 
+// NEM methodologies the teacher can pick per unit (must match keys in METHODOLOGY_STRUCTURE).
+const MODALIDADES = [
+  'Proyecto',
+  'Centro de Interés',
+  'Taller Crítico',
+  'Aprendizaje Basado en el Juego',
+  'Situación Didáctica',
+  'Aprendizaje Basado en Proyectos Comunitarios',
+  'Aprendizaje Basado en Indagación (STEAM)',
+  'Aprendizaje Basado en Problemas',
+  'Aprendizaje-Servicio',
+] as const
+
 const FortnightSchema = z.object({
   number: z.number().min(1, 'Debe ser entre 1 y 12').max(12, 'Debe ser entre 1 y 12'),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
@@ -70,6 +83,10 @@ export default function NuevaPlaneacionPage() {
   const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter: string }[]>([])
   const [extraMaterials, setExtraMaterials] = useState<string[]>([])
   const [manualMaterial, setManualMaterial] = useState('')
+  // Teacher-defined didactic units. Unit 1 drives the main Proyecto; the rest become sub-plans.
+  const [unidades, setUnidades] = useState<
+    Array<{ metodologia: string; nombre: string; tema: string }>
+  >([])
   // Optional teacher details (general + project-specific) — both feed generation.
   const [teacherNotes, setTeacherNotes] = useState('')
   const [projectNotes, setProjectNotes] = useState('')
@@ -261,6 +278,8 @@ export default function NuevaPlaneacionPage() {
 
       const hasBookPages = !!(richmondBookPages.week1 || richmondBookPages.week2)
       const hasObsCal = Object.values(observationCalendar).some((v) => v.length > 0)
+      // Drop blank rows; conditional-spread so the form still saves before migration 062 is pushed.
+      const cleanUnidades = unidades.filter((u) => u.nombre.trim() || u.tema.trim())
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: fortnight, error: fortnightError } = await (supabase as any)
@@ -275,6 +294,7 @@ export default function NuevaPlaneacionPage() {
           physical_materials: extraMaterials.length > 0 ? extraMaterials : null,
           ...(hasBookPages ? { richmond_book_pages: richmondBookPages } : {}),
           ...(hasObsCal ? { observation_calendar: observationCalendar } : {}),
+          ...(cleanUnidades.length ? { unidades_didacticas: cleanUnidades } : {}),
         })
         .select()
         .single()
@@ -415,6 +435,92 @@ export default function NuevaPlaneacionPage() {
             </p>
           )}
         </Card>
+
+        {/* Unidades didácticas — teacher declares the units + their methodologies (quincena only) */}
+        {planType === 'quincena' && (
+          <Card className="p-6 border-2">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">
+              🧩 Unidades didácticas{' '}
+              <span className="font-normal text-text-secondary">(opcional)</span>
+            </h3>
+            <p className="text-xs text-text-secondary mb-4">
+              La <strong>Unidad 1</strong> será el Proyecto principal (con la estructura de su
+              metodología). Letter &amp; Number y Números se generan automáticamente. Agrega aquí
+              unidades extra como un Taller o un día de juego.
+            </p>
+            {unidades.length > 0 && (
+              <div className="space-y-3 mb-3">
+                {unidades.map((u, i) => (
+                  <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-text-secondary">
+                        Unidad {i + 1}
+                        {i === 0 ? ' (Proyecto principal)' : ''}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setUnidades((p) => p.filter((_, x) => x !== i))}
+                        className="text-text-secondary hover:text-red-500 cursor-pointer"
+                        aria-label="Quitar unidad"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={u.metodologia}
+                        onChange={(e) =>
+                          setUnidades((p) =>
+                            p.map((x, idx) =>
+                              idx === i ? { ...x, metodologia: e.target.value } : x
+                            )
+                          )
+                        }
+                        className="min-h-[40px] px-2 rounded-lg border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        {MODALIDADES.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        value={u.nombre}
+                        onChange={(e) =>
+                          setUnidades((p) =>
+                            p.map((x, idx) => (idx === i ? { ...x, nombre: e.target.value } : x))
+                          )
+                        }
+                        placeholder="Nombre (ej. Salvemos al Planeta)"
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                    <Input
+                      value={u.tema}
+                      onChange={(e) =>
+                        setUnidades((p) =>
+                          p.map((x, idx) => (idx === i ? { ...x, tema: e.target.value } : x))
+                        )
+                      }
+                      placeholder="Tema / detalles (días con fechas, páginas de libros…)"
+                      className="h-10 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setUnidades((p) => [...p, { metodologia: 'Proyecto', nombre: '', tema: '' }])
+              }
+            >
+              + Agregar unidad
+            </Button>
+          </Card>
+        )}
 
         {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only. The single Richmond section. */}
         {proniActive && (

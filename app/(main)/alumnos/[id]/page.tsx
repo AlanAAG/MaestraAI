@@ -21,6 +21,7 @@ interface Student {
   id: string
   name: string
   has_nee: boolean
+  nee_note?: string
   group_id: string
   observation_day?: string | null
   richmond_student_id?: string | null
@@ -72,6 +73,11 @@ export default function StudentDetailPage() {
   const [parentEmail, setParentEmail] = useState('')
   const [savingEmail, setSavingEmail] = useState(false)
   const [emailSaved, setEmailSaved] = useState(false)
+  // NEE support: flag + (encrypted) note, used anonymized when generating ajustes razonables.
+  const [neeEnabled, setNeeEnabled] = useState(false)
+  const [neeNote, setNeeNote] = useState('')
+  const [savingNee, setSavingNee] = useState(false)
+  const [neeSaved, setNeeSaved] = useState(false)
 
   useEffect(() => {
     if (studentId) {
@@ -105,6 +111,8 @@ export default function StudentDetailPage() {
       }
       const studentData = await studentRes.json()
       setStudent(studentData)
+      setNeeEnabled(!!studentData.has_nee)
+      setNeeNote(studentData.nee_note ?? '')
 
       // Load progress data from API
       const response = await fetch(`/api/students/${studentId}/progress`)
@@ -201,6 +209,26 @@ export default function StudentDetailPage() {
       alert('No se pudo guardar el correo. Intenta de nuevo.')
     } finally {
       setSavingEmail(false)
+    }
+  }
+
+  async function saveNee() {
+    setSavingNee(true)
+    setNeeSaved(false)
+    try {
+      const res = await fetch(`/api/students/${studentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ has_nee: neeEnabled, nee_note: neeEnabled ? neeNote : '' }),
+      })
+      if (!res.ok) throw new Error()
+      setNeeSaved(true)
+      setStudent((s) => (s ? { ...s, has_nee: neeEnabled, nee_note: neeNote } : s))
+      setTimeout(() => setNeeSaved(false), 2500)
+    } catch {
+      alert('No se pudieron guardar los ajustes. Intenta de nuevo.')
+    } finally {
+      setSavingNee(false)
     }
   }
 
@@ -347,6 +375,48 @@ export default function StudentDetailPage() {
             </Button>
           </div>
         )}
+      </Card>
+
+      {/* NEE support — flag + anonymized note fed into ajustes razonables generation */}
+      <Card className="p-8 mb-6">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-text-primary">Apoyos y ajustes (NEE)</h2>
+            <p className="text-sm text-text-secondary mt-1">
+              Se usan de forma <strong>anónima</strong> (sin nombres) al generar los ajustes
+              razonables de la planeación. El nombre real solo aparece en tu documento, nunca se
+              envía a la IA.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={neeEnabled}
+              onChange={(e) => setNeeEnabled(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            Requiere ajustes
+          </label>
+        </div>
+        {neeEnabled && (
+          <textarea
+            value={neeNote}
+            onChange={(e) => setNeeNote(e.target.value)}
+            rows={4}
+            placeholder="Áreas de apoyo y estrategias, SIN nombres. Ej: ejecución, atención y autorregulación; dividir tareas en pasos visibles; usar apoyos visuales; seguir las estrategias del terapeuta."
+            className="w-full rounded-lg border border-border bg-surface p-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          />
+        )}
+        <div className="flex items-center gap-3 mt-3">
+          <Button onClick={saveNee} disabled={savingNee}>
+            {savingNee ? 'Guardando…' : 'Guardar'}
+          </Button>
+          {neeSaved && (
+            <span className="text-sm text-green-600 flex items-center gap-1">
+              <CheckCircle2 size={16} /> Guardado
+            </span>
+          )}
+        </div>
       </Card>
 
       {!progressData || progressData.assignments.length === 0 ? (

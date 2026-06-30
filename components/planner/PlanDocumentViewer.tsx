@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Loader2, BookOpen, Hash, Pencil, Check, X, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { applyNeeNames } from '@/lib/planner/nee-names'
 
 type Design = {
   font: 'sans' | 'serif' | 'rounded' | 'century'
@@ -93,6 +94,7 @@ type PlanDoc = {
   _section_order?: string[]
   _section_titles?: Record<string, string>
   _formatting_rules?: { section_title_trailing_colon?: boolean }
+  _nee_mapping?: Record<string, string>
 }
 
 type GroupSchedule = {
@@ -777,10 +779,12 @@ function QuincenaSections({
   pd,
   observationCalendar,
   handleEdit,
+  neeNames,
 }: {
   pd: PlanDoc
   observationCalendar?: Record<string, string[]> | null
   handleEdit: (section: string, value: string) => Promise<void>
+  neeNames?: Record<string, string>
 }) {
   const titles = pd._section_titles ?? {}
   // Colon is owned by the renderer (strip any stored one, then add per the rule) — same logic as
@@ -881,6 +885,8 @@ function QuincenaSections({
           </DocSection>
         ) : null
       case 'ajustes_razonables':
+        // Display real names (merged at render); edit on the anonymized text so saves never
+        // persist names into plan_document (which is embedded for RAG).
         return pd.ajustes_razonables ? (
           <DocSection
             key={key}
@@ -888,7 +894,7 @@ function QuincenaSections({
             editValue={pd.ajustes_razonables}
             onSave={(v) => handleEdit(key, v)}
           >
-            <MdContent text={pd.ajustes_razonables} />
+            <MdContent text={applyNeeNames(pd.ajustes_razonables, neeNames ?? {})} />
           </DocSection>
         ) : null
       case 'ejes_articuladores':
@@ -980,6 +986,17 @@ export function PlanDocumentViewer({
   const isQuincena = pd.tipo !== 'taller'
   const letterDay = capitalize(schedule?.letter_number_day ?? 'martes')
   const numDay = capitalize(schedule?.numeros_day ?? 'jueves')
+
+  // Real NEE names (label→name), decrypted server-side. Used to swap "Alumno A" → real name at
+  // render time only (the stored plan_document keeps anonymized labels). Empty for old plans.
+  const [neeNames, setNeeNames] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (!pd._nee_mapping || !Object.keys(pd._nee_mapping).length) return
+    fetch(`/api/planner/nee-names?fortnight_id=${fortnightId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.names && setNeeNames(d.names))
+      .catch(() => {})
+  }, [fortnightId, pd._nee_mapping])
 
   // Per-teacher document design (font, size, accent, line intensity).
   const [design, setDesign] = useState<Design>(DEFAULT_DESIGN)
@@ -1089,6 +1106,7 @@ export function PlanDocumentViewer({
             pd={pd}
             observationCalendar={observationCalendar}
             handleEdit={handleEdit}
+            neeNames={neeNames}
           />
         ) : (
           <>

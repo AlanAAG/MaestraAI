@@ -19,10 +19,16 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
 import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
-import { generateSubplan, generateCustomSubplan } from '@/lib/planner/subplan'
+import {
+  generateSubplan,
+  generateCustomSubplan,
+  buildEstructuraProyectoBlock,
+} from '@/lib/planner/subplan'
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 import { buildSectionMeta } from '@/lib/planner/section-map'
 import { normalizePlanDocument } from '@/lib/planner/normalize-document'
+import { decrypt } from '@/lib/encryption'
+import { scrubNames } from '@/lib/planner/extract-template'
 
 export const maxDuration = 300
 
@@ -324,15 +330,19 @@ function buildQuincenaPrompt(
 
   const { context: profileCtx } = profileContext(profile, evalColumns)
 
-  // Inject teacher's actual proyecto sub-sections (replaces hardcoded "Punto de Partida / Planeación…").
+  // Unit 1 (the teacher's first declared unit) drives the top-level proyecto's methodology + shape.
+  // Falls back to the uploaded template's Proyecto sub-sections, then to the schema default.
+  const mainUnit = Array.isArray(fn.unidades_didacticas) ? fn.unidades_didacticas[0] : null
   const proyectoInv = profile?.subplan_inventory?.find(
     (s) =>
       s.metodologia?.toLowerCase().includes('proyecto') ||
       s.metodologia?.toLowerCase().includes('situacion')
   )
-  const proyectoSecciones = proyectoInv?.secciones?.length
-    ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
-    : ''
+  const proyectoSecciones =
+    buildEstructuraProyectoBlock(mainUnit?.metodologia) ||
+    (proyectoInv?.secciones?.length
+      ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
+      : '')
 
   // High-priority: the teacher's explicit requests + continuity with the previous quincena.
   const tNotes = String(fn.teacher_notes ?? '').slice(0, 1500)
@@ -597,16 +607,51 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: students } = await (supabase as any)
       .from('students')
-      .select('has_nee, nee_notes')
+      .select('id, has_nee')
       .in('group_id', gradeGroupIds)
     // LFPDPPP: disability + name is sensitive data. NEVER pass real student names into the
     // prompt/output — anonymize to positional labels (Alumno A, B…). Names are not decrypted.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const neeRows = (students ?? []).filter((s: any) => s.has_nee)
-    const neeStudents = neeRows.map((s: { nee_notes: string | null }, i: number) => ({
+    // Best-effort NEE notes, fetched separately so a missing column (migration 063 not pushed)
+    // can't drop has_nee detection. Decrypt server-side, then SCRUB any names from the free text
+    // before it can reach the LLM (the note describes support needs, tied only to "Alumno A").
+    const notesById: Record<string, string> = {}
+    if (neeRows.length) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: noteRows } = await (supabase as any)
+          .from('students')
+          .select('id, nee_notes_encrypted')
+          .in(
+            'id',
+            neeRows.map((r: { id: string }) => r.id)
+          )
+        await Promise.all(
+          (noteRows ?? []).map(async (nr: { id: string; nee_notes_encrypted: string | null }) => {
+            if (!nr.nee_notes_encrypted) return
+            try {
+              notesById[nr.id] = scrubNames(await decrypt(nr.nee_notes_encrypted))
+            } catch {
+              /* undecryptable → omit */
+            }
+          })
+        )
+      } catch {
+        /* column missing → no notes, generation continues */
+      }
+    }
+    const neeStudents = neeRows.map((s: { id: string }, i: number) => ({
       display_name: `Alumno ${i < 26 ? String.fromCharCode(65 + i) : String(i + 1)}`,
-      nee_notes: s.nee_notes,
+      nee_notes: notesById[s.id] ?? null,
     }))
+    // Names-free label→student_id map, embedded in plan_document so the viewer/DOCX can decrypt &
+    // swap real names at RENDER time only. plan_document is embedded for RAG, so it must hold NO
+    // names — only ids. The LLM still sees only "Alumno A/B".
+    const neeMapping: Record<string, string> = {}
+    neeRows.forEach((s: { id: string }, i: number) => {
+      neeMapping[`Alumno ${i < 26 ? String.fromCharCode(65 + i) : String(i + 1)}`] = s.id
+    })
 
     // Vocabulary
     let vocabList = ''
@@ -712,6 +757,10 @@ export async function POST(req: NextRequest) {
           if (profile?.formatting_rules) {
             planDocument._formatting_rules = profile.formatting_rules
           }
+          // Names-free NEE label→id map for render-time name merge (never contains names).
+          if (Object.keys(neeMapping).length) {
+            planDocument._nee_mapping = neeMapping
+          }
 
           // Quincena: auto-generate the Letter & Number + Números sub-plans inline so the
           // document is a complete bundle on first generation (matches the teacher's format).
@@ -750,13 +799,19 @@ export async function POST(req: NextRequest) {
             if (numSub.status === 'rejected')
               console.error('[generate-document] numeros subplan failed:', numSub.reason)
 
-            // Mirror the teacher's example: auto-generate the extra sub-plans it contains
-            // (Taller, ABJ, etc.) beyond the standard Proyecto + Letter&Number + Números.
-            // Best-effort (allSettled), capped, non-fatal. Centro de Interés is already covered
-            // by letter_number/numeros, and Proyecto is the top-level field.
-            const extras = (profile?.subplan_inventory ?? [])
+            // Extra sub-plans (Taller, ABJ, etc.) beyond Proyecto + Letter&Number + Números.
+            // Source: the teacher's per-quincena units (unit[0] is the top-level Proyecto, so we
+            // drop it) when she declared them, else her uploaded template's inventory. The filter
+            // drops Centro de Interés (covered by auto letter_number/numeros) + any second Proyecto.
+            // Best-effort (allSettled), capped, non-fatal.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const unitSource: any[] =
+              Array.isArray(fn.unidades_didacticas) && fn.unidades_didacticas.length
+                ? fn.unidades_didacticas.slice(1)
+                : (profile?.subplan_inventory ?? [])
+            const extras = unitSource
               .filter(
-                (s) => !/proyecto|centro de inter/i.test(s.metodologia) && !!s.metodologia?.trim()
+                (s) => !/proyecto|centro de inter/i.test(s?.metodologia) && !!s?.metodologia?.trim()
               )
               .slice(0, 3)
             if (extras.length) {
@@ -764,7 +819,19 @@ export async function POST(req: NextRequest) {
                 extras.map((s) =>
                   generateCustomSubplan(
                     fn,
-                    { methodology: s.metodologia, name: s.nombre || s.metodologia },
+                    {
+                      methodology: s.metodologia,
+                      name: s.nombre || s.metodologia,
+                      // Fold the teacher's per-unit details into notes (the param already exists).
+                      notes:
+                        [
+                          s.tema && `Tema: ${s.tema}`,
+                          s.dias && `Días con fechas: ${s.dias}`,
+                          s.libros && `Libros/páginas: ${s.libros}`,
+                        ]
+                          .filter(Boolean)
+                          .join('. ') || undefined,
+                    },
                     { evalColumns, pdaBank: profile?.pda_bank, cachePrefix }
                   )
                 )

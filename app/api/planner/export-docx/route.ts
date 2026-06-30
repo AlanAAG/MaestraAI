@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { applyNeeNames, decryptNeeMap } from '@/lib/planner/nee-names'
 import {
   Document,
   Paragraph,
@@ -88,6 +89,7 @@ type PlanDocument = {
     section_heading_level?: 'h1' | 'h2'
     section_title_trailing_colon?: boolean
   }
+  _nee_mapping?: Record<string, string>
 }
 
 // A thin horizontal rule between sections (when the teacher's format uses one).
@@ -455,6 +457,10 @@ export async function POST(req: NextRequest) {
     if (!pd.tipo)
       return NextResponse.json({ error: 'No hay documento generado aún' }, { status: 422 })
 
+    // Render-time NEE name merge (server-side, teacher's own students). Names are never stored in
+    // plan_document — only swapped in here, in the exported Word file.
+    const neeNames = await decryptNeeMap(pd._nee_mapping, supabase)
+
     const children: (Paragraph | Table)[] = []
 
     // School logo (centered, above the title)
@@ -545,7 +551,9 @@ export async function POST(req: NextRequest) {
             break
           case 'ajustes_razonables':
             if (pd.ajustes_razonables)
-              children.push(...mdToParas(pd.ajustes_razonables, secT(key), secLevel))
+              children.push(
+                ...mdToParas(applyNeeNames(pd.ajustes_razonables, neeNames), secT(key), secLevel)
+              )
             break
           case 'ejes_articuladores':
             if (pd.ejes_articuladores)

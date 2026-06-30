@@ -80,7 +80,9 @@ ${depth}`
 }
 
 // Each NEM methodology has its own didactic structure (the keys + their human labels).
-const METHODOLOGY_STRUCTURE: Record<string, { key: string; label: string }[]> = {
+// Exported so the main-document generator can give Unit 1 (the top-level proyecto) the right
+// shape for its chosen methodology, not always "Proyecto".
+export const METHODOLOGY_STRUCTURE: Record<string, { key: string; label: string }[]> = {
   'Centro de Interés': [
     { key: 'momento_1', label: '1° Momento: En contacto con la realidad' },
     { key: 'momento_2', label: '2° Momento: Identificación e integración' },
@@ -115,6 +117,43 @@ const METHODOLOGY_STRUCTURE: Record<string, { key: string; label: string }[]> = 
     { key: 'desarrollo', label: 'Desarrollo' },
     { key: 'cierre', label: 'Cierre' },
   ],
+  // The 4 NEM metodologías globalizadoras (fases oficiales).
+  'Aprendizaje Basado en Proyectos Comunitarios': [
+    { key: 'planeacion', label: 'Planeación' },
+    { key: 'accion', label: 'Acción' },
+    { key: 'intervencion', label: 'Intervención' },
+  ],
+  'Aprendizaje Basado en Indagación (STEAM)': [
+    { key: 'introduccion', label: 'Introducción al tema' },
+    { key: 'diseno', label: 'Diseño de la indagación' },
+    { key: 'organizacion', label: 'Organización de respuestas' },
+    { key: 'metacognicion', label: 'Metacognición' },
+  ],
+  'Aprendizaje Basado en Problemas': [
+    { key: 'presentacion', label: 'Presentación del problema' },
+    { key: 'recoleccion', label: 'Recolección de datos' },
+    { key: 'hipotesis', label: 'Hipótesis' },
+    { key: 'experimentacion', label: 'Experimentación' },
+    { key: 'analisis', label: 'Análisis y conclusiones' },
+  ],
+  'Aprendizaje-Servicio': [
+    { key: 'punto_de_partida', label: 'Punto de partida' },
+    { key: 'lo_que_se', label: 'Lo que sé y quiero saber' },
+    { key: 'organizamos', label: 'Organicemos las actividades' },
+    { key: 'creatividad', label: 'Creatividad en marcha' },
+    { key: 'compartimos', label: 'Compartimos y evaluamos' },
+  ],
+}
+
+// Render a methodology's didactic structure as an <estructura_proyecto> prompt block for the MAIN
+// unit (top-level proyecto). Lets Unit 1 be a Taller / Centro de Interés, not always a Proyecto.
+// Empty string when the methodology is unknown → the prompt keeps its default Proyecto structure.
+export function buildEstructuraProyectoBlock(metodologia?: string | null): string {
+  if (!metodologia) return ''
+  const struct = METHODOLOGY_STRUCTURE[metodologia]
+  if (!struct) return ''
+  const headings = struct.map((s) => `  **${s.label}**`).join('\n')
+  return `\n<estructura_proyecto>\nEl campo "proyecto" corresponde a una unidad de metodología "${metodologia}". Asigna el campo "metodologia": "${metodologia}". El campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden, desarrollando cada uno a profundidad:\n${headings}\n</estructura_proyecto>`
 }
 
 // Generate a sub-planeación of ANY NEM methodology (Taller, ABJ, etc.), teacher-driven.
