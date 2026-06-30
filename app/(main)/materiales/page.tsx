@@ -142,6 +142,11 @@ export default function MaterialesPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter?: string }[]>([])
   const [selectedVocab, setSelectedVocab] = useState<string[]>([])
+  // Richmond teachers pick vocab BY UNIT (live book catalog); everyone picks own words by letter.
+  const [richmondCatalog, setRichmondCatalog] = useState<
+    { id: string; unit_number: number; unit_title: string; words: string[] }[]
+  >([])
+  const [vocabSource, setVocabSource] = useState<'own' | 'richmond'>('own')
   const [manualWord, setManualWord] = useState('')
   const [topic, setTopic] = useState('')
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['flashcards'])
@@ -188,7 +193,37 @@ export default function MaterialesPage() {
     fetch('/api/vocabulary')
       .then((r) => r.json())
       // API returns { vocabulary } (was read as d.items → chips were always empty).
-      .then((d) => setAllVocab(d.vocabulary ?? d.items ?? []))
+      .then(async (d) => {
+        setAllVocab(d.vocabulary ?? d.items ?? [])
+        // Richmond teachers: load the live book catalog so vocab can be picked BY UNIT.
+        if (d.editorial === 'richmond') {
+          const supabase = createClient()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data } = await (supabase as any)
+            .from('richmond_units')
+            .select('id, unit_number, unit_title, richmond_lesson_groups(sort_order, vocabulary)')
+            .eq('book_code', 'TG5A')
+            .order('unit_number', { ascending: true })
+          if (Array.isArray(data)) {
+            setRichmondCatalog(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              data.map((u: any) => ({
+                id: u.id,
+                unit_number: u.unit_number,
+                unit_title: u.unit_title,
+                words: Array.from(
+                  new Set(
+                    [...(u.richmond_lesson_groups ?? [])]
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      .flatMap((g: any) => g.vocabulary ?? [])
+                      .filter(Boolean)
+                  )
+                ) as string[],
+              }))
+            )
+          }
+        }
+      })
       .catch((err) => console.error('Failed to load vocabulary:', err))
   }, [router])
 
@@ -334,65 +369,139 @@ export default function MaterialesPage() {
 
           {/* Vocab selection */}
           <div>
-            <p className="text-xs font-medium text-gray-700 mb-2">
-              Vocabulario{' '}
-              <span className="font-normal text-gray-500">(el tuyo y el de Richmond)</span>
-            </p>
-            {/* Quick-select by letter — toggles all of that letter's words. */}
-            {(() => {
-              const letters = Array.from(
-                new Set(
-                  allVocab.map((v) => (v.letter || v.word[0] || '').toUpperCase()).filter(Boolean)
-                )
-              ).sort()
-              if (letters.length < 2) return null
-              return (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {letters.map((L) => {
-                    const words = allVocab
-                      .filter((v) => (v.letter || v.word[0] || '').toUpperCase() === L)
-                      .map((v) => v.word)
-                    const allSel = words.every((w) => selectedVocab.includes(w))
+            <p className="text-xs font-medium text-gray-700 mb-2">Vocabulario</p>
+
+            {/* Source: own words (by letter) vs Richmond book (by unit) — only for Richmond teachers */}
+            {richmondCatalog.length > 0 && (
+              <div className="mb-3 inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                {(['own', 'richmond'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setVocabSource(s)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${vocabSource === s ? 'bg-primary text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    {s === 'own' ? 'Mi vocabulario (por letra)' : 'Richmond (por unidad)'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {vocabSource === 'own' ? (
+              <>
+                {/* Quick-select by letter — toggles all of that letter's words. */}
+                {(() => {
+                  const letters = Array.from(
+                    new Set(
+                      allVocab
+                        .map((v) => (v.letter || v.word[0] || '').toUpperCase())
+                        .filter(Boolean)
+                    )
+                  ).sort()
+                  if (letters.length < 2) return null
+                  return (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {letters.map((L) => {
+                        const words = allVocab
+                          .filter((v) => (v.letter || v.word[0] || '').toUpperCase() === L)
+                          .map((v) => v.word)
+                        const allSel = words.every((w) => selectedVocab.includes(w))
+                        return (
+                          <button
+                            key={L}
+                            type="button"
+                            onClick={() =>
+                              setSelectedVocab((p) =>
+                                allSel
+                                  ? p.filter((w) => !words.includes(w))
+                                  : Array.from(new Set([...p, ...words]))
+                              )
+                            }
+                            className={`h-7 w-7 rounded-md text-xs font-bold transition-colors ${allSel ? 'bg-primary text-white' : 'bg-white text-gray-500 border border-gray-300 hover:border-primary'}`}
+                            title={`Seleccionar todas las palabras con ${L}`}
+                          >
+                            {L}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+                <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto mb-2">
+                  {allVocab.map((v) => {
+                    const sel = selectedVocab.includes(v.word)
                     return (
                       <button
-                        key={L}
+                        key={v.id}
                         type="button"
                         onClick={() =>
                           setSelectedVocab((p) =>
-                            allSel
-                              ? p.filter((w) => !words.includes(w))
-                              : Array.from(new Set([...p, ...words]))
+                            sel ? p.filter((w) => w !== v.word) : [...p, v.word]
                           )
                         }
-                        className={`h-7 w-7 rounded-md text-xs font-bold transition-colors ${allSel ? 'bg-primary text-white' : 'bg-white text-gray-500 border border-gray-300 hover:border-primary'}`}
-                        title={`Seleccionar todas las palabras con ${L}`}
+                        className={`px-3 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
                       >
-                        {L}
+                        {v.word}
                       </button>
                     )
                   })}
                 </div>
-              )
-            })()}
-            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto mb-2">
-              {allVocab.map((v) => {
-                const sel = selectedVocab.includes(v.word)
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() =>
-                      setSelectedVocab((p) =>
-                        sel ? p.filter((w) => w !== v.word) : [...p, v.word]
-                      )
-                    }
-                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
-                  >
-                    {v.word}
-                  </button>
-                )
-              })}
-            </div>
+              </>
+            ) : (
+              // Richmond: pick by unit. "Toda la unidad" selects every word; chips toggle individually.
+              <div className="space-y-3 max-h-72 overflow-y-auto mb-2 pr-1">
+                {richmondCatalog.map((u) => {
+                  const allSel =
+                    u.words.length > 0 && u.words.every((w) => selectedVocab.includes(w))
+                  return (
+                    <div key={u.id} className="rounded-lg border border-gray-200 bg-white p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-gray-800">
+                          Unidad {u.unit_number}: {u.unit_title}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedVocab((p) =>
+                              allSel
+                                ? p.filter((w) => !u.words.includes(w))
+                                : Array.from(new Set([...p, ...u.words]))
+                            )
+                          }
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${allSel ? 'bg-primary text-white' : 'border border-primary/40 text-primary hover:bg-primary/5'}`}
+                        >
+                          {allSel ? 'Quitar unidad' : 'Toda la unidad'}
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {u.words.map((w) => {
+                          const sel = selectedVocab.includes(w)
+                          return (
+                            <button
+                              key={w}
+                              type="button"
+                              onClick={() =>
+                                setSelectedVocab((p) =>
+                                  sel ? p.filter((x) => x !== w) : [...p, w]
+                                )
+                              }
+                              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
+                            >
+                              {w}
+                            </button>
+                          )
+                        })}
+                        {u.words.length === 0 && (
+                          <span className="text-xs text-gray-400">
+                            Sin vocabulario en esta unidad
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
                 value={manualWord}
