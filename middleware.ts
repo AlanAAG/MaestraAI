@@ -27,7 +27,10 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
+    // blob: — client-side image processing (docx→vocab thumbnails: object URLs + canvas)
+    "img-src 'self' data: https: blob:",
+    // worker-src — libs that spin up a blob worker (e.g. zip/image decode) during that flow
+    "worker-src 'self' blob:",
     "font-src 'self' data:",
     "connect-src 'self' https://*.supabase.co https://api.anthropic.com https://vercel.live",
     "frame-ancestors 'none'",

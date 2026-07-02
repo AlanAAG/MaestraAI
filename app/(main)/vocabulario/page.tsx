@@ -297,6 +297,14 @@ export default function VocabularioPage() {
         return
       }
       setExtracting(false)
+      // No images found. The text-extraction API can't take a big file (server body limit) —
+      // don't attempt a doomed upload; tell the teacher instead.
+      if (selectedFile.size > 4 * 1024 * 1024) {
+        toast.error(
+          'No encontré imágenes en el documento y es muy grande para leer el texto. Revisa que sea el documento de flashcards (una palabra con su imagen).'
+        )
+        return
+      }
     }
 
     setExtracting(true)
