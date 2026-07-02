@@ -928,7 +928,7 @@ export default function VocabularioPage() {
                       <img
                         src={it.previewUrl}
                         alt={it.word}
-                        className="h-16 w-16 rounded object-cover"
+                        className="h-16 w-16 rounded object-contain bg-white"
                       />
                       <span className="mt-1 truncate text-xs text-text-secondary">{it.word}</span>
                     </div>
@@ -1175,7 +1175,7 @@ export default function VocabularioPage() {
                                   <img
                                     src={item.image_url}
                                     alt={item.word}
-                                    className="mt-1 h-14 w-14 rounded-md object-cover ring-1 ring-black/5"
+                                    className="mt-1 h-14 w-14 rounded-md object-contain bg-white ring-1 ring-black/5"
                                   />
                                 )}
                                 <span
