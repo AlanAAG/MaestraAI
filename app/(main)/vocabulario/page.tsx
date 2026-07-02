@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { progressToast } from '@/lib/ui/progress-toast'
+import { extractVocabImagesFromDocx, type ExtractedVocabImage } from '@/lib/vocab/docx-images'
 
 type VocabularyItem = {
   id: string
@@ -54,7 +55,14 @@ export default function VocabularioPage() {
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set())
   const [wordUsageMap, setWordUsageMap] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
-  const [mode, setMode] = useState<'list' | 'add' | 'bulk' | 'extract'>('list')
+  const [mode, setMode] = useState<'list' | 'add' | 'bulk' | 'extract' | 'docximg'>('list')
+  // Bulk image import from a flashcard .docx (parsed client-side).
+  const [docxImages, setDocxImages] = useState<ExtractedVocabImage[]>([])
+  const [parsingDocx, setParsingDocx] = useState(false)
+  const [importingImgs, setImportingImgs] = useState(false)
+  const [imgProgress, setImgProgress] = useState({ done: 0, total: 0 })
+  // "Solo imágenes": only attach to words the teacher already has (never create new ones).
+  const [existingOnly, setExistingOnly] = useState(false)
   const [newWord, setNewWord] = useState('')
   const [newLetter, setNewLetter] = useState('A')
   const [newColor, setNewColor] = useState<string>('blue')
@@ -264,8 +272,31 @@ export default function VocabularioPage() {
 
   async function handleImageExtract() {
     if (!selectedFile) {
-      toast.error('Selecciona una imagen')
+      toast.error('Selecciona un archivo')
       return
+    }
+
+    // Flashcard .docx with embedded images → import the words AND their pictures together
+    // (client-side). Only falls back to text extraction if the doc has no usable images.
+    const isDocx =
+      selectedFile.name.toLowerCase().endsWith('.docx') ||
+      selectedFile.type.includes('wordprocessingml')
+    if (isDocx) {
+      setExtracting(true)
+      let imgs: ExtractedVocabImage[] = []
+      try {
+        imgs = await extractVocabImagesFromDocx(selectedFile)
+      } catch {
+        /* not a flashcard-style doc → fall through to text extraction */
+      }
+      if (imgs.length > 0) {
+        setDocxImages(imgs)
+        setSelectedFile(null)
+        setExtracting(false)
+        setMode('docximg')
+        return
+      }
+      setExtracting(false)
     }
 
     setExtracting(true)
@@ -372,6 +403,57 @@ export default function VocabularioPage() {
     } finally {
       setUploadingId(null)
     }
+  }
+
+  // Parse a flashcard .docx entirely in the browser → word↔thumbnail pairs for preview.
+  async function handleDocxSelect(file: File) {
+    setParsingDocx(true)
+    setDocxImages([])
+    try {
+      const items = await extractVocabImagesFromDocx(file)
+      if (items.length === 0) {
+        toast.error('No encontré imágenes con palabra en el documento.')
+      } else {
+        setDocxImages(items)
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo leer el documento.')
+    } finally {
+      setParsingDocx(false)
+    }
+  }
+
+  // Upload each parsed thumbnail. Default: find-or-create the word. "Solo imágenes" (existingOnly):
+  // upload only for words already in the teacher's vocabulary — never creates a new word.
+  async function handleImportImages() {
+    const existing = new Set(vocabulary.map((v) => v.word.toLowerCase().trim()))
+    const toUpload = existingOnly ? docxImages.filter((it) => existing.has(it.word)) : docxImages
+    if (toUpload.length === 0) {
+      toast.error('Ninguna imagen coincide con tus palabras existentes.')
+      return
+    }
+    setImportingImgs(true)
+    setImgProgress({ done: 0, total: toUpload.length })
+    let ok = 0
+    for (let i = 0; i < toUpload.length; i++) {
+      const it = toUpload[i]
+      try {
+        const fd = new FormData()
+        fd.append('file', new File([it.blob], `${it.word}.jpg`, { type: 'image/jpeg' }))
+        fd.append('word', it.word)
+        const res = await fetch('/api/vocabulary/image', { method: 'POST', body: fd })
+        if (res.ok) ok++
+      } catch {
+        /* skip failed word, keep going */
+      }
+      setImgProgress({ done: i + 1, total: toUpload.length })
+    }
+    setImportingImgs(false)
+    toast.success(`${ok} imágenes guardadas`)
+    docxImages.forEach((it) => URL.revokeObjectURL(it.previewUrl))
+    setDocxImages([])
+    setMode('list')
+    loadVocabulary()
   }
 
   async function handleSaveEdit(id: string) {
@@ -611,10 +693,12 @@ export default function VocabularioPage() {
         {/* Image Upload */}
         {mode === 'extract' && (
           <Card className="p-6 mb-6">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">Extraer desde archivo</h2>
+            <h2 className="text-lg font-semibold text-text-primary mb-4">Subir vocabulario</h2>
             <p className="text-sm text-text-secondary mb-4">
-              Sube una foto, un PDF o un Word (.docx) con tu lista de vocabulario. Extraemos las
-              palabras automáticamente (incluye OCR de páginas escaneadas).
+              Sube una foto, un PDF o un Word (.docx) con tu vocabulario. Extraemos las palabras
+              automáticamente (con OCR). Si tu documento de Word trae{' '}
+              <strong>una imagen por palabra</strong> (como el de flashcards), guardamos las
+              palabras <strong>y sus imágenes</strong> de una vez.
             </p>
 
             <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
@@ -639,9 +723,14 @@ export default function VocabularioPage() {
                     return
                   }
 
-                  // 10MB max (docs/pdfs can be larger than images)
-                  if (file.size > 10 * 1024 * 1024) {
-                    toast.error('Archivo demasiado grande. El tamaño máximo es 10MB.')
+                  // A flashcard .docx is parsed in the browser (never uploaded), so it can be big
+                  // (Alejandra's is ~23 MB). Images/PDFs still go to the server → keep them smaller.
+                  const isDocx =
+                    file.name.toLowerCase().endsWith('.docx') ||
+                    file.type.includes('wordprocessingml')
+                  const maxMb = isDocx ? 60 : 10
+                  if (file.size > maxMb * 1024 * 1024) {
+                    toast.error(`Archivo demasiado grande. El tamaño máximo es ${maxMb}MB.`)
                     return
                   }
 
@@ -660,7 +749,7 @@ export default function VocabularioPage() {
                     {selectedFile ? selectedFile.name : 'Haz clic para seleccionar un archivo'}
                   </p>
                   <p className="text-xs text-text-secondary mt-1">
-                    Imagen, PDF o Word (.docx) hasta 10MB
+                    Imagen o PDF hasta 10MB · Word (.docx) hasta 60MB
                   </p>
                 </div>
               </label>
@@ -722,6 +811,123 @@ export default function VocabularioPage() {
                 </>
               )}
             </div>
+          </Card>
+        )}
+
+        {/* Bulk image import from a flashcard .docx (parsed + resized in the browser) */}
+        {mode === 'docximg' && (
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold text-text-primary mb-1">
+              Importar imágenes desde documento
+            </h2>
+            <p className="text-sm text-text-secondary mb-4">
+              Sube un documento de Word (.docx) con una palabra y su imagen (como el de flashcards).
+              Tomamos la imagen de cada palabra y la asociamos automáticamente. El documento se
+              procesa aquí en tu navegador — solo se guardan miniaturas pequeñas.
+            </p>
+
+            {docxImages.length === 0 ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+                  {parsingDocx ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Upload size={16} />
+                  )}
+                  {parsingDocx ? 'Leyendo documento…' : 'Elegir documento .docx'}
+                  <input
+                    type="file"
+                    accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                    disabled={parsingDocx}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleDocxSelect(f)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                <Button variant="outline" size="sm" onClick={() => setMode('list')}>
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm font-medium text-text-primary">
+                      {docxImages.length} imágenes encontradas
+                    </p>
+                    {!importingImgs && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          docxImages.forEach((it) => URL.revokeObjectURL(it.previewUrl))
+                          setDocxImages([])
+                        }}
+                      >
+                        Elegir otro
+                      </Button>
+                    )}
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
+                    <input
+                      type="checkbox"
+                      checked={existingOnly}
+                      onChange={(e) => setExistingOnly(e.target.checked)}
+                      disabled={importingImgs}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Solo agregar imágenes a mis palabras existentes (no crear palabras nuevas)
+                  </label>
+                  {(() => {
+                    const existing = new Set(vocabulary.map((v) => v.word.toLowerCase().trim()))
+                    const matched = docxImages.filter((it) => existing.has(it.word)).length
+                    const count = existingOnly ? matched : docxImages.length
+                    return (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          onClick={handleImportImages}
+                          disabled={importingImgs || count === 0}
+                          size="sm"
+                        >
+                          {importingImgs ? (
+                            <>
+                              <Loader2 size={14} className="mr-2 animate-spin" />
+                              Guardando {imgProgress.done}/{imgProgress.total}…
+                            </>
+                          ) : (
+                            `Guardar ${count} ${count === 1 ? 'imagen' : 'imágenes'}`
+                          )}
+                        </Button>
+                        {existingOnly && (
+                          <p className="text-xs text-text-secondary">
+                            {matched} de {docxImages.length} coinciden con tu vocabulario
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+                <div className="grid max-h-96 grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-5">
+                  {docxImages.map((it) => (
+                    <div
+                      key={it.word}
+                      className="flex flex-col items-center rounded-lg border border-border p-2"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={it.previewUrl}
+                        alt={it.word}
+                        className="h-16 w-16 rounded object-cover"
+                      />
+                      <span className="mt-1 truncate text-xs text-text-secondary">{it.word}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </Card>
         )}
 

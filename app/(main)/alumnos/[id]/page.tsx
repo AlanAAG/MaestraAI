@@ -12,6 +12,8 @@ import {
   MessageCircle,
   Mail,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { StudentProgressChart } from '@/components/app/StudentProgressChart'
@@ -73,6 +75,9 @@ export default function StudentDetailPage() {
   const [parentEmail, setParentEmail] = useState('')
   const [savingEmail, setSavingEmail] = useState(false)
   const [emailSaved, setEmailSaved] = useState(false)
+  const [contactType, setContactType] = useState<'parent' | 'student'>('parent')
+  // Roster (all the teacher's students, by name) → lets you page prev/next between profiles here.
+  const [roster, setRoster] = useState<{ id: string; name: string }[]>([])
   // NEE support: flag + (encrypted) note, used anonymized when generating ajustes razonables.
   const [neeEnabled, setNeeEnabled] = useState(false)
   const [neeNote, setNeeNote] = useState('')
@@ -85,6 +90,19 @@ export default function StudentDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId])
+
+  // Load the roster once (names decrypted server-side) so we can step between students.
+  useEffect(() => {
+    fetch('/api/students')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (Array.isArray(d?.students))
+          setRoster(
+            (d.students as { id: string; name: string }[]).map((s) => ({ id: s.id, name: s.name }))
+          )
+      })
+      .catch(() => {})
+  }, [])
 
   async function loadData() {
     setLoadingState({ status: 'loading' })
@@ -286,13 +304,46 @@ export default function StudentDetailPage() {
   }
 
   // Success state
+  const rosterIdx = roster.findIndex((s) => s.id === studentId)
+  const prevStudent = rosterIdx > 0 ? roster[rosterIdx - 1] : null
+  const nextStudent = rosterIdx >= 0 && rosterIdx < roster.length - 1 ? roster[rosterIdx + 1] : null
+
   return (
     <div className="p-8">
-      {/* Back button */}
-      <Button variant="ghost" onClick={() => router.push('/alumnos')} className="mb-6 gap-2">
-        <ArrowLeft size={18} />
-        Volver a Alumnos
-      </Button>
+      {/* Top bar: back + step between students one by one */}
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <Button variant="ghost" onClick={() => router.push('/alumnos')} className="gap-2">
+          <ArrowLeft size={18} />
+          Volver a Alumnos
+        </Button>
+        {rosterIdx >= 0 && roster.length > 1 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!prevStudent}
+              onClick={() => prevStudent && router.push(`/alumnos/${prevStudent.id}`)}
+              className="gap-1"
+              title={prevStudent ? prevStudent.name : undefined}
+            >
+              <ChevronLeft size={16} /> Anterior
+            </Button>
+            <span className="px-2 text-sm tabular-nums text-text-secondary">
+              {rosterIdx + 1} / {roster.length}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!nextStudent}
+              onClick={() => nextStudent && router.push(`/alumnos/${nextStudent.id}`)}
+              className="gap-1"
+              title={nextStudent ? nextStudent.name : undefined}
+            >
+              Siguiente <ChevronRight size={16} />
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Student header */}
       <Card className="p-8 mb-6">
@@ -342,7 +393,7 @@ export default function StudentDetailPage() {
               ) : (
                 <Mail size={18} />
               )}
-              {emailSaved ? 'Correo guardado' : 'Agregar correo de papás'}
+              {emailSaved ? 'Contacto guardado' : 'Contacto'}
             </Button>
             <Button onClick={downloadReport} disabled={downloadingReport} className="gap-2">
               <Download size={18} />
@@ -352,27 +403,49 @@ export default function StudentDetailPage() {
         </div>
 
         {showEmailForm && (
-          <div className="mt-5 pt-5 border-t border-border flex flex-col sm:flex-row gap-2 items-end">
-            <Input
-              placeholder="Nombre del padre/madre (opcional)"
-              value={parentName}
-              onChange={(e) => setParentName(e.target.value)}
-              className="flex-1"
-            />
-            <Input
-              type="email"
-              placeholder="correo@ejemplo.com"
-              value={parentEmail}
-              onChange={(e) => setParentEmail(e.target.value)}
-              className="flex-1"
-            />
-            <Button
-              onClick={saveParentEmail}
-              disabled={!parentEmail.trim() || savingEmail}
-              className="shrink-0"
-            >
-              {savingEmail ? 'Guardando…' : 'Guardar'}
-            </Button>
+          <div className="mt-5 space-y-3 border-t border-border pt-5">
+            {/* Papás vs Alumno — the Alumno option prefills the student's name. */}
+            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+              {(['parent', 'student'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setContactType(t)
+                    setParentName(t === 'student' ? student.name : '')
+                  }}
+                  className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${contactType === t ? 'bg-primary text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  {t === 'parent' ? 'Correo papás' : 'Correo alumno'}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col items-end gap-2 sm:flex-row">
+              <Input
+                placeholder={
+                  contactType === 'student'
+                    ? 'Nombre del alumno'
+                    : 'Nombre del padre/madre (opcional)'
+                }
+                value={parentName}
+                onChange={(e) => setParentName(e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                type="email"
+                placeholder="correo@ejemplo.com"
+                value={parentEmail}
+                onChange={(e) => setParentEmail(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={saveParentEmail}
+                disabled={!parentEmail.trim() || savingEmail}
+                className="shrink-0"
+              >
+                {savingEmail ? 'Guardando…' : 'Guardar'}
+              </Button>
+            </div>
           </div>
         )}
       </Card>

@@ -36,8 +36,12 @@ export async function POST(req: NextRequest) {
 
     const form = await req.formData()
     const file = form.get('file')
+    // Either a word_id (single upload) OR a word text (docx bulk import → find-or-create the item).
     const wordId = String(form.get('word_id') ?? '')
-    if (!(file instanceof File) || !wordId)
+    const wordText = String(form.get('word') ?? '')
+      .trim()
+      .toLowerCase()
+    if (!(file instanceof File) || (!wordId && !wordText))
       return NextResponse.json({ error: 'Falta la imagen o la palabra' }, { status: 422 })
     const ext = EXT[file.type]
     if (!ext)
@@ -45,21 +49,47 @@ export async function POST(req: NextRequest) {
     if (file.size > MAX_BYTES)
       return NextResponse.json({ error: 'La imagen supera 3 MB' }, { status: 422 })
 
-    // Ownership: the word must belong to this teacher.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: word } = await (supabase as any)
-      .from('vocabulary_items')
-      .select('id, teacher_id')
-      .eq('id', wordId)
-      .single()
-    if (!word || word.teacher_id !== teacher.id)
-      return NextResponse.json({ error: 'Palabra no encontrada' }, { status: 404 })
+    // Resolve the target word: by id (ownership-checked) or by text (find, else create).
+    let resolvedId = wordId
+    if (!resolvedId) {
+      const letter = (wordText.match(/[a-z]/)?.[0] ?? 'a').toUpperCase()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: existing } = await (supabase as any)
+        .from('vocabulary_items')
+        .select('id')
+        .eq('teacher_id', teacher.id)
+        .eq('word', wordText)
+        .maybeSingle()
+      if (existing?.id) {
+        resolvedId = existing.id
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: created, error: cErr } = await (supabase as any)
+          .from('vocabulary_items')
+          .insert({ word: wordText, letter, color: 'blue', teacher_id: teacher.id })
+          .select('id')
+          .single()
+        if (cErr || !created)
+          return NextResponse.json({ error: 'No se pudo crear la palabra.' }, { status: 500 })
+        resolvedId = created.id
+      }
+    } else {
+      // Ownership: the word must belong to this teacher.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: word } = await (supabase as any)
+        .from('vocabulary_items')
+        .select('id, teacher_id')
+        .eq('id', resolvedId)
+        .single()
+      if (!word || word.teacher_id !== teacher.id)
+        return NextResponse.json({ error: 'Palabra no encontrada' }, { status: 404 })
+    }
 
     const service = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    const path = `${teacher.id}/${wordId}.${ext}`
+    const path = `${teacher.id}/${resolvedId}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
     const { error: upErr } = await service.storage
       .from('vocab-images')
@@ -78,7 +108,7 @@ export async function POST(req: NextRequest) {
     await (supabase as any)
       .from('vocabulary_items')
       .update({ image_url: imageUrl })
-      .eq('id', wordId)
+      .eq('id', resolvedId)
 
     return NextResponse.json({ image_url: imageUrl })
   } catch (err) {
