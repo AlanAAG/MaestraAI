@@ -362,8 +362,14 @@ Letter & Number: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}
 ${proniNote}`
 
+  // Mes = monthly (4-week) plan; reuses the quincena structure with a duration hint.
+  const isMes = fn.plan_type === 'mes'
+  const durationBlock = isMes
+    ? `<duracion>\nEsta planeación cubre UN MES COMPLETO (4 semanas). Distribuye el cronograma, el proyecto y las actividades a lo largo de las 4 semanas del mes, con progresión semana a semana. Las Letras y Números abarcan el mes completo.\n</duracion>`
+    : ''
+
   const requestData = `<request>
-PLANEACIÓN QUINCENA ${fn.number}: ${sanitize(fn.project_name)}
+PLANEACIÓN ${isMes ? 'MENSUAL' : 'QUINCENA'} ${fn.number}: ${sanitize(fn.project_name)}
 Nivel: Kinder 3 (5-6 años) | Del ${startStr} al ${endStr}
 Grado: ${fn._grade ?? fn.groups?.grade ?? ''} | Grupos: ${fn._gradeGroupNames ?? fn.groups?.name ?? ''} (esta planeación es para TODO el grado, inclusiva de todos sus grupos)
 Valor del mes: ${sanitize(fn.monthly_value)}
@@ -384,6 +390,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     styleBlock,
     profileCtx,
     contenidosBlock,
+    durationBlock,
     proyectoSecciones,
     teacherReq,
     continuityBlock,
@@ -491,7 +498,7 @@ export async function POST(req: NextRequest) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const planType: 'quincena' | 'taller' = (fn as any).plan_type ?? 'quincena'
+    const planType: 'quincena' | 'taller' | 'mes' = (fn as any).plan_type ?? 'quincena'
     // Per-grade: the plan covers every group of the grade (migration 059). Fall back to the
     // representative group's grade for older rows without a stored grade.
     const groupGrade = (fn.grade as string | null) ?? fn.groups?.grade ?? ''
@@ -685,7 +692,7 @@ export async function POST(req: NextRequest) {
     // theme so the main doc's campos_formativos stop including an irrelevant Saberes (Alejandra's #1).
     // Best-effort: empty block → prompt keeps full-bank behavior. Only the main quincena prompt uses it.
     const contenidosBlock =
-      planType === 'quincena'
+      planType !== 'taller'
         ? contenidosSugeridosBlock(
             await selectRelevantContenidos(
               String(fn.project_name ?? ''),
@@ -762,10 +769,10 @@ export async function POST(req: NextRequest) {
             planDocument._nee_mapping = neeMapping
           }
 
-          // Quincena: auto-generate the Letter & Number + Números sub-plans inline so the
+          // Quincena/Mes: auto-generate the Letter & Number + Números sub-plans inline so the
           // document is a complete bundle on first generation (matches the teacher's format).
           // Run in parallel — they only depend on fortnight data, not on the main doc.
-          if (planType === 'quincena') {
+          if (planType !== 'taller') {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ phase: 'subplanes' })}\n\n`)
             )

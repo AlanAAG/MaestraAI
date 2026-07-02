@@ -194,10 +194,17 @@ export async function POST(req: NextRequest) {
             break
 
           case 'letter_recognition': {
-            // Cover BOTH letters of the week (letter_week1 + letter_week2), not just the first.
+            // Cover ALL letters of BOTH weeks (each field can be comma-separated, e.g. "A, B").
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const fn = (lessonPlan as any)?.fortnights
-            const letter = [fn?.letter_week1, fn?.letter_week2].filter(Boolean)
+            const letter = [fn?.letter_week1, fn?.letter_week2]
+              .filter(Boolean)
+              .flatMap((l: string) =>
+                l
+                  .split(',')
+                  .map((x) => x.trim())
+                  .filter(Boolean)
+              )
             const letters = letter.length ? letter : ['A']
             const act = input.options?.letter_activity_type
             const activity = (

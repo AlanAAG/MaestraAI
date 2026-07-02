@@ -28,32 +28,25 @@ const MODALIDADES = [
   'Aprendizaje-Servicio',
 ] as const
 
+// One or more single letters separated by commas (e.g. "A" or "A, B"). Accent-aware.
+const LETTERS_RE = /^[A-Za-zÁáÉéÍíÓóÚúÑñÜü](\s*,\s*[A-Za-zÁáÉéÍíÓóÚúÑñÜü])*$/
 const FortnightSchema = z.object({
-  number: z.number().min(1, 'Debe ser entre 1 y 12').max(12, 'Debe ser entre 1 y 12'),
+  // number + project_name are derived at insert (auto-number / Unit 1), not form fields anymore.
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
-  project_name: z.string().min(1, 'El proyecto es requerido').max(200, 'Máximo 200 caracteres'),
-  monthly_value: z.string().min(1, 'El valor es requerido').max(100, 'Máximo 100 caracteres'),
-  letter_week1: z
-    .string()
-    .regex(/^[A-Za-zÁáÉéÍíÓóÚúÑñÜü]$/, 'Debe ser una letra del alfabeto')
-    .optional(),
-  letter_week2: z
-    .string()
-    .regex(/^[A-Za-zÁáÉéÍíÓóÚúÑñÜü]$/, 'Debe ser una letra del alfabeto')
-    .optional(),
+  monthly_value: z.string().max(100, 'Máximo 100 caracteres').optional(),
+  letter_week1: z.string().regex(LETTERS_RE, 'Una o más letras separadas por coma').optional(),
+  letter_week2: z.string().regex(LETTERS_RE, 'Una o más letras separadas por coma').optional(),
 })
 
 type Template = { id: string; label: string; plan_type: string }
 
 export default function NuevaPlaneacionPage() {
   const router = useRouter()
-  const [planType, setPlanType] = useState<'quincena' | 'taller'>('quincena')
+  const [planType, setPlanType] = useState<'quincena' | 'taller' | 'mes'>('quincena')
   const [formData, setFormData] = useState({
-    number: '',
     start_date: '',
     end_date: '',
-    project_name: '',
     monthly_value: '',
     letter_week1: '',
     letter_week2: '',
@@ -83,13 +76,13 @@ export default function NuevaPlaneacionPage() {
   const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter: string }[]>([])
   const [extraMaterials, setExtraMaterials] = useState<string[]>([])
   const [manualMaterial, setManualMaterial] = useState('')
-  // Teacher-defined didactic units. Unit 1 drives the main Proyecto; the rest become sub-plans.
+  // Teacher-defined didactic units. Unit 1 = the project (its name is the plan's project_name);
+  // the rest become sub-plans. Always starts with one unit since Unit 1 is now required.
   const [unidades, setUnidades] = useState<
     Array<{ metodologia: string; nombre: string; tema: string }>
-  >([])
+  >([{ metodologia: 'Proyecto', nombre: '', tema: '' }])
   // Optional teacher details (general + project-specific) — both feed generation.
   const [teacherNotes, setTeacherNotes] = useState('')
-  const [projectNotes, setProjectNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
   // Binary choice: use the teacher's uploaded format, or MaestraIA's built-in design.
   const [useSystemTemplate, setUseSystemTemplate] = useState(false)
@@ -123,7 +116,7 @@ export default function NuevaPlaneacionPage() {
   const quincenaLetters = useMemo(
     () =>
       [formData.letter_week1, formData.letter_week2]
-        .map((l) => l.trim().toUpperCase())
+        .flatMap((l) => l.split(',').map((x) => x.trim().toUpperCase()))
         .filter(Boolean),
     [formData.letter_week1, formData.letter_week2]
   )
@@ -247,10 +240,21 @@ export default function NuevaPlaneacionPage() {
     setError('')
     setFieldErrors({})
 
+    // The project is Unit 1 — its name is required (replaces the old project_name field).
+    const cleanUnidades = unidades.filter((u) => u.nombre.trim() || u.tema.trim())
+    const projectName = cleanUnidades[0]?.nombre?.trim() ?? ''
+    if (!projectName) {
+      setFieldErrors({ unidad: 'Ponle nombre al proyecto (Unidad 1)' })
+      setError('Ponle un nombre al proyecto (Unidad 1).')
+      setLoading(false)
+      return
+    }
+
     try {
       const validated = FortnightSchema.parse({
-        ...formData,
-        number: parseInt(formData.number),
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        monthly_value: formData.monthly_value || undefined,
         letter_week1: formData.letter_week1 || undefined,
         letter_week2: formData.letter_week2 || undefined,
       })
@@ -278,8 +282,22 @@ export default function NuevaPlaneacionPage() {
 
       const hasBookPages = !!(richmondBookPages.week1 || richmondBookPages.week2)
       const hasObsCal = Object.values(observationCalendar).some((v) => v.length > 0)
-      // Drop blank rows; conditional-spread so the form still saves before migration 062 is pushed.
-      const cleanUnidades = unidades.filter((u) => u.nombre.trim() || u.tema.trim())
+
+      // Auto-number: next in this teacher's sequence (1-12). Best-effort — defaults to 1.
+      let nextNumber = 1
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: last } = await (supabase as any)
+          .from('fortnights')
+          .select('number')
+          .eq('teacher_id', teacher.id)
+          .order('number', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        nextNumber = Math.min(12, ((last?.number as number) ?? 0) + 1)
+      } catch {
+        /* default 1 */
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: fortnight, error: fortnightError } = await (supabase as any)
@@ -288,6 +306,9 @@ export default function NuevaPlaneacionPage() {
           teacher_id: teacher.id,
           group_id: selectedGroupId,
           ...validated,
+          number: nextNumber,
+          project_name: projectName, // derived from Unit 1 (the project)
+          monthly_value: formData.monthly_value.trim() || null,
           plan_type: planType,
           status: 'draft',
           vocabulary: letterVocab.length > 0 ? letterVocab : null,
@@ -317,12 +338,14 @@ export default function NuevaPlaneacionPage() {
       if (useSystemTemplate) {
         await sb.from('fortnights').update({ use_system_template: true }).eq('id', fortnight.id)
       }
-      if (teacherNotes.trim() || projectNotes.trim()) {
+      // project_notes now comes from Unit 1's "tema / detalles".
+      const projectNotes = cleanUnidades[0]?.tema?.trim() ?? ''
+      if (teacherNotes.trim() || projectNotes) {
         await sb
           .from('fortnights')
           .update({
             teacher_notes: teacherNotes.trim() || null,
-            project_notes: projectNotes.trim() || null,
+            project_notes: projectNotes || null,
           })
           .eq('id', fortnight.id)
       }
@@ -387,7 +410,7 @@ export default function NuevaPlaneacionPage() {
         <Card className="p-6 border-2">
           <h3 className="text-sm font-semibold text-text-primary mb-3">Tipo de planeación</h3>
           <div className="flex gap-2">
-            {(['quincena', 'taller'] as const).map((t) => (
+            {(['quincena', 'mes', 'taller'] as const).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -398,14 +421,16 @@ export default function NuevaPlaneacionPage() {
                     : 'bg-surface text-text-secondary border-border hover:border-primary'
                 }`}
               >
-                {t === 'quincena' ? 'Quincena' : 'Taller'}
+                {t === 'quincena' ? 'Quincena' : t === 'mes' ? 'Mes' : 'Taller'}
               </button>
             ))}
           </div>
           <p className="mt-2 text-xs text-text-secondary">
             {planType === 'quincena'
-              ? 'Plan de 2 semanas con proyecto mensual, Letter & Number y Números'
-              : 'Taller crítico independiente (1-3 sesiones específicas)'}
+              ? 'Plan de 2 semanas con proyecto, Letter & Number y Números'
+              : planType === 'mes'
+                ? 'Plan de 1 mes (4 semanas) con proyecto, Letter & Number y Números'
+                : 'Taller crítico independiente (1-3 sesiones específicas)'}
           </p>
         </Card>
 
@@ -436,17 +461,24 @@ export default function NuevaPlaneacionPage() {
           )}
         </Card>
 
-        {/* Unidades didácticas — teacher declares the units + their methodologies (quincena only) */}
-        {planType === 'quincena' && (
+        {/* Unidades didácticas — the project source for every plan type (Unit 1 = the project). */}
+        {
           <Card className="p-6 border-2">
             <h3 className="text-sm font-semibold text-text-primary mb-1">
-              🧩 Unidades didácticas{' '}
-              <span className="font-normal text-text-secondary">(opcional)</span>
+              🧩 {planType === 'taller' ? 'El taller' : 'Unidades didácticas'}
             </h3>
             <p className="text-xs text-text-secondary mb-4">
-              La <strong>Unidad 1</strong> será el Proyecto principal (con la estructura de su
-              metodología). Letter &amp; Number y Números se generan automáticamente. Agrega aquí
-              unidades extra como un Taller o un día de juego.
+              {planType === 'taller' ? (
+                <>
+                  La <strong>Unidad 1</strong> es tu taller: elige su metodología y ponle nombre.
+                </>
+              ) : (
+                <>
+                  La <strong>Unidad 1</strong> es el proyecto principal (con la estructura de su
+                  metodología). Letter &amp; Number y Números se generan automáticamente. Agrega
+                  aquí unidades extra como un Taller o un día de juego.
+                </>
+              )}
             </p>
             {unidades.length > 0 && (
               <div className="space-y-3 mb-3">
@@ -455,7 +487,11 @@ export default function NuevaPlaneacionPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-text-secondary">
                         Unidad {i + 1}
-                        {i === 0 ? ' (Proyecto principal)' : ''}
+                        {i === 0
+                          ? planType === 'taller'
+                            ? ' (el Taller)'
+                            : ' (Proyecto principal)'
+                          : ''}
                       </span>
                       <button
                         type="button"
@@ -520,7 +556,7 @@ export default function NuevaPlaneacionPage() {
               + Agregar unidad
             </Button>
           </Card>
-        )}
+        }
 
         {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only. The single Richmond section. */}
         {proniActive && (
@@ -541,7 +577,7 @@ export default function NuevaPlaneacionPage() {
                 Se citarán dentro del proyecto (ej. “Student Book pp. 10-15”). Uno o varios rangos
                 separados por comas, sin “pp.” — ej. 10-15, 21-24, 30
               </p>
-              {planType === 'quincena' ? (
+              {planType !== 'taller' ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-text-secondary mb-1">Semana 1</label>
@@ -577,114 +613,6 @@ export default function NuevaPlaneacionPage() {
             </div>
           </Card>
         )}
-
-        {/* El proyecto — name + description together, then value & number */}
-        <Card className="p-6 border-2">
-          <h3 className="text-sm font-semibold text-text-primary mb-1">El proyecto</h3>
-          <p className="text-xs text-text-secondary mb-4">
-            El corazón de tu planeación: de qué trata y qué valor trabaja.
-          </p>
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="project_name"
-                className="block text-sm font-medium text-text-primary mb-2"
-              >
-                Nombre del proyecto
-              </label>
-              <Input
-                id="project_name"
-                value={formData.project_name}
-                onChange={(e) => {
-                  setFormData({ ...formData, project_name: e.target.value })
-                  setFieldErrors({ ...fieldErrors, project_name: '' })
-                }}
-                placeholder="Ej: Los animales de la granja"
-                required
-                className={`min-h-[44px] ${fieldErrors.project_name ? 'border-red-500' : ''}`}
-              />
-              {fieldErrors.project_name && (
-                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {fieldErrors.project_name}
-                </p>
-              )}
-            </div>
-            <div>
-              <label
-                htmlFor="project_desc"
-                className="block text-sm font-medium text-text-primary mb-2"
-              >
-                Descripción{' '}
-                <span className="font-normal text-text-secondary">
-                  (¿de qué trata? ideas, producto final — opcional)
-                </span>
-              </label>
-              <textarea
-                id="project_desc"
-                value={projectNotes}
-                onChange={(e) => setProjectNotes(e.target.value)}
-                rows={3}
-                placeholder="Ej: Trata sobre los animales del mar. Me gustaría que terminen con una maqueta."
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="number"
-                  className="block text-sm font-medium text-text-primary mb-2"
-                >
-                  {planType === 'quincena' ? 'Quincena #' : 'Taller #'}
-                </label>
-                <Input
-                  id="number"
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={formData.number}
-                  onChange={(e) => {
-                    setFormData({ ...formData, number: e.target.value })
-                    setFieldErrors({ ...fieldErrors, number: '' })
-                  }}
-                  required
-                  className={`min-h-[44px] ${fieldErrors.number ? 'border-red-500' : ''}`}
-                />
-                {fieldErrors.number && (
-                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {fieldErrors.number}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label
-                  htmlFor="monthly_value"
-                  className="block text-sm font-medium text-text-primary mb-2"
-                >
-                  Valor del mes
-                </label>
-                <Input
-                  id="monthly_value"
-                  value={formData.monthly_value}
-                  onChange={(e) => {
-                    setFormData({ ...formData, monthly_value: e.target.value })
-                    setFieldErrors({ ...fieldErrors, monthly_value: '' })
-                  }}
-                  placeholder="Ej: Respeto"
-                  required
-                  className={`min-h-[44px] ${fieldErrors.monthly_value ? 'border-red-500' : ''}`}
-                />
-                {fieldErrors.monthly_value && (
-                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {fieldErrors.monthly_value}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
 
         {/* Dates */}
         <Card className="p-6 border-2">
@@ -741,29 +669,46 @@ export default function NuevaPlaneacionPage() {
               )}
             </div>
           </div>
+          <div className="mt-4">
+            <label
+              htmlFor="monthly_value"
+              className="block text-sm font-medium text-text-primary mb-2"
+            >
+              Valor del mes <span className="font-normal text-text-secondary">(opcional)</span>
+            </label>
+            <Input
+              id="monthly_value"
+              value={formData.monthly_value}
+              onChange={(e) => setFormData({ ...formData, monthly_value: e.target.value })}
+              placeholder="Ej: Respeto"
+              className="min-h-[44px]"
+            />
+          </div>
         </Card>
 
         {/* Letters — quincena only */}
-        {planType === 'quincena' && (
+        {planType !== 'taller' && (
           <Card className="p-6 border-2">
-            <h3 className="text-sm font-semibold text-text-primary mb-4">Letras a trabajar</h3>
+            <h3 className="text-sm font-semibold text-text-primary mb-1">Letras a trabajar</h3>
+            <p className="text-xs text-text-secondary mb-4">
+              Una o más letras por semana, separadas por coma (ej. A, B).
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label
                   htmlFor="letter_week1"
                   className="block text-sm font-medium text-text-primary mb-2"
                 >
-                  Letra semana 1
+                  Letras semana 1
                 </label>
                 <Input
                   id="letter_week1"
-                  maxLength={1}
                   value={formData.letter_week1}
                   onChange={(e) => {
                     setFormData({ ...formData, letter_week1: e.target.value.toUpperCase() })
                     setFieldErrors({ ...fieldErrors, letter_week1: '' })
                   }}
-                  placeholder="A"
+                  placeholder="A, B"
                   className={`min-h-[44px] ${fieldErrors.letter_week1 ? 'border-red-500' : ''}`}
                 />
                 {fieldErrors.letter_week1 && (
@@ -783,17 +728,16 @@ export default function NuevaPlaneacionPage() {
                   htmlFor="letter_week2"
                   className="block text-sm font-medium text-text-primary mb-2"
                 >
-                  Letra semana 2
+                  Letras semana 2
                 </label>
                 <Input
                   id="letter_week2"
-                  maxLength={1}
                   value={formData.letter_week2}
                   onChange={(e) => {
                     setFormData({ ...formData, letter_week2: e.target.value.toUpperCase() })
                     setFieldErrors({ ...fieldErrors, letter_week2: '' })
                   }}
-                  placeholder="B"
+                  placeholder="C, D"
                   className={`min-h-[44px] ${fieldErrors.letter_week2 ? 'border-red-500' : ''}`}
                 />
                 {fieldErrors.letter_week2 && (

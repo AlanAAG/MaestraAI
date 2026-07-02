@@ -14,10 +14,15 @@ export function deriveFortnightContext(lessonPlan: any): FortnightContext {
   const grade: string = (fortnight?.groups?.grade ?? '').toLowerCase()
   const dayNumber: number = lessonPlan?.day_number ?? 1
 
+  // letter_week fields can be comma-separated ("A, B") — take the first letter for single-letter contexts.
+  const firstLetter = (v: unknown) =>
+    String(v ?? '')
+      .split(',')[0]
+      .trim()
   const letter: string =
-    dayNumber <= 5
-      ? fortnight?.letter_week1 || 'A'
-      : fortnight?.letter_week2 || fortnight?.letter_week1 || 'A'
+    (dayNumber <= 5
+      ? firstLetter(fortnight?.letter_week1)
+      : firstLetter(fortnight?.letter_week2) || firstLetter(fortnight?.letter_week1)) || 'A'
 
   return {
     project_name: fortnight?.project_name ?? '',
