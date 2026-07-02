@@ -27,9 +27,11 @@ function parseCrop(attrs: string): Crop {
 }
 
 export async function extractVocabImagesFromDocx(file: File): Promise<ExtractedVocabImage[]> {
+  console.log('[docx-import] start', file.name, file.size, file.type)
   const zip = await JSZip.loadAsync(file)
   const docXml = await zip.file('word/document.xml')?.async('string')
   const relsXml = await zip.file('word/_rels/document.xml.rels')?.async('string')
+  console.log('[docx-import] loaded xml', docXml?.length ?? 0, relsXml?.length ?? 0)
   if (!docXml || !relsXml) throw new Error('El archivo no parece un .docx válido.')
 
   // rId → media target (e.g. "media/image6.png")
@@ -91,6 +93,7 @@ export async function extractVocabImagesFromDocx(file: File): Promise<ExtractedV
     }
   }
 
+  console.log('[docx-import] tokens', tokens.length, 'pairs', pairs.length)
   const out: ExtractedVocabImage[] = []
   for (const p of pairs) {
     const target = rels[p.rId]
@@ -107,6 +110,7 @@ export async function extractVocabImagesFromDocx(file: File): Promise<ExtractedV
       console.warn('[docx-import] skipped image for', p.word, e)
     }
   }
+  console.log('[docx-import] done, images', out.length)
   return out
 }
 
