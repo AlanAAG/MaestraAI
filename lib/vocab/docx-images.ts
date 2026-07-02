@@ -97,25 +97,24 @@ export async function extractVocabImagesFromDocx(file: File): Promise<ExtractedV
     if (!target) continue
     const entry = zip.file(target.startsWith('word/') ? target : `word/${target}`)
     if (!entry) continue
-    const raw = await entry.async('blob')
-    const thumb = await resizeToThumb(raw, 256, parseCrop(crops[p.rId] ?? ''))
-    if (thumb) out.push({ word: p.word, blob: thumb, previewUrl: URL.createObjectURL(thumb) })
+    // Isolate each image: one bad media file must never zero the whole batch. If resize fails,
+    // fall back to the raw (uncropped) media so the word still gets a picture.
+    try {
+      const raw = await entry.async('blob')
+      const thumb = (await resizeToThumb(raw, 256, parseCrop(crops[p.rId] ?? ''))) ?? raw
+      out.push({ word: p.word, blob: thumb, previewUrl: URL.createObjectURL(thumb) })
+    } catch (e) {
+      console.warn('[docx-import] skipped image for', p.word, e)
+    }
   }
   return out
 }
 
 // Apply the crop, scale to fit, and center on a white SQUARE so nothing is ever cut off.
+// Never throws: a bad crop falls back to the full image; an undecodable image returns null.
 async function resizeToThumb(blob: Blob, size: number, crop: Crop): Promise<Blob | null> {
   const img = await blobToImage(blob)
-  if (!img) return null
-  // Cropped source rectangle (guard against degenerate crops).
-  const cw = Math.max(1, img.width * (1 - crop.l - crop.r))
-  const ch = Math.max(1, img.height * (1 - crop.t - crop.b))
-  const sx = img.width * crop.l
-  const sy = img.height * crop.t
-  const scale = Math.min(size / cw, size / ch)
-  const dw = Math.max(1, Math.round(cw * scale))
-  const dh = Math.max(1, Math.round(ch * scale))
+  if (!img || !img.width || !img.height) return null
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -123,7 +122,30 @@ async function resizeToThumb(blob: Blob, size: number, crop: Crop): Promise<Blob
   if (!ctx) return null
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, size, size)
-  ctx.drawImage(img, sx, sy, cw, ch, (size - dw) / 2, (size - dh) / 2, dw, dh)
+
+  // Cropped source rect, clamped to the real image bounds so 9-arg drawImage can't go out of range.
+  const sx = Math.min(Math.max(0, img.width * crop.l), img.width - 1)
+  const sy = Math.min(Math.max(0, img.height * crop.t), img.height - 1)
+  const cw = Math.max(1, Math.min(img.width - sx, img.width * (1 - crop.l - crop.r)))
+  const ch = Math.max(1, Math.min(img.height - sy, img.height * (1 - crop.t - crop.b)))
+
+  const draw = (sxx: number, syy: number, sww: number, shh: number) => {
+    const scale = Math.min(size / sww, size / shh)
+    const dw = Math.max(1, Math.round(sww * scale))
+    const dh = Math.max(1, Math.round(shh * scale))
+    ctx.drawImage(img, sxx, syy, sww, shh, (size - dw) / 2, (size - dh) / 2, dw, dh)
+  }
+  try {
+    draw(sx, sy, cw, ch)
+  } catch {
+    // Odd crop/source rect → fall back to the whole image (pre-crop behavior).
+    try {
+      ctx.fillRect(0, 0, size, size)
+      draw(0, 0, img.width, img.height)
+    } catch {
+      return null
+    }
+  }
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85))
 }
 

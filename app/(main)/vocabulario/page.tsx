@@ -286,8 +286,9 @@ export default function VocabularioPage() {
       let imgs: ExtractedVocabImage[] = []
       try {
         imgs = await extractVocabImagesFromDocx(selectedFile)
-      } catch {
-        /* not a flashcard-style doc → fall through to text extraction */
+      } catch (e) {
+        // Surface the real reason (was silently swallowed) — helps diagnose odd docs.
+        console.error('[docx-import] extraction failed:', e)
       }
       if (imgs.length > 0) {
         setDocxImages(imgs)
