@@ -282,7 +282,6 @@ export default function VocabularioPage() {
       selectedFile.name.toLowerCase().endsWith('.docx') ||
       selectedFile.type.includes('wordprocessingml')
     if (isDocx) {
-      console.log('[docx-import] docx branch, size', selectedFile.size)
       setExtracting(true)
       let imgs: ExtractedVocabImage[] = []
       try {
