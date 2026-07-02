@@ -324,6 +324,13 @@ Extends per-word images (G8) to a **bulk import** from a Word doc like Miss Ale'
 - **No duplicates + "solo imágenes" toggle**: the route matches an existing word by text (case-insensitive, teacher-scoped) → attaches the image, never a second row. A **"Solo agregar imágenes a mis palabras existentes"** checkbox in the preview restricts the upload to words already in the teacher's bank (client filters against the loaded `vocabulary`), so a teacher who already has all their words can attach photos without creating anything — shows "X de Y coinciden".
 - `jszip` added as a direct dep. Typecheck + lint + build clean. No migration (reuses the `vocab-images` bucket + `image_url` from 064).
 
+## Planeación form: Mes plan type, drop "El proyecto" card, multi-letter weeks (current)
+
+- **Third plan type "Mes"** (1 full month / 4 weeks) in the top toggle alongside Taller + Quincena. Ponytail: mes reuses the **quincena family** — same `QUINCENA_SYSTEM` + `buildQuincenaPrompt` + auto Letter&Number/Números sub-plans (gate `planType !== 'taller'`), plus a `<duracion>` block ("cubre UN MES COMPLETO, 4 semanas; distribuye a lo largo de 4 semanas") and a "PLANEACIÓN MENSUAL N" header. No new prompt.
+- **"El proyecto" card deleted** — the project is now **Unidad 1 of the Unidades didácticas card**. `project_name`/`project_notes`/`number` (load-bearing across generation, DOCX title, RAG, materials) are **derived at insert time**: `project_name` ← Unit 1 nombre, `project_notes` ← Unit 1 tema, `number` auto (`min(12, maxForTeacher+1)`). Validates Unit 1 nombre non-empty. **"Valor del mes"** kept as one small optional Input relocated into the Fechas card.
+- **Multi-letter weeks** — "Letra semana 1/2" accept comma-separated lists ("A, B"). `FortnightSchema` regex allows a comma list; `quincenaLetters` memo flat-splits so `letterVocab` covers every letter. Generation split: `materials/generate` letter-recognition flat-splits both weeks → `buildLetterRecognition(…, letters[])` (already array-capable); `deriveFortnightContext` takes the first letter for single-letter contexts.
+- No migration (reuses `unidades_didacticas`, `plan_type`, existing columns). Typecheck + build clean.
+
 ## Deployment
 
 - Vercel auto-deploys on push to main
