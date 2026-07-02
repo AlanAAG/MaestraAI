@@ -1,0 +1,72 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MaestraAI banner">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDF6EC"/>
+      <stop offset="55%" stop-color="#FBEDE4"/>
+      <stop offset="100%" stop-color="#F7E3DA"/>
+    </linearGradient>
+    <linearGradient id="cardA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FFF4EE"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="300" fill="url(#bg)"/>
+
+  <!-- soft decorative shapes -->
+  <circle cx="1130" cy="30" r="90" fill="#F2B8CE" opacity="0.35"/>
+  <circle cx="70" cy="280" r="70" fill="#9AD1C8" opacity="0.30"/>
+  <circle cx="700" cy="-20" r="60" fill="#F5C97B" opacity="0.28"/>
+
+  <!-- dotted notebook line detail -->
+  <g fill="#D8C7BC">
+    <circle cx="90" cy="240" r="3"/><circle cx="110" cy="240" r="3"/><circle cx="130" cy="240" r="3"/>
+    <circle cx="150" cy="240" r="3"/><circle cx="170" cy="240" r="3"/><circle cx="190" cy="240" r="3"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="90" y="135" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="bold" fill="#2D3142">Maestra<tspan fill="#E4007C">AI</tspan></text>
+
+  <!-- tagline -->
+  <text x="92" y="180" font-family="'Segoe UI', Arial, sans-serif" font-size="22" fill="#5A6072">AI lesson planning for preschool English teachers in Mexico</text>
+
+  <!-- pills -->
+  <g font-family="'Segoe UI', Arial, sans-serif" font-size="14" font-weight="600">
+    <rect x="90" y="200" rx="14" ry="14" width="118" height="28" fill="#2D3142"/>
+    <text x="149" y="219" fill="#FFFFFF" text-anchor="middle">NEM aligned</text>
+
+    <rect x="218" y="200" rx="14" ry="14" width="132" height="28" fill="#E4007C"/>
+    <text x="284" y="219" fill="#FFFFFF" text-anchor="middle">Claude powered</text>
+
+    <rect x="360" y="200" rx="14" ry="14" width="130" height="28" fill="#1F8A70"/>
+    <text x="425" y="219" fill="#FFFFFF" text-anchor="middle">maestraia.com</text>
+  </g>
+
+  <!-- flashcard stack illustration -->
+  <g transform="translate(880,60)">
+    <!-- back card -->
+    <rect x="38" y="26" width="150" height="185" rx="14" fill="#9AD1C8" transform="rotate(8 113 118)"/>
+    <!-- middle card -->
+    <rect x="18" y="14" width="150" height="185" rx="14" fill="#F5C97B" transform="rotate(-6 93 106)"/>
+    <!-- front card -->
+    <rect x="0" y="0" width="150" height="185" rx="14" fill="url(#cardA)" stroke="#E8D5C8" stroke-width="2"/>
+    <!-- letter A on front card -->
+    <text x="75" y="105" font-family="Georgia, serif" font-size="82" font-weight="bold" fill="#E4007C" text-anchor="middle">A</text>
+    <!-- apple under the letter -->
+    <circle cx="68" cy="146" r="15" fill="#E45B5B"/>
+    <circle cx="82" cy="146" r="15" fill="#E45B5B"/>
+    <rect x="73" y="123" width="4" height="11" rx="2" fill="#7A5230"/>
+    <path d="M77 125 q10 -10 18 -4 q-10 8 -18 4 Z" fill="#6FA96B"/>
+    <!-- star on card corner -->
+    <path d="M126 28 l4.5 9.5 10.5 1.3 -7.7 7.2 2 10.3 -9.3 -5.1 -9.3 5.1 2 -10.3 -7.7 -7.2 10.5 -1.3 Z" fill="#F5C97B"/>
+  </g>
+
+  <!-- pencil -->
+  <g transform="translate(810,215) rotate(-18)">
+    <rect x="0" y="0" width="120" height="18" rx="4" fill="#F5C97B"/>
+    <rect x="0" y="0" width="14" height="18" rx="4" fill="#E88DAF"/>
+    <path d="M120 0 l24 9 -24 9 Z" fill="#EFD9B4"/>
+    <path d="M136 6 l8 3 -8 3 Z" fill="#2D3142"/>
+  </g>
+</svg>
