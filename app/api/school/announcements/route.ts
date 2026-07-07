@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const PostSchema = z.object({
   title: z.string().min(1).max(200),
@@ -52,6 +53,13 @@ export async function POST(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(user.id, 'standard', 'school-write')
+    if (!rl.success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes.' },
+        { status: 429, headers: rl.headers }
+      )
 
     const teacher = await getTeacher(supabase, user.id)
     if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

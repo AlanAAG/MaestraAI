@@ -35,6 +35,22 @@ export async function GET(req: NextRequest) {
     .eq('auth_id', data.session.user.id)
     .single()
 
-  const destination = teacher ? next : '/onboarding'
+  let destination = teacher ? next : '/onboarding'
+  if (!teacher) {
+    // Parents are not teachers: mid-invite OAuth carries next=/familia/invitacion/..., and
+    // returning parents have a claimed parent_links row (RLS lets them read their own).
+    if (next.startsWith('/familia')) {
+      destination = next
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: links } = await (supabase as any)
+        .from('parent_links')
+        .select('id')
+        .eq('parent_auth_id', data.session.user.id)
+        .is('revoked_at', null)
+        .limit(1)
+      if (links?.length) destination = '/familia'
+    }
+  }
   return NextResponse.redirect(`${origin}${destination}`)
 }

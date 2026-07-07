@@ -63,7 +63,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         .maybeSingle()
 
       if (!teacher) {
-        router.push('/onboarding')
+        // Parents (no teachers row) belong in /familia, not the teacher onboarding.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: links } = await (supabase as any)
+          .from('parent_links')
+          .select('id')
+          .eq('parent_auth_id', user.id)
+          .is('revoked_at', null)
+          .limit(1)
+        router.push(links?.length ? '/familia' : '/onboarding')
         return
       }
 

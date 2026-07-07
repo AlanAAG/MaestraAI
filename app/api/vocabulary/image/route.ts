@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { validateFile } from '@/lib/file-validation'
 
 const MAX_BYTES = 3 * 1024 * 1024 // 3 MB
 const EXT: Record<string, string> = {
@@ -22,7 +23,9 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-    const { success, headers } = await checkRateLimit(user.id, 'standard')
+    // Own bucket: the docx bulk import uploads ~130 images sequentially and must not eat the
+    // shared standard budget.
+    const { success, headers } = await checkRateLimit(user.id, 'standard', 'vocab-image')
     if (!success)
       return NextResponse.json({ error: 'Demasiadas solicitudes.' }, { status: 429, headers })
 
@@ -48,6 +51,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Formato no válido (PNG/JPG/WebP)' }, { status: 422 })
     if (file.size > MAX_BYTES)
       return NextResponse.json({ error: 'La imagen supera 3 MB' }, { status: 422 })
+    // Magic-byte + dimension validation — MIME strings are client-controlled.
+    const validation = await validateFile(file, 'image')
+    if (!validation.valid)
+      return NextResponse.json({ error: validation.error ?? 'Imagen inválida' }, { status: 422 })
 
     // Resolve the target word: by id (ownership-checked) or by text (find, else create).
     let resolvedId = wordId

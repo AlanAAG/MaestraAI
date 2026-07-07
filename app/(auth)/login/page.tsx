@@ -72,6 +72,19 @@ function LoginForm() {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
     if (signInError) {
+      // Best-effort security telemetry — fire and forget.
+      fetch('/api/auth/log-failure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          reason: signInError.message.toLowerCase().includes('email not confirmed')
+            ? 'email_not_confirmed'
+            : signInError.message.toLowerCase().includes('invalid')
+              ? 'invalid_credentials'
+              : 'other',
+        }),
+      }).catch(() => {})
       if (signInError.message.toLowerCase().includes('email not confirmed')) {
         setError(
           'Aún no has confirmado tu correo electrónico. Revisa tu bandeja de entrada y haz clic en el enlace de confirmación.'

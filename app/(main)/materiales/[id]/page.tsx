@@ -31,6 +31,7 @@ type Material = {
   lesson_plan_id: string | null
   lesson_plans: { day_number: number } | null
   fortnights: { project_name: string } | null
+  shared_with_parents?: boolean
 }
 
 async function downloadPdf(materialId: string, filename: string): Promise<string | null> {
@@ -67,6 +68,26 @@ export default function MaterialDetailPage() {
   const [listenPairs, setListenPairs] = useState<ListenPair[] | null>(null)
   const [sharingSchool, setSharingSchool] = useState(false)
   const [shareSchoolSuccess, setShareSchoolSuccess] = useState(false)
+  const [sharingFamilia, setSharingFamilia] = useState(false)
+
+  async function toggleFamilia() {
+    if (!material) return
+    const next = !material.shared_with_parents
+    setSharingFamilia(true)
+    try {
+      const res = await fetch(`/api/materials/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shared_with_parents: next }),
+      })
+      if (!res.ok) throw new Error()
+      setMaterial((m) => (m ? { ...m, shared_with_parents: next } : m))
+    } catch {
+      setError('No se pudo cambiar el compartir con familias')
+    } finally {
+      setSharingFamilia(false)
+    }
+  }
 
   async function handleShare() {
     if (playUrl) {
@@ -153,6 +174,20 @@ export default function MaterialDetailPage() {
         if (err || !data) setError('No se encontró el material')
         else setMaterial(data)
         setLoading(false)
+        // Separate best-effort fetch — column only exists after migration 065.
+        if (data) {
+          supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .from('materials' as any)
+            .select('shared_with_parents')
+            .eq('id', id)
+            .single()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .then(({ data: d }: any) => {
+              if (d)
+                setMaterial((m) => (m ? { ...m, shared_with_parents: !!d.shared_with_parents } : m))
+            })
+        }
       })
   }, [id])
 
@@ -244,6 +279,20 @@ export default function MaterialDetailPage() {
                 </>
               )
             })()}
+          <Button
+            variant={material.shared_with_parents ? 'default' : 'outline'}
+            size="sm"
+            onClick={toggleFamilia}
+            disabled={sharingFamilia}
+            className="gap-2"
+          >
+            <Share2 className="h-4 w-4" />
+            <span className="hidden sm:inline">
+              {material.shared_with_parents
+                ? 'Compartido con familias ✓'
+                : 'Compartir con familias'}
+            </span>
+          </Button>
           <Button
             variant="outline"
             size="sm"

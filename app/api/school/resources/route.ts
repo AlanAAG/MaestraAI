@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const PostSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(500).optional(),
-  file_url: z.string().url(),
+  file_url: z.string().url().max(2000).startsWith('https://'),
   resource_type: z.enum(['worksheet', 'game', 'flashcard', 'guide', 'template', 'other']),
   grade_level: z.string().max(50).optional(),
   tags: z.array(z.string()).max(10).optional(),
@@ -42,6 +43,13 @@ export async function POST(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(user.id, 'standard', 'school-write')
+    if (!rl.success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes.' },
+        { status: 429, headers: rl.headers }
+      )
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)

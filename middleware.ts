@@ -16,7 +16,11 @@ const PROTECTED_PATHS = [
   '/diario',
   '/perfil',
   '/red',
+  '/familia',
 ]
+
+// Public sub-paths of otherwise-protected prefixes (parent invite landing must work logged-out).
+const PUBLIC_EXCEPTIONS = ['/familia/invitacion']
 
 function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Frame-Options', 'DENY')
@@ -60,6 +64,11 @@ export async function middleware(req: NextRequest) {
         } catch {
           return NextResponse.json({ error: 'CSRF check failed' }, { status: 403 })
         }
+      } else if (req.headers.get('cookie')) {
+        // No Origin but carrying cookies: browsers always send Origin on cross-origin AND
+        // same-origin POSTs, so a cookie-bearing mutation without one is not a normal browser
+        // request — reject instead of silently skipping the check.
+        return NextResponse.json({ error: 'CSRF check failed' }, { status: 403 })
       }
     }
   }
@@ -73,7 +82,11 @@ export async function middleware(req: NextRequest) {
   const { supabaseResponse, user } = await createSupabaseMiddlewareClient(req)
 
   // ── 4. Auth guard: redirect unauthenticated users from protected paths ────
-  if (PROTECTED_PATHS.some((p) => pathname.startsWith(p)) && !user) {
+  if (
+    PROTECTED_PATHS.some((p) => pathname.startsWith(p)) &&
+    !PUBLIC_EXCEPTIONS.some((p) => pathname.startsWith(p)) &&
+    !user
+  ) {
     const loginUrl = req.nextUrl.clone()
     loginUrl.pathname = '/login'
     const redirect = NextResponse.redirect(loginUrl)

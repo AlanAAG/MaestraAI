@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Public waitlist signup — email + grade. Uses the service role (no user session); RLS keeps the
 // table private. Returns the signer's position + ref_code so the UI can show "estás en el #N".
@@ -13,6 +14,12 @@ const Schema = z.object({
 const shortCode = () => Math.random().toString(36).slice(2, 10)
 
 export async function POST(req: NextRequest) {
+  // Public + service-role route: throttle by IP before touching the DB.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const { success, headers } = await checkRateLimit(ip, 'strict', 'waitlist')
+  if (!success)
+    return NextResponse.json({ error: 'Demasiadas solicitudes.' }, { status: 429, headers })
+
   const parsed = Schema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'Correo inválido' }, { status: 400 })

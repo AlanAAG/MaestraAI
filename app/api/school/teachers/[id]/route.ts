@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const PatchSchema = z.object({
   role_type: z.enum(['teacher', 'admin', 'coordinator']),
@@ -14,6 +15,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(user.id, 'standard', 'school-write')
+    if (!rl.success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes.' },
+        { status: 429, headers: rl.headers }
+      )
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: requester } = await (supabase as any)

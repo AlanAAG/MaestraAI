@@ -63,6 +63,18 @@ export async function checkRateLimit(
   const limiter = createRateLimit(tier, endpoint)
 
   if (!limiter) {
+    // Fail CLOSED in production: missing Redis config must not silently unthrottle the app.
+    // Dev/test stay open so local work doesn't require Upstash.
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        success: false,
+        headers: {
+          'X-RateLimit-Limit': '0',
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': new Date(Date.now() + 60000).toISOString(),
+        },
+      }
+    }
     return {
       success: true,
       headers: {

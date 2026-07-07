@@ -241,6 +241,7 @@ export type Database = {
         Row: {
           created_at: string | null
           end_date: string
+          grade: string | null
           group_id: string
           id: string
           letter_week1: string | null
@@ -256,18 +257,25 @@ export type Database = {
           plan_document: Json | null
           plan_type: string
           project_name: string | null
+          project_notes: string | null
           richmond_activity_pages: string | null
           richmond_book_pages: Json | null
+          richmond_lesson_group_ids: string[] | null
           richmond_student_pages: string | null
           richmond_unit: string | null
+          richmond_unit_id: string | null
           start_date: string
           status: string | null
           teacher_id: string
+          teacher_notes: string | null
+          unidades_didacticas: Json | null
+          use_system_template: boolean
           vocabulary: string[] | null
         }
         Insert: {
           created_at?: string | null
           end_date: string
+          grade?: string | null
           group_id: string
           id?: string
           letter_week1?: string | null
@@ -283,18 +291,25 @@ export type Database = {
           plan_document?: Json | null
           plan_type?: string
           project_name?: string | null
+          project_notes?: string | null
           richmond_activity_pages?: string | null
           richmond_book_pages?: Json | null
+          richmond_lesson_group_ids?: string[] | null
           richmond_student_pages?: string | null
           richmond_unit?: string | null
+          richmond_unit_id?: string | null
           start_date: string
           status?: string | null
           teacher_id: string
+          teacher_notes?: string | null
+          unidades_didacticas?: Json | null
+          use_system_template?: boolean
           vocabulary?: string[] | null
         }
         Update: {
           created_at?: string | null
           end_date?: string
+          grade?: string | null
           group_id?: string
           id?: string
           letter_week1?: string | null
@@ -310,13 +325,19 @@ export type Database = {
           plan_document?: Json | null
           plan_type?: string
           project_name?: string | null
+          project_notes?: string | null
           richmond_activity_pages?: string | null
           richmond_book_pages?: Json | null
+          richmond_lesson_group_ids?: string[] | null
           richmond_student_pages?: string | null
           richmond_unit?: string | null
+          richmond_unit_id?: string | null
           start_date?: string
           status?: string | null
           teacher_id?: string
+          teacher_notes?: string | null
+          unidades_didacticas?: Json | null
+          use_system_template?: boolean
           vocabulary?: string[] | null
         }
         Relationships: [
@@ -325,6 +346,13 @@ export type Database = {
             columns: ['group_id']
             isOneToOne: false
             referencedRelation: 'groups'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'fortnights_richmond_unit_id_fkey'
+            columns: ['richmond_unit_id']
+            isOneToOne: false
+            referencedRelation: 'richmond_units'
             referencedColumns: ['id']
           },
           {
@@ -522,6 +550,7 @@ export type Database = {
           lesson_plan_id: string | null
           letter: string | null
           play_token: string | null
+          shared_with_parents: boolean
           source_transcript: string | null
           source_type: string | null
           source_url: string | null
@@ -541,6 +570,7 @@ export type Database = {
           lesson_plan_id?: string | null
           letter?: string | null
           play_token?: string | null
+          shared_with_parents?: boolean
           source_transcript?: string | null
           source_type?: string | null
           source_url?: string | null
@@ -560,6 +590,7 @@ export type Database = {
           lesson_plan_id?: string | null
           letter?: string | null
           play_token?: string | null
+          shared_with_parents?: boolean
           source_transcript?: string | null
           source_type?: string | null
           source_url?: string | null
@@ -646,6 +677,147 @@ export type Database = {
           },
           {
             foreignKeyName: 'parent_contacts_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      parent_links: {
+        Row: {
+          claimed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          invite_email_encrypted: string
+          invite_token: string
+          parent_auth_id: string | null
+          revoked_at: string | null
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          invite_email_encrypted: string
+          invite_token: string
+          parent_auth_id?: string | null
+          revoked_at?: string | null
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invite_email_encrypted?: string
+          invite_token?: string
+          parent_auth_id?: string | null
+          revoked_at?: string | null
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'parent_links_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'parent_links_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      plan_corrections: {
+        Row: {
+          created_at: string | null
+          edited: string | null
+          fortnight_id: string | null
+          id: string
+          original: string | null
+          section: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          edited?: string | null
+          fortnight_id?: string | null
+          id?: string
+          original?: string | null
+          section: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string | null
+          edited?: string | null
+          fortnight_id?: string | null
+          id?: string
+          original?: string | null
+          section?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plan_corrections_fortnight_id_fkey'
+            columns: ['fortnight_id']
+            isOneToOne: false
+            referencedRelation: 'fortnights'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'plan_corrections_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      planeacion_embeddings: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          embedding: string | null
+          fortnight_id: string
+          project_name: string | null
+          teacher_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          fortnight_id: string
+          project_name?: string | null
+          teacher_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          fortnight_id?: string
+          project_name?: string | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'planeacion_embeddings_fortnight_id_fkey'
+            columns: ['fortnight_id']
+            isOneToOne: true
+            referencedRelation: 'fortnights'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'planeacion_embeddings_teacher_id_fkey'
             columns: ['teacher_id']
             isOneToOne: false
             referencedRelation: 'teachers'
@@ -864,6 +1036,50 @@ export type Database = {
           },
         ]
       }
+      richmond_lesson_groups: {
+        Row: {
+          id: string
+          language_models: string[]
+          learning_goals: string[]
+          lesson_end: number
+          lesson_range: string
+          lesson_start: number
+          sort_order: number
+          unit_id: string | null
+          vocabulary: string[]
+        }
+        Insert: {
+          id?: string
+          language_models?: string[]
+          learning_goals?: string[]
+          lesson_end: number
+          lesson_range: string
+          lesson_start: number
+          sort_order: number
+          unit_id?: string | null
+          vocabulary?: string[]
+        }
+        Update: {
+          id?: string
+          language_models?: string[]
+          learning_goals?: string[]
+          lesson_end?: number
+          lesson_range?: string
+          lesson_start?: number
+          sort_order?: number
+          unit_id?: string | null
+          vocabulary?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'richmond_lesson_groups_unit_id_fkey'
+            columns: ['unit_id']
+            isOneToOne: false
+            referencedRelation: 'richmond_units'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       richmond_scores: {
         Row: {
           assignment_id: string
@@ -972,6 +1188,30 @@ export type Database = {
           },
         ]
       }
+      richmond_units: {
+        Row: {
+          book_code: string
+          created_at: string | null
+          id: string
+          unit_number: number
+          unit_title: string
+        }
+        Insert: {
+          book_code: string
+          created_at?: string | null
+          id?: string
+          unit_number: number
+          unit_title: string
+        }
+        Update: {
+          book_code?: string
+          created_at?: string | null
+          id?: string
+          unit_number?: number
+          unit_title?: string
+        }
+        Relationships: []
+      }
       school_announcements: {
         Row: {
           author_teacher_id: string | null
@@ -1028,6 +1268,7 @@ export type Database = {
           city: string | null
           created_at: string | null
           id: string
+          logo_url: string | null
           name: string
           plan: string | null
           state: string | null
@@ -1036,6 +1277,7 @@ export type Database = {
           city?: string | null
           created_at?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           plan?: string | null
           state?: string | null
@@ -1044,6 +1286,7 @@ export type Database = {
           city?: string | null
           created_at?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           plan?: string | null
           state?: string | null
@@ -1060,6 +1303,7 @@ export type Database = {
           import_source: string | null
           last_name_encrypted: string
           level: string | null
+          nee_notes_encrypted: string | null
           observation_day: string | null
           parent_contact_encrypted: string | null
           richmond_student_id: string | null
@@ -1074,6 +1318,7 @@ export type Database = {
           import_source?: string | null
           last_name_encrypted: string
           level?: string | null
+          nee_notes_encrypted?: string | null
           observation_day?: string | null
           parent_contact_encrypted?: string | null
           richmond_student_id?: string | null
@@ -1088,6 +1333,7 @@ export type Database = {
           import_source?: string | null
           last_name_encrypted?: string
           level?: string | null
+          nee_notes_encrypted?: string | null
           observation_day?: string | null
           parent_contact_encrypted?: string | null
           richmond_student_id?: string | null
@@ -1165,6 +1411,41 @@ export type Database = {
           },
         ]
       }
+      teacher_learned_profile: {
+        Row: {
+          plan_type: string
+          preferences: string | null
+          profile: Json
+          refreshed_at: string | null
+          source_count: number | null
+          teacher_id: string
+        }
+        Insert: {
+          plan_type?: string
+          preferences?: string | null
+          profile?: Json
+          refreshed_at?: string | null
+          source_count?: number | null
+          teacher_id: string
+        }
+        Update: {
+          plan_type?: string
+          preferences?: string | null
+          profile?: Json
+          refreshed_at?: string | null
+          source_count?: number | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'teacher_learned_profile_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       teacher_observations: {
         Row: {
           created_at: string | null
@@ -1224,28 +1505,44 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_school_official: boolean
           label: string
           plan_type: string
+          school_id: string | null
+          shared_with_school: boolean
           teacher_id: string
           template: Json
         }
         Insert: {
           created_at?: string | null
           id?: string
+          is_school_official?: boolean
           label: string
           plan_type?: string
+          school_id?: string | null
+          shared_with_school?: boolean
           teacher_id: string
           template: Json
         }
         Update: {
           created_at?: string | null
           id?: string
+          is_school_official?: boolean
           label?: string
           plan_type?: string
+          school_id?: string | null
+          shared_with_school?: boolean
           teacher_id?: string
           template?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: 'teacher_plan_templates_school_id_fkey'
+            columns: ['school_id']
+            isOneToOne: false
+            referencedRelation: 'schools'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'teacher_plan_templates_teacher_id_fkey'
             columns: ['teacher_id']
@@ -1317,6 +1614,7 @@ export type Database = {
           auth_id: string
           created_at: string | null
           deleted_at: string | null
+          design_settings: Json | null
           editorial: string | null
           email: string
           english_period_minutes: number | null
@@ -1325,16 +1623,20 @@ export type Database = {
           id: string
           parent_email_template: Json | null
           plan_template: Json | null
+          profile_notes: string | null
           richmond_email_encrypted: string | null
           richmond_password_encrypted: string | null
+          richmond_vocab_seeded_at: string | null
           role_type: string | null
           school_id: string | null
           subject: string | null
+          teaching_style: string | null
         }
         Insert: {
           auth_id: string
           created_at?: string | null
           deleted_at?: string | null
+          design_settings?: Json | null
           editorial?: string | null
           email: string
           english_period_minutes?: number | null
@@ -1343,16 +1645,20 @@ export type Database = {
           id?: string
           parent_email_template?: Json | null
           plan_template?: Json | null
+          profile_notes?: string | null
           richmond_email_encrypted?: string | null
           richmond_password_encrypted?: string | null
+          richmond_vocab_seeded_at?: string | null
           role_type?: string | null
           school_id?: string | null
           subject?: string | null
+          teaching_style?: string | null
         }
         Update: {
           auth_id?: string
           created_at?: string | null
           deleted_at?: string | null
+          design_settings?: Json | null
           editorial?: string | null
           email?: string
           english_period_minutes?: number | null
@@ -1361,11 +1667,14 @@ export type Database = {
           id?: string
           parent_email_template?: Json | null
           plan_template?: Json | null
+          profile_notes?: string | null
           richmond_email_encrypted?: string | null
           richmond_password_encrypted?: string | null
+          richmond_vocab_seeded_at?: string | null
           role_type?: string | null
           school_id?: string | null
           subject?: string | null
+          teaching_style?: string | null
         }
         Relationships: [
           {
@@ -1419,6 +1728,7 @@ export type Database = {
         Row: {
           color: string
           id: string
+          image_url: string | null
           letter: string
           pair_index: number | null
           teacher_id: string | null
@@ -1427,6 +1737,7 @@ export type Database = {
         Insert: {
           color?: string
           id?: string
+          image_url?: string | null
           letter: string
           pair_index?: number | null
           teacher_id?: string | null
@@ -1435,6 +1746,7 @@ export type Database = {
         Update: {
           color?: string
           id?: string
+          image_url?: string | null
           letter?: string
           pair_index?: number | null
           teacher_id?: string | null
@@ -1446,6 +1758,41 @@ export type Database = {
             columns: ['teacher_id']
             isOneToOne: false
             referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      waitlist: {
+        Row: {
+          created_at: string
+          email: string
+          grade: string | null
+          id: string
+          ref_code: string | null
+          referred_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          grade?: string | null
+          id?: string
+          ref_code?: string | null
+          referred_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          grade?: string | null
+          id?: string
+          ref_code?: string | null
+          referred_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'waitlist_referred_by_fkey'
+            columns: ['referred_by']
+            isOneToOne: false
+            referencedRelation: 'waitlist'
             referencedColumns: ['id']
           },
         ]
@@ -1466,6 +1813,20 @@ export type Database = {
           id: string
           name: string
           state: string
+        }[]
+      }
+      match_planeaciones: {
+        Args: {
+          exclude_fortnight: string
+          match_count: number
+          p_teacher_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          fortnight_id: string
+          project_name: string
+          similarity: number
         }[]
       }
     }

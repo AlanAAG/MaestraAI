@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // DELETE /api/richmond/credentials
 // Clears all stored Richmond credentials for the authenticated teacher.
@@ -14,6 +15,10 @@ export async function DELETE(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const { success, headers } = await checkRateLimit(user.id, 'standard', 'richmond-creds')
+  if (!success)
+    return NextResponse.json({ error: 'Demasiadas solicitudes.' }, { status: 429, headers })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: teacher, error: teacherError } = await (supabase as any)

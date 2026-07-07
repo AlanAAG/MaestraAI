@@ -331,6 +331,39 @@ Extends per-word images (G8) to a **bulk import** from a Word doc like Miss Ale'
 - **Multi-letter weeks** — "Letra semana 1/2" accept comma-separated lists ("A, B"). `FortnightSchema` regex allows a comma list; `quincenaLetters` memo flat-splits so `letterVocab` covers every letter. Generation split: `materials/generate` letter-recognition flat-splits both weeks → `buildLetterRecognition(…, letters[])` (already array-capable); `deriveFortnightContext` takes the first letter for single-letter contexts.
 - No migration (reuses `unidades_didacticas`, `plan_type`, existing columns). Typecheck + build clean.
 
+## Security hardening batch (current)
+
+- **Rate limiting fails CLOSED in prod** (`lib/rate-limit.ts`): missing Upstash env → 429 everything in production (dev/test stay open). Tested (`lib/rate-limit.test.ts`).
+- **~14 previously-unthrottled routes now rate-limited** with per-endpoint buckets: waitlist (public, **IP-keyed strict** — was the biggest abuse hole), planner/nee-names (decrypts student names), richmond/credentials + available-units, teachers/me + email-template, school announcements/resources/teachers mutations (`school-write` bucket), materials/[id], planner/[id], fortnight-packs/[id] (relaxed — polled by pack progress). vocab image upload got its own `vocab-image` bucket (bulk import no longer eats the shared standard budget). Cron routes stay CRON_SECRET-only.
+- **Magic-byte validation on vocab image upload** (`app/api/vocabulary/image`): now runs `validateFile` (signature + dimensions) — MIME strings are client-controlled.
+- **CSRF hardened** (`middleware.ts`): cookie-carrying state-mutating API requests with NO Origin header are now rejected (browsers always send Origin on POST; its absence = not a normal browser). Bearer/extension path unchanged.
+- **Failed logins now logged**: new `POST /api/auth/log-failure` (service-role — migration 013 restricts inserts; strict IP limit, always 200) called fire-and-forget from the login page. `failed_auth_attempts` finally gets data.
+- **Dead `CSRF_SECRET`** removed from `.env.local.example` (never referenced).
+- Deferred: nonce-based CSP rewrite (own project; Next.js needs `unsafe-inline` without nonces).
+- Known pre-existing bug (not touched): `richmond/available-units` queries `teachers.user_id` (column is `auth_id`) → always returns empty units.
+
+## Parent accounts — multiuser (current)
+
+Teacher emails an invite → parent creates a real Supabase account → sees ONLY their child's homework status + materials the teacher explicitly shared. Parents are **NOT teachers** — zero changes to `teachers.role_type`, existing RLS, or teacher flows. The new `parent_links` table (**migration `065`**) is the entire authorization model: teacher-managed rows (RLS owner policy) + parent SELECT on `parent_auth_id = auth.uid()`. Child data reads follow the established service-role + verified-id pattern (`/jugar`-style).
+
+- **Migration `065`**: `parent_links` (invite_token unique, invite_email encrypted AES-256-GCM, expires 7d, claimed_at/revoked_at, partial-unique on claimed links) + `materials.shared_with_parents boolean` (explicit flag — play_token alone also powers classroom projection).
+- **Teacher API** `app/api/parent-links` (GET list w/ status, POST mint+Resend email, DELETE revoke). Ownership: student must be in the teacher's group. Audit-logged, strict rate limit. Invite email links `/familia/invitacion/[token]`.
+- **Claim flow**: public landing page (service-role exact-token lookup, invalid/expirado/ya-usada states) → `ClaimInvite` button → logged-in claim via `POST /api/parent-links/claim` (service role, `canClaim` guard, first-claim-wins race guard) or `/register?parent_token=` (parent mode: familia copy, `user_metadata.role='parent'`, post-signup auto-claim → `/familia`; Google OAuth carries `next=/familia/invitacion/...`).
+- **Routing**: auth callback + `(main)` layout route non-teacher users with parent links to `/familia` (not /onboarding). Middleware: `/familia` protected, `/familia/invitacion` public exception.
+- **Parent area** `app/familia/(area)/page.tsx` (server-rendered, minimal layout, no teacher nav): per child — **Tareas** (richmond_scores → Entregado/Pendiente ONLY, never numeric, NEM rule) + **Juegos y materiales** (shared_with_parents + play_token → existing public `/jugar/[token]`, zero new game code). No claimed link → friendly no-access state.
+- **Teacher UI**: "Invitar a familia" card on the student detail page (`components/parents/InviteFamilyCard.tsx` — email, status chips, revoke) + "Compartir con familias" toggle on the material detail (PATCH `/api/materials/[id]`, auto-mints play_token; column fetched best-effort so the page works pre-migration).
+- **Helpers**: `lib/parents/links.ts` (mintInviteToken/linkStatus/canClaim/grantsAccess — tested), `lib/supabase/service.ts` (shared service-role client; existing inline usages left alone).
+- ponytail: no email-match enforcement on claim (token IS the credential, same trust model as diary share); parent area is one server page, no client fetching.
+- **Migration 065 APPLIED** (Alan ran it in the SQL editor); `lib/database.types.ts` regenerated (parent_links + shared_with_parents present). Note: the remote migration ledger is still empty — future `supabase db push` needs the one-time `supabase migration repair --status applied <001..065>`.
+- Verified: typecheck clean, **129 tests passing (31 files)**, lint clean, production build compiles.
+
+### Bug-fix follow-up (same batch)
+
+- **`richmond/available-units` fixed**: queried `teachers.user_id` (column is `auth_id`) → always returned empty units. One-word fix.
+- **Claim race closed**: `parent-links/claim` now checks the update affected a row (`.select('id')` + length) — a lost first-claim race returns 410 instead of a false `ok:true`.
+- **`school/resources` file_url** now `https://`-only + max 2000 chars (was any `url()`).
+- **Dead `logFailedAuth` deleted** from `lib/audit.ts` — it used the anon client, which RLS has blocked from inserting since migration 013; the working path is `/api/auth/log-failure` (service role).
+
 ## Deployment
 
 - Vercel auto-deploys on push to main

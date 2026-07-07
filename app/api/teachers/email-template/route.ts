@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { DEFAULT_TEMPLATE } from '@/lib/calificaciones/notify'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Account-level parent-notification email template (teachers.parent_email_template).
 // GET returns the saved template or the built-in default. PUT saves an override.
@@ -47,6 +48,13 @@ export async function PUT(req: NextRequest) {
 
     const { supabase, teacher } = await getTeacher()
     if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(teacher.id, 'standard', 'email-template')
+    if (!rl.success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes.' },
+        { status: 429, headers: rl.headers }
+      )
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)

@@ -32,7 +32,9 @@ function GoogleIcon() {
 function RegisterForm() {
   const router = useRouter()
   const params = useSearchParams()
-  const type = params.get('type') === 'school' ? 'school' : 'teacher'
+  const parentToken = params.get('parent_token')
+  const isParent = !!parentToken
+  const type = isParent ? 'parent' : params.get('type') === 'school' ? 'school' : 'teacher'
   const isSchool = type === 'school'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -65,7 +67,12 @@ function RegisterForm() {
     const supabase = createClient()
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        // Parents return to the invite page after OAuth so the token gets claimed.
+        redirectTo: isParent
+          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/familia/invitacion/${parentToken}`)}`
+          : `${window.location.origin}/auth/callback`,
+      },
     })
     if (oauthError) {
       setError(oauthError.message)
@@ -93,11 +100,16 @@ function RegisterForm() {
     storeConsent()
 
     const supabase = createClient()
+    const base = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/onboarding`,
+        // Parents come back to the invite page (post-verify) so the token gets claimed.
+        emailRedirectTo: isParent
+          ? `${base}/familia/invitacion/${parentToken}`
+          : `${base}/onboarding`,
+        ...(isParent ? { data: { role: 'parent' } } : {}),
       },
     })
 
@@ -109,6 +121,16 @@ function RegisterForm() {
 
     if (data?.user && !data.session) {
       router.push(`/verify-email?email=${encodeURIComponent(email)}`)
+    } else if (isParent) {
+      // Session already active — claim the invite now, then enter the family area.
+      try {
+        await fetch('/api/parent-links/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: parentToken }),
+        })
+      } catch {}
+      router.push('/familia')
     } else {
       router.push('/onboarding')
     }
@@ -120,7 +142,11 @@ function RegisterForm() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-text-primary mb-2">MaestraIA</h1>
           <p className="text-text-secondary">
-            {isSchool ? 'Crea una cuenta institucional' : 'Crea tu cuenta de maestra'}
+            {isParent
+              ? 'Crea tu cuenta de familia para seguir el progreso de tu hijo/a'
+              : isSchool
+                ? 'Crea una cuenta institucional'
+                : 'Crea tu cuenta de maestra'}
           </p>
         </div>
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const PatchSchema = z.object({
   full_name: z.string().min(2).max(100).optional(),
@@ -26,6 +27,13 @@ export async function GET() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(user.id, 'relaxed', 'teachers-me')
+    if (!rl.success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes.' },
+        { status: 429, headers: rl.headers }
+      )
 
     const base =
       'id, full_name, email, role_type, subject, editorial, school_id, created_at, english_period_minutes, plan_template, schools(name, city, plan)'
@@ -67,6 +75,13 @@ export async function PATCH(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(user.id, 'standard', 'teachers-me')
+    if (!rl.success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes.' },
+        { status: 429, headers: rl.headers }
+      )
 
     const body = PatchSchema.safeParse(await req.json())
     if (!body.success) return NextResponse.json({ error: body.error.flatten() }, { status: 400 })

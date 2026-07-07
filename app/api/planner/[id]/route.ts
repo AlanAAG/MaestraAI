@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -8,6 +9,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(user.id, 'standard', 'planner-delete')
+    if (!rl.success)
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes.' },
+        { status: 429, headers: rl.headers }
+      )
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -8,11 +9,18 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
+  const rl = await checkRateLimit(user.id, 'relaxed', 'available-units')
+  if (!rl.success)
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes.' },
+      { status: 429, headers: rl.headers }
+    )
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: teacher } = await (supabase as any)
     .from('teachers')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('auth_id', user.id)
     .single()
   if (!teacher) return NextResponse.json({ units: [] })
 

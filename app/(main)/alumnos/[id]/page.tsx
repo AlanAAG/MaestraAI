@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { StudentProgressChart } from '@/components/app/StudentProgressChart'
+import { InviteFamilyCard } from '@/components/parents/InviteFamilyCard'
 import { StudentScoreTable } from '@/components/app/StudentScoreTable'
 
 interface Student {
@@ -491,6 +492,8 @@ export default function StudentDetailPage() {
           )}
         </div>
       </Card>
+
+      <InviteFamilyCard studentId={student.id} />
 
       {!progressData || progressData.assignments.length === 0 ? (
         <Card className="p-12">

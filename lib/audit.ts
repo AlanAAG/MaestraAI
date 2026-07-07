@@ -61,40 +61,8 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
   }
 }
 
-/**
- * Log a failed authentication attempt
- *
- * Usage in login/register routes:
- * ```typescript
- * await logFailedAuth({
- *   email: 'user@example.com',
- *   reason: 'invalid_credentials',
- *   req,
- * })
- * ```
- */
-export async function logFailedAuth(params: {
-  email: string
-  reason: string
-  req: Request
-}): Promise<void> {
-  try {
-    const supabase = createClient()
-
-    const ip = params.req.headers.get('x-forwarded-for') || params.req.headers.get('x-real-ip')
-    const userAgent = params.req.headers.get('user-agent')
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('failed_auth_attempts').insert({
-      email: params.email,
-      ip_address: ip,
-      user_agent: userAgent,
-      reason: params.reason,
-    })
-  } catch (error) {
-    console.error('Failed auth log failed:', error)
-  }
-}
+// Failed-login logging lives in app/api/auth/log-failure (service role — RLS blocks user
+// inserts on failed_auth_attempts since migration 013).
 
 /**
  * Standard audit actions

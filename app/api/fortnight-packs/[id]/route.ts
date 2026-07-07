@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const PatchSchema = z.object({
   status: z.enum(['pending', 'generating', 'ready', 'error']).optional(),
@@ -21,6 +22,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  // relaxed: this GET is polled by FortnightPackProgress during generation.
+  const rl = await checkRateLimit(user.id, 'relaxed', 'fortnight-packs')
+  if (!rl.success)
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes.' },
+      { status: 429, headers: rl.headers }
+    )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: teacher } = await (supabase as any)
@@ -63,6 +72,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  const rl = await checkRateLimit(user.id, 'standard', 'fortnight-packs')
+  if (!rl.success)
+    return NextResponse.json(
+      { error: 'Demasiadas solicitudes.' },
+      { status: 429, headers: rl.headers }
+    )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: teacher } = await (supabase as any)
