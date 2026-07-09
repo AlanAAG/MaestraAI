@@ -34,9 +34,9 @@ export async function buildSongWorksheet(
     .replace('{key_vocabulary}', keyVocabulary.join(', '))
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     max_tokens: 2048,
-    temperature: 0.5,
+    thinking: { type: 'disabled' },
     messages: [{ role: 'user', content: prompt }],
   })
 

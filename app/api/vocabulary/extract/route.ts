@@ -23,9 +23,9 @@ async function llmExtract(
   content: Anthropic.MessageParam['content']
 ): Promise<Item[]> {
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     max_tokens: 8192,
-    temperature: 0.2,
+    thinking: { type: 'disabled' },
     system: systemPrompt,
     messages: [{ role: 'user', content }],
   })

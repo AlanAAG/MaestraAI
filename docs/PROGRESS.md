@@ -378,6 +378,10 @@ Source: her 6-point feedback + a ground-truth DOCX diff (her hand-made "Viajemos
 - **Voice de-AI-fication**: new VOZ OPERATIVA rule — no justification clauses ("fomentando así…", "promoviendo…") unless the teacher's own examples use them; evaluación aspects must derive from THIS project's aprendizajes (generic aspects prohibited).
 - Tests: `lib/nem/ficha-rotation.test.ts`, `lib/planner/observation.test.ts`, rate-limit Upstash-throw case. **139 tests passing (33 files)**, typecheck + lint clean, build compiles.
 
+## Sonnet 5 migration (current)
+
+All 4 Sonnet call sites moved `claude-sonnet-4-6` → **`claude-sonnet-5`** (better instruction-following for teacher-structure fidelity; intro pricing $2/$10 per MTok until 2026-08-31 — cheaper than 4.6). Required API changes applied per model migration guide: **removed the assistant `{` prefill** in `callPlannerModel` (400s on Sonnet 5; `parsePlanJson` already handles fences/preamble), **removed `temperature`** everywhere (non-default sampling params 400), **`thinking: {type:'disabled'}` set explicitly** (omitting it runs adaptive thinking by default → would burn output tokens on JSON tasks), and planner default `max_tokens` 16384→20000 (new tokenizer ~30% more tokens per text). Files: `lib/planner/model.ts`, `app/api/planner/generate/route.ts` (legacy), `app/api/vocabulary/extract/route.ts`, `lib/materials/song-worksheet.ts`. Haiku call sites unchanged. Note: API account hit its monthly usage cap (resets 2026-08-01) — Alan raising the limit in console; ~$0.35-0.40/planeación bundle on Sonnet 5 intro pricing.
+
 ## Deployment
 
 - Vercel auto-deploys on push to main

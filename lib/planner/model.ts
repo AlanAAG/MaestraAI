@@ -9,7 +9,9 @@ export async function callPlannerModel(
   user: string,
   opts: { maxTokens?: number; cachePrefix?: string } = {}
 ): Promise<string> {
-  const maxTokens = opts.maxTokens ?? 16384
+  // Sonnet 5's tokenizer produces ~30% more tokens for the same text — give output headroom
+  // so documents sized for the old 16384 cap don't truncate.
+  const maxTokens = opts.maxTokens ?? 20000
 
   if (process.env.ANTHROPIC_API_KEY) {
     try {
@@ -27,25 +29,24 @@ export async function callPlannerModel(
             { type: 'text' as const, text: system },
           ]
         : system
+      // Sonnet 5 notes: assistant prefill and non-default temperature return 400 (removed);
+      // thinking is explicitly DISABLED (omitting it runs adaptive thinking by default, which
+      // spends output tokens this JSON-document task doesn't need). parsePlanJson already
+      // handles fences/preamble, so the old "{" prefill is unnecessary.
       const resp = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: maxTokens,
-        temperature: 0.4,
+        thinking: { type: 'disabled' },
         system: systemParam,
-        // Prefill "{" forces the model to start directly with the JSON object —
-        // no ```json fences, no preamble. We prepend it back below.
-        messages: [
-          { role: 'user', content: user },
-          { role: 'assistant', content: '{' },
-        ],
+        messages: [{ role: 'user', content: user }],
       })
       if (resp.stop_reason === 'max_tokens') {
         // Diagnostic: the document was cut off. parsePlanJson recovery may still salvage it,
         // but this means maxTokens should rise or the request should be split.
         console.error('[planner] Sonnet response truncated (stop_reason=max_tokens)')
       }
-      const c = resp.content[0]
-      if (c?.type === 'text' && c.text.trim()) return '{' + c.text
+      const c = resp.content.find((b) => b.type === 'text')
+      if (c?.type === 'text' && c.text.trim()) return c.text
       throw new Error('Empty Sonnet response')
     } catch (e) {
       console.error('[planner] Sonnet failed, falling back to gpt-4o-mini:', e)
