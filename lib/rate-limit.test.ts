@@ -26,3 +26,25 @@ describe('checkRateLimit without Redis', () => {
     expect(success).toBe(true)
   })
 })
+
+describe('checkRateLimit when Upstash throws', () => {
+  it('fails OPEN instead of propagating (would 500 every route)', async () => {
+    // Redis configured but unreachable/bad token → limiter.limit() rejects.
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://example.upstash.io')
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'bad-token')
+    vi.doMock('@upstash/ratelimit', () => ({
+      Ratelimit: Object.assign(
+        class {
+          limit() {
+            return Promise.reject(new Error('fetch failed'))
+          }
+        },
+        { slidingWindow: () => ({}) }
+      ),
+    }))
+    const { checkRateLimit } = await import('./rate-limit')
+    const { success } = await checkRateLimit('user-1', 'standard')
+    expect(success).toBe(true)
+    vi.doUnmock('@upstash/ratelimit')
+  })
+})

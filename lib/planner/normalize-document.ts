@@ -72,6 +72,16 @@ export function normalizePlanDocument(pd: any): any {
   for (const k of STRING_FIELDS) {
     if (k in out) out[k] = sectionToString(out[k])
   }
+  // Quality signal (best-effort, no retry): the proyecto must contain bold momento headings.
+  if (
+    typeof out.proyecto === 'string' &&
+    out.proyecto.length > 0 &&
+    !/\*\*[^*]{3,}\*\*/.test(out.proyecto)
+  ) {
+    console.warn(
+      '[normalize] proyecto has no bold momento headings — model ignored the structure rule'
+    )
+  }
   if (Array.isArray(out.custom_sections)) {
     out.custom_sections = out.custom_sections
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

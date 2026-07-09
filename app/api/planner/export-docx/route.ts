@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { applyNeeNames, decryptNeeMap } from '@/lib/planner/nee-names'
+import { displayFirstName } from '@/lib/planner/observation'
 import {
   Document,
   Paragraph,
@@ -360,7 +361,8 @@ function observationCalendarTable(cal: Record<string, string[]>, borderColor: st
         children: days.map(
           (d) =>
             new TableCell({
-              children: [new Paragraph(cal[d]?.[i] ?? '')],
+              // First name only — old plans stored full legal names.
+              children: [new Paragraph(displayFirstName(cal[d]?.[i] ?? ''))],
               width: { size: 20, type: WidthType.PERCENTAGE },
             })
         ),
@@ -560,11 +562,24 @@ export async function POST(req: NextRequest) {
               children.push(...mdToParas(pd.ejes_articuladores, secT(key), secLevel))
             break
           case 'campos_formativos':
-            if (pd.campos_formativos?.length)
+            // Absorbed into the Metodología: Proyecto block when a proyecto exists (teacher format).
+            if (pd.campos_formativos?.length && !pd.proyecto)
               children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
             break
           case 'proyecto':
-            if (pd.proyecto) children.push(...mdToParas(pd.proyecto, secT(key), secLevel))
+            if (pd.proyecto) {
+              const proyectoTitle = `Metodología: ${pd.metodologia || 'Proyecto'}${
+                pd.nombre_proyecto ? ` — ${pd.nombre_proyecto}` : ''
+              }`
+              children.push(new Paragraph({ text: proyectoTitle, heading: secLevel }))
+              if (pd.campos_formativos?.length) {
+                children.push(...camposFormativosSection(pd.campos_formativos, borderHex))
+                children.push(
+                  new Paragraph({ children: [new TextRun({ text: 'DEL PROYECTO', bold: true })] })
+                )
+              }
+              children.push(...mdToParas(pd.proyecto))
+            }
             break
           case 'desarrollo_taller':
             if (pd.desarrollo_taller)

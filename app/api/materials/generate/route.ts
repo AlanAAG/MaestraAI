@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
         }
 
     const createdMaterials: string[] = []
+    let lastBuilderError: string | null = null
 
     // Generate each material type
     for (const materialType of input.material_types) {
@@ -199,8 +200,8 @@ export async function POST(req: NextRequest) {
             const fn = (lessonPlan as any)?.fortnights
             const letter = [fn?.letter_week1, fn?.letter_week2]
               .filter(Boolean)
-              .flatMap((l: string) =>
-                l
+              .flatMap((l: unknown) =>
+                String(l)
                   .split(',')
                   .map((x) => x.trim())
                   .filter(Boolean)
@@ -265,12 +266,18 @@ export async function POST(req: NextRequest) {
         createdMaterials.push((material as any).id)
       } catch (err) {
         console.error(`Error generating ${materialType}:`, err)
+        lastBuilderError = `${materialType}: ${err instanceof Error ? err.message : String(err)}`
         // Continue with other materials even if one fails
       }
     }
 
     if (createdMaterials.length === 0) {
-      return NextResponse.json({ error: 'Failed to generate any materials' }, { status: 500 })
+      // Surface the underlying cause — an opaque 500 hides env/model problems in prod.
+      console.error('[materials/generate] all builders failed:', lastBuilderError)
+      return NextResponse.json(
+        { error: 'Failed to generate any materials', detail: lastBuilderError },
+        { status: 500 }
+      )
     }
 
     // Audit log - material generation

@@ -5,6 +5,7 @@ import { isProniApplicable } from '@/lib/nem-official-data'
 import { nemGroundingBlock } from '@/lib/nem/grounding'
 import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
 import { selectRelevantContenidos, contenidosSugeridosBlock } from '@/lib/nem/select-contenidos'
+import { extractUsedFichas, pickFicha, buildFichaBlock } from '@/lib/nem/ficha-rotation'
 import {
   matchPlaneaciones,
   storePlaneacionEmbedding,
@@ -37,7 +38,7 @@ const Schema = z.object({ fortnight_id: z.string().uuid() })
 const DEFAULT_CRONOGRAMA = {
   lunes: [
     'honores',
-    'estrategia comunitaria',
+    'E.C.P.C.E.E.L.Y',
     'pausa activa',
     'proyecto',
     'educación física',
@@ -49,7 +50,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   martes: [
     'activación',
-    'estrategia comunitaria',
+    'E.C.P.C.E.E.L.Y',
     'pausa activa',
     'letter and number',
     'computación',
@@ -61,7 +62,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   miercoles: [
     'activación',
-    'estrategia comunitaria',
+    'E.C.P.C.E.E.L.Y',
     'pausa activa',
     'proyecto',
     'educación física',
@@ -73,7 +74,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   jueves: [
     'activación',
-    'estrategia comunitaria',
+    'E.C.P.C.E.E.L.Y',
     'pausa activa',
     'números',
     'cantos y juegos',
@@ -85,7 +86,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   viernes: [
     'activación',
-    'estrategia comunitaria',
+    'E.C.P.C.E.E.L.Y',
     'pausa activa',
     'proyecto',
     'cuento con papás',
@@ -355,6 +356,8 @@ function buildQuincenaPrompt(
   const continuityBlock = continuity
     ? `<continuidad>\n${continuity}\nEsta quincena es CONTINUACIÓN del ciclo: retoma, da seguimiento o referencia lo anterior donde tenga sentido (no empieces de cero si el proyecto continúa).\n</continuidad>`
     : ''
+  const fichaBlock = String(fn.__fichaBlock ?? '')
+  const pausasBlock = String(fn.__pausasBlock ?? '')
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma, sin modificarlo):
 ${JSON.stringify(schedule.cronograma)}
@@ -394,6 +397,8 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     proyectoSecciones,
     teacherReq,
     continuityBlock,
+    fichaBlock,
+    pausasBlock,
     QUINCENA_OUTPUT_SCHEMA,
     requestData,
   ]
@@ -535,23 +540,43 @@ export async function POST(req: NextRequest) {
     const richmondBlock = buildRichmondBlock(richmondContent)
     const gameHint = buildGameVocabularyHint(richmondContent)
 
-    // Continuity: the most recent prior planeación for this group, so each quincena builds on the
-    // cycle (continue a project, reference prior learning) instead of starting from scratch.
+    // Continuity: recent prior planeaciones for this group — continuity line (most recent),
+    // Fichero de la Paz rotation (all fichas already used), and pausas rotation (last 2).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: prev } = await (supabase as any)
+    const { data: prevRows } = await (supabase as any)
       .from('fortnights')
       .select('number, project_name, monthly_value, plan_document, start_date')
       .eq('group_id', fn.group_id)
       .eq('plan_type', planType)
       .lt('start_date', fn.start_date)
       .order('start_date', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(12)
+    const prev = prevRows?.[0]
     if (prev) {
       const prevProj = (prev.plan_document?.nombre_proyecto as string) ?? prev.project_name
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(fn as any).__continuity =
         `Planeación anterior (#${prev.number}): proyecto "${prevProj}", valor del mes "${prev.monthly_value}".`
+    }
+
+    // Fichero de la Paz: pick a ficha NOT used in past plans (code-side rotation, never LLM choice).
+    const usedFichas = extractUsedFichas(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prevRows ?? []).map((r: any) => r.plan_document?.estrategia_comunitaria as string)
+    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(fn as any).__fichaBlock = buildFichaBlock(pickFicha(usedFichas))
+
+    // Pausas activas: expose the last 2 plans' pausas so the model rotates every 2 planeaciones.
+    const prevPausas = (prevRows ?? [])
+      .slice(0, 2)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r: any) => String(r.plan_document?.pausas_activas ?? '').slice(0, 600))
+      .filter(Boolean)
+    if (prevPausas.length) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(fn as any).__pausasBlock =
+        `<pausas_anteriores>\n${prevPausas.map((p: string, i: number) => `Planeación -${i + 1}:\n${p}`).join('\n\n')}\n</pausas_anteriores>`
     }
 
     // Load templates for this plan type — the teacher's OWN plus any shared with their school

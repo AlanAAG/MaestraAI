@@ -11,7 +11,8 @@ export type FortnightContext = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function deriveFortnightContext(lessonPlan: any): FortnightContext {
   const fortnight = lessonPlan?.fortnights ?? {}
-  const grade: string = (fortnight?.groups?.grade ?? '').toLowerCase()
+  // grade lives on fortnights since migration 059; groups.grade kept as fallback for old joins.
+  const grade: string = (fortnight?.grade ?? fortnight?.groups?.grade ?? '').toLowerCase()
   const dayNumber: number = lessonPlan?.day_number ?? 1
 
   // letter_week fields can be comma-separated ("A, B") — take the first letter for single-letter contexts.

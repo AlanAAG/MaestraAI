@@ -85,13 +85,27 @@ export async function checkRateLimit(
     }
   }
 
-  const { success, limit, remaining, reset } = await limiter.limit(identifier)
-  return {
-    success,
-    headers: {
-      'X-RateLimit-Limit': limit.toString(),
-      'X-RateLimit-Remaining': remaining.toString(),
-      'X-RateLimit-Reset': new Date(reset).toISOString(),
-    },
+  try {
+    const { success, limit, remaining, reset } = await limiter.limit(identifier)
+    return {
+      success,
+      headers: {
+        'X-RateLimit-Limit': limit.toString(),
+        'X-RateLimit-Remaining': remaining.toString(),
+        'X-RateLimit-Reset': new Date(reset).toISOString(),
+      },
+    }
+  } catch (err) {
+    // Upstash REST failure (rotated token, network). Config exists, so this is transient/ops —
+    // fail OPEN with a loud log instead of 500ing every request via the routes' outer catch.
+    console.error('[Rate Limit] Upstash error — failing open:', err)
+    return {
+      success: true,
+      headers: {
+        'X-RateLimit-Limit': '0',
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Reset': new Date(Date.now() + 60000).toISOString(),
+      },
+    }
   }
 }

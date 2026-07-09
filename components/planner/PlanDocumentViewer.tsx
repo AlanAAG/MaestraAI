@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import { Loader2, BookOpen, Hash, Pencil, Check, X, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
+import { displayFirstName } from '@/lib/planner/observation'
 
 type Design = {
   font: 'sans' | 'serif' | 'rounded' | 'century'
@@ -498,7 +499,7 @@ function ObservationCalendarSection({ cal }: { cal: Record<string, string[]> }) 
                   key={d}
                   className="px-2 py-1 border border-[color:var(--doc-border,#d1d5db)] text-center text-gray-700"
                 >
-                  {cal[d]?.[i] ?? ''}
+                  {displayFirstName(cal[d]?.[i] ?? '')}
                 </td>
               ))}
             </tr>
@@ -909,22 +910,33 @@ function QuincenaSections({
           </DocSection>
         ) : null
       case 'campos_formativos':
+        // Absorbed into the Metodología: Proyecto section when a proyecto exists (matches the
+        // teacher's real format: campos tables live INSIDE the methodology block).
+        if (pd.proyecto && pd.campos_formativos?.length) return null
         return pd.campos_formativos?.length ? (
           <DocSection key={key} title={t(key)}>
             <CamposFormativosView campos={pd.campos_formativos} />
           </DocSection>
         ) : null
-      case 'proyecto':
-        return pd.proyecto ? (
+      case 'proyecto': {
+        if (!pd.proyecto) return null
+        const proyectoTitle = `Metodología: ${pd.metodologia || 'Proyecto'}${
+          pd.nombre_proyecto ? ` — ${pd.nombre_proyecto}` : ''
+        }`
+        const absorbed = !!pd.campos_formativos?.length
+        return (
           <DocSection
             key={key}
-            title={t(key)}
+            title={proyectoTitle}
             editValue={pd.proyecto}
             onSave={(v) => handleEdit(key, v)}
           >
+            {absorbed && <CamposFormativosView campos={pd.campos_formativos!} />}
+            {absorbed && <p className="font-bold mt-4 mb-2 uppercase">Del Proyecto</p>}
             <MdContent text={pd.proyecto} />
           </DocSection>
-        ) : null
+        )
+      }
       case 'cronograma':
         return (
           <React.Fragment key={key}>

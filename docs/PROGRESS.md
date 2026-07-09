@@ -364,6 +364,20 @@ Teacher emails an invite → parent creates a real Supabase account → sees ONL
 - **`school/resources` file_url** now `https://`-only + max 2000 chars (was any `url()`).
 - **Dead `logFailedAuth` deleted** from `lib/audit.ts` — it used the anon client, which RLS has blocked from inserting since migration 013; the working path is `/api/auth/log-failure` (service role).
 
+## Alejandra feedback round 2 + materials 500 fix (current)
+
+Source: her 6-point feedback + a ground-truth DOCX diff (her hand-made "Viajemos" May plan vs our generated one). No migrations.
+
+- **materials/generate 500 fixed (3 layers)**: `checkRateLimit` no longer throws on Upstash REST failure (fail-open + loud log — a rotated/bad token was 500ing EVERY rate-limited route via the outer catch); the all-builders-failed 500 now includes the underlying builder error (`detail`) so prod logs identify env/model issues; `String(l).split` guard on multi-letter flatMap; `deriveFortnightContext` reads `fortnights.grade` (was reading a never-joined `groups.grade` → always ''). **Alan: verify UPSTASH_REDIS_REST_URL/TOKEN in Vercel** — if the token was rotated, that was the trigger.
+- **Aventura lectora** → now a REQUIRED bullet inside `actividades_rutina` with the daily-new-word reflection (her exact ask); the standalone `aventura_lectora` section is no longer generated (model returns `""`; old plans still render).
+- **Fichero de la Paz real fichas**: `scripts/parse-fichero-paz.mjs` parses `context/fichero_de_la_paz.md` → `lib/nem/fichero-paz.ts` (**19 preescolar fichas**, full activity text, Ficha 48 verified). Rotation is CODE-side (`lib/nem/ficha-rotation.ts`): generate-document collects `Ficha número N` citations from the teacher's past plans (continuity query now fetches last 12) and picks the first unused ficha → injected as `<ficha_de_la_paz>`; prompt requires opening with `Fichero de la Paz. Ficha número N "Nombre"` + that ficha's redacción, never inventing. Tested.
+- **Pausas activas rotation**: last 2 plans' pausas injected as `<pausas_anteriores>`; rule: movement/refresh activities, change every 2 planeaciones.
+- **Cronograma siglas**: estrategia comunitaria row now reads exactly **E.C.P.C.E.E.L.Y** (her ask) — seed cronograma + prompt exception (everything else stays full-name).
+- **Calendario de observación**: auto-fills **2 alumnos/día** (roster cycling, editable) when empty; **first names only** everywhere — new `lib/planner/observation.ts` (`toFirstNames` w/ duplicate disambiguation, `distributeObservations`, `displayFirstName` used at render in viewer + DOCX so old plans with full legal names display clean). Prompt rule: app renders the calendar, model must NEVER duplicate it in text (fixes the doubled table+list in her export). Tested.
+- **Proyecto structure (biggest gap)**: viewer + DOCX now render the teacher's real format — **"Metodología: {metodologia} — {nombre}"** heading → campos formativos tables (Contenidos | PDAs) INSIDE it → **DEL PROYECTO** subheading → the 5 momentos. The sibling campos section is absorbed (no-op) when a proyecto exists; old plans without proyecto render unchanged. Prompt hardened: momentos obligatorios with substantive content each ("un proyecto de un solo párrafo es un ERROR GRAVE"); normalize logs a warning if momento headings are missing.
+- **Voice de-AI-fication**: new VOZ OPERATIVA rule — no justification clauses ("fomentando así…", "promoviendo…") unless the teacher's own examples use them; evaluación aspects must derive from THIS project's aprendizajes (generic aspects prohibited).
+- Tests: `lib/nem/ficha-rotation.test.ts`, `lib/planner/observation.test.ts`, rate-limit Upstash-throw case. **139 tests passing (33 files)**, typecheck + lint clean, build compiles.
+
 ## Deployment
 
 - Vercel auto-deploys on push to main

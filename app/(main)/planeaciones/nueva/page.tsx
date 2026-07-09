@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { AlertCircle, Loader2, X } from 'lucide-react'
 import Link from 'next/link'
 import { ObservationCalendar } from '@/components/planner/ObservationCalendar'
+import { toFirstNames, distributeObservations } from '@/lib/planner/observation'
 import { UnitSelector, type RichmondSelection } from '@/components/richmond/UnitSelector'
 import { VocabularySections } from '@/components/richmond/VocabularySections'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
@@ -156,7 +157,16 @@ export default function NuevaPlaneacionPage() {
     fetch(`/api/students?group_id=${selectedGroupId}`)
       .then((r) => (r.ok ? r.json() : { students: [] }))
       .then(({ students }: { students: { name: string }[] }) => {
-        setGroupStudents((students ?? []).map((s) => s.name))
+        const names = (students ?? []).map((s) => s.name)
+        setGroupStudents(names)
+        // Auto-fill: 2 alumnos por día (primeros nombres), rotando el grupo — editable después.
+        if (names.length) {
+          setObservationCalendar((prev) =>
+            Object.values(prev).some((v) => v.length > 0)
+              ? prev
+              : distributeObservations(toFirstNames(names))
+          )
+        }
       })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(supabase as any)
@@ -764,10 +774,10 @@ export default function NuevaPlaneacionPage() {
               <span className="font-normal text-text-secondary">(opcional)</span>
             </h3>
             <p className="text-xs text-text-secondary mb-3">
-              Selecciona qué alumnos observarás cada día de la quincena
+              2 alumnos por día (se llena solo con tu grupo — puedes editarlo)
             </p>
             <ObservationCalendar
-              students={allStudentNames.length > 0 ? allStudentNames : groupStudents}
+              students={toFirstNames(groupStudents.length > 0 ? groupStudents : allStudentNames)}
               value={observationCalendar}
               onChange={setObservationCalendar}
             />
