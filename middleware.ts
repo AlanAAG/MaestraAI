@@ -29,14 +29,17 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+    // googletagmanager/facebook — GTM container + tags (GA4/Pixel); inert unless NEXT_PUBLIC_GTM_ID is set
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://www.googletagmanager.com https://connect.facebook.net",
     "style-src 'self' 'unsafe-inline'",
     // blob: — client-side image processing (docx→vocab thumbnails: object URLs + canvas)
     "img-src 'self' data: https: blob:",
     // worker-src — libs that spin up a blob worker (e.g. zip/image decode) during that flow
     "worker-src 'self' blob:",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co https://api.anthropic.com https://vercel.live",
+    "connect-src 'self' https://*.supabase.co https://api.anthropic.com https://vercel.live https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://www.facebook.com",
+    // GTM noscript iframe + preview mode
+    "frame-src 'self' https://www.googletagmanager.com https://vercel.live",
     "frame-ancestors 'none'",
   ].join('; ')
   response.headers.set('Content-Security-Policy', csp)

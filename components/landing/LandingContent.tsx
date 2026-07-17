@@ -4,42 +4,134 @@ import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   motion,
-  useScroll,
-  useTransform,
-  useSpring,
   useReducedMotion,
   useInView,
+  useScroll,
+  useTransform,
   type HTMLMotionProps,
 } from 'framer-motion'
+import { ReactLenis } from 'lenis/react'
+import { celebrateWarm } from '@/lib/ui/celebrate'
+import { track } from './Analytics'
+import LottieAccent from './LottieAccent'
 
 type MP = Partial<
   Pick<HTMLMotionProps<'div'>, 'initial' | 'whileInView' | 'viewport' | 'transition'>
 >
 import {
   ArrowRight,
-  Sparkles,
   Link2,
   CheckCircle2,
-  GraduationCap,
   CreditCard,
   Grid3X3,
   Target,
   Type,
-  FileText,
   Play,
+  Puzzle,
+  Ear,
+  Shapes,
+  FileText,
+  Download,
+  Loader2,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react'
 
-// ── Motion preset ─────────────────────────────────────────────────────────────
+// ── Motion presets (varied per section so the scroll doesn't feel repetitive) ─
 
 const EASE = [0.25, 0.46, 0.45, 0.94] as [number, number, number, number]
 
-function fadeUp(delay = 0) {
+function fadeUp(delay = 0): MP {
   return {
     initial: { opacity: 0, y: 28 },
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: true, margin: '-60px' },
     transition: { duration: 0.55, delay, ease: EASE },
   }
+}
+
+function slideIn(fromX: number, delay = 0): MP {
+  return {
+    initial: { opacity: 0, x: fromX },
+    whileInView: { opacity: 1, x: 0 },
+    viewport: { once: true, margin: '-80px' },
+    transition: { duration: 0.65, delay, ease: EASE },
+  }
+}
+
+function popIn(delay = 0): MP {
+  return {
+    initial: { opacity: 0, scale: 0.94, y: 16 },
+    whileInView: { opacity: 1, scale: 1, y: 0 },
+    viewport: { once: true, margin: '-40px' },
+    transition: { duration: 0.5, delay, ease: EASE },
+  }
+}
+
+function scrollToWaitlist() {
+  document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+// Word-stagger headline reveal (the "SplitText" effect, no GSAP needed).
+function StaggerTitle({
+  text,
+  className,
+  reduced,
+}: {
+  text: string
+  className?: string
+  reduced: boolean | null
+}) {
+  if (reduced) return <h2 className={className}>{text}</h2>
+  const words = text.split(' ')
+  return (
+    <motion.h2
+      className={className}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: '-60px' }}
+      variants={{ show: { transition: { staggerChildren: 0.055 } } }}
+      aria-label={text}
+    >
+      {words.map((w, i) => (
+        // The space lives OUTSIDE the inline-block span — inside it collapses and glues words.
+        <span key={i}>
+          <motion.span
+            className="inline-block"
+            variants={{
+              hidden: { opacity: 0, y: '0.55em' },
+              show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
+            }}
+          >
+            {w}
+          </motion.span>
+          {i < words.length - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </motion.h2>
+  )
+}
+
+// Scroll-scrub parallax: the wrapped element drifts slower than the page while in view.
+function Drift({
+  children,
+  distance = 36,
+  reduced,
+  className = '',
+}: {
+  children: React.ReactNode
+  distance?: number
+  reduced: boolean | null
+  className?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
+  const y = useTransform(scrollYProgress, [0, 1], [distance, -distance])
+  return (
+    <motion.div ref={ref} style={reduced ? undefined : { y }} className={className}>
+      {children}
+    </motion.div>
+  )
 }
 
 // ── Animated counter ──────────────────────────────────────────────────────────
@@ -59,83 +151,240 @@ function useCountUp(target: number, inView: boolean, duration = 1.8) {
   return count
 }
 
-// ── Character placeholder ─────────────────────────────────────────────────────
-// Swap this component's content with <img> once character assets are ready
+// ── Star motif (line art, brand gold, max 3 per screen) ───────────────────────
 
-function CharacterAvatar({
-  size = 'md',
+function Star({
+  size = 16,
+  filled = false,
   className = '',
 }: {
-  size?: 'sm' | 'md' | 'xl'
+  size?: number
+  filled?: boolean
   className?: string
 }) {
-  const sizes = {
-    sm: 'w-12 h-12',
-    md: 'w-20 h-20',
-    xl: 'w-52 h-52',
-  }
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3z" />
+    </svg>
+  )
+}
+
+// ── Mascot placeholder (La Maestra: bun + round glasses, line art) ────────────
+// PLACEHOLDER: swap this SVG for the real La Maestra illustration when the
+// asset is ready. Keep the container dimensions.
+
+function MascotPlaceholder({ size = 160 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 120 120"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      className="text-brand"
+      aria-hidden
+    >
+      {/* bun */}
+      <circle cx="60" cy="20" r="9" fill="#FDF3E4" />
+      {/* head */}
+      <circle cx="60" cy="64" r="34" fill="#FDF3E4" />
+      {/* round glasses, the signature element */}
+      <circle cx="47" cy="60" r="9" fill="#FFFFFF" />
+      <circle cx="73" cy="60" r="9" fill="#FFFFFF" />
+      <path d="M56 60h8" />
+      {/* smile */}
+      <path d="M51 79c3.5 3.5 14.5 3.5 18 0" />
+    </svg>
+  )
+}
+
+function CharacterAvatar({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`${sizes[size]} ${className} rounded-full border-2 border-dashed border-violet-400/60 bg-violet-500/10 flex items-center justify-center shrink-0 ring-4 ring-violet-500/20 relative`}
+      className={`w-12 h-12 rounded-full border border-border bg-brand-subtle flex items-center justify-center shrink-0 shadow-md ${className}`}
     >
-      <div
-        className="absolute inset-0 rounded-full"
-        style={{
-          background:
-            'radial-gradient(circle at 50% 40%, rgba(139,92,246,0.2) 0%, transparent 70%)',
-        }}
-      />
-      <span className="text-violet-300/70 font-medium text-center leading-tight px-2 select-none text-[10px]">
-        Personaje
-      </span>
+      <MascotPlaceholder size={36} />
     </div>
   )
 }
 
-// ── Inline UI mock-ups for timeline ──────────────────────────────────────────
+// ── Waitlist capture form (the conversion element) ───────────────────────────
+
+const GRADES = ['Kinder 1', 'Kinder 2', 'Kinder 3', 'Directora', 'Otro']
+
+function WaitlistForm() {
+  const [email, setEmail] = useState('')
+  const [grade, setGrade] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState<{ position: number; ref_code: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [ref, setRef] = useState<string | undefined>()
+
+  useEffect(() => {
+    const r = new URLSearchParams(window.location.search).get('ref')
+    if (r) setRef(r)
+  }, [])
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.trim()) return setError('Escribe tu correo')
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), grade: grade || undefined, ref }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'No pude registrarte')
+      setDone({ position: d.position, ref_code: d.ref_code })
+      track('waitlist_submit', { grade: grade || 'sin_grado', referred: Boolean(ref) })
+      celebrateWarm()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="rounded-lg border-2 border-brand bg-card p-6 text-center max-w-md"
+      >
+        <LottieAccent src="/lottie/success.json" className="mx-auto h-16 w-16" loop={false} />
+        <div className="flex justify-center mb-2">
+          <span className="inline-flex w-11 h-11 items-center justify-center rounded-full bg-brand-subtle text-brand">
+            <Star size={20} filled />
+          </span>
+        </div>
+        <h3 className="font-display text-lg font-semibold text-text-primary">
+          Ya estás en la lista
+        </h3>
+        <p className="mt-1 text-sm text-text-secondary">
+          Estás en el lugar <strong className="font-medium text-brand">#{done.position}</strong>. Te
+          avisamos cuando sea tu turno.
+        </p>
+        <p className="mt-4 text-xs text-text-muted">Comparte con tus colegas y sube de posición:</p>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(`${window.location.origin}/?ref=${done.ref_code}`)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 2000)
+          }}
+          className="mt-2 w-full truncate rounded-sm border border-border-strong bg-inset px-3 py-2.5 text-sm text-brand hover:bg-brand-subtle transition-colors cursor-pointer"
+        >
+          {copied ? 'Enlace copiado' : `${window.location.origin}/?ref=${done.ref_code}`}
+        </button>
+        <div className="mt-4 space-y-1 text-left text-xs text-text-muted">
+          <p>Invita 3 colegas = acceso prioritario</p>
+          <p>Invita 5 colegas = primera ola + plantilla premium gratis</p>
+        </div>
+      </motion.div>
+    )
+  }
+
+  return (
+    <form onSubmit={submit} className="w-full max-w-md">
+      <div className="flex flex-col gap-3">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            setError('')
+          }}
+          placeholder="tu@correo.com"
+          required
+          className="w-full rounded-sm border border-border bg-card px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-subtle"
+        />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <select
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            className="flex-1 rounded-sm border border-border bg-card px-4 py-3.5 text-base text-text-secondary focus:outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-subtle"
+          >
+            <option value="">¿Qué grado enseñas?</option>
+            {GRADES.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover text-white font-display font-medium text-sm px-6 py-3.5 rounded-sm transition-colors active:scale-[0.98] disabled:opacity-60 cursor-pointer whitespace-nowrap"
+          >
+            {submitting && <Loader2 size={17} className="animate-spin" />}
+            Reservar mi lugar
+          </button>
+        </div>
+      </div>
+      {error && <p className="mt-2 text-sm text-error">{error}</p>}
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-text-muted">
+        <Lock size={12} className="shrink-0" /> Gratis, sin tarjeta. Tu correo nunca se comparte.
+      </p>
+    </form>
+  )
+}
+
+// ── Inline UI mock-ups (light, warm palette) ──────────────────────────────────
 
 function PlannerVisual() {
   const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
-  const fills = [
-    'from-indigo-600 to-violet-600',
-    null,
-    'from-violet-600 to-purple-600',
-    null,
-    'from-sky-600 to-indigo-600',
+  const labels = [
+    'Honores + Proyecto mensual',
+    '',
+    'Ed. Física + Proyecto',
+    '',
+    'Cierre · Cuento con papás',
   ]
   return (
-    <div className="w-full max-w-sm rounded-2xl bg-[#1a1728] border border-white/10 p-5 shadow-2xl">
+    <div className="w-full max-w-sm rounded-lg bg-card border border-border p-5">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-white/40 text-[10px] font-semibold uppercase tracking-wider">
-          Quincena — Kinder 3
-        </span>
-        <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-semibold">
+        <span className="text-text-muted text-[10px] font-medium">Quincena · Kinder 3</span>
+        <span className="text-[10px] bg-brand-subtle text-brand px-2 py-0.5 rounded-full font-medium">
           SEP 2024
         </span>
       </div>
       <div className="space-y-2">
         {days.map((day, i) => (
           <div key={day} className="flex items-center gap-3">
-            <span className="text-white/30 text-[10px] w-16 shrink-0">{day}</span>
+            <span className="text-text-muted text-[10px] w-16 shrink-0">{day}</span>
             <div
-              className={`flex-1 h-7 rounded-lg ${fills[i] ? `bg-gradient-to-r ${fills[i]}` : 'bg-white/5 border border-white/5'} flex items-center px-3`}
+              className={`flex-1 h-7 rounded-md ${labels[i] ? 'bg-brand-subtle' : 'bg-inset'} flex items-center px-3`}
             >
-              {fills[i] && (
-                <span className="text-white/70 text-[9px] font-medium truncate">
-                  {
-                    [
-                      'Honores + Proyecto mensual',
-                      '',
-                      'Ed. Física + Proyecto',
-                      '',
-                      'Cierre · Cuento con papás',
-                    ][i]
-                  }
+              {labels[i] && (
+                <span className="text-text-secondary text-[9px] font-medium truncate">
+                  {labels[i]}
                 </span>
               )}
             </div>
           </div>
         ))}
+      </div>
+      <div className="mt-4 flex items-center gap-2 rounded-md bg-inset px-3 py-2">
+        <FileText size={13} className="text-brand shrink-0" />
+        <span className="text-text-muted text-[10px]">
+          PDAs textuales · Programa Sintético Fase 2 · 4 campos formativos
+        </span>
       </div>
     </div>
   )
@@ -143,221 +392,125 @@ function PlannerVisual() {
 
 function MaterialsVisual() {
   const types = [
-    { name: 'Flashcards', Icon: CreditCard, color: '#6366f1' },
-    { name: 'Memorama', Icon: Grid3X3, color: '#8b5cf6' },
-    { name: 'Bingo', Icon: Target, color: '#06b6d4' },
-    { name: 'Sopa de letras', Icon: Type, color: '#10b981' },
-    { name: 'Hojas de trabajo', Icon: FileText, color: '#f59e0b' },
-    { name: 'YouTube', Icon: Play, color: '#ef4444' },
+    { name: 'Flashcards', Icon: CreditCard },
+    { name: 'Memorama', Icon: Grid3X3 },
+    { name: 'Bingo', Icon: Target },
+    { name: 'Sopa de letras', Icon: Type },
+    { name: 'Clasificar', Icon: Shapes },
+    { name: '¿Cuál es la palabra?', Icon: Puzzle },
+    { name: 'Escucha y toca', Icon: Ear },
+    { name: 'Videos', Icon: Play },
   ]
   return (
-    <div className="w-full max-w-sm grid grid-cols-3 gap-2">
-      {types.map(({ name, Icon, color }) => (
-        <div
-          key={name}
-          className="rounded-xl border border-white/10 bg-[#1a1728] p-3 flex flex-col items-center gap-2"
-        >
+    <div className="w-full max-w-sm">
+      <div className="grid grid-cols-4 gap-2">
+        {types.map(({ name, Icon }) => (
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${color}22` }}
+            key={name}
+            className="rounded-lg border border-border bg-card p-2.5 flex flex-col items-center gap-1.5"
           >
-            <Icon size={16} style={{ color }} />
-          </div>
-          <span className="text-white/50 text-[9px] font-medium text-center leading-tight">
-            {name}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ProgressVisual() {
-  const students = [
-    { name: 'Sofía R.', label: 'Logrado', pct: 85, color: '#10b981' },
-    { name: 'Mateo L.', label: 'En proceso', pct: 60, color: '#f59e0b' },
-    { name: 'Valeria M.', label: 'Logrado', pct: 78, color: '#10b981' },
-    { name: 'Diego P.', label: 'Requiere apoyo', pct: 32, color: '#ef4444' },
-  ]
-  return (
-    <div className="w-full max-w-sm rounded-2xl bg-[#1a1728] border border-white/10 p-5 shadow-2xl">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-white/40 text-[10px] font-semibold uppercase tracking-wider">
-          Progreso — Trimestre 1
-        </span>
-        <span className="text-emerald-400 text-[10px] font-semibold">NEM ✓</span>
-      </div>
-      <div className="space-y-3">
-        {students.map((s) => (
-          <div key={s.name}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-white/70 text-xs font-medium">{s.name}</span>
-              <span className="text-[10px] font-semibold" style={{ color: s.color }}>
-                {s.label}
-              </span>
+            <div className="w-8 h-8 rounded-md bg-brand-subtle flex items-center justify-center">
+              <Icon size={15} className="text-brand" />
             </div>
-            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ backgroundColor: s.color }}
-                initial={{ width: 0 }}
-                whileInView={{ width: `${s.pct}%` }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function RichmondVisual() {
-  return (
-    <div className="w-full max-w-sm rounded-2xl bg-[#1a1728] border border-white/10 p-5 shadow-2xl">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-          <Link2 size={16} className="text-emerald-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white/80 text-xs font-semibold">Richmond LP sincronizado</p>
-          <p className="text-white/30 text-[10px]">Extensión de Chrome · sync automático</p>
-        </div>
-        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-      </div>
-      <div className="space-y-2">
-        {[
-          { name: 'Sofía R.', unit: 'Unit 3', done: true },
-          { name: 'Mateo L.', unit: 'Unit 3', done: false },
-          { name: 'Valeria M.', unit: 'Unit 2', done: true },
-          { name: 'Diego P.', unit: 'Unit 2', done: false },
-        ].map((r) => (
-          <div key={r.name} className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2">
-            <div className="w-6 h-6 rounded-full bg-indigo-500/30 flex items-center justify-center text-[9px] text-indigo-300 font-bold shrink-0">
-              {r.name[0]}
-            </div>
-            <span className="text-white/60 text-xs flex-1">{r.name}</span>
-            <span className="text-white/30 text-[10px]">{r.unit}</span>
-            <span
-              className={`text-[10px] font-semibold ${r.done ? 'text-emerald-400' : 'text-amber-400'}`}
-            >
-              {r.done ? 'Completado' : 'En progreso'}
+            <span className="text-text-secondary text-[8px] font-medium text-center leading-tight">
+              {name}
             </span>
           </div>
         ))}
       </div>
+      <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5">
+        <Link2 size={13} className="text-brand shrink-0" />
+        <span className="text-text-muted text-[10px] flex-1">maestraia.com/jugar/ab3x…</span>
+        <span className="text-[9px] bg-success-light text-success-text px-2 py-0.5 rounded-full font-medium">
+          Para jugar en casa
+        </span>
+      </div>
     </div>
   )
 }
 
-// ── Timeline data ─────────────────────────────────────────────────────────────
-
-const STOPS = [
-  {
-    badge: 'Planeación',
-    accent: '#6366f1',
-    title: 'Planeaciones completas en minutos',
-    body: 'Genera quincenas y talleres con actividades, campos formativos, materiales y cronograma — alineados al Programa Sintético SEP 2024. La IA aprende tu formato escolar y tu horario de grupo.',
-    Visual: PlannerVisual,
-  },
-  {
-    badge: 'Materiales',
-    accent: '#8b5cf6',
-    title: 'Materiales didácticos listos para imprimir o proyectar',
-    body: 'Flashcards, memoramas, sopas de letras, bingo, hojas de trabajo y más — generados automáticamente con el vocabulario de tu quincena. Un clic para exportar o proyectar en clase.',
-    Visual: MaterialsVisual,
-  },
-  {
-    badge: 'Seguimiento',
-    accent: '#06b6d4',
-    title: 'Observaciones y reportes cualitativos',
-    body: 'Registra el avance de cada alumno y genera reportes trimestrales alineados al NEM — sin calificaciones numéricas, sin papelería extra. Todo guardado y organizado por quincena.',
-    Visual: ProgressVisual,
-  },
-  {
-    badge: 'Richmond LP',
-    accent: '#10b981',
-    title: 'Sincronización automática con Richmond',
-    body: 'La extensión de Chrome captura las calificaciones de Richmond LP y las integra en tu plataforma. Cero copiar y pegar, cero Excel aparte.',
-    Visual: RichmondVisual,
-  },
-]
-
-// ── Timeline stop component ───────────────────────────────────────────────────
-
-function TimelineStop({
-  stop,
-  index,
-  reduced,
-}: {
-  stop: (typeof STOPS)[0]
-  index: number
-  reduced: boolean | null
-}) {
-  const isLeft = index % 2 === 0
-  const { badge, accent, title, body, Visual } = stop
-
-  const textMotion: MP = reduced
-    ? {}
-    : {
-        initial: { opacity: 0, x: isLeft ? -40 : 40 },
-        whileInView: { opacity: 1, x: 0 },
-        viewport: { once: true, margin: '-80px' },
-        transition: { duration: 0.65, ease: EASE },
-      }
-
-  const visualMotion: MP = reduced
-    ? {}
-    : {
-        initial: { opacity: 0, x: isLeft ? 40 : -40 },
-        whileInView: { opacity: 1, x: 0 },
-        viewport: { once: true, margin: '-80px' },
-        transition: { duration: 0.65, delay: 0.1, ease: EASE },
-      }
-
+function DiaryVisual() {
   return (
-    <div className="relative py-20 md:py-32">
-      {/* Dot on the line */}
-      <div
-        aria-hidden
-        className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full z-20"
-        style={{
-          backgroundColor: accent,
-          boxShadow: `0 0 20px 6px ${accent}44, 0 0 0 4px ${accent}22`,
-        }}
-      />
-
-      <div
-        className={`flex flex-col ${isLeft ? 'md:flex-row' : 'md:flex-row-reverse'} gap-8 md:gap-0 items-center`}
-      >
-        {/* Text */}
-        <motion.div
-          {...textMotion}
-          className={`flex-1 ${isLeft ? 'md:pr-20 md:text-right' : 'md:pl-20'} px-4 md:px-0`}
-        >
-          <span
-            className="inline-block text-[10px] font-bold uppercase tracking-widest mb-3 px-3 py-1 rounded-full"
-            style={{ backgroundColor: `${accent}22`, color: accent }}
-          >
-            {badge}
-          </span>
-          <h3 className="text-2xl md:text-3xl font-black text-white leading-snug mb-4">{title}</h3>
-          <p className="text-white/45 leading-relaxed text-sm md:text-base max-w-sm">{body}</p>
-        </motion.div>
-
-        {/* Spacer for the line */}
-        <div className="hidden md:block w-20 shrink-0" />
-
-        {/* Visual */}
-        <motion.div
-          {...visualMotion}
-          className={`flex-1 flex ${isLeft ? 'md:justify-start' : 'md:justify-end'} px-4 md:px-0`}
-        >
-          <Visual />
-        </motion.div>
+    <div className="w-full max-w-sm rounded-lg bg-card border border-border p-5">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-text-muted text-[10px] font-medium">Diario de la educadora</span>
+        <span className="text-[10px] bg-brand-subtle text-brand px-2 py-0.5 rounded-full font-medium">
+          Viernes
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 mb-4">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <div key={n} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium ${
+                n < 5 ? 'bg-brand-subtle text-brand' : 'bg-brand text-white'
+              }`}
+            >
+              {n}
+            </div>
+            {n < 5 && <div className="h-px w-full bg-border" />}
+          </div>
+        ))}
+      </div>
+      <div className="rounded-md bg-inset p-3 mb-3">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Star size={11} className="text-brand" />
+          <span className="text-brand text-[10px] font-medium">Resumen con IA</span>
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-1.5 rounded-full bg-border w-full" />
+          <div className="h-1.5 rounded-full bg-border w-11/12" />
+          <div className="h-1.5 rounded-full bg-border w-4/5" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <span className="flex-1 text-center text-[10px] font-medium text-text-secondary bg-inset rounded-md py-2">
+          Descargar PDF
+        </span>
+        <span className="flex-1 text-center text-[10px] font-medium text-text-secondary bg-inset rounded-md py-2">
+          Compartir con mi escuela
+        </span>
       </div>
     </div>
+  )
+}
+
+// ── Gentle infinite float (keeps the page alive at rest) ──────────────────────
+
+function Float({
+  children,
+  reduced,
+  distance = 10,
+  duration = 4,
+  delay = 0,
+  className = '',
+}: {
+  children: React.ReactNode
+  reduced: boolean | null
+  distance?: number
+  duration?: number
+  delay?: number
+  className?: string
+}) {
+  return (
+    <motion.div
+      className={className}
+      animate={reduced ? {} : { y: [0, -distance, 0] }}
+      transition={{ duration, repeat: Infinity, ease: 'easeInOut', delay }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+// ── Feature chip (icon + 1-2 words, replaces bullet paragraphs) ───────────────
+
+function Chip({ Icon, label }: { Icon: typeof CheckCircle2; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand">
+      <Icon size={13} className="shrink-0" />
+      {label}
+    </span>
   )
 }
 
@@ -368,14 +521,12 @@ function MetricCard({
   suffix = '',
   label,
   sublabel,
-  accent,
   delay = 0,
 }: {
   value: number
   suffix?: string
   label: string
   sublabel: string
-  accent: string
   delay?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -385,529 +536,509 @@ function MetricCard({
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.55, delay }}
-      className="flex flex-col items-center text-center p-6 rounded-2xl border border-white/10 bg-white/5"
+      {...popIn(delay)}
+      className="flex flex-col items-center text-center p-6 rounded-lg border border-border bg-card"
     >
-      <span className="text-5xl md:text-6xl font-black mb-2 tabular-nums" style={{ color: accent }}>
+      <span className="font-display text-4xl md:text-5xl font-semibold mb-2 tabular-nums text-brand">
         {count}
         {suffix}
       </span>
-      <span className="text-white font-bold text-base">{label}</span>
-      <span className="text-white/35 text-xs mt-1">{sublabel}</span>
+      <span className="text-text-primary font-medium text-sm md:text-base">{label}</span>
+      <span className="text-text-muted text-xs mt-1">{sublabel}</span>
     </motion.div>
   )
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function LandingContent() {
-  const reduced = useReducedMotion()
+// Add the 2-3 pending quotes here (see docs/PROGRESS.md pending-assets) — dots appear at >1.
+const TESTIMONIALS = [
+  {
+    quote: 'Por fin tengo mis planeaciones listas el viernes.',
+    name: 'Alejandra M.',
+    role: 'Kinder 3 · CDMX',
+  },
+]
 
-  // Scroll-driven timeline character
-  const timelineRef = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({
-    target: timelineRef,
-    offset: ['start 85%', 'end 15%'],
-  })
-  const rawTop = useTransform(scrollYProgress, [0, 1], ['0%', '88%'])
-  const charTop = useSpring(rawTop, { stiffness: 60, damping: 18 })
+function TestimonialCarousel({ reduced }: { reduced: boolean | null }) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState(0)
+
+  function onScroll() {
+    const el = trackRef.current
+    if (!el) return
+    setActive(Math.round(el.scrollLeft / el.clientWidth))
+  }
 
   return (
-    <div className="min-h-screen text-white font-sans antialiased overflow-x-hidden">
+    <motion.div {...(reduced ? {} : popIn())}>
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        className={
+          TESTIMONIALS.length > 1
+            ? 'flex snap-x snap-mandatory overflow-x-auto scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : ''
+        }
+      >
+        {TESTIMONIALS.map((t) => (
+          <div key={t.name} className="w-full shrink-0 snap-center text-center px-1">
+            <div className="flex justify-center mb-5 text-brand">
+              <Star size={20} filled />
+            </div>
+            <blockquote className="font-display text-2xl md:text-3xl font-medium text-text-primary leading-snug mb-6">
+              &ldquo;{t.quote}&rdquo;
+            </blockquote>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-brand-subtle flex items-center justify-center text-brand font-medium text-sm">
+                {t.name[0]}
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-medium text-text-primary">{t.name}</p>
+                <p className="text-xs text-text-muted">{t.role}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {TESTIMONIALS.length > 1 && (
+        <div className="mt-6 flex justify-center gap-2">
+          {TESTIMONIALS.map((_, i) => (
+            <button
+              key={i}
+              aria-label={`Testimonio ${i + 1}`}
+              onClick={() =>
+                trackRef.current?.scrollTo({
+                  left: i * (trackRef.current?.clientWidth ?? 0),
+                  behavior: 'smooth',
+                })
+              }
+              className={`h-2 rounded-full transition-all cursor-pointer ${
+                i === active ? 'w-5 bg-brand' : 'w-2 bg-border-strong hover:bg-brand-light'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+const TRUST_ITEMS = [
+  { Icon: Star, label: 'NEM · SEP 2024' },
+  { Icon: CheckCircle2, label: 'Evaluación cualitativa' },
+  { Icon: Lock, label: 'Datos protegidos · LFPDPPP' },
+  { Icon: ShieldCheck, label: 'Nombres cifrados' },
+]
+
+export default function LandingContent() {
+  const reduced = useReducedMotion()
+  const heroRef = useRef<HTMLElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  })
+  // Subtle parallax on the hero visual cluster (depth as you scroll away).
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, 120])
+  // Hero exit: content gently fades/shrinks as you scroll into the page.
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.85], [1, 0.25])
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.965])
+
+  const page = (
+    <div className="min-h-screen bg-page text-text-primary font-sans antialiased overflow-x-hidden">
       {/* ── Floating nav ── */}
       <div className="fixed top-5 inset-x-0 z-50 flex justify-center px-4">
-        <nav className="w-full max-w-5xl flex items-center justify-between px-5 h-14 rounded-2xl bg-[#0d0b14]/80 backdrop-blur-md border border-white/10 shadow-xl">
-          <span className="font-black text-base text-white tracking-tight">MaestraIA</span>
-          <div className="hidden md:flex items-center gap-6 text-sm text-white/50 font-medium">
-            <a href="#plataforma" className="hover:text-white transition-colors cursor-pointer">
+        <nav className="w-full max-w-5xl flex items-center justify-between px-5 h-14 rounded-lg bg-card/90 backdrop-blur-md border border-border shadow-md">
+          <span className="font-display font-semibold text-base text-text-primary tracking-tight">
+            MaestraIA
+          </span>
+          <div className="hidden md:flex items-center gap-6 text-sm text-text-secondary font-medium">
+            <a
+              href="#plataforma"
+              className="hover:text-text-primary transition-colors cursor-pointer"
+            >
               La plataforma
             </a>
-            <a href="#para-quien" className="hover:text-white transition-colors cursor-pointer">
-              Para quién
+            <a
+              href="#como-funciona"
+              className="hover:text-text-primary transition-colors cursor-pointer"
+            >
+              Cómo funciona
             </a>
           </div>
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className="text-sm text-white/50 hover:text-white transition-colors px-3 py-2 cursor-pointer"
+              className="text-sm text-text-secondary hover:text-text-primary transition-colors px-3 py-2 cursor-pointer"
             >
               Entrar
             </Link>
-            <Link
-              href="/register"
-              className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-semibold transition-colors cursor-pointer"
+            {/* Secondary on purpose: the hero waitlist button is the one primary in view */}
+            <button
+              onClick={scrollToWaitlist}
+              className="text-sm font-display font-medium text-text-secondary border border-border-strong hover:bg-inset px-4 py-2 rounded-sm transition-colors active:scale-[0.98] cursor-pointer min-h-[40px]"
             >
-              Empezar gratis
-            </Link>
+              Reservar lugar
+            </button>
           </div>
         </nav>
       </div>
 
-      {/* ── Hero ── */}
-      <section className="relative min-h-screen flex items-center bg-[#0d0b14] overflow-hidden">
-        {/* Background blobs */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-600/20 blur-[140px]" />
-          <div className="absolute top-20 -right-40 w-[500px] h-[500px] rounded-full bg-violet-600/15 blur-[120px]" />
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[280px] rounded-full bg-sky-500/10 blur-[100px]" />
-        </div>
-        {/* Dot grid */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none opacity-[0.18]"
-          style={{
-            backgroundImage: 'radial-gradient(circle, #6366f1 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }}
+      {/* ── 1 · Hero — big promise, few words, floating visuals + parallax ── */}
+      <section
+        ref={heroRef}
+        className="relative min-h-screen flex items-center bg-page overflow-hidden"
+      >
+        <Star
+          size={22}
+          className="text-brand-light absolute top-[16%] right-[10%] hidden md:block"
+        />
+        <Star
+          size={14}
+          filled
+          className="text-brand-light absolute bottom-[20%] left-[6%] hidden md:block"
         />
 
-        <div className="relative z-10 max-w-6xl mx-auto px-4 pt-28 pb-16 w-full">
+        <motion.div
+          style={reduced ? undefined : { opacity: heroOpacity, scale: heroScale }}
+          className="relative z-10 max-w-6xl mx-auto px-4 pt-28 pb-16 w-full"
+        >
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Left — text */}
+            {/* Left — promise + waitlist */}
             <div>
               <motion.div {...(reduced ? {} : fadeUp(0))}>
-                <span className="inline-flex items-center gap-1.5 bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 tracking-wide">
-                  <Sparkles size={12} strokeWidth={2.5} />
-                  Para maestras de inglés en preescolar · NEM + PRONI 2024
+                <span className="inline-flex items-center gap-1.5 bg-brand-subtle text-brand text-xs font-medium px-4 py-1.5 rounded-full mb-8">
+                  <Star size={12} filled />
+                  Para maestras de preescolar · NEM 2024
                 </span>
               </motion.div>
 
               <motion.h1
                 {...(reduced ? {} : fadeUp(0.08))}
-                className="text-5xl sm:text-6xl font-black text-white leading-[1.06] tracking-tight"
+                className="font-display text-5xl lg:text-6xl font-semibold text-text-primary leading-[1.05] tracking-tight"
               >
-                Planea una quincena{' '}
-                <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent">
-                  en 30 minutos
-                </span>{' '}
-                — no en horas
+                Recupera <span className="text-brand">tus domingos.</span>
               </motion.h1>
 
               <motion.p
                 {...(reduced ? {} : fadeUp(0.16))}
-                className="mt-6 text-lg text-white/50 leading-relaxed max-w-lg"
+                className="mt-5 text-lg text-text-secondary max-w-md"
               >
-                MaestraIA genera planeaciones alineadas al NEM y PRONI, crea materiales didácticos
-                listos para imprimir, y da seguimiento a cada alumno — todo en un solo lugar.
+                Tu quincena, planeada en 10 minutos.
               </motion.p>
 
-              <motion.div
-                {...(reduced ? {} : fadeUp(0.22))}
-                className="mt-10 flex flex-col sm:flex-row gap-3"
-              >
-                <Link
-                  href="/register?type=teacher"
-                  className="group inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-7 py-3.5 rounded-2xl transition-all duration-200 shadow-lg shadow-indigo-900/60 hover:-translate-y-0.5 cursor-pointer"
-                >
-                  Soy maestra
-                  <ArrowRight
-                    size={16}
-                    className="group-hover:translate-x-0.5 transition-transform"
-                  />
-                </Link>
-                <Link
-                  href="/register?type=school"
-                  className="inline-flex items-center justify-center bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold px-7 py-3.5 rounded-2xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
-                >
-                  Soy directora / admin escolar
-                </Link>
+              <motion.div {...(reduced ? {} : fadeUp(0.24))} className="mt-9" id="waitlist">
+                <WaitlistForm />
               </motion.div>
 
-              <motion.div {...(reduced ? {} : fadeUp(0.3))} className="mt-8 flex flex-wrap gap-3">
-                {['< 30 min por planeación', 'NEM · SEP 2024', 'Compatible con Richmond LP'].map(
-                  (s) => (
-                    <span
-                      key={s}
-                      className="bg-white/8 border border-white/10 text-white/45 text-xs font-medium px-4 py-2 rounded-full"
-                    >
-                      {s}
-                    </span>
-                  )
-                )}
+              <motion.div {...(reduced ? {} : fadeUp(0.3))} className="mt-5">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-brand transition-colors cursor-pointer py-2"
+                >
+                  Ya tengo cuenta <ArrowRight size={14} />
+                </Link>
               </motion.div>
             </div>
 
-            {/* Right — character + speech bubble */}
+            {/* Right — floating mascot + product-card cluster, with scroll parallax */}
             <motion.div
-              {...(reduced
-                ? {}
-                : {
-                    initial: { opacity: 0, scale: 0.95 },
-                    animate: { opacity: 1, scale: 1 },
-                    transition: { duration: 0.7, delay: 0.3 },
-                  })}
-              className="hidden md:flex flex-col items-center justify-center relative min-h-[420px]"
+              style={reduced ? undefined : { y: heroY }}
+              className="hidden md:flex items-center justify-center relative min-h-[460px]"
             >
-              {/* Floating speech bubble */}
-              <motion.div
-                animate={reduced ? {} : { y: [0, -10, 0] }}
-                transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute top-4 left-4 right-16 flex justify-center"
-              >
-                <div className="bg-white text-gray-800 text-sm font-semibold px-5 py-3 rounded-2xl rounded-bl-sm shadow-xl max-w-[240px] text-center relative">
-                  ¡Hola! Te ayudo a planear tu quincena en minutos.
-                  <div className="absolute -bottom-2.5 left-6 w-5 h-5 bg-white rotate-45 rounded-sm" />
+              <Float reduced={reduced} distance={12} duration={5}>
+                <div className="w-52 h-52 rounded-full bg-brand-subtle border border-border flex items-center justify-center shadow-lg">
+                  <MascotPlaceholder size={156} />
                 </div>
-              </motion.div>
+              </Float>
+              {/* Drop a brand animation at public/lottie/hero.json and this lights up */}
+              <LottieAccent
+                src="/lottie/hero.json"
+                className="absolute -top-6 right-2 w-24 pointer-events-none"
+              />
 
-              {/* Character placeholder — REPLACE with <img> when asset is ready */}
-              <div className="mt-20 flex flex-col items-center gap-3">
-                <div className="w-56 h-56 rounded-3xl border-2 border-dashed border-violet-400/40 bg-violet-500/8 flex flex-col items-center justify-center gap-3 relative overflow-hidden">
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        'radial-gradient(circle at 50% 30%, rgba(99,102,241,0.2) 0%, transparent 65%)',
-                    }}
-                  />
-                  <GraduationCap size={44} className="text-violet-400/40" />
-                  <div className="text-center">
-                    <p className="text-violet-300/60 text-sm font-semibold">Personaje MaestraIA</p>
-                    <p className="text-violet-400/30 text-xs mt-0.5">Asset pendiente</p>
-                  </div>
+              <Float
+                reduced={reduced}
+                distance={9}
+                duration={4}
+                className="absolute -top-2 -left-2 w-44"
+              >
+                <div className="rounded-lg bg-card border border-border shadow-lg p-3 scale-[0.85] origin-top-left">
+                  <PlannerVisual />
                 </div>
-              </div>
+              </Float>
+
+              <Float
+                reduced={reduced}
+                distance={11}
+                duration={4.6}
+                delay={0.6}
+                className="absolute bottom-0 -right-2 w-44"
+              >
+                <div className="rounded-lg bg-card border border-border shadow-lg p-3 scale-[0.85] origin-bottom-right">
+                  <MaterialsVisual />
+                </div>
+              </Float>
             </motion.div>
           </div>
-        </div>
-      </section>
-
-      {/* ── Trust bar ── */}
-      <div className="bg-white border-y border-gray-100 py-5 px-4">
-        <div className="max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
-            Alineado con
-          </span>
-          {[
-            'Programa Sintético Fase 2, SEP 2024',
-            'PRONI',
-            '4 Campos Formativos',
-            'Richmond LP',
-          ].map((t) => (
-            <span key={t} className="text-sm font-bold text-gray-700 whitespace-nowrap">
-              {t}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Timeline section ── */}
-      <section id="plataforma" className="bg-[#0d0b14] py-24 px-4">
-        <div className="max-w-5xl mx-auto">
-          {/* Section header */}
-          <motion.div {...(reduced ? {} : fadeUp())} className="text-center mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400 mb-4 block">
-              La plataforma
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-              Todo lo que necesitas para enseñar mejor
-            </h2>
-            <p className="text-white/35 max-w-lg mx-auto">
-              Desde la planeación hasta el reporte trimestral, MaestraIA cubre cada etapa de tu
-              semana.
-            </p>
-          </motion.div>
-
-          {/* Scroll-driven timeline */}
-          <div ref={timelineRef} className="relative mt-20">
-            {/* Vertical gradient line */}
-            <div
-              aria-hidden
-              className="hidden md:block absolute left-1/2 -translate-x-px top-0 bottom-0 w-px"
-              style={{
-                background:
-                  'linear-gradient(to bottom, transparent 0%, #6366f1 6%, #8b5cf6 40%, #06b6d4 75%, #10b981 94%, transparent 100%)',
-              }}
-            />
-
-            {/* Scroll-progress fill overlay */}
-            <motion.div
-              aria-hidden
-              className="hidden md:block absolute left-1/2 -translate-x-px top-0 w-px bg-white/20 origin-top"
-              style={{ scaleY: scrollYProgress, height: '100%' }}
-            />
-
-            {/* Moving character avatar on the line */}
-            {!reduced && (
-              <motion.div
-                aria-hidden
-                className="hidden md:block absolute z-30 pointer-events-none"
-                style={{ left: 'calc(50% - 24px)', top: charTop }}
-              >
-                <CharacterAvatar size="sm" />
-              </motion.div>
-            )}
-
-            {/* Timeline stops */}
-            {STOPS.map((stop, i) => (
-              <TimelineStop key={i} stop={stop} index={i} reduced={reduced} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Metrics ── */}
-      <section className="bg-[#13111c] py-24 px-4 border-t border-white/5">
-        <motion.div {...(reduced ? {} : fadeUp())} className="text-center mb-14">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-4 block">
-            Por qué MaestraIA
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-black text-white">
-            Hecho específicamente para
-            <br className="hidden sm:block" /> maestras de preescolar en México
-          </h2>
         </motion.div>
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
+      </section>
+
+      {/* ── 2 · Stats band — big numbers, tiny labels ── */}
+      <section className="bg-card border-y border-border py-14 px-4">
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
           <MetricCard
-            value={30}
+            value={10}
             suffix=" min"
             label="Por planeación"
-            sublabel="vs horas manuales"
-            accent="#6366f1"
+            sublabel="antes: 4 horas"
             delay={0}
           />
           <MetricCard
-            value={10}
-            suffix=" días"
-            label="Por quincena"
-            sublabel="cubiertos en 1 clic"
-            accent="#8b5cf6"
+            value={8}
+            suffix="+"
+            label="Juegos y materiales"
+            sublabel="listos al instante"
             delay={0.08}
           />
-          <MetricCard
-            value={6}
-            suffix="+"
-            label="Tipos de materiales"
-            sublabel="imprimir o proyectar"
-            accent="#06b6d4"
-            delay={0.16}
-          />
+          <MetricCard value={4} label="Campos formativos" sublabel="PDAs textuales" delay={0.16} />
           <MetricCard
             value={100}
             suffix="%"
-            label="Alineación NEM"
-            sublabel="SEP 2024 + PRONI"
-            accent="#10b981"
+            label="Evaluación cualitativa"
+            sublabel="nunca números"
             delay={0.24}
           />
         </div>
       </section>
 
-      {/* ── Before / After ── */}
-      <section className="py-24 px-4 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <motion.div {...(reduced ? {} : fadeUp())} className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-black text-gray-950 mb-3">
-              Antes vs. con MaestraIA
-            </h2>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Así cambia tu semana cuando la planificación deja de ser el problema.
-            </p>
-          </motion.div>
-          <div className="grid sm:grid-cols-2 gap-5">
-            <motion.div
-              {...(reduced ? {} : fadeUp(0.05))}
-              className="rounded-3xl border border-gray-200 bg-gray-50 p-8"
-            >
-              <span className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6 block">
-                Antes
-              </span>
-              <div className="space-y-5">
-                {[
-                  '4 horas el domingo planificando',
-                  'Buscar el formato correcto cada quincena',
-                  'Calificaciones en Excel por separado',
-                  'Sin tiempo para preparar materiales',
-                ].map((t) => (
-                  <div key={t} className="flex items-start gap-4">
-                    <div className="mt-0.5 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                      <span className="text-gray-400 text-[10px] font-bold leading-none">✕</span>
-                    </div>
-                    <p className="text-gray-500 text-sm leading-relaxed line-through decoration-gray-300">
-                      {t}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-            <motion.div
-              {...(reduced ? {} : fadeUp(0.12))}
-              className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50 p-8 relative overflow-hidden"
-            >
-              <div
-                aria-hidden
-                className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-200/30 rounded-full blur-2xl"
-              />
-              <span className="text-xs font-bold uppercase tracking-widest text-indigo-500 mb-6 block">
-                Con MaestraIA
-              </span>
-              <div className="space-y-5">
-                {[
-                  'Plan completo en 30 minutos',
-                  'Tu formato, tu escuela, cada vez',
-                  'Richmond sincronizado automáticamente',
-                  'Materiales generados en automático',
-                ].map((t) => (
-                  <div key={t} className="flex items-start gap-4">
-                    <CheckCircle2 size={20} className="text-indigo-500 shrink-0 mt-0.5" />
-                    <p className="text-gray-800 text-sm leading-relaxed font-medium">{t}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Testimonial ── */}
-      <section className="py-16 px-4 bg-white">
-        <div className="max-w-2xl mx-auto">
+      {/* ── 3 · "Todo tu trabajo, en un lugar" — 3 big visuals, one line each ── */}
+      <section id="plataforma" className="bg-page py-20 md:py-28 px-4">
+        <div className="max-w-6xl mx-auto">
+          <StaggerTitle
+            text="Todo tu trabajo, en un lugar."
+            reduced={reduced}
+            className="font-display text-3xl md:text-4xl font-semibold text-text-primary text-center mb-14"
+          />
           <motion.div
-            {...(reduced ? {} : fadeUp())}
-            className="rounded-3xl bg-gray-50 border border-gray-100 p-10 text-center"
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: '-60px' }}
+            variants={{ show: { transition: { staggerChildren: 0.12 } } }}
+            className="grid md:grid-cols-3 gap-8"
           >
-            <div className="flex justify-center gap-0.5 mb-5">
-              {[...Array(5)].map((_, i) => (
-                <svg key={i} width="18" height="18" viewBox="0 0 24 24" fill="#FBBF24">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-              ))}
-            </div>
-            <blockquote className="text-xl font-semibold text-gray-900 leading-relaxed mb-6">
-              &ldquo;Por fin tengo mis planeaciones listas el viernes — antes me quedaba hasta las
-              11pm del domingo. MaestraIA entiende exactamente lo que necesito.&rdquo;
-            </blockquote>
-            <div className="flex items-center justify-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
-                A
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-gray-900">Alejandra M.</p>
-                <p className="text-xs text-gray-400">Maestra de Kinder 3 · CDMX</p>
-              </div>
-            </div>
+            {[
+              { V: PlannerVisual, t: 'Planeaciones NEM', d: 'Con tu formato, en tu voz.' },
+              {
+                V: MaterialsVisual,
+                t: 'Juegos y materiales',
+                d: 'Listos para proyectar o jugar en casa.',
+              },
+              {
+                V: DiaryVisual,
+                t: 'Diario de la educadora',
+                d: 'Redactado por ti, resumido por la IA.',
+              },
+            ].map(({ V, t, d }) => (
+              <motion.div
+                key={t}
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
+                }}
+                className="flex flex-col items-center text-center gap-5"
+              >
+                <Float reduced={reduced} distance={7} duration={4.5}>
+                  <div className="rounded-lg bg-card border border-border shadow-md p-4">
+                    <V />
+                  </div>
+                </Float>
+                <div>
+                  <h3 className="font-display text-lg font-medium text-text-primary">{t}</h3>
+                  <p className="text-sm text-text-secondary mt-1">{d}</p>
+                </div>
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </section>
 
-      {/* ── Dual CTA ── */}
-      <section id="para-quien" className="py-24 px-4 bg-[#0d0b14]">
-        <div className="max-w-4xl mx-auto">
-          <motion.div {...(reduced ? {} : fadeUp())} className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">¿Quién eres tú?</h2>
-            <p className="text-white/35">
-              Elige tu cuenta y empieza hoy. Gratis, sin tarjeta de crédito.
+      {/* ── 4 · Spotlight: Planeaciones — large visual slides in + chips ── */}
+      <section className="bg-inset py-20 md:py-28 px-4">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-12">
+          <motion.div {...(reduced ? {} : fadeUp())} className="flex-1">
+            <StaggerTitle
+              text="Habla NEM de verdad."
+              reduced={reduced}
+              className="font-display text-3xl md:text-4xl font-semibold text-text-primary leading-tight"
+            />
+            <p className="mt-4 text-text-secondary max-w-md">
+              PDAs oficiales, citados textualmente. Nada que tu directora vaya a tachar.
             </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Chip Icon={CheckCircle2} label="PDAs verbatim" />
+              <Chip Icon={FileText} label="Tu formato" />
+              <Chip Icon={ShieldCheck} label="Fichero de la Paz" />
+              <Chip Icon={Download} label="Word y PDF" />
+            </div>
           </motion.div>
-          <div className="grid sm:grid-cols-2 gap-5">
-            {/* Teacher */}
-            <motion.div
-              {...(reduced ? {} : fadeUp(0.05))}
-              className="rounded-3xl border border-indigo-500/30 bg-indigo-500/10 p-8 flex flex-col"
-            >
-              <span className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-2">
-                Para maestras
-              </span>
-              <h3 className="text-2xl font-black text-white mt-1 mb-2">Cuenta individual</h3>
-              <p className="text-white/40 text-sm mb-6">
-                Regístrate sola y empieza a crear planeaciones para tu grupo en minutos.
-              </p>
-              <div className="space-y-2.5 mb-8 flex-1">
-                {[
-                  'Planeaciones quincenales y talleres',
-                  'Materiales didácticos con IA',
-                  'Diario semanal de observaciones',
-                  'Exportación en Word y PDF',
-                  'Integración Richmond LP',
-                ].map((f) => (
-                  <div key={f} className="flex items-center gap-3 text-sm text-white/65">
-                    <CheckCircle2 size={15} className="text-indigo-400 shrink-0" />
-                    {f}
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/register?type=teacher"
-                className="w-full text-center block bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3.5 rounded-2xl transition-all duration-200 hover:-translate-y-0.5 shadow-lg shadow-indigo-900/50 cursor-pointer"
-              >
-                Comenzar gratis
-              </Link>
-            </motion.div>
+          <motion.div
+            {...(reduced ? {} : slideIn(56, 0.1))}
+            className="flex-1 flex justify-center md:justify-end w-full"
+          >
+            <Drift reduced={reduced} distance={32}>
+              <Float reduced={reduced} distance={9} duration={5}>
+                <div className="rounded-lg bg-card border border-border shadow-lg p-4 md:scale-110">
+                  <PlannerVisual />
+                </div>
+              </Float>
+            </Drift>
+          </motion.div>
+        </div>
+      </section>
 
-            {/* School */}
-            <motion.div
-              {...(reduced ? {} : fadeUp(0.12))}
-              className="rounded-3xl border border-white/10 bg-white/5 p-8 flex flex-col"
-            >
-              <span className="text-xs font-bold uppercase tracking-widest text-white/30 mb-2">
-                Para escuelas
+      {/* ── 5 · Spotlight: Materiales — playful visual floats ── */}
+      <section className="bg-page py-20 md:py-28 px-4">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row-reverse items-center gap-12">
+          <motion.div {...(reduced ? {} : fadeUp())} className="flex-1">
+            <StaggerTitle
+              text="Juegos, en un clic."
+              reduced={reduced}
+              className="font-display text-3xl md:text-4xl font-semibold text-text-primary leading-tight"
+            />
+            <p className="mt-4 text-text-secondary max-w-md">
+              Con el vocabulario de tu quincena. Para peques que aún no leen.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Chip Icon={Play} label="Proyéctalos en clase" />
+              <Chip Icon={Link2} label="Comparte con un enlace" />
+              <Chip Icon={Ear} label="Con imagen y audio" />
+            </div>
+          </motion.div>
+          <motion.div
+            {...(reduced ? {} : slideIn(-56, 0.1))}
+            className="flex-1 flex justify-center md:justify-start w-full"
+          >
+            <Drift reduced={reduced} distance={32}>
+              <Float reduced={reduced} distance={11} duration={4.4}>
+                <div className="rounded-lg bg-card border border-border shadow-lg p-4 md:scale-110">
+                  <MaterialsVisual />
+                </div>
+              </Float>
+            </Drift>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── 6 · Trust strip — infinite marquee (static wrap under reduced motion) ── */}
+      <section className="bg-card border-y border-border py-10 overflow-hidden">
+        {reduced ? (
+          <div className="max-w-4xl mx-auto px-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+            {TRUST_ITEMS.map(({ Icon, label }) => (
+              <span
+                key={label}
+                className="inline-flex items-center gap-2 text-sm text-text-secondary"
+              >
+                <Icon size={16} className="text-brand shrink-0" />
+                {label}
               </span>
-              <h3 className="text-2xl font-black text-white mt-1 mb-2">Cuenta institucional</h3>
-              <p className="text-white/40 text-sm mb-6">
-                Crea una cuenta para tu escuela, gestiona maestras e invita a tu equipo.
-              </p>
-              <div className="space-y-2.5 mb-8 flex-1">
-                {[
-                  'Todo lo de la cuenta individual',
-                  'Gestión de múltiples maestras',
-                  'Anuncios y recursos compartidos',
-                  'Panel de seguimiento escolar',
-                  'Coordinación entre grupos',
-                ].map((f) => (
-                  <div key={f} className="flex items-center gap-3 text-sm text-white/65">
-                    <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                    {f}
-                  </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex w-max [animation:marquee_26s_linear_infinite]">
+            {/* Two identical halves → translateX(-50%) loops seamlessly */}
+            {[0, 1].map((half) => (
+              <div
+                key={half}
+                className="flex shrink-0 items-center gap-x-12 pr-12"
+                aria-hidden={half === 1}
+              >
+                {/* set ×3 per half so the track is wider than any viewport */}
+                {[...TRUST_ITEMS, ...TRUST_ITEMS, ...TRUST_ITEMS].map(({ Icon, label }, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-2 text-sm text-text-secondary whitespace-nowrap"
+                  >
+                    <Icon size={16} className="text-brand shrink-0" />
+                    {label}
+                  </span>
                 ))}
               </div>
-              <Link
-                href="/register?type=school"
-                className="w-full text-center block bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold py-3.5 rounded-2xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
-              >
-                Crear cuenta institucional
-              </Link>
-            </motion.div>
+            ))}
           </div>
+        )}
+      </section>
+
+      {/* ── 7 · Testimonials — snap carousel (dots appear when more quotes land) ── */}
+      <section className="py-20 md:py-24 px-4 bg-inset">
+        <div className="max-w-2xl mx-auto">
+          <TestimonialCarousel reduced={reduced} />
+        </div>
+      </section>
+
+      {/* ── 8 · Final CTA — few words + waitlist ── */}
+      <section className="py-20 md:py-28 px-4 bg-page">
+        <div className="max-w-xl mx-auto text-center flex flex-col items-center">
+          <StaggerTitle
+            text="Este domingo, no planees."
+            reduced={reduced}
+            className="font-display text-3xl sm:text-4xl font-semibold text-text-primary mb-8"
+          />
+          <motion.div {...(reduced ? {} : fadeUp(0.1))} className="w-full flex justify-center">
+            <WaitlistForm />
+          </motion.div>
+          <motion.div {...(reduced ? {} : fadeUp(0.18))} className="mt-5">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-brand transition-colors cursor-pointer py-2"
+            >
+              Ya tengo cuenta <ArrowRight size={14} />
+            </Link>
+          </motion.div>
         </div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-white/8 py-10 px-4 bg-[#0d0b14]">
+      <footer className="border-t border-border py-10 px-4 bg-page">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex flex-col items-center sm:items-start gap-1">
-            <span className="font-black text-white">MaestraIA</span>
-            <span className="text-xs text-white/25">Hecho para maestras de México</span>
+            <span className="font-display font-medium text-text-primary">MaestraIA</span>
+            <span className="text-xs text-text-muted">
+              Hecho para maestras de México · © 2026 MaestraIA
+            </span>
           </div>
-          <div className="flex flex-wrap justify-center gap-6 text-sm text-white/30">
-            <Link
-              href="/privacidad"
-              className="hover:text-white/60 transition-colors cursor-pointer"
-            >
-              Aviso de Privacidad
+          <div className="flex flex-wrap justify-center gap-6 text-sm text-text-muted">
+            <Link href="/privacidad" className="hover:text-brand transition-colors cursor-pointer">
+              Aviso de privacidad
             </Link>
-            <Link href="/terminos" className="hover:text-white/60 transition-colors cursor-pointer">
-              Términos de Servicio
+            <Link href="/terminos" className="hover:text-brand transition-colors cursor-pointer">
+              Términos de servicio
             </Link>
-            <Link href="/login" className="hover:text-white/60 transition-colors cursor-pointer">
+            <Link href="/login" className="hover:text-brand transition-colors cursor-pointer">
               Iniciar sesión
             </Link>
           </div>
         </div>
       </footer>
 
-      {/* ── Fixed floating character (bottom-right corner) ── */}
-      {/* Replace CharacterAvatar with <img> when asset is ready */}
+      {/* ── Fixed floating mascot (bottom-right corner) ── */}
+      {/* PLACEHOLDER: replace CharacterAvatar's SVG with the real illustration when ready */}
       <motion.div
         className="fixed bottom-6 right-6 z-40 pointer-events-none"
         initial={{ opacity: 0, scale: 0.5, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 1.5 }}
       >
-        <CharacterAvatar size="sm" />
+        <CharacterAvatar />
       </motion.div>
     </div>
+  )
+
+  // Lenis smooth scroll wraps the landing only (the app keeps native scrolling).
+  if (reduced) return page
+  return (
+    <ReactLenis root options={{ duration: 1.1 }}>
+      {page}
+    </ReactLenis>
   )
 }
