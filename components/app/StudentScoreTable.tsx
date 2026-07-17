@@ -114,11 +114,11 @@ export function StudentScoreTable({ assignments, studentName }: StudentScoreTabl
             {sortedAssignments.map((assignment, index) => {
               const qualitativeColorClass =
                 {
-                  Logrado: 'bg-green-100 text-green-700 border-green-200',
-                  'En proceso': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                  'Requiere apoyo': 'bg-orange-100 text-orange-700 border-orange-200',
-                  'Sin evaluar': 'bg-gray-100 text-gray-700 border-gray-200',
-                }[assignment.qualitative] || 'bg-gray-100 text-gray-700 border-gray-200'
+                  Logrado: 'bg-success-light text-success-text border-success/30',
+                  'En proceso': 'bg-warning-light text-warning-text border-warning/30',
+                  'Requiere apoyo': 'bg-error-light text-error-text border-error/30',
+                  'Sin evaluar': 'bg-inset text-text-secondary border-border',
+                }[assignment.qualitative] || 'bg-inset text-text-secondary border-border'
 
               return (
                 <tr key={index} className="border-b border-border hover:bg-muted/50">

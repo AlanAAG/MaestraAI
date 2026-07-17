@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { X, Sparkles, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { DifficultySelector, type Difficulty } from '@/components/app/materials/DifficultySelector'
+import { celebrateWarm } from '@/lib/ui/celebrate'
 
 type LetterActivityType = 'hear_and_circle' | 'match_to_letter' | 'trace_and_say'
 const LETTER_ACTIVITY_OPTIONS: { id: LetterActivityType; label: string; sub: string }[] = [
@@ -72,12 +73,12 @@ function OptionPanel({
   children: React.ReactNode
 }) {
   return (
-    <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+    <div className="mb-4 rounded-lg border border-brand/30 bg-brand-subtle p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="rounded-md bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">
+        <span className="rounded-md bg-brand px-2 py-0.5 text-xs font-semibold text-white">
           {game}
         </span>
-        {hint && <span className="text-xs font-medium text-indigo-900/70">{hint}</span>}
+        {hint && <span className="text-xs font-medium text-brand/70">{hint}</span>}
       </div>
       {children}
     </div>
@@ -232,6 +233,7 @@ export function MaterialGenerator({
 
       setSuccess(true)
       setCurrentPhase('¡Listo! Tus materiales están listos')
+      celebrateWarm()
       await new Promise((r) => setTimeout(r, 1500))
       onSuccess()
     } catch (err) {
@@ -255,18 +257,18 @@ export function MaterialGenerator({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <Card className="w-full max-w-lg bg-white p-6 max-h-[90vh] overflow-y-auto">
+      <Card className="w-full max-w-lg bg-card p-6 max-h-[90vh] overflow-y-auto">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Crear Materiales</h2>
-            <p className="mt-1 text-sm text-gray-600">
+            <h2 className="text-xl font-semibold text-text-primary">Crear Materiales</h2>
+            <p className="mt-1 text-sm text-text-secondary">
               Selecciona qué materiales crear para esta clase
             </p>
           </div>
           {!generating && (
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-text-muted hover:text-text-secondary"
               aria-label="Cerrar"
             >
               <X className="h-5 w-5" />
@@ -285,10 +287,10 @@ export function MaterialGenerator({
                     key={option.id}
                     className={`flex flex-col gap-1 rounded-lg border p-3 cursor-pointer transition-colors ${
                       option.disabled
-                        ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                        ? 'border-border bg-inset opacity-50 cursor-not-allowed'
                         : checked
-                          ? 'border-primary bg-primary/5'
-                          : 'border-gray-200 hover:bg-gray-50'
+                          ? 'border-brand bg-brand-subtle'
+                          : 'border-border hover:bg-inset'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -297,9 +299,9 @@ export function MaterialGenerator({
                         onCheckedChange={() => toggle(option.id)}
                         disabled={option.disabled}
                       />
-                      <span className="text-xs text-gray-400">{option.eta}</span>
+                      <span className="text-xs text-text-muted">{option.eta}</span>
                     </div>
-                    <span className="text-sm font-medium text-gray-900 leading-tight">
+                    <span className="text-sm font-medium text-text-primary leading-tight">
                       {option.label}
                     </span>
                   </label>
@@ -310,7 +312,7 @@ export function MaterialGenerator({
             {/* YouTube URL input */}
             {needsUrl && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   URL del video de YouTube
                 </label>
                 <Input
@@ -319,7 +321,7 @@ export function MaterialGenerator({
                   placeholder="https://www.youtube.com/watch?v=..."
                   className="min-h-[44px]"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-text-muted mt-1">
                   Solo videos públicos con subtítulos disponibles
                 </p>
               </div>
@@ -343,12 +345,12 @@ export function MaterialGenerator({
                       onClick={() => setLetterActivityType(opt.id)}
                       className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors text-center ${
                         letterActivityType === opt.id
-                          ? 'border-indigo-500 bg-indigo-100 text-indigo-900 font-semibold'
-                          : 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50'
+                          ? 'border-brand bg-brand-subtle text-brand font-semibold'
+                          : 'border-border bg-card text-text-secondary hover:bg-inset'
                       }`}
                     >
                       <div className="font-medium">{opt.label}</div>
-                      <div className="text-indigo-400 text-xs mt-0.5">{opt.sub}</div>
+                      <div className="text-text-muted text-xs mt-0.5">{opt.sub}</div>
                     </button>
                   ))}
                 </div>
@@ -370,12 +372,12 @@ export function MaterialGenerator({
                       onClick={() => setMemoryPairs(opt.pairs)}
                       className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors text-center ${
                         memoryPairs === opt.pairs
-                          ? 'border-indigo-500 bg-indigo-100 text-indigo-900 font-semibold'
-                          : 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50'
+                          ? 'border-brand bg-brand-subtle text-brand font-semibold'
+                          : 'border-border bg-card text-text-secondary hover:bg-inset'
                       }`}
                     >
                       <div className="font-medium">{opt.label}</div>
-                      <div className="text-indigo-400 text-xs mt-0.5">{opt.sub}</div>
+                      <div className="text-text-muted text-xs mt-0.5">{opt.sub}</div>
                     </button>
                   ))}
                 </div>
@@ -387,7 +389,7 @@ export function MaterialGenerator({
               <OptionPanel game="Bingo" hint="Tarjetas">
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
                       Número de tarjetas: <strong>{cardCount}</strong>
                     </label>
                     <input
@@ -398,7 +400,7 @@ export function MaterialGenerator({
                       onChange={(e) => setCardCount(Number(e.target.value))}
                       className="w-full"
                     />
-                    <div className="flex justify-between text-xs text-gray-400">
+                    <div className="flex justify-between text-xs text-text-muted">
                       <span>1</span>
                       <span>35</span>
                     </div>
@@ -410,14 +412,14 @@ export function MaterialGenerator({
                       onChange={(e) => setFreeSpace(e.target.checked)}
                       className="h-4 w-4"
                     />
-                    <span className="text-sm text-gray-700">Casilla FREE en el centro</span>
+                    <span className="text-sm text-text-secondary">Casilla FREE en el centro</span>
                   </label>
                 </div>
               </OptionPanel>
             )}
 
             {error && (
-              <div className="mb-4 flex items-start space-x-2 rounded-lg bg-red-50 p-3 text-red-800">
+              <div className="mb-4 flex items-start space-x-2 rounded-lg bg-error-light p-3 text-error-text">
                 <AlertCircle className="h-5 w-5 flex-shrink-0" />
                 <p className="text-sm">{error}</p>
               </div>
@@ -430,7 +432,7 @@ export function MaterialGenerator({
               <Button
                 onClick={handleGenerate}
                 disabled={selectedCount === 0}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-brand hover:bg-brand-hover"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
                 Crear materiales ({selectedCount})
@@ -441,18 +443,18 @@ export function MaterialGenerator({
 
         {generating && (
           <div className="py-8 flex flex-col items-center space-y-4">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-            <p className="font-medium text-gray-900">{currentPhase}</p>
+            <Loader2 className="h-12 w-12 animate-spin text-brand" />
+            <p className="font-medium text-text-primary">{currentPhase}</p>
           </div>
         )}
 
         {success && (
           <div className="py-8 flex flex-col items-center space-y-4">
-            <div className="rounded-full bg-green-100 p-3">
-              <CheckCircle className="h-12 w-12 text-green-600" />
+            <div className="rounded-full bg-success-light p-3">
+              <CheckCircle className="h-12 w-12 text-success" />
             </div>
-            <p className="font-medium text-gray-900">{currentPhase}</p>
-            <p className="text-sm text-gray-600">Los materiales están listos para usar</p>
+            <p className="font-medium text-text-primary">{currentPhase}</p>
+            <p className="text-sm text-text-secondary">Los materiales están listos para usar</p>
           </div>
         )}
       </Card>

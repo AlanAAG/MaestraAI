@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTeacherFirstName } from '@/components/app/TeacherContext'
 import { createClient } from '@/lib/supabase/client'
 import { ZeroState } from '@/components/app/ZeroState'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ interface LoadingState {
 
 export default function AlumnosPage() {
   const router = useRouter()
+  const firstName = useTeacherFirstName()
   const [students, setStudents] = useState<Student[]>([])
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [groups, setGroups] = useState<Group[]>([])
@@ -198,7 +200,7 @@ export default function AlumnosPage() {
           <div className="h-10 w-48 rounded-lg bg-muted animate-pulse" />
           <div className="h-10 flex-1 rounded-lg bg-muted animate-pulse" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="p-6">
               <div className="space-y-3">
@@ -247,7 +249,7 @@ export default function AlumnosPage() {
       <div className="p-8">
         <ZeroState
           icon={Users}
-          title="No hay alumnos registrados"
+          title={`Aún no tienes alumnos${firstName ? `, ${firstName}` : ''}`}
           description="Agrega estudiantes desde Configuración o sincroniza con Richmond para verlos aquí"
           ctaLabel="Ir a Configuración"
           onCta={() => router.push('/configuracion')}
@@ -335,7 +337,7 @@ export default function AlumnosPage() {
           <p>No se encontraron alumnos con esos filtros</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {filteredStudents.map((student, index) => (
             <motion.div
               key={student.id}

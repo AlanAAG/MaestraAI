@@ -324,11 +324,11 @@ export default function RichmondDashboard() {
       </div>
 
       {sessionExpired && (
-        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
-          <AlertCircle size={20} className="text-red-600 mt-0.5 shrink-0" />
+        <div className="mb-6 p-4 rounded-xl bg-error-light border border-error flex items-start gap-3">
+          <AlertCircle size={20} className="text-error mt-0.5 shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-red-800">Sesión de Richmond expirada</p>
-            <p className="text-sm text-red-700 mt-1">
+            <p className="text-sm font-semibold text-error-text">Sesión de Richmond expirada</p>
+            <p className="text-sm text-error-text mt-1">
               Para volver a sincronizar:{' '}
               <a
                 href="https://richmondlp.com"
@@ -347,11 +347,11 @@ export default function RichmondDashboard() {
 
       {/* Extension linkage banner — only shown when no assignment data has ever been synced */}
       {!loading && groups.length > 0 && overview.length === 0 && !sessionExpired && (
-        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
-          <PuzzleIcon size={20} className="text-amber-600 mt-0.5 shrink-0" />
+        <div className="mb-6 p-4 rounded-xl bg-warning-light border border-warning flex items-start gap-3">
+          <PuzzleIcon size={20} className="text-warning mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">Extensión no configurada</p>
-            <p className="text-sm text-amber-700 mt-0.5">
+            <p className="text-sm font-semibold text-warning-text">Extensión no configurada</p>
+            <p className="text-sm text-warning-text mt-0.5">
               Abre la extensión de MaestraIA en Chrome, inicia sesión en richmondlp.com y sincroniza
               tu Markbook para vincular tus grupos.
             </p>
@@ -459,16 +459,10 @@ export default function RichmondDashboard() {
                 >
                   {g.richmond_group_name || g.name}
                   {linked ? (
-                    <CheckCircle2
-                      size={14}
-                      className={active ? 'text-white/80' : 'text-green-500'}
-                    />
+                    <CheckCircle2 size={14} className={active ? 'text-white/80' : 'text-success'} />
                   ) : (
                     <span title="Grupo sin vincular — abre la extensión">
-                      <PuzzleIcon
-                        size={14}
-                        className={active ? 'text-white/70' : 'text-amber-400'}
-                      />
+                      <PuzzleIcon size={14} className={active ? 'text-white/70' : 'text-warning'} />
                     </span>
                   )}
                 </button>
@@ -672,7 +666,7 @@ export default function RichmondDashboard() {
                         </td>
                         <td className="py-2 px-2 text-center">
                           <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${s.done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+                            className={`text-xs px-2 py-0.5 rounded-full ${s.done ? 'bg-success-light text-success-text' : 'bg-inset text-text-muted'}`}
                           >
                             {s.done ? 'Entregado' : 'Pendiente'}
                           </span>
@@ -771,7 +765,7 @@ export default function RichmondDashboard() {
                         </td>
                         <td className="py-2 px-2 text-center">
                           <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${s.done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+                            className={`text-xs px-2 py-0.5 rounded-full ${s.done ? 'bg-success-light text-success-text' : 'bg-inset text-text-muted'}`}
                           >
                             {s.done ? 'Entregado' : 'Pendiente'}
                           </span>

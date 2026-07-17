@@ -354,7 +354,7 @@ export default function StudentDetailPage() {
               <h1 className="text-3xl font-semibold text-text-primary">{student.name}</h1>
               {student.has_nee && (
                 <span
-                  className="text-xs px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200"
+                  className="text-xs px-3 py-1.5 rounded-full bg-info-light text-info-text border border-info"
                   title="Estudiante con Necesidades Educativas Especiales"
                 >
                   NEE
@@ -390,7 +390,7 @@ export default function StudentDetailPage() {
             )}
             <Button variant="outline" onClick={() => setShowEmailForm((v) => !v)} className="gap-2">
               {emailSaved ? (
-                <CheckCircle2 size={18} className="text-green-500" />
+                <CheckCircle2 size={18} className="text-success" />
               ) : (
                 <Mail size={18} />
               )}
@@ -406,7 +406,7 @@ export default function StudentDetailPage() {
         {showEmailForm && (
           <div className="mt-5 space-y-3 border-t border-border pt-5">
             {/* Papás vs Alumno — the Alumno option prefills the student's name. */}
-            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+            <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
               {(['parent', 'student'] as const).map((t) => (
                 <button
                   key={t}
@@ -415,7 +415,7 @@ export default function StudentDetailPage() {
                     setContactType(t)
                     setParentName(t === 'student' ? student.name : '')
                   }}
-                  className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${contactType === t ? 'bg-primary text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${contactType === t ? 'bg-primary text-white' : 'text-text-secondary hover:text-text-primary'}`}
                 >
                   {t === 'parent' ? 'Correo papás' : 'Correo alumno'}
                 </button>
@@ -486,7 +486,7 @@ export default function StudentDetailPage() {
             {savingNee ? 'Guardando…' : 'Guardar'}
           </Button>
           {neeSaved && (
-            <span className="text-sm text-green-600 flex items-center gap-1">
+            <span className="text-sm text-success-text flex items-center gap-1">
               <CheckCircle2 size={16} /> Guardado
             </span>
           )}

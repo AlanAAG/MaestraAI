@@ -22,12 +22,12 @@ export function DifficultySelector({ value, onChange }: DifficultySelectorProps)
           onClick={() => onChange(opt.id)}
           className={`flex-1 rounded-lg border px-3 py-2 text-left transition-colors ${
             value === opt.id
-              ? 'border-blue-500 bg-blue-50 text-blue-900'
-              : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+              ? 'border-brand bg-brand-subtle text-brand'
+              : 'border-border bg-card text-text-secondary hover:bg-inset'
           }`}
         >
           <div className="text-sm font-medium">{opt.label}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{opt.sub}</div>
+          <div className="text-xs text-text-muted mt-0.5">{opt.sub}</div>
         </button>
       ))}
     </div>

@@ -5,20 +5,73 @@
 
 @layer base {
   :root {
-    /* Color tokens */
-    --color-primary: #4f6af0;
-    --color-primary-light: #eef1fe;
-    --color-primary-dark: #3451c7;
-    --color-accent: #f5a623;
-    --color-success: #22c55e;
-    --color-warning: #f59e0b;
-    --color-destructive: #ef4444;
-    --color-bg: #fafbfc;
-    --color-surface: #ffffff;
-    --color-border: #e4e7ec;
-    --color-text-primary: #111827;
-    --color-text-secondary: #6b7280;
-    --color-text-disabled: #d1d5db;
+    /* ============================================================
+       La Maestra design tokens — source: MAESTRA_DESIGN_SYSTEM.md
+       ============================================================ */
+
+    /* Surfaces */
+    --color-page: #faf7f2;
+    --color-card: #ffffff;
+    --color-inset: #f3ede4;
+    --color-overlay: rgba(61, 52, 39, 0.4);
+
+    /* Brand gold (from logo linework) */
+    --color-brand: #b8860b;
+    --color-brand-hover: #c9973c;
+    --color-brand-light: #deba6f;
+    --color-brand-subtle: #fdf3e4;
+
+    /* Text */
+    --color-text-primary: #3d3427;
+    --color-text-secondary: #5c4e3c;
+    --color-text-muted: #8a7d6b;
+    --color-text-on-brand: #ffffff;
+
+    /* Borders */
+    --color-border: #e8e2d9;
+    --color-border-strong: #d4ccc0;
+    --color-border-stronger: #c2b9ab;
+
+    /* Semantic: success */
+    --color-success: #2d7d5f;
+    --color-success-light: #ebf5f0;
+    --color-success-text: #1b5e45;
+
+    /* Semantic: warning */
+    --color-warning: #c17817;
+    --color-warning-light: #fdf3e4;
+    --color-warning-text: #8a5610;
+
+    /* Semantic: error */
+    --color-error: #c0392b;
+    --color-error-light: #fdeeec;
+    --color-error-text: #922b20;
+
+    /* Semantic: info */
+    --color-info: #2e6b8a;
+    --color-info-light: #e9f1f5;
+    --color-info-text: #1d4f68;
+
+    /* Shadows (warm-tinted, not gray) */
+    --shadow-sm: 0 1px 2px rgba(61, 52, 39, 0.06);
+    --shadow-md: 0 2px 8px rgba(61, 52, 39, 0.08);
+    --shadow-lg: 0 8px 24px rgba(61, 52, 39, 0.12);
+
+    /* Radius */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-full: 9999px;
+
+    /* Legacy token aliases — existing semantic classes resolve to the new palette */
+    --color-primary: var(--color-brand);
+    --color-primary-light: var(--color-brand-subtle);
+    --color-primary-dark: var(--color-brand-hover);
+    --color-accent: var(--color-brand-light);
+    --color-destructive: var(--color-error);
+    --color-bg: var(--color-page);
+    --color-surface: var(--color-card);
+    --color-text-disabled: var(--color-border-stronger);
 
     /* Spacing tokens (8pt grid) */
     --space-1: 4px;
@@ -32,36 +85,36 @@
 
     /* Typography scale */
     --type-display-size: 32px;
-    --type-heading-1-size: 24px;
-    --type-heading-2-size: 20px;
-    --type-heading-3-size: 16px;
-    --type-body-size: 16px;
+    --type-heading-1-size: 28px;
+    --type-heading-2-size: 22px;
+    --type-heading-3-size: 18px;
+    --type-body-size: 15px;
     --type-body-sm-size: 14px;
-    --type-caption-size: 12px;
+    --type-caption-size: 13px;
     --type-label-size: 13px;
-    --type-button-size: 15px;
+    --type-button-size: 14px;
 
     /* shadcn/ui HSL compatibility (keep these — shadcn components use them) */
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
+    --background: 38 44% 96%; /* page #FAF7F2 */
+    --foreground: 35 22% 20%; /* text-primary #3D3427 */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 228 86% 63%;
+    --card-foreground: 35 22% 20%;
+    --border: 36 25% 88%; /* #E8E2D9 */
+    --input: 36 25% 88%;
+    --ring: 43 89% 38%; /* brand #B8860B */
     --radius: 0.75rem;
-    --primary: 228 86% 63%;
+    --primary: 43 89% 38%; /* brand #B8860B */
     --primary-foreground: 0 0% 100%;
-    --secondary: 229 93% 97%;
-    --secondary-foreground: 228 86% 47%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 35 95% 55%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --secondary: 36 86% 94%; /* brand-subtle #FDF3E4 */
+    --secondary-foreground: 43 89% 38%;
+    --muted: 36 38% 92%; /* inset #F3EDE4 */
+    --muted-foreground: 35 13% 48%; /* text-muted #8A7D6B */
+    --accent: 36 38% 92%; /* inset — hover surfaces */
+    --accent-foreground: 35 22% 20%;
+    --destructive: 6 63% 46%; /* error #C0392B */
     --destructive-foreground: 0 0% 100%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 35 22% 20%;
   }
 
   * {
@@ -69,10 +122,60 @@
   }
 
   body {
-    background-color: var(--color-bg);
+    background-color: var(--color-page);
     color: var(--color-text-primary);
     font-size: var(--type-body-size);
     line-height: 1.6;
+  }
+
+  /* Headings use the display face (DM Sans). Max weight in the system is 600. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-dm-sans), var(--font-inter), system-ui, sans-serif;
+    line-height: 1.3;
+  }
+}
+
+/* Staggered card entrance for app grids/lists — pure CSS so it works on server components.
+   Add `stagger-children` to a grid; its direct children rise in one after another. */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger-children > * {
+    animation: rise-in 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  .stagger-children > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .stagger-children > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .stagger-children > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .stagger-children > *:nth-child(5) {
+    animation-delay: 200ms;
+  }
+  .stagger-children > *:nth-child(6) {
+    animation-delay: 250ms;
+  }
+  .stagger-children > *:nth-child(n + 7) {
+    animation-delay: 300ms;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Landing marquee (trust strip). Track = two identical halves → -50% loops seamlessly. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 

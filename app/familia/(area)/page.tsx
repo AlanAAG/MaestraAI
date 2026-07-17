@@ -119,7 +119,9 @@ export default async function FamiliaPage() {
     <div className="space-y-10">
       {children.map((child, i) => (
         <section key={i}>
-          <h1 className="text-2xl font-bold text-text-primary mb-6">{child.name}</h1>
+          <h1 className="text-2xl font-semibold font-display text-text-primary mb-6">
+            {child.name}
+          </h1>
 
           <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
             Tareas
@@ -131,7 +133,7 @@ export default async function FamiliaPage() {
               {child.tareas.map((t, j) => (
                 <li
                   key={j}
-                  className="flex items-center justify-between bg-surface border border-[var(--color-border)] rounded-xl px-4 py-3"
+                  className="flex items-center justify-between bg-surface border border-border rounded-xl px-4 py-3"
                 >
                   <div>
                     <p className="text-sm font-medium text-text-primary">{t.title}</p>
@@ -146,7 +148,9 @@ export default async function FamiliaPage() {
                   </div>
                   <span
                     className={`text-xs font-medium px-3 py-1 rounded-full ${
-                      t.done ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                      t.done
+                        ? 'bg-success-light text-success-text'
+                        : 'bg-warning-light text-warning-text'
                     }`}
                   >
                     {t.done ? 'Entregado' : 'Pendiente'}
@@ -169,7 +173,7 @@ export default async function FamiliaPage() {
                 <Link
                   key={m.id}
                   href={`/jugar/${m.play_token}`}
-                  className="bg-surface border border-[var(--color-border)] rounded-xl p-4 hover:border-primary transition-colors"
+                  className="bg-surface border border-border rounded-xl p-4 hover:border-brand transition-colors"
                 >
                   <p className="text-xs text-text-secondary mb-1">
                     {TYPE_LABELS[m.type] ?? 'Material'}

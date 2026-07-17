@@ -315,7 +315,7 @@ export function LessonPlanEditor({
             <Badge
               key={index}
               variant="secondary"
-              className="flex items-center gap-1 bg-blue-100 text-blue-700 cursor-pointer hover:bg-blue-200"
+              className="flex items-center gap-1 bg-info-light text-info-text cursor-pointer hover:opacity-80"
               onClick={() => removeVocabulary(word)}
             >
               {word}
@@ -368,7 +368,7 @@ export function LessonPlanEditor({
             <Badge
               key={index}
               variant="secondary"
-              className="flex items-center gap-1 bg-purple-100 text-purple-700 cursor-pointer hover:bg-purple-200"
+              className="flex items-center gap-1 bg-brand-subtle text-brand cursor-pointer hover:bg-brand-light"
               onClick={() => removeObservationStudent(name)}
             >
               {name}
@@ -410,13 +410,13 @@ export function LessonPlanEditor({
           {neeReminders.map((reminder, index) => (
             <div
               key={index}
-              className="flex items-start gap-2 p-2 bg-rose-50 rounded border border-rose-200"
+              className="flex items-start gap-2 p-2 bg-error-light rounded border border-error/30"
             >
-              <span className="text-sm text-rose-800 flex-1">{reminder}</span>
+              <span className="text-sm text-error-text flex-1">{reminder}</span>
               <button
                 type="button"
                 onClick={() => removeNeeReminder(index)}
-                className="text-rose-600 hover:text-rose-800"
+                className="text-error hover:text-error-text"
               >
                 <X size={16} />
               </button>

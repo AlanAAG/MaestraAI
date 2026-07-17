@@ -539,7 +539,7 @@ export default function VocabularioPage() {
               <ArrowLeft size={16} />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-text-primary">Mi Vocabulario</h1>
+              <h1 className="text-2xl font-semibold text-text-primary">Mi Vocabulario</h1>
               <p className="text-sm text-text-secondary mt-1">
                 {vocabulary.length} palabras en total
               </p>
@@ -641,8 +641,8 @@ export default function VocabularioPage() {
             />
 
             {extractedItems.length > 0 && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm font-semibold text-blue-900 mb-2">
+              <div className="mt-4 p-4 bg-info-light rounded-lg border border-info">
+                <p className="text-sm font-semibold text-info-text mb-2">
                   {extractedItems.length} palabras encontradas:
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -765,8 +765,8 @@ export default function VocabularioPage() {
             </div>
 
             {extractedItems.length > 0 && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm font-semibold text-blue-900 mb-2">
+              <div className="mt-4 p-4 bg-info-light rounded-lg border border-info">
+                <p className="text-sm font-semibold text-info-text mb-2">
                   {extractedItems.length} palabras encontradas:
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -1005,7 +1005,7 @@ export default function VocabularioPage() {
                             <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-primary">
                               Unidad {u.unit_number}
                             </p>
-                            <h3 className="truncate text-base font-bold text-text-primary">
+                            <h3 className="truncate text-base font-semibold text-text-primary">
                               {u.unit_title}
                             </h3>
                           </div>
@@ -1057,7 +1057,9 @@ export default function VocabularioPage() {
                     const words = groupedVocabulary[letter]
                     return (
                       <Card key={letter} className="p-6">
-                        <h3 className="text-xl font-bold text-text-primary mb-4">Letra {letter}</h3>
+                        <h3 className="text-xl font-semibold text-text-primary mb-4">
+                          Letra {letter}
+                        </h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                           {words.map((item) => {
                             const colorConfig = colors.find((c) => c.value === item.color)
@@ -1164,7 +1166,7 @@ export default function VocabularioPage() {
                                     )}
                                     <button
                                       onClick={() => handleDelete(item.id)}
-                                      className="text-text-secondary hover:text-red-600 transition-colors"
+                                      className="text-text-secondary hover:text-error transition-colors"
                                       aria-label="Eliminar"
                                     >
                                       <Trash2 size={13} />

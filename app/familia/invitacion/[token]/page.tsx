@@ -10,7 +10,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm text-center">
-        <h1 className="text-3xl font-bold text-text-primary mb-6">MaestraIA</h1>
+        <h1 className="text-3xl font-semibold font-display text-text-primary mb-6">MaestraIA</h1>
         {children}
       </div>
     </div>

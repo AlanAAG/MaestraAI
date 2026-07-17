@@ -19,6 +19,9 @@ import {
 import Link from 'next/link'
 import { Toaster } from '@/components/ui/sonner'
 import { getEditorialConfig } from '@/lib/editorial/registry'
+import { InitialsAvatar } from '@/components/ui/InitialsAvatar'
+import { SignOutButton } from '@/components/auth/SignOutButton'
+import { TeacherNameProvider } from '@/components/app/TeacherContext'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
@@ -45,6 +48,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true)
   const [showMore, setShowMore] = useState(false)
   const [hasLmsSync, setHasLmsSync] = useState(false)
+  const [teacherName, setTeacherName] = useState('')
 
   useEffect(() => {
     const supabase = createClient()
@@ -58,7 +62,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: teacher } = await (supabase as any)
         .from('teachers')
-        .select('id, editorial')
+        .select('id, editorial, full_name')
         .eq('auth_id', user.id)
         .maybeSingle()
 
@@ -76,6 +80,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       }
 
       setHasLmsSync(getEditorialConfig(teacher.editorial).has_lms_sync)
+      setTeacherName(teacher.full_name || '')
       setLoading(false)
     })
 
@@ -112,35 +117,53 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex flex-col w-60 border-r border-[var(--color-border)] bg-surface py-6 px-3 gap-1 shrink-0 sticky top-0 h-screen overflow-y-auto">
         <div className="px-3 mb-6">
-          <span className="text-lg font-semibold text-text-primary">MaestraIA</span>
+          <span className="font-display text-lg font-semibold text-text-primary">MaestraIA</span>
         </div>
         {navItems.map(({ href, icon: Icon, label }) => (
           <Link
             key={href}
             href={href}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150 ${
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-sm text-sm transition-colors duration-150 ${
               isActive(href)
-                ? 'bg-primary-light text-primary'
-                : 'text-text-secondary hover:bg-primary-light hover:text-primary'
+                ? 'bg-brand-subtle text-brand font-medium'
+                : 'text-text-secondary font-normal hover:bg-inset hover:text-text-primary'
             }`}
           >
             <Icon size={20} strokeWidth={1.75} />
             {label}
           </Link>
         ))}
+
+        {/* Identity footer — "this is my workspace" */}
+        <div className="mt-auto pt-4 border-t border-[var(--color-border)]">
+          <div className="flex items-center gap-2.5 px-1">
+            <Link href="/perfil" className="flex items-center gap-2.5 min-w-0 flex-1 group">
+              <InitialsAvatar name={teacherName} size={34} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-text-primary group-hover:text-brand transition-colors">
+                  {teacherName || 'Mi perfil'}
+                </span>
+                <span className="block text-xs text-text-muted">Ver mi perfil</span>
+              </span>
+            </Link>
+            <SignOutButton variant="icon" />
+          </div>
+        </div>
       </aside>
 
       {/* Main content */}
       <main className="flex-1 bg-bg pb-20 md:pb-0">
-        <div className="max-w-app mx-auto px-4 sm:px-8 md:px-16 py-8">{children}</div>
+        <div className="max-w-app mx-auto px-4 sm:px-8 md:px-16 py-8">
+          <TeacherNameProvider name={teacherName}>{children}</TeacherNameProvider>
+        </div>
 
         {/* Footer */}
         <footer className="max-w-app mx-auto px-4 sm:px-8 md:px-16 py-6 text-center text-sm text-text-secondary border-t border-[var(--color-border)] mt-12">
-          <Link href="/privacidad" className="hover:text-primary transition-colors duration-150">
+          <Link href="/privacidad" className="hover:text-brand transition-colors duration-150">
             Aviso de Privacidad
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/terminos" className="hover:text-primary transition-colors duration-150">
+          <Link href="/terminos" className="hover:text-brand transition-colors duration-150">
             Términos de Servicio
           </Link>
           <span className="mx-2">·</span>
@@ -155,7 +178,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             key={href}
             href={href}
             className={`flex-1 flex flex-col items-center gap-1 py-3 text-[10px] font-medium transition-colors duration-150 ${
-              isActive(href) ? 'text-primary' : 'text-text-secondary'
+              isActive(href) ? 'text-brand' : 'text-text-secondary'
             }`}
           >
             <Icon size={22} strokeWidth={1.75} />
@@ -166,7 +189,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <button
           onClick={() => setShowMore((v) => !v)}
           className={`flex-1 flex flex-col items-center gap-1 py-3 text-[10px] font-medium transition-colors duration-150 ${
-            showMore ? 'text-primary' : 'text-text-secondary'
+            showMore ? 'text-brand' : 'text-text-secondary'
           }`}
           aria-label="Más opciones"
         >
@@ -184,7 +207,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <>
           {/* Backdrop */}
           <div
-            className="md:hidden fixed inset-0 z-40 bg-black/20"
+            className="md:hidden fixed inset-0 z-40 bg-[rgba(61,52,39,0.4)]"
             onClick={() => setShowMore(false)}
           />
           {/* Sheet */}
@@ -195,16 +218,29 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   key={href}
                   href={href}
                   onClick={() => setShowMore(false)}
-                  className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl text-[11px] font-medium transition-colors duration-150 ${
+                  className={`flex flex-col items-center gap-2 py-3 px-2 rounded-sm text-[11px] font-medium transition-colors duration-150 ${
                     isActive(href)
-                      ? 'bg-primary-light text-primary'
-                      : 'text-text-secondary hover:bg-primary-light hover:text-primary'
+                      ? 'bg-brand-subtle text-brand'
+                      : 'text-text-secondary hover:bg-inset hover:text-text-primary'
                   }`}
                 >
                   <Icon size={24} strokeWidth={1.75} />
                   {label}
                 </Link>
               ))}
+            </div>
+            <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
+              <Link
+                href="/perfil"
+                onClick={() => setShowMore(false)}
+                className="flex items-center gap-2.5 min-w-0"
+              >
+                <InitialsAvatar name={teacherName} size={32} />
+                <span className="truncate text-sm font-medium text-text-primary">
+                  {teacherName || 'Mi perfil'}
+                </span>
+              </Link>
+              <SignOutButton variant="button" />
             </div>
           </div>
         </>

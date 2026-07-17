@@ -1,7 +1,7 @@
 // lib/materials/flashcards.ts
 import Anthropic from '@anthropic-ai/sdk'
 import { FLASHCARDS_PROMPT } from '@/prompts/materials'
-import type { FortnightContext } from './types'
+import { classContextBlock, type FortnightContext } from './types'
 import { extractJson } from './ai-json'
 
 export type FlashcardContent = {
@@ -25,9 +25,7 @@ export async function buildFlashcardContent(
 ): Promise<FlashcardContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const contextBlock = context
-    ? `Contexto de clase:\n- Proyecto: ${context.project_name}\n- Unidad Richmond: ${context.richmond_unit ?? 'N/A'}\n- Valor del mes: ${context.monthly_value ?? 'N/A'}\n\n`
-    : ''
+  const contextBlock = classContextBlock(context)
 
   const userMessage = `${contextBlock}Vocabulario a generar flashcards:
 ${vocabulary.map((word) => `- ${word}`).join('\n')}

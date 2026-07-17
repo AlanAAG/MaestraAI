@@ -89,14 +89,14 @@ export default function BingoRedownloadPage() {
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Volver
         </Button>
-        <h1 className="text-xl font-semibold text-gray-900">Bingo — Descargar PDF</h1>
+        <h1 className="text-xl font-semibold text-text-primary">Bingo — Descargar PDF</h1>
       </div>
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && <p className="text-error text-sm">{error}</p>}
 
       {material && (
         <Card className="p-6 space-y-4">
-          <div className="space-y-1 text-sm text-gray-700">
+          <div className="space-y-1 text-sm text-text-secondary">
             <p>
               <span className="font-medium">Tarjetas:</span> {material.content.card_count}
             </p>
@@ -111,7 +111,7 @@ export default function BingoRedownloadPage() {
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             {material.content.vocabulary?.map((w: string, i: number) => (
-              <span key={i} className="px-2 py-1 rounded-full bg-purple-50 text-purple-800 text-sm">
+              <span key={i} className="px-2 py-1 rounded-full bg-brand-subtle text-brand text-sm">
                 {w}
               </span>
             ))}
@@ -120,14 +120,14 @@ export default function BingoRedownloadPage() {
             <Button
               onClick={() => setCallerMode(true)}
               variant="outline"
-              className="flex-1 border-purple-300 text-purple-700 hover:bg-purple-50"
+              className="flex-1 border-brand text-brand hover:bg-brand-subtle"
             >
               <Projector className="mr-2 h-4 w-4" /> Proyectar Bingo
             </Button>
             <Button
               onClick={handleDownload}
               disabled={downloading}
-              className="flex-1 bg-purple-600 hover:bg-purple-700"
+              className="flex-1 bg-brand hover:bg-brand-hover"
             >
               {downloading ? (
                 <>
@@ -140,7 +140,7 @@ export default function BingoRedownloadPage() {
               )}
             </Button>
           </div>
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-text-muted text-center">
             Incluye tarjetas de jugadores y una página de tarjetas del maestro para llamar palabras
           </p>
         </Card>

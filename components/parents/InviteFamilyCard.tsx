@@ -14,10 +14,10 @@ interface LinkRow {
 }
 
 const STATUS_STYLE: Record<LinkRow['status'], string> = {
-  activo: 'bg-green-100 text-green-700',
-  pendiente: 'bg-amber-100 text-amber-700',
-  expirado: 'bg-gray-100 text-gray-500',
-  revocado: 'bg-red-100 text-red-600',
+  activo: 'bg-success-light text-success-text',
+  pendiente: 'bg-warning-light text-warning-text',
+  expirado: 'bg-inset text-text-muted',
+  revocado: 'bg-error-light text-error-text',
 }
 
 // Teacher invites this student's parent to a family account (email → /familia).
@@ -104,10 +104,7 @@ export function InviteFamilyCard({ studentId }: { studentId: string }) {
                 {new Date(l.created_at).toLocaleDateString('es-MX')}
               </span>
               {(l.status === 'activo' || l.status === 'pendiente') && (
-                <button
-                  onClick={() => revoke(l.id)}
-                  className="text-red-500 hover:underline text-xs"
-                >
+                <button onClick={() => revoke(l.id)} className="text-error hover:underline text-xs">
                   Revocar
                 </button>
               )}

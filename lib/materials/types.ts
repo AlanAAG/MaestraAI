@@ -6,6 +6,21 @@ export type FortnightContext = {
   letter: string
   grade: string
   methodology_types: string[] | null
+  // Richmond unit learning goals — materials should PRACTICE these, not just use the words.
+  learning_goals?: string[]
+}
+
+// Shared "Contexto de clase" prompt block for material builders (was copy-pasted per builder).
+// Including the unit's learning goals aligns games with what the unit teaches, not just its words.
+export function classContextBlock(context: FortnightContext | null | undefined): string {
+  if (!context) return ''
+  const goals = context.learning_goals?.length
+    ? `\n- Metas de aprendizaje de la unidad (la actividad debe practicarlas):\n${context.learning_goals
+        .slice(0, 6)
+        .map((g) => `  • ${g}`)
+        .join('\n')}`
+    : ''
+  return `Contexto de clase:\n- Proyecto: ${context.project_name}\n- Unidad Richmond: ${context.richmond_unit ?? 'N/A'}\n- Valor del mes: ${context.monthly_value ?? 'N/A'}${goals}\n\n`
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

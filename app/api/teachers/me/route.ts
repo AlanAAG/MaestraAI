@@ -12,10 +12,12 @@ const PatchSchema = z.object({
   profile_notes: z.string().max(1000).optional(),
   design_settings: z
     .object({
-      font: z.enum(['sans', 'serif', 'rounded']).optional(),
+      // Mirror the Design type in PlanDocumentViewer (century + spacing were silently rejected).
+      font: z.enum(['sans', 'serif', 'rounded', 'century']).optional(),
       size: z.number().min(12).max(22).optional(),
       accent: z.string().max(20).optional(),
       lineIntensity: z.enum(['light', 'medium', 'strong']).optional(),
+      spacing: z.enum(['compact', 'normal', 'relaxed']).optional(),
     })
     .optional(),
 })

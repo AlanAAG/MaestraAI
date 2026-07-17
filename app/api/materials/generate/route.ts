@@ -12,7 +12,8 @@ import { buildLetterRecognition } from '@/lib/materials/letter-recognition'
 import { buildMatching } from '@/lib/materials/matching'
 import { buildPictureWordMatch } from '@/lib/materials/picture-word-match'
 import { buildSortingGame } from '@/lib/materials/sorting'
-import { deriveFortnightContext } from '@/lib/materials/types'
+import { deriveFortnightContext, type FortnightContext } from '@/lib/materials/types'
+import { resolveSelectedContent } from '@/lib/richmond/queries'
 import { fetchVocabImages, fetchTeacherVocabImages } from '@/lib/images'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
@@ -38,6 +39,13 @@ const GenerateMaterialsSchema = z
       .object({
         memory_pairs: z.number().int().min(3).max(10).optional(),
         letter_activity_type: z.string().optional(),
+      })
+      .optional(),
+    // Vocabulary provenance (display-ready label) — stored as content._vocab_source for card badges.
+    vocab_source: z
+      .object({
+        kind: z.enum(['richmond', 'letters', 'custom']),
+        label: z.string().min(1).max(120),
       })
       .optional(),
   })
@@ -141,7 +149,7 @@ export async function POST(req: NextRequest) {
       ...(await fetchVocabImages(vocabulary)),
       ...(await fetchTeacherVocabImages(supabase, vocabulary)), // teacher's own photos win
     }
-    const ctx = lessonPlan
+    const ctx: FortnightContext = lessonPlan
       ? deriveFortnightContext(lessonPlan)
       : {
           project_name: projectTheme,
@@ -152,6 +160,23 @@ export async function POST(req: NextRequest) {
           grade: '',
           methodology_types: null,
         }
+
+    // Richmond unit learning goals → materials practice what the unit TEACHES, not just its words.
+    // Best-effort: missing selection/tables → no goals, builders unchanged.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fn = (lessonPlan as any)?.fortnights
+      if (fn?.richmond_unit_id) {
+        const selected = await resolveSelectedContent(
+          supabase,
+          fn.richmond_unit_id,
+          (fn.richmond_lesson_group_ids as string[] | null) ?? []
+        )
+        if (selected?.learning_goals?.length) ctx.learning_goals = selected.learning_goals
+      }
+    } catch (err) {
+      console.error('[materials/generate] richmond goals lookup failed:', err)
+    }
 
     const createdMaterials: string[] = []
     let lastBuilderError: string | null = null
@@ -250,7 +275,9 @@ export async function POST(req: NextRequest) {
             lesson_plan_id: input.lesson_plan_id ?? null,
             fortnight_id: fortnight_id_for_insert,
             type,
-            content,
+            content: input.vocab_source
+              ? { ...(content as Record<string, unknown>), _vocab_source: input.vocab_source }
+              : content,
             vocabulary,
             is_projectable: isProjectable,
           })

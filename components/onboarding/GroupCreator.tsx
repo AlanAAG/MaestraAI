@@ -63,7 +63,7 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
           onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
           required
           className="w-full min-h-[44px] px-3 rounded-lg border border-border bg-surface text-text-primary
-            focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
         >
           <option value="">Selecciona el grado</option>
           {GRADES.map((grade) => (
@@ -91,14 +91,14 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
             type="checkbox"
             checked={formData.consentStudentData}
             onChange={(e) => setFormData({ ...formData, consentStudentData: e.target.checked })}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
           />
           <span className="text-sm text-text-secondary">
             Acepto que los datos de mis alumnos sean tratados conforme al{' '}
-            <Link href="/privacidad" className="text-primary hover:underline" target="_blank">
+            <Link href="/privacidad" className="text-brand hover:underline" target="_blank">
               Aviso de Privacidad
             </Link>{' '}
-            y transferidos a los proveedores indicados <span className="text-red-500">*</span>
+            y transferidos a los proveedores indicados <span className="text-error">*</span>
           </span>
         </label>
       </div>
@@ -106,7 +106,7 @@ export function GroupCreator({ onSubmit, loading = false }: GroupCreatorProps) {
       <Button
         type="submit"
         disabled={loading || !formData.name || !formData.grade || !formData.consentStudentData}
-        className="w-full min-h-[44px] bg-primary hover:bg-primary-dark disabled:opacity-50"
+        className="w-full min-h-[44px] bg-brand hover:bg-brand-hover disabled:opacity-50"
       >
         {loading ? 'Creando grupo...' : 'Crear grupo'}
       </Button>

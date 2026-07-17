@@ -72,13 +72,13 @@ function VerifyEmailContent() {
         <div className="bg-surface rounded-2xl p-8 border border-border shadow-sm">
           {/* Icon */}
           <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-              <Mail size={32} className="text-blue-600" />
+            <div className="w-16 h-16 bg-info-light rounded-full flex items-center justify-center">
+              <Mail size={32} className="text-info" />
             </div>
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl font-bold text-text-primary text-center mb-2">
+          <h1 className="text-2xl font-semibold font-display text-text-primary text-center mb-2">
             Revisa tu correo electrónico
           </h1>
           <p className="text-text-secondary text-center mb-6">
@@ -86,36 +86,36 @@ function VerifyEmailContent() {
           </p>
 
           {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h2 className="font-semibold text-blue-900 text-sm mb-3 flex items-center gap-2">
+          <div className="bg-info-light border border-info rounded-lg p-4 mb-6">
+            <h2 className="font-semibold text-info-text text-sm mb-3 flex items-center gap-2">
               <CheckCircle size={18} />
               Sigue estos pasos:
             </h2>
-            <ol className="space-y-2 text-sm text-blue-800">
+            <ol className="space-y-2 text-sm text-info-text">
               <li className="flex gap-2">
-                <span className="font-bold">1.</span>
+                <span className="font-semibold">1.</span>
                 <span>Abre tu correo electrónico (Gmail, Outlook, etc.)</span>
               </li>
               <li className="flex gap-2">
-                <span className="font-bold">2.</span>
+                <span className="font-semibold">2.</span>
                 <span>
                   Busca un correo de <strong>MaestraIA</strong> o <strong>Supabase</strong>
                 </span>
               </li>
               <li className="flex gap-2">
-                <span className="font-bold">3.</span>
+                <span className="font-semibold">3.</span>
                 <span>Haz clic en el botón de confirmar correo</span>
               </li>
               <li className="flex gap-2">
-                <span className="font-bold">4.</span>
+                <span className="font-semibold">4.</span>
                 <span>Regresa aquí y da clic en &quot;Ya confirmé mi correo&quot;</span>
               </li>
             </ol>
           </div>
 
           {/* Warning */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
-            <p className="text-xs text-yellow-800 flex items-start gap-2">
+          <div className="bg-warning-light border border-warning rounded-lg p-3 mb-6">
+            <p className="text-xs text-warning-text flex items-start gap-2">
               <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
               <span>
                 <strong>¿No ves el correo?</strong> Revisa tu carpeta de spam o correo no deseado. A
@@ -135,7 +135,7 @@ function VerifyEmailContent() {
             </Button>
 
             {resent ? (
-              <div className="text-center text-sm text-green-600 font-medium">
+              <div className="text-center text-sm text-success-text font-medium">
                 ✓ Correo reenviado. Revisa tu bandeja de entrada.
               </div>
             ) : (

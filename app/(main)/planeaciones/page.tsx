@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTeacherFirstName } from '@/components/app/TeacherContext'
 import { createClient } from '@/lib/supabase/client'
 import { ZeroState } from '@/components/app/ZeroState'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ interface LoadingState {
 
 export default function PlaneacionesPage() {
   const router = useRouter()
+  const firstName = useTeacherFirstName()
   const [fortnights, setFortnights] = useState<Fortnight[]>([])
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'loading' })
   const [learning, setLearning] = useState(false)
@@ -127,7 +129,7 @@ export default function PlaneacionesPage() {
           <div className="h-10 w-40 rounded-lg bg-muted animate-pulse" />
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-4 stagger-children">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} className="p-6">
               <div className="flex items-center justify-between">
@@ -179,7 +181,7 @@ export default function PlaneacionesPage() {
       <div className="p-4 sm:p-8">
         <ZeroState
           icon={Calendar}
-          title="¡Comienza tu primera planeación!"
+          title={`Comienza tu primera planeación${firstName ? `, ${firstName}` : ''}`}
           description="Crea una planeación quincenal y yo la generaré por ti en segundos"
           ctaLabel="Crear mi primera planeación"
           onCta={() => router.push('/planeaciones/nueva')}
@@ -221,7 +223,7 @@ export default function PlaneacionesPage() {
         </div>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 stagger-children">
         {fortnights.map((fortnight, index) => (
           <motion.div
             key={fortnight.id}

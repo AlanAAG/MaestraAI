@@ -140,7 +140,7 @@ function RegisterForm() {
     <div className="min-h-screen flex items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-text-primary mb-2">MaestraIA</h1>
+          <h1 className="text-3xl font-semibold font-display text-text-primary mb-2">MaestraIA</h1>
           <p className="text-text-secondary">
             {isParent
               ? 'Crea tu cuenta de familia para seguir el progreso de tu hijo/a'
@@ -151,7 +151,7 @@ function RegisterForm() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <div className="mb-4 p-3 rounded-lg bg-error-light border border-error text-error-text text-sm">
             {error}
           </div>
         )}
@@ -166,14 +166,14 @@ function RegisterForm() {
               type="checkbox"
               checked={consentPrimary}
               onChange={(e) => setConsentPrimary(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
             />
             <span className="text-sm text-text-secondary">
               Acepto el tratamiento de mis datos conforme al{' '}
               <Link href="/privacidad" className="text-primary hover:underline" target="_blank">
                 Aviso de Privacidad
               </Link>{' '}
-              <span className="text-red-500">*</span>
+              <span className="text-error">*</span>
             </span>
           </label>
           <label className="flex items-start gap-3 cursor-pointer">
@@ -181,7 +181,7 @@ function RegisterForm() {
               type="checkbox"
               checked={consentSecondary}
               onChange={(e) => setConsentSecondary(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
             />
             <span className="text-sm text-text-secondary">
               Acepto análisis anónimo para mejora del servicio (opcional)

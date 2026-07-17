@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { SignOutButton } from '@/components/auth/SignOutButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -33,11 +35,10 @@ export default function ConfiguracionPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [students, setStudents] = useState<any[]>([])
 
-  const [fullName, setFullName] = useState('')
+  // Name, period, and personalization now live in Mi Perfil (single hub). This page keeps
+  // account/session, templates, groups, Richmond, and the danger zone.
   const [email, setEmail] = useState('')
-  const [periodMinutes, setPeriodMinutes] = useState(45)
   const [loading, setLoading] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [hasRichmondCredentials, setHasRichmondCredentials] = useState(false)
   const [revokingCredentials, setRevokingCredentials] = useState(false)
 
@@ -93,8 +94,6 @@ export default function ConfiguracionPage() {
 
       if (teacherData) {
         setTeacher(teacherData)
-        setFullName(teacherData.full_name || user.email?.split('@')[0] || '')
-        setPeriodMinutes(teacherData.english_period_minutes ?? 45)
         setHasRichmondCredentials(
           !!(teacherData.richmond_email_encrypted || teacherData.richmond_password_encrypted)
         )
@@ -157,25 +156,6 @@ export default function ConfiguracionPage() {
     } catch (err) {
       console.error('Error loading data:', err)
     }
-  }
-
-  async function handleSaveProfile() {
-    setLoading(true)
-    setSaved(false)
-
-    const supabase = createClient()
-    if (teacher) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
-        .from('teachers')
-        .update({ full_name: fullName, english_period_minutes: periodMinutes })
-        .eq('id', teacher.id)
-    }
-
-    setLoading(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-    await loadData()
   }
 
   async function handleMultiTemplateFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -474,57 +454,21 @@ export default function ConfiguracionPage() {
     <div className="p-4 sm:p-8 max-w-4xl">
       <h1 className="text-2xl font-semibold text-text-primary mb-6">Configuración</h1>
 
-      {/* Profile Section */}
+      {/* Account / session */}
       <Card className="p-6 mb-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Perfil</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Nombre completo
-            </label>
-            <Input
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Tu nombre completo"
-              className="min-h-[44px]"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Email</label>
-            <Input
-              value={email}
-              disabled
-              className="min-h-[44px] bg-surface text-text-secondary cursor-not-allowed"
-            />
-            <p className="text-xs text-text-secondary mt-1">
-              El email no se puede cambiar porque es tu identificador de cuenta
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-text-primary mb-1">Cuenta</h2>
+            <p className="text-sm text-text-secondary truncate">{email}</p>
+            <p className="text-xs text-text-muted mt-1">
+              Tu nombre, personalización y diseño de planeaciones están en{' '}
+              <Link href="/perfil" className="text-brand hover:underline">
+                Mi Perfil
+              </Link>
+              .
             </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Duración de tu clase/periodo (minutos)
-            </label>
-            <input
-              type="number"
-              min={15}
-              max={120}
-              step={5}
-              value={periodMinutes}
-              onChange={(e) => setPeriodMinutes(Number(e.target.value))}
-              className="h-10 w-32 rounded-md border border-input bg-background px-3 text-sm"
-            />
-            <p className="text-xs text-text-secondary mt-1">
-              El AI distribuirá las actividades para ocupar exactamente este tiempo
-            </p>
-          </div>
-          <Button
-            onClick={handleSaveProfile}
-            disabled={loading || !fullName}
-            className="min-h-[44px] bg-primary hover:bg-primary-dark"
-          >
-            {loading ? 'Guardando...' : 'Guardar cambios'}
-          </Button>
-          {saved && <p className="text-sm text-green-600">✓ Cambios guardados</p>}
+          <SignOutButton variant="button" className="shrink-0" />
         </div>
       </Card>
 
@@ -554,28 +498,28 @@ export default function ConfiguracionPage() {
                 <div
                   key={t.id}
                   className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border ${
-                    isOwner ? 'bg-green-50 border-green-200' : 'bg-indigo-50 border-indigo-200'
+                    isOwner ? 'bg-success-light border-success' : 'bg-brand-subtle border-brand'
                   }`}
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <p
-                        className={`text-sm font-medium ${isOwner ? 'text-green-800' : 'text-indigo-900'}`}
+                        className={`text-sm font-medium ${isOwner ? 'text-success-text' : 'text-brand'}`}
                       >
                         {t.label}
                       </p>
                       {t.is_school_official && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[0.65rem] font-semibold text-amber-800">
+                        <span className="rounded-full bg-warning-light px-2 py-0.5 text-[0.65rem] font-semibold text-warning-text">
                           Formato de la escuela
                         </span>
                       )}
                       {isOwner && t.shared_with_school && !t.is_school_official && (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[0.65rem] font-semibold text-green-700">
+                        <span className="rounded-full bg-success-light px-2 py-0.5 text-[0.65rem] font-semibold text-success-text">
                           Compartido
                         </span>
                       )}
                     </div>
-                    <p className={`text-xs ${isOwner ? 'text-green-600' : 'text-indigo-600'}`}>
+                    <p className={`text-xs ${isOwner ? 'text-success-text' : 'text-brand'}`}>
                       {t.plan_type === 'taller' ? 'Taller' : 'Quincena'}
                       {!isOwner && t.owner_name ? ` · de ${t.owner_name}` : ''}
                     </p>
@@ -583,7 +527,7 @@ export default function ConfiguracionPage() {
 
                   {isOwner ? (
                     <div className="flex items-center gap-3">
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-green-700">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-success-text">
                         <input
                           type="checkbox"
                           checked={!!t.shared_with_school}
@@ -595,7 +539,7 @@ export default function ConfiguracionPage() {
                         Compartir con escuela
                       </label>
                       {isAdmin && t.shared_with_school && (
-                        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
+                        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-warning-text">
                           <input
                             type="checkbox"
                             checked={!!t.is_school_official}
@@ -610,13 +554,13 @@ export default function ConfiguracionPage() {
                       <button
                         onClick={() => handleDeleteTemplate(t.id)}
                         disabled={deletingTemplateId === t.id}
-                        className="text-xs text-green-600 hover:text-red-500 cursor-pointer disabled:opacity-50"
+                        className="text-xs text-success-text hover:text-error cursor-pointer disabled:opacity-50"
                       >
                         {deletingTemplateId === t.id ? '...' : 'Eliminar'}
                       </button>
                     </div>
                   ) : (
-                    <span className="text-xs text-indigo-500">Solo lectura</span>
+                    <span className="text-xs text-brand">Solo lectura</span>
                   )}
                 </div>
               )
@@ -693,10 +637,10 @@ export default function ConfiguracionPage() {
               <div
                 className={`flex items-start gap-3 rounded-lg border p-3 ${
                   uploadStatus.phase === 'uploading'
-                    ? 'border-indigo-200 bg-indigo-50 text-indigo-900'
+                    ? 'border-brand bg-brand-subtle text-brand'
                     : uploadStatus.phase === 'success'
-                      ? 'border-green-200 bg-green-50 text-green-800'
-                      : 'border-red-200 bg-red-50 text-red-800'
+                      ? 'border-success bg-success-light text-success-text'
+                      : 'border-error bg-error-light text-error-text'
                 }`}
               >
                 {uploadStatus.phase === 'uploading' ? (
@@ -838,18 +782,18 @@ export default function ConfiguracionPage() {
           </p>
 
           {/* Richmond ToS consent notice */}
-          <div className="mb-6 p-4 rounded-lg border border-amber-200 bg-amber-50">
-            <p className="text-xs font-semibold text-amber-800 mb-1">
+          <div className="mb-6 p-4 rounded-lg border border-warning bg-warning-light">
+            <p className="text-xs font-semibold text-warning-text mb-1">
               Aviso importante sobre el uso de datos de Richmond LP
             </p>
-            <p className="text-xs text-amber-700">
+            <p className="text-xs text-warning-text">
               MaestraIA no es proveedor afiliado ni autorizado de Richmond Publishing / Programas de
               Innovación Educativa (Grupo Santillana). Al activar la sincronización confirmas que:{' '}
               <strong>(a)</strong> tienes autorización de tu institución para el intercambio de
               datos entre plataformas educativas, y <strong>(b)</strong> cumplirás los términos de
               uso de Richmond LP aplicables a tu licencia institucional. El uso de esta función es
               bajo tu responsabilidad y la de tu centro escolar.{' '}
-              <a href="/privacidad" className="underline hover:text-amber-900">
+              <a href="/privacidad" className="underline hover:text-warning-text">
                 Aviso de Privacidad
               </a>
             </p>
@@ -857,12 +801,12 @@ export default function ConfiguracionPage() {
 
           {/* Stored credential status (LFPDPPP transparency) */}
           {hasRichmondCredentials && (
-            <div className="mb-6 p-4 rounded-lg border border-blue-200 bg-blue-50 flex items-start justify-between gap-4">
+            <div className="mb-6 p-4 rounded-lg border border-info bg-info-light flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold text-blue-800 mb-1">
+                <p className="text-xs font-semibold text-info-text mb-1">
                   Credenciales de Richmond almacenadas
                 </p>
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-info-text">
                   Tu correo y contraseña de Richmond LP están almacenados cifrados (AES-256-GCM)
                   para la sincronización automática. Puedes eliminarlos en cualquier momento.
                 </p>
@@ -871,7 +815,7 @@ export default function ConfiguracionPage() {
                 onClick={handleRevokeRichmondCredentials}
                 disabled={revokingCredentials}
                 variant="outline"
-                className="shrink-0 text-xs border-blue-300 text-blue-700 hover:bg-blue-100 min-h-[36px]"
+                className="shrink-0 text-xs border-info text-info-text hover:bg-info-light min-h-[36px]"
               >
                 {revokingCredentials ? 'Eliminando...' : 'Eliminar credenciales'}
               </Button>
@@ -885,11 +829,11 @@ export default function ConfiguracionPage() {
                 Cómo instalar la extensión
               </h3>
               {CHROME_STORE_URL ? (
-                <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs text-success-text bg-success-light border border-success px-2 py-0.5 rounded-full">
                   <CheckCircle2 size={11} /> Disponible en Chrome Web Store
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs text-warning-text bg-warning-light border border-warning px-2 py-0.5 rounded-full">
                   <Clock size={11} /> Próximamente en Chrome Web Store
                 </span>
               )}
@@ -939,12 +883,12 @@ export default function ConfiguracionPage() {
       )}
 
       {/* Danger Zone */}
-      <Card className="p-6 mt-6 border-red-200">
-        <h2 className="text-lg font-semibold text-red-700 mb-1">Zona de peligro</h2>
+      <Card className="p-6 mt-6 border-error">
+        <h2 className="text-lg font-semibold text-error-text mb-1">Zona de peligro</h2>
         <p className="text-sm text-text-secondary mb-4">
           Acciones irreversibles que afectan tu cuenta permanentemente.
         </p>
-        <div className="flex items-center justify-between p-4 rounded-lg border border-red-200 bg-red-50">
+        <div className="flex items-center justify-between p-4 rounded-lg border border-error bg-error-light">
           <div>
             <p className="text-sm font-medium text-text-primary">Eliminar mi cuenta</p>
             <p className="text-xs text-text-secondary mt-0.5">
@@ -964,14 +908,14 @@ export default function ConfiguracionPage() {
       {/* Delete account confirmation modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+          <div className="bg-card rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-lg font-semibold text-text-primary mb-2">¿Eliminar tu cuenta?</h3>
             <p className="text-sm text-text-secondary mb-4">
               Todos tus datos (planeaciones, alumnos, materiales, credenciales) serán eliminados
               permanentemente en 30 días. Esta acción no se puede deshacer.
             </p>
             <p className="text-sm font-medium text-text-primary mb-2">
-              Escribe <span className="font-mono bg-gray-100 px-1 rounded">ELIMINAR</span> para
+              Escribe <span className="font-mono bg-inset px-1 rounded">ELIMINAR</span> para
               confirmar:
             </p>
             <Input

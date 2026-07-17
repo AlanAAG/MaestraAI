@@ -92,7 +92,7 @@ export default function DashboardPage() {
       <div className="p-4 sm:p-8 space-y-6">
         <div className="h-7 w-48 bg-surface rounded animate-pulse" />
         <div className="h-24 bg-surface rounded-xl animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-36 bg-surface rounded-xl animate-pulse" />
           ))}
@@ -136,20 +136,20 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
-        className="relative overflow-hidden mb-6 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 p-5 sm:p-6"
+        className="relative overflow-hidden mb-6 rounded-lg bg-card border border-border p-5 sm:p-6"
       >
         <span
-          className="absolute -top-3 left-2 text-8xl font-serif text-indigo-100 select-none leading-none pointer-events-none"
+          className="absolute -top-3 left-2 text-8xl font-serif text-brand-subtle select-none leading-none pointer-events-none"
           aria-hidden="true"
         >
           &ldquo;
         </span>
-        <p className="relative text-sm sm:text-base text-indigo-900 italic leading-relaxed pl-4 pr-2">
+        <p className="relative text-sm sm:text-base text-text-primary italic leading-relaxed pl-4 pr-2">
           {phrase}
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children mb-8">
         <Card
           className="p-6 cursor-pointer hover:shadow-md transition-shadow"
           onClick={() => router.push('/planeaciones')}

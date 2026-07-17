@@ -63,11 +63,11 @@ export function StudentProgressChart({ assignments }: StudentProgressChartProps)
 
           const colorClass =
             {
-              Logrado: 'bg-green-500',
-              'En proceso': 'bg-yellow-500',
-              'Requiere apoyo': 'bg-orange-500',
-              'Sin evaluar': 'bg-gray-400',
-            }[level] || 'bg-gray-400'
+              Logrado: 'bg-success',
+              'En proceso': 'bg-warning',
+              'Requiere apoyo': 'bg-error',
+              'Sin evaluar': 'bg-text-muted',
+            }[level] || 'bg-text-muted'
 
           return (
             <div key={level} className="space-y-2">
@@ -75,7 +75,7 @@ export function StudentProgressChart({ assignments }: StudentProgressChartProps)
                 <span className="font-medium text-text-primary">{level}</span>
                 <span className="text-text-secondary">{count} trabajos</span>
               </div>
-              <div className="h-8 bg-muted rounded-lg overflow-hidden">
+              <div className="h-8 bg-inset rounded-lg overflow-hidden">
                 <div
                   className={`h-full ${colorClass} transition-all duration-500 flex items-center justify-end pr-3`}
                   style={{ width: `${barWidth}%` }}
@@ -102,11 +102,11 @@ export function StudentProgressChart({ assignments }: StudentProgressChartProps)
             .map((assignment, index) => {
               const colorClass =
                 {
-                  Logrado: 'bg-green-100 text-green-700 border-green-200',
-                  'En proceso': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                  'Requiere apoyo': 'bg-orange-100 text-orange-700 border-orange-200',
-                  'Sin evaluar': 'bg-gray-100 text-gray-700 border-gray-200',
-                }[assignment.qualitative] || 'bg-gray-100 text-gray-700 border-gray-200'
+                  Logrado: 'bg-success-light text-success-text border-success/30',
+                  'En proceso': 'bg-warning-light text-warning-text border-warning/30',
+                  'Requiere apoyo': 'bg-error-light text-error-text border-error/30',
+                  'Sin evaluar': 'bg-inset text-text-secondary border-border',
+                }[assignment.qualitative] || 'bg-inset text-text-secondary border-border'
 
               return (
                 <div key={index} className="flex items-center gap-3 text-sm">

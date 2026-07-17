@@ -194,7 +194,7 @@ export default function MaterialDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
       </div>
     )
   }
@@ -202,7 +202,7 @@ export default function MaterialDetailPage() {
   if (error || !material) {
     return (
       <div className="max-w-2xl mx-auto p-6">
-        <p className="text-red-600">{error ?? 'Material no encontrado'}</p>
+        <p className="text-error">{error ?? 'Material no encontrado'}</p>
         <Button variant="outline" className="mt-4" onClick={() => router.back()}>
           Volver
         </Button>
@@ -234,11 +234,11 @@ export default function MaterialDetailPage() {
         </Button>
         <div className="flex-1">
           {material.fortnights && material.lesson_plans && (
-            <p className="text-xs text-gray-400 mb-0.5">
+            <p className="text-xs text-text-muted mb-0.5">
               {material.fortnights.project_name} · Día {material.lesson_plans.day_number}
             </p>
           )}
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-text-primary">
             {typeLabels[material.type] ?? material.type}
           </h1>
         </div>
@@ -327,12 +327,12 @@ export default function MaterialDetailPage() {
       {/* Flashcards */}
       {material.type === 'flashcards' && (
         <Card className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-text-secondary">
             {material.content?.cards?.length ?? 0} tarjetas generadas
           </p>
           <div className="flex gap-3 flex-wrap">
             <Link href={`/materiales/${id}/proyectar`}>
-              <Button className="bg-blue-600 hover:bg-blue-700 min-h-[44px]">
+              <Button className="bg-brand hover:bg-brand-hover min-h-[44px]">
                 <Monitor className="mr-2 h-4 w-4" /> Proyectar en clase
               </Button>
             </Link>
@@ -369,9 +369,9 @@ export default function MaterialDetailPage() {
               ) => (
                 <div
                   key={i}
-                  className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white p-4 text-center shadow-sm"
+                  className="flex flex-col items-center rounded-2xl border border-border bg-card p-4 text-center shadow-sm"
                 >
-                  <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-50">
+                  <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-xl bg-brand-subtle">
                     <VocabVisual
                       word={card.word}
                       emoji={card.emoji}
@@ -380,8 +380,8 @@ export default function MaterialDetailPage() {
                       emojiClassName="text-4xl leading-none"
                     />
                   </div>
-                  <p className="font-bold text-gray-900">{card.word}</p>
-                  <p className="mt-0.5 text-xs text-gray-500">{card.definition}</p>
+                  <p className="font-semibold text-text-primary">{card.word}</p>
+                  <p className="mt-0.5 text-xs text-text-muted">{card.definition}</p>
                 </div>
               )
             )}
@@ -395,13 +395,13 @@ export default function MaterialDetailPage() {
       {/* Bingo */}
       {material.type === 'bingo' && (
         <Card className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-text-secondary">
             {material.content?.card_count ?? '?'} tarjetas únicas •{' '}
             {material.content?.vocabulary?.length ?? 0} palabras de vocabulario
           </p>
           <div className="flex gap-3 flex-wrap">
             <Link href={`/materiales/${id}/bingo`}>
-              <Button className="bg-purple-600 hover:bg-purple-700 min-h-[44px]">
+              <Button className="bg-brand hover:bg-brand-hover min-h-[44px]">
                 <Download className="mr-2 h-4 w-4" /> Descargar PDF de Bingo
               </Button>
             </Link>
@@ -421,14 +421,14 @@ export default function MaterialDetailPage() {
           </div>
           {material.content?.vocabulary && (
             <div className="pt-2">
-              <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wide">
                 Vocabulario
               </p>
               <div className="flex flex-wrap gap-2">
                 {material.content.vocabulary.map((w: string, i: number) => (
                   <span
                     key={i}
-                    className="px-2 py-1 rounded-full bg-purple-50 text-purple-800 text-sm"
+                    className="px-2 py-1 rounded-full bg-brand-subtle text-brand text-sm"
                   >
                     {w}
                   </span>
@@ -446,7 +446,7 @@ export default function MaterialDetailPage() {
             <Button
               onClick={() => handleDownload('SopaDeLetras.pdf')}
               disabled={downloading}
-              className="bg-yellow-600 hover:bg-yellow-700 min-h-[44px]"
+              className="bg-brand hover:bg-brand-hover min-h-[44px]"
             >
               {downloading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -477,7 +477,7 @@ export default function MaterialDetailPage() {
                     {row.map((cell: string, ci: number) => (
                       <td
                         key={ci}
-                        className="w-8 h-8 text-center border border-gray-200 font-bold text-gray-800"
+                        className="w-8 h-8 text-center border border-border font-semibold text-text-primary"
                       >
                         {cell}
                       </td>
@@ -488,25 +488,25 @@ export default function MaterialDetailPage() {
             </table>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+            <p className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wide">
               Palabras a encontrar
             </p>
             <div className="flex flex-wrap gap-2">
               {material.content?.words?.map((w: string, i: number) => (
                 <span
                   key={i}
-                  className="px-3 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm font-medium"
+                  className="px-3 py-1 rounded-full bg-warning-light border border-warning text-warning-text text-sm font-medium"
                 >
                   {w}
                 </span>
               ))}
             </div>
           </div>
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm font-medium text-amber-800">
+          <div className="p-3 bg-warning-light border border-warning rounded-lg">
+            <p className="text-sm font-medium text-warning-text">
               Para Kinder 3 (alumnos sin lecto-escritura)
             </p>
-            <p className="text-sm text-amber-700 mt-1">
+            <p className="text-sm text-warning-text mt-1">
               Muestra la imagen de cada palabra antes de buscarla. Guíalos letra por letra. Este
               material funciona mejor como actividad grupal con proyector.
             </p>
@@ -520,7 +520,7 @@ export default function MaterialDetailPage() {
           <Button
             onClick={() => handleDownload('HojaCancion.pdf')}
             disabled={downloading}
-            className="bg-pink-600 hover:bg-pink-700"
+            className="bg-brand hover:bg-brand-hover"
           >
             {downloading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -531,7 +531,7 @@ export default function MaterialDetailPage() {
           </Button>
           {material.content?.lyric_worksheet && (
             <Card className="p-6">
-              <h2 className="font-semibold text-gray-900 mb-3">
+              <h2 className="font-semibold text-text-primary mb-3">
                 📝 {material.content.lyric_worksheet.title}
               </h2>
               <div className="space-y-2">
@@ -544,8 +544,8 @@ export default function MaterialDetailPage() {
                     },
                     i: number
                   ) => (
-                    <div key={i} className="space-y-2 pb-3 border-b border-gray-100 last:border-0">
-                      <p className="text-gray-800">
+                    <div key={i} className="space-y-2 pb-3 border-b border-border last:border-0">
+                      <p className="text-text-primary">
                         {line.text.replace(line.missing_word, '___________')}
                       </p>
                       {line.options && line.options.length > 0 && (
@@ -553,7 +553,7 @@ export default function MaterialDetailPage() {
                           {line.options.map((opt, j) => (
                             <span
                               key={j}
-                              className={`px-3 py-1 rounded-full text-sm border ${opt.correct ? 'bg-green-50 text-green-800 border-green-300 font-medium' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                              className={`px-3 py-1 rounded-full text-sm border ${opt.correct ? 'bg-success-light text-success-text border-success font-medium' : 'bg-inset text-text-muted border-border'}`}
                             >
                               {opt.image_description}
                             </span>
@@ -568,15 +568,15 @@ export default function MaterialDetailPage() {
           )}
           {material.content?.tpr_guide && material.content.tpr_guide.length > 0 && (
             <Card className="p-6">
-              <h2 className="font-semibold text-gray-900 mb-3">🎵 Guía TPR</h2>
+              <h2 className="font-semibold text-text-primary mb-3">🎵 Guía TPR</h2>
               <div className="space-y-2">
                 {material.content.tpr_guide.map(
                   (item: { word: string; gesture: string }, i: number) => (
                     <div key={i} className="flex gap-3 text-sm">
-                      <span className="font-medium text-blue-700 w-40 flex-shrink-0">
+                      <span className="font-medium text-brand w-40 flex-shrink-0">
                         &quot;{item.word}&quot;
                       </span>
-                      <span className="text-gray-700">{item.gesture}</span>
+                      <span className="text-text-secondary">{item.gesture}</span>
                     </div>
                   )
                 )}
@@ -585,13 +585,13 @@ export default function MaterialDetailPage() {
           )}
           {material.content?.vocab_cards && material.content.vocab_cards.length > 0 && (
             <Card className="p-6">
-              <h2 className="font-semibold text-gray-900 mb-3">📚 Vocabulario</h2>
+              <h2 className="font-semibold text-text-primary mb-3">📚 Vocabulario</h2>
               <div className="grid grid-cols-2 gap-3">
                 {material.content.vocab_cards.map(
                   (card: { word: string; image_description: string }, i: number) => (
-                    <div key={i} className="rounded-lg border border-gray-200 p-3">
-                      <p className="font-semibold text-gray-900">{card.word}</p>
-                      <p className="text-sm text-gray-600">{card.image_description}</p>
+                    <div key={i} className="rounded-lg border border-border p-3">
+                      <p className="font-semibold text-text-primary">{card.word}</p>
+                      <p className="text-sm text-text-secondary">{card.image_description}</p>
                     </div>
                   )
                 )}
@@ -604,11 +604,11 @@ export default function MaterialDetailPage() {
       {/* Letter Recognition */}
       {material.type === 'letter_recognition' && (
         <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">Actividades de Reconocimiento</h2>
+          <h2 className="font-semibold text-text-primary">Actividades de Reconocimiento</h2>
           <Button
             onClick={() => handleDownload('Reconocimiento.pdf')}
             disabled={downloading}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-brand hover:bg-brand-hover"
           >
             {downloading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -630,7 +630,7 @@ export default function MaterialDetailPage() {
                 },
                 i: number
               ) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg bg-gray-50 p-4">
+                <div key={i} className="flex items-center gap-3 rounded-lg bg-inset p-4">
                   <VocabVisual
                     word={item.word}
                     emoji={item.emoji}
@@ -640,12 +640,12 @@ export default function MaterialDetailPage() {
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 font-mono text-lg font-bold text-blue-800">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-subtle font-mono text-lg font-semibold text-brand">
                         {item.target_letter}
                       </span>
-                      <p className="font-medium text-gray-900">{item.word}</p>
+                      <p className="font-medium text-text-primary">{item.word}</p>
                     </div>
-                    <p className="text-sm text-gray-600">{item.image_description}</p>
+                    <p className="text-sm text-text-secondary">{item.image_description}</p>
                   </div>
                 </div>
               )
@@ -657,11 +657,11 @@ export default function MaterialDetailPage() {
       {/* Matching */}
       {material.type === 'matching' && (
         <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">Pares de Matching</h2>
+          <h2 className="font-semibold text-text-primary">Pares de Matching</h2>
           <Button
             onClick={() => handleDownload('Matching.pdf')}
             disabled={downloading}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-brand hover:bg-brand-hover"
           >
             {downloading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -682,13 +682,13 @@ export default function MaterialDetailPage() {
                 },
                 i: number
               ) => (
-                <div key={i} className="flex items-center gap-4 rounded-lg bg-gray-50 p-3">
+                <div key={i} className="flex items-center gap-4 rounded-lg bg-inset p-3">
                   <div className="flex-1 text-center rounded border border-blue-200 bg-blue-50 p-2">
                     <p className="text-xs text-blue-500 mb-1">palabra</p>
                     <p className="font-medium text-blue-900">{pair.word}</p>
                     <p className="text-xs text-blue-400 mt-1">{pair.translation}</p>
                   </div>
-                  <span className="text-gray-400">↔</span>
+                  <span className="text-text-muted">↔</span>
                   <div className="flex-1 flex flex-col items-center gap-1 rounded border border-green-200 bg-green-50 p-2">
                     <VocabVisual
                       word={pair.word}
@@ -709,7 +709,7 @@ export default function MaterialDetailPage() {
       {/* YouTube recommendations */}
       {(material.type === 'youtube_videos' || material.type === 'youtube') && (
         <Card className="p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">Videos Recomendados</h2>
+          <h2 className="font-semibold text-text-primary">Videos Recomendados</h2>
           <div className="space-y-3">
             {material.content?.videos?.map(
               (
@@ -731,37 +731,37 @@ export default function MaterialDetailPage() {
                   v.search_url ||
                   `https://www.youtube.com/results?search_query=${encodeURIComponent(`${v.title} ${v.channel}`)}`
                 return (
-                  <div key={i} className="rounded-lg border border-gray-200 p-4">
+                  <div key={i} className="rounded-lg border border-border p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <a
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-primary hover:underline"
+                          className="font-medium text-brand hover:underline"
                         >
                           ▶ {v.title}
                         </a>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-text-muted">
                           {v.channel} · {v.duration}
                         </p>
                       </div>
                       {v.has_subtitles && (
-                        <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                        <span className="text-xs text-success-text bg-success-light border border-success px-2 py-0.5 rounded-full flex-shrink-0">
                           CC
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mt-2">{v.description}</p>
+                    <p className="text-sm text-text-secondary mt-2">{v.description}</p>
                     <a
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
+                      className="mt-2 inline-block text-xs font-medium text-brand hover:underline"
                     >
                       Buscar en YouTube →
                     </a>
-                    <p className="text-xs text-amber-600 font-medium mt-1">
+                    <p className="text-xs text-warning-text font-medium mt-1">
                       ⚠ Verifica antes de usar en clase
                     </p>
                   </div>
@@ -775,12 +775,12 @@ export default function MaterialDetailPage() {
       {/* Picture Word Match */}
       {material.type === 'picture_word_match' && (
         <Card className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-text-secondary">
             {material.content?.items?.length ?? 0} palabras con opciones
           </p>
           <div className="flex gap-3 flex-wrap">
             <Button
-              className="bg-violet-600 hover:bg-violet-700 min-h-[44px]"
+              className="bg-brand hover:bg-brand-hover min-h-[44px]"
               onClick={handleShare}
               disabled={sharing}
             >
@@ -802,7 +802,7 @@ export default function MaterialDetailPage() {
                 ) => (
                   <div
                     key={i}
-                    className="flex items-center gap-3 rounded-lg border border-gray-200 p-3"
+                    className="flex items-center gap-3 rounded-lg border border-border p-3"
                   >
                     <VocabVisual
                       word={item.word}
@@ -812,8 +812,8 @@ export default function MaterialDetailPage() {
                       emojiClassName="text-4xl leading-none"
                     />
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900">{item.word}</p>
-                      <p className="text-xs text-gray-400">Foils: {item.foils?.join(', ')}</p>
+                      <p className="font-semibold text-text-primary">{item.word}</p>
+                      <p className="text-xs text-text-muted">Foils: {item.foils?.join(', ')}</p>
                     </div>
                   </div>
                 )
@@ -825,13 +825,13 @@ export default function MaterialDetailPage() {
       {/* Sorting Game */}
       {material.type === 'sorting_game' && (
         <Card className="p-6 space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-text-secondary">
             {material.content?.categories?.length ?? 0} categorías ·{' '}
             {material.content?.items?.length ?? 0} palabras
           </p>
           <div className="flex gap-3 flex-wrap">
             <Button
-              className="bg-teal-600 hover:bg-teal-700 min-h-[44px]"
+              className="bg-brand hover:bg-brand-hover min-h-[44px]"
               onClick={handleShare}
               disabled={sharing}
             >
@@ -848,7 +848,7 @@ export default function MaterialDetailPage() {
               (cat: { name: string; color: string }, i: number) => (
                 <span
                   key={i}
-                  className="px-4 py-2 rounded-xl border-2 text-sm font-medium bg-gray-50 border-gray-200 text-gray-700"
+                  className="px-4 py-2 rounded-xl border-2 text-sm font-medium bg-inset border-border text-text-secondary"
                 >
                   {cat.name}
                 </span>
@@ -860,7 +860,7 @@ export default function MaterialDetailPage() {
               (item: { word: string; category: string; image_url?: string }, i: number) => (
                 <div
                   key={i}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-sm"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-inset text-text-secondary text-sm"
                 >
                   {item.image_url && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -871,7 +871,7 @@ export default function MaterialDetailPage() {
                     />
                   )}
                   <span>{item.word}</span>
-                  <span className="text-xs text-gray-400">→ {item.category}</span>
+                  <span className="text-xs text-text-muted">→ {item.category}</span>
                 </div>
               )
             )}
@@ -882,15 +882,15 @@ export default function MaterialDetailPage() {
       {/* Listen & Tap modal */}
       {listenPairs && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-y-auto max-h-[90vh]">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <Headphones className="h-5 w-5 text-indigo-600" />
-                <h2 className="font-semibold text-gray-900">Modo Escucha</h2>
+                <Headphones className="h-5 w-5 text-brand" />
+                <h2 className="font-semibold text-text-primary">Modo Escucha</h2>
               </div>
               <button
                 onClick={() => setListenPairs(null)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                className="text-text-muted hover:text-text-primary cursor-pointer"
                 aria-label="Cerrar"
               >
                 <X className="h-5 w-5" />
@@ -904,12 +904,12 @@ export default function MaterialDetailPage() {
       {/* Share modal */}
       {showShareModal && playUrl && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5">
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">Compartir con alumnos</h2>
+              <h2 className="font-semibold text-text-primary">Compartir con alumnos</h2>
               <button
                 onClick={() => setShowShareModal(false)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                className="text-text-muted hover:text-text-primary cursor-pointer"
                 aria-label="Cerrar"
               >
                 <X className="h-5 w-5" />
@@ -924,7 +924,7 @@ export default function MaterialDetailPage() {
                 alt="QR code para el juego"
                 width={180}
                 height={180}
-                className="rounded-xl border border-gray-200"
+                className="rounded-xl border border-border"
               />
             </div>
 
@@ -933,15 +933,15 @@ export default function MaterialDetailPage() {
               <input
                 readOnly
                 value={playUrl}
-                className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-600 truncate"
+                className="flex-1 text-xs border border-border rounded-lg px-3 py-2 bg-inset text-text-secondary truncate"
               />
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer min-w-[80px] justify-center"
+                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-inset transition-colors cursor-pointer min-w-[80px] justify-center"
               >
                 {copied ? (
                   <>
-                    <Check className="h-4 w-4 text-emerald-500" /> ¡Listo!
+                    <Check className="h-4 w-4 text-success" /> ¡Listo!
                   </>
                 ) : (
                   <>
@@ -961,7 +961,7 @@ export default function MaterialDetailPage() {
               Enviar por WhatsApp
             </a>
 
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs text-text-muted text-center">
               Los alumnos no necesitan cuenta para jugar
             </p>
           </div>

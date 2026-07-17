@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { celebrateWarm } from '@/lib/ui/celebrate'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -325,6 +326,7 @@ export default function PlaneacionDetailPage() {
           const data = line.slice(6)
           if (data === '[DONE]') {
             setGenerationPhase('done')
+            celebrateWarm()
             await loadData()
             setActiveTab('document')
             setTimeout(() => setGeneratingDocument(false), 1200)
@@ -397,11 +399,11 @@ export default function PlaneacionDetailPage() {
 
   function getMethodologyColor(methodology: string): string {
     const colorMap: Record<string, string> = {
-      'Aprendizaje Basado en Proyectos': 'bg-blue-100 text-blue-700',
-      Juego: 'bg-purple-100 text-purple-700',
-      Rutina: 'bg-gray-100 text-gray-700',
-      'Actividad Dirigida': 'bg-green-100 text-green-700',
-      Exploración: 'bg-yellow-100 text-yellow-700',
+      'Aprendizaje Basado en Proyectos': 'bg-info-light text-info-text',
+      Juego: 'bg-brand-subtle text-brand',
+      Rutina: 'bg-inset text-text-secondary',
+      'Actividad Dirigida': 'bg-success-light text-success-text',
+      Exploración: 'bg-warning-light text-warning-text',
       Cierre: 'bg-orange-100 text-orange-700',
     }
     return colorMap[methodology] || 'bg-primary-light text-primary'
@@ -621,7 +623,7 @@ export default function PlaneacionDetailPage() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -8, scale: 0.98 }}
                     transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-                    className="relative overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 print:hidden"
+                    className="relative overflow-hidden rounded-xl border border-brand bg-brand-subtle p-4 print:hidden"
                   >
                     {/* subtle moving shimmer */}
                     <motion.div
@@ -700,12 +702,12 @@ export default function PlaneacionDetailPage() {
             <div className="space-y-3">
               {fortnightMaterials.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 pb-1">
-                  <span className="text-xs text-gray-500 font-medium">
+                  <span className="text-xs text-text-muted font-medium">
                     Materiales de la quincena:
                   </span>
                   {fortnightMaterials.map((m) => (
                     <Link key={m.id} href={`/materiales/${m.id}`}>
-                      <span className="px-2 py-1 text-xs rounded-full bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
+                      <span className="px-2 py-1 text-xs rounded-full bg-brand-subtle text-brand border border-brand hover:bg-brand-light cursor-pointer">
                         {TYPE_LABELS[m.type] ?? m.type}
                       </span>
                     </Link>
@@ -773,7 +775,7 @@ export default function PlaneacionDetailPage() {
                                   {block.activity}
                                 </h4>
                                 {block.activity.includes('[PRONI:') && (
-                                  <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                                  <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium bg-info-light text-info-text border border-info">
                                     PRONI
                                   </span>
                                 )}
@@ -810,38 +812,38 @@ export default function PlaneacionDetailPage() {
                         ))}
 
                         {plan.vocabulary && plan.vocabulary.length > 0 && (
-                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                          <div className="bg-info-light p-4 rounded-lg border border-info">
                             <div className="flex items-center gap-2 mb-2">
-                              <BookOpen size={16} className="text-blue-600" />
-                              <p className="text-xs font-semibold text-blue-900">
+                              <BookOpen size={16} className="text-info" />
+                              <p className="text-xs font-semibold text-info-text">
                                 Vocabulario del día
                               </p>
                             </div>
-                            <p className="text-sm text-blue-800">{plan.vocabulary.join(', ')}</p>
+                            <p className="text-sm text-info-text">{plan.vocabulary.join(', ')}</p>
                           </div>
                         )}
 
                         {plan.observation_students && plan.observation_students.length > 0 && (
-                          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                          <div className="bg-brand-subtle p-4 rounded-lg border border-brand">
                             <div className="flex items-center gap-2 mb-2">
-                              <Eye size={16} className="text-purple-600" />
-                              <p className="text-xs font-semibold text-purple-900">Observar hoy</p>
+                              <Eye size={16} className="text-brand" />
+                              <p className="text-xs font-semibold text-brand">Observar hoy</p>
                             </div>
-                            <p className="text-sm text-purple-800">
+                            <p className="text-sm text-brand">
                               {plan.observation_students.join(', ')}
                             </p>
                           </div>
                         )}
 
                         {plan.nee_reminders && plan.nee_reminders.length > 0 && (
-                          <div className="bg-rose-50 p-4 rounded-lg border border-rose-200">
+                          <div className="bg-warning-light p-4 rounded-lg border border-warning">
                             <div className="flex items-center gap-2 mb-2">
-                              <Heart size={16} className="text-rose-600" />
-                              <p className="text-xs font-semibold text-rose-900">
+                              <Heart size={16} className="text-warning" />
+                              <p className="text-xs font-semibold text-warning-text">
                                 Recordatorios NEE
                               </p>
                             </div>
-                            <ul className="text-sm text-rose-800 space-y-1">
+                            <ul className="text-sm text-warning-text space-y-1">
                               {plan.nee_reminders.map((reminder, idx) => (
                                 <li key={idx}>• {reminder}</li>
                               ))}
@@ -870,7 +872,7 @@ export default function PlaneacionDetailPage() {
                                   href={`/materiales/${m.id}`}
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
+                                  <span className="px-2 py-1 text-xs rounded-full bg-brand-subtle text-brand border border-brand hover:bg-brand-light cursor-pointer">
                                     {TYPE_LABELS[m.type] ?? m.type}
                                   </span>
                                 </Link>

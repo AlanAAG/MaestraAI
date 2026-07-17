@@ -4,6 +4,49 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { InitialsAvatar } from '@/components/ui/InitialsAvatar'
+import { SignOutButton } from '@/components/auth/SignOutButton'
+
+type DesignSettings = {
+  font: 'sans' | 'serif' | 'rounded' | 'century'
+  size: number
+  accent: string
+  lineIntensity: 'light' | 'medium' | 'strong'
+  spacing: 'compact' | 'normal' | 'relaxed'
+}
+const DEFAULT_DESIGN: DesignSettings = {
+  font: 'sans',
+  size: 16,
+  accent: '#1f2937',
+  lineIntensity: 'medium',
+  spacing: 'normal',
+}
+const FONT_OPTIONS: { value: DesignSettings['font']; label: string }[] = [
+  { value: 'sans', label: 'Sans (moderna)' },
+  { value: 'serif', label: 'Serif (clásica)' },
+  { value: 'rounded', label: 'Redondeada' },
+  { value: 'century', label: 'Century Gothic' },
+]
+const SPACING_OPTIONS: { value: DesignSettings['spacing']; label: string }[] = [
+  { value: 'compact', label: 'Compacto' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'relaxed', label: 'Amplio' },
+]
+const INTENSITY_OPTIONS: { value: DesignSettings['lineIntensity']; label: string }[] = [
+  { value: 'light', label: 'Suaves' },
+  { value: 'medium', label: 'Normales' },
+  { value: 'strong', label: 'Marcadas' },
+]
+// Document accent swatches — teacher content (like the vocab color picker), not app chrome.
+const ACCENT_SWATCHES = [
+  '#1f2937',
+  '#b8860b',
+  '#2d7d5f',
+  '#2e6b8a',
+  '#c0392b',
+  '#c17817',
+  '#5c4e3c',
+]
 
 type Teacher = {
   id: string
@@ -16,6 +59,8 @@ type Teacher = {
   group_count: number
   teaching_style?: string | null
   profile_notes?: string | null
+  english_period_minutes?: number | null
+  design_settings?: DesignSettings | null
   schools: { name: string; city: string; plan: string } | null
 }
 
@@ -29,9 +74,9 @@ type SchoolTeacher = {
 }
 
 const ROLE_MAP: Record<string, { label: string; className: string }> = {
-  admin: { label: 'Admin', className: 'bg-purple-100 text-purple-700 border-purple-200' },
-  coordinator: { label: 'Coordinadora', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-  teacher: { label: 'Maestra', className: 'bg-gray-100 text-gray-700 border-gray-200' },
+  admin: { label: 'Admin', className: 'bg-brand-subtle text-brand border-brand' },
+  coordinator: { label: 'Coordinadora', className: 'bg-info-light text-info-text border-info' },
+  teacher: { label: 'Maestra', className: 'bg-inset text-text-secondary border-border' },
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -53,8 +98,14 @@ export default function PerfilPage() {
   const [materia, setMateria] = useState('')
   const [teachingStyle, setTeachingStyle] = useState('')
   const [profileNotes, setProfileNotes] = useState('')
+  const [periodMinutes, setPeriodMinutes] = useState(45)
   const [savingP, setSavingP] = useState(false)
   const [savePMsg, setSavePMsg] = useState('')
+
+  // Diseño de mis planeaciones (teachers.design_settings — same global default the doc viewer edits)
+  const [design, setDesign] = useState<DesignSettings>(DEFAULT_DESIGN)
+  const [savingD, setSavingD] = useState(false)
+  const [saveDMsg, setSaveDMsg] = useState('')
 
   const [schoolTeachers, setSchoolTeachers] = useState<SchoolTeacher[]>([])
   const [loadingTeam, setLoadingTeam] = useState(false)
@@ -69,6 +120,8 @@ export default function PerfilPage() {
         setMateria(data.subject || '')
         setTeachingStyle(data.teaching_style || '')
         setProfileNotes(data.profile_notes || '')
+        setPeriodMinutes(data.english_period_minutes ?? 45)
+        if (data.design_settings) setDesign({ ...DEFAULT_DESIGN, ...data.design_settings })
         if (data.role_type === 'admin') loadTeam()
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,12 +170,29 @@ export default function PerfilPage() {
           subject: materia.trim(),
           teaching_style: teachingStyle.trim(),
           profile_notes: profileNotes.trim(),
+          english_period_minutes: periodMinutes,
         }),
       })
       setSavePMsg(res.ok ? 'Guardado' : 'No se pudo guardar')
       setTimeout(() => setSavePMsg(''), 2500)
     } finally {
       setSavingP(false)
+    }
+  }
+
+  async function handleDesignSave() {
+    setSavingD(true)
+    setSaveDMsg('')
+    try {
+      const res = await fetch('/api/teachers/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ design_settings: design }),
+      })
+      setSaveDMsg(res.ok ? 'Guardado' : 'No se pudo guardar')
+      setTimeout(() => setSaveDMsg(''), 2500)
+    } finally {
+      setSavingD(false)
     }
   }
 
@@ -160,15 +230,25 @@ export default function PerfilPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-8 space-y-6">
-      <h1 className="text-2xl font-semibold text-text-primary">Mi perfil</h1>
+      {/* Workspace header — this is your space */}
+      <div className="flex items-center gap-4">
+        <InitialsAvatar name={teacher.full_name} size={64} />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold font-display text-text-primary truncate">
+            {teacher.full_name || 'Mi perfil'}
+          </h1>
+          <p className="text-sm text-text-secondary truncate">
+            {[teacher.subject, teacher.schools?.name].filter(Boolean).join(' · ') || teacher.email}
+          </p>
+        </div>
+        <div className="shrink-0">
+          <RoleBadge role={teacher.role_type} />
+        </div>
+      </div>
 
       <Card className="p-6 space-y-6">
         {/* Identidad */}
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <RoleBadge role={teacher.role_type} />
-          </div>
-
           <div className="space-y-2">
             <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
               Nombre
@@ -253,8 +333,142 @@ export default function PerfilPage() {
             />
           </div>
 
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Duración de tu clase/periodo (minutos)
+            </label>
+            <input
+              type="number"
+              min={15}
+              max={120}
+              step={5}
+              value={periodMinutes}
+              onChange={(e) => setPeriodMinutes(Number(e.target.value))}
+              className="h-10 w-32 rounded-sm border border-border bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            <p className="text-xs text-text-muted">
+              La IA distribuye las actividades para ocupar este tiempo.
+            </p>
+          </div>
+
           <Button onClick={handlePersonalizationSave} disabled={savingP}>
             {savingP ? 'Guardando...' : savePMsg || 'Guardar personalización'}
+          </Button>
+        </div>
+
+        <Separator />
+
+        {/* Diseño de mis planeaciones — global default (same as the plan document viewer edits) */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-text-primary">Diseño de mis planeaciones</h2>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Se aplica a tus planeaciones nuevas. También puedes ajustarlo dentro de cada
+              planeación.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+                Tipografía
+              </label>
+              <select
+                value={design.font}
+                onChange={(e) =>
+                  setDesign((d) => ({ ...d, font: e.target.value as DesignSettings['font'] }))
+                }
+                className="w-full h-10 rounded-sm border border-border bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
+              >
+                {FONT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+                Tamaño de texto: {design.size}px
+              </label>
+              <input
+                type="range"
+                min={12}
+                max={22}
+                step={1}
+                value={design.size}
+                onChange={(e) => setDesign((d) => ({ ...d, size: Number(e.target.value) }))}
+                className="w-full accent-brand"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+                Interlineado
+              </label>
+              <select
+                value={design.spacing}
+                onChange={(e) =>
+                  setDesign((d) => ({ ...d, spacing: e.target.value as DesignSettings['spacing'] }))
+                }
+                className="w-full h-10 rounded-sm border border-border bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
+              >
+                {SPACING_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+                Líneas de tablas
+              </label>
+              <select
+                value={design.lineIntensity}
+                onChange={(e) =>
+                  setDesign((d) => ({
+                    ...d,
+                    lineIntensity: e.target.value as DesignSettings['lineIntensity'],
+                  }))
+                }
+                className="w-full h-10 rounded-sm border border-border bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
+              >
+                {INTENSITY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Color de acento
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {ACCENT_SWATCHES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setDesign((d) => ({ ...d, accent: c }))}
+                  aria-label={`Acento ${c}`}
+                  className={`h-8 w-8 rounded-full border-2 transition-transform ${
+                    design.accent === c
+                      ? 'border-text-primary scale-110'
+                      : 'border-transparent hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <Button onClick={handleDesignSave} disabled={savingD}>
+            {savingD ? 'Guardando...' : saveDMsg || 'Guardar diseño'}
           </Button>
         </div>
 
@@ -340,6 +554,12 @@ export default function PerfilPage() {
             </div>
           </>
         )}
+
+        <Separator />
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-text-muted truncate">{teacher.email}</span>
+          <SignOutButton variant="button" />
+        </div>
       </Card>
     </div>
   )

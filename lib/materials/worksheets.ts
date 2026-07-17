@@ -1,7 +1,7 @@
 // lib/materials/worksheets.ts
 import Anthropic from '@anthropic-ai/sdk'
 import { WORKSHEETS_PROMPT } from '@/prompts/materials'
-import type { FortnightContext } from './types'
+import { classContextBlock, type FortnightContext } from './types'
 
 export type WorksheetActivity = {
   type: 'tracing' | 'matching' | 'coloring' | 'circling' | 'sequencing'
@@ -21,9 +21,7 @@ export async function buildWorksheetContent(
 ): Promise<WorksheetContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const contextBlock = context
-    ? `Contexto de clase:\n- Proyecto: ${context.project_name}\n- Unidad Richmond: ${context.richmond_unit ?? 'N/A'}\n- Valor del mes: ${context.monthly_value ?? 'N/A'}\n\n`
-    : ''
+  const contextBlock = classContextBlock(context)
 
   const userMessage = `${contextBlock}Vocabulario para las actividades:
 ${vocabulary.map((word) => `- ${word}`).join('\n')}

@@ -129,12 +129,12 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-text-primary mb-2">MaestraIA</h1>
+          <h1 className="text-3xl font-semibold font-display text-text-primary mb-2">MaestraIA</h1>
           <p className="text-text-secondary">Inicia sesión en tu cuenta</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <div className="mb-4 p-3 rounded-lg bg-error-light border border-error text-error-text text-sm">
             {error}
           </div>
         )}

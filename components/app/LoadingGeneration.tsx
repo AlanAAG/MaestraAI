@@ -42,12 +42,12 @@ export function LoadingGeneration({ phase }: LoadingGenerationProps) {
       <div className="relative mb-6 flex h-24 w-24 items-center justify-center">
         {/* soft pulsing halo */}
         <motion.span
-          className="absolute inset-0 rounded-full bg-primary/15"
+          className="absolute inset-0 rounded-full bg-brand/15"
           animate={{ scale: [1, 1.25, 1], opacity: [0.6, 0.2, 0.6] }}
           transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
         />
         <motion.div
-          className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-white shadow-lg shadow-primary/30"
+          className="relative flex h-20 w-20 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-brand/30"
           animate={done ? { scale: [1, 1.1, 1] } : { rotate: [0, 8, -8, 0] }}
           transition={
             done ? { duration: 0.5 } : { duration: 3, repeat: Infinity, ease: 'easeInOut' }
@@ -61,7 +61,7 @@ export function LoadingGeneration({ phase }: LoadingGenerationProps) {
         key={done ? 'done' : 'loading'}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center text-xl font-bold text-text-primary"
+        className="text-center text-xl font-semibold text-text-primary"
       >
         {done ? '¡Tu planeación está lista! ✨' : 'Creando tu planeación'}
       </motion.h2>
@@ -72,9 +72,9 @@ export function LoadingGeneration({ phase }: LoadingGenerationProps) {
       </p>
 
       {/* Progress bar */}
-      <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-inset">
         <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60"
+          className="h-full rounded-full bg-brand"
           initial={false}
           animate={{ width: `${Math.round(progress * 100)}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -93,17 +93,17 @@ export function LoadingGeneration({ phase }: LoadingGenerationProps) {
               transition={{ delay: i * 0.06 }}
               className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
                 state === 'active'
-                  ? 'border-primary/30 bg-primary/5'
+                  ? 'border-brand/30 bg-brand-subtle'
                   : 'border-transparent bg-transparent'
               }`}
             >
               <span
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                   state === 'done'
-                    ? 'bg-primary text-white'
+                    ? 'bg-brand text-white'
                     : state === 'active'
-                      ? 'bg-primary/15 text-primary'
-                      : 'bg-muted text-text-disabled'
+                      ? 'bg-brand-subtle text-brand'
+                      : 'bg-inset text-text-disabled'
                 }`}
               >
                 {state === 'done' ? (

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTeacherFirstName } from '@/components/app/TeacherContext'
 import { createClient } from '@/lib/supabase/browser'
 import { Card } from '@/components/ui/card'
 import {
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { richmondSourceLabel, lettersSourceLabel } from '@/lib/materials/vocab-source'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -50,12 +52,20 @@ type Material = {
   created_at: string
   lesson_plan_id: string | null
   fortnight_id: string | null
+  vocab_source?: { kind: 'richmond' | 'letters' | 'custom'; label: string } | null
   fortnights?: {
     project_name: string | null
     letter_week1: string | null
     letter_week2: string | null
     richmond_unit: string | null
   } | null
+}
+
+// Source badge styles per vocab provenance kind.
+const SOURCE_BADGE: Record<string, { icon: string; cls: string }> = {
+  richmond: { icon: '📚', cls: 'bg-brand-subtle text-brand' },
+  letters: { icon: '🔤', cls: 'bg-info-light text-info-text' },
+  custom: { icon: '✏️', cls: 'bg-inset text-text-secondary' },
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -97,11 +107,11 @@ const CARD_PALETTE = [
   'bg-blue-50 text-blue-700 border-blue-200',
   'bg-emerald-50 text-emerald-700 border-emerald-200',
   'bg-amber-50 text-amber-700 border-amber-200',
-  'bg-violet-50 text-violet-700 border-violet-200',
+  'bg-teal-50 text-teal-700 border-teal-200',
   'bg-rose-50 text-rose-700 border-rose-200',
   'bg-cyan-50 text-cyan-700 border-cyan-200',
   'bg-orange-50 text-orange-700 border-orange-200',
-  'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+  'bg-pink-50 text-pink-700 border-pink-200',
 ]
 
 function groupByDate(materials: Material[]): Record<string, Material[]> {
@@ -134,6 +144,7 @@ const CREATABLE_TYPES = [
 
 export default function MaterialesPage() {
   const router = useRouter()
+  const firstName = useTeacherFirstName()
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [selectMode, setSelectMode] = useState(false)
@@ -180,7 +191,8 @@ export default function MaterialesPage() {
         // The column is generated_at; alias it to created_at so the rest of the page is unchanged.
         // (Selecting a non-existent created_at returned PostgREST 42703 → 400 → empty list.)
         .select(
-          'id, type, created_at:generated_at, lesson_plan_id, fortnight_id, fortnights(project_name, letter_week1, letter_week2, richmond_unit)'
+          // vocab_source: only the provenance key from content (avoids pulling the full jsonb).
+          'id, type, created_at:generated_at, lesson_plan_id, fortnight_id, vocab_source:content->_vocab_source, fortnights(project_name, letter_week1, letter_week2, richmond_unit)'
         )
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .eq('teacher_id', (teacher as any).id)
@@ -232,6 +244,18 @@ export default function MaterialesPage() {
     if (!vocab) return alert('Selecciona al menos una palabra')
     if (selectedTypes.length === 0) return alert('Selecciona al menos un tipo')
     setCreating(true)
+    // Provenance badge for the materials menu — which vocabulary this came from.
+    const vocab_source =
+      vocabSource === 'richmond'
+        ? {
+            kind: 'richmond' as const,
+            label: richmondSourceLabel(
+              richmondCatalog.filter((u) => u.words.some((w) => vocab.includes(w)))
+            ),
+          }
+        : topic && !allVocab.some((v) => vocab.includes(v.word))
+          ? { kind: 'custom' as const, label: topic.slice(0, 100) }
+          : { kind: 'letters' as const, label: lettersSourceLabel(vocab, allVocab) }
     try {
       const res = await fetch('/api/materials/generate', {
         method: 'POST',
@@ -240,6 +264,7 @@ export default function MaterialesPage() {
           vocabulary: vocab,
           topic: topic || undefined,
           material_types: selectedTypes,
+          vocab_source,
         }),
       })
       if (!res.ok) throw new Error()
@@ -322,7 +347,7 @@ export default function MaterialesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
       </div>
     )
   }
@@ -334,8 +359,8 @@ export default function MaterialesPage() {
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Mis Materiales</h1>
-          <p className="text-sm text-gray-600 mt-1">Todos los materiales que has creado</p>
+          <h1 className="text-2xl font-semibold text-text-primary">Mis Materiales</h1>
+          <p className="text-sm text-text-secondary mt-1">Todos los materiales que has creado</p>
         </div>
         <div className="flex gap-2">
           {materials.length > 0 && (
@@ -364,22 +389,22 @@ export default function MaterialesPage() {
       </div>
 
       {showCreate && (
-        <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-900">Nuevo material</h2>
+        <div className="rounded-xl border-2 border-brand bg-brand-subtle p-6 space-y-5">
+          <h2 className="text-sm font-semibold text-text-primary">Nuevo material</h2>
 
           {/* Vocab selection */}
           <div>
-            <p className="text-xs font-medium text-gray-700 mb-2">Vocabulario</p>
+            <p className="text-xs font-medium text-text-secondary mb-2">Vocabulario</p>
 
             {/* Source: own words (by letter) vs Richmond book (by unit) — only for Richmond teachers */}
             {richmondCatalog.length > 0 && (
-              <div className="mb-3 inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+              <div className="mb-3 inline-flex rounded-lg border border-border bg-card p-0.5">
                 {(['own', 'richmond'] as const).map((s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => setVocabSource(s)}
-                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${vocabSource === s ? 'bg-primary text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${vocabSource === s ? 'bg-brand text-white' : 'text-text-secondary hover:text-text-primary'}`}
                   >
                     {s === 'own' ? 'Mi vocabulario (por letra)' : 'Richmond (por unidad)'}
                   </button>
@@ -417,7 +442,7 @@ export default function MaterialesPage() {
                                   : Array.from(new Set([...p, ...words]))
                               )
                             }
-                            className={`h-7 w-7 rounded-md text-xs font-bold transition-colors ${allSel ? 'bg-primary text-white' : 'bg-white text-gray-500 border border-gray-300 hover:border-primary'}`}
+                            className={`h-7 w-7 rounded-md text-xs font-semibold transition-colors ${allSel ? 'bg-brand text-white' : 'bg-card text-text-muted border border-border hover:border-brand'}`}
                             title={`Seleccionar todas las palabras con ${L}`}
                           >
                             {L}
@@ -439,7 +464,7 @@ export default function MaterialesPage() {
                             sel ? p.filter((w) => w !== v.word) : [...p, v.word]
                           )
                         }
-                        className={`px-3 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
+                        className={`px-3 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-brand text-white border-brand' : 'bg-card text-text-secondary border-border hover:border-brand'}`}
                       >
                         {v.word}
                       </button>
@@ -454,9 +479,9 @@ export default function MaterialesPage() {
                   const allSel =
                     u.words.length > 0 && u.words.every((w) => selectedVocab.includes(w))
                   return (
-                    <div key={u.id} className="rounded-lg border border-gray-200 bg-white p-3">
+                    <div key={u.id} className="rounded-lg border border-border bg-card p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-gray-800">
+                        <p className="text-xs font-semibold text-text-primary">
                           Unidad {u.unit_number}: {u.unit_title}
                         </p>
                         <button
@@ -468,7 +493,7 @@ export default function MaterialesPage() {
                                 : Array.from(new Set([...p, ...u.words]))
                             )
                           }
-                          className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${allSel ? 'bg-primary text-white' : 'border border-primary/40 text-primary hover:bg-primary/5'}`}
+                          className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${allSel ? 'bg-brand text-white' : 'border border-brand text-brand hover:bg-brand-subtle'}`}
                         >
                           {allSel ? 'Quitar unidad' : 'Toda la unidad'}
                         </button>
@@ -485,14 +510,14 @@ export default function MaterialesPage() {
                                   sel ? p.filter((x) => x !== w) : [...p, w]
                                 )
                               }
-                              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
+                              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${sel ? 'bg-brand text-white border-brand' : 'bg-card text-text-secondary border-border hover:border-brand'}`}
                             >
                               {w}
                             </button>
                           )
                         })}
                         {u.words.length === 0 && (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-text-muted">
                             Sin vocabulario en esta unidad
                           </span>
                         )}
@@ -520,7 +545,7 @@ export default function MaterialesPage() {
               />
             </div>
             {selectedVocab.length > 0 && (
-              <p className="text-xs text-primary mt-1">
+              <p className="text-xs text-brand mt-1">
                 {selectedVocab.length} palabra{selectedVocab.length !== 1 ? 's' : ''} seleccionada
                 {selectedVocab.length !== 1 ? 's' : ''}
               </p>
@@ -529,8 +554,8 @@ export default function MaterialesPage() {
 
           {/* Topic */}
           <div>
-            <p className="text-xs font-medium text-gray-700 mb-2">
-              Tema <span className="font-normal text-gray-500">(opcional)</span>
+            <p className="text-xs font-medium text-text-secondary mb-2">
+              Tema <span className="font-normal text-text-muted">(opcional)</span>
             </p>
             <Input
               value={topic}
@@ -542,7 +567,7 @@ export default function MaterialesPage() {
 
           {/* Type selection */}
           <div>
-            <p className="text-xs font-medium text-gray-700 mb-2">Tipo de material</p>
+            <p className="text-xs font-medium text-text-secondary mb-2">Tipo de material</p>
             <div className="flex flex-wrap gap-2">
               {CREATABLE_TYPES.map((t) => {
                 const sel = selectedTypes.includes(t.key)
@@ -553,7 +578,7 @@ export default function MaterialesPage() {
                     onClick={() =>
                       setSelectedTypes((p) => (sel ? p.filter((k) => k !== t.key) : [...p, t.key]))
                     }
-                    className={`px-3 py-1.5 rounded-lg text-xs border font-medium transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs border font-medium transition-colors ${sel ? 'bg-brand text-white border-brand' : 'bg-card text-text-secondary border-border hover:border-brand'}`}
                   >
                     {t.label}
                   </button>
@@ -581,9 +606,11 @@ export default function MaterialesPage() {
 
       {materials.length === 0 ? (
         <Card className="p-12 text-center">
-          <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" strokeWidth={1.5} />
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Aún no has creado materiales</h2>
-          <p className="text-sm text-gray-600">
+          <Package className="h-12 w-12 mx-auto mb-4 text-text-muted" strokeWidth={1.5} />
+          <h2 className="text-lg font-semibold text-text-primary mb-2">
+            {firstName ? `${firstName}, aún no tienes materiales` : 'Aún no tienes materiales'}
+          </h2>
+          <p className="text-sm text-text-secondary">
             Ve a una planeación y usa el botón <strong>&ldquo;Crear materiales&rdquo;</strong> para
             generar flashcards, bingo, sopas de letras y más.
           </p>
@@ -592,10 +619,10 @@ export default function MaterialesPage() {
         <div className="space-y-8">
           {dates.map((date) => (
             <div key={date}>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">
                 {date}
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 stagger-children">
                 {groups[date].map((m, idx) => {
                   const Icon = TYPE_ICONS[m.type] ?? Package
                   const colorClass = CARD_PALETTE[idx % CARD_PALETTE.length]
@@ -618,10 +645,19 @@ export default function MaterialesPage() {
                     <Card
                       className={`p-4 border transition-shadow ${colorClass} ${
                         selectMode ? '' : 'cursor-pointer hover:shadow-md'
-                      } ${isSel ? 'ring-2 ring-primary' : ''}`}
+                      } ${isSel ? 'ring-2 ring-brand' : ''}`}
                     >
                       <Icon className="h-6 w-6 mb-2" />
                       <p className="text-sm font-semibold">{label}</p>
+                      {m.vocab_source?.label && (
+                        <span
+                          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            SOURCE_BADGE[m.vocab_source.kind]?.cls ?? SOURCE_BADGE.custom.cls
+                          }`}
+                        >
+                          {SOURCE_BADGE[m.vocab_source.kind]?.icon ?? '✏️'} {m.vocab_source.label}
+                        </span>
+                      )}
                       {context && (
                         <p className="mt-0.5 text-xs font-medium opacity-80 line-clamp-2">
                           {context}
@@ -640,9 +676,9 @@ export default function MaterialesPage() {
                     >
                       <span className="absolute top-1.5 left-1.5 z-10">
                         {isSel ? (
-                          <CheckCircle2 size={18} className="text-primary fill-white" />
+                          <CheckCircle2 size={18} className="text-brand fill-white" />
                         ) : (
-                          <Circle size={18} className="text-gray-400" />
+                          <Circle size={18} className="text-text-muted" />
                         )}
                       </span>
                       {body}
@@ -652,7 +688,7 @@ export default function MaterialesPage() {
                       {body}
                       <button
                         onClick={(e) => handleDelete(e, m.id)}
-                        className="absolute top-1.5 right-1.5 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-red-50 text-gray-400 hover:text-red-600"
+                        className="absolute top-1.5 right-1.5 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-card/80 hover:bg-error-light text-text-muted hover:text-error"
                         aria-label="Eliminar material"
                       >
                         <Trash2 size={13} />
@@ -688,7 +724,7 @@ export default function MaterialesPage() {
             size="sm"
             disabled={batchBusy}
             onClick={handleBatchDelete}
-            className="text-red-600 hover:text-red-700"
+            className="text-error hover:text-error"
           >
             {batchBusy ? (
               <Loader2 size={15} className="mr-1.5 animate-spin" />
