@@ -17,6 +17,10 @@ export type TeacherProfile = {
   actividades_rutina_example?: string
   estrategia_comunitaria_example?: string
 
+  // Full name-scrubbed text of the uploaded example planeación (~24k chars). The primary
+  // voice/content exemplar at generation; fragments alone lose most of the teacher's document.
+  raw_text?: string
+
   // PDA bank — anti-hallucination core
   pda_bank?: Array<{
     campo: string

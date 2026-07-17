@@ -15,6 +15,20 @@ describe('NEM grounding', () => {
     expect(nemGroundingBlock(true)).toContain('<proni_contenidos')
   })
 
+  it('lists the 6 modalidades oficiales with their fases in order', () => {
+    const block = nemGroundingBlock(false)
+    expect(block).toContain('<modalidades>')
+    expect(block).toContain(
+      'Rincones de Aprendizaje: Saberes previos → Asamblea inicial y planeación'
+    )
+    expect(block).toContain('Unidad Didáctica: Lectura de la realidad')
+    // Ordinal prefixes stripped — fases read like the official doc.
+    expect(block).toContain(
+      'Centro de Interés: En contacto con la realidad → Identificación e integración → Expresión'
+    )
+    expect(block).toContain('CUALQUIER modalidad')
+  })
+
   it('scopes contenidos by campo', () => {
     const numeros = nemGroundingBlock(false, ['Saberes y Pensamiento Científico'])
     expect(numeros).toContain('CAMPO: Saberes y Pensamiento Científico')

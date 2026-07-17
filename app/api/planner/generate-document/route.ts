@@ -5,7 +5,9 @@ import { isProniApplicable } from '@/lib/nem-official-data'
 import { nemGroundingBlock } from '@/lib/nem/grounding'
 import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
 import { selectRelevantContenidos, contenidosSugeridosBlock } from '@/lib/nem/select-contenidos'
+import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import { extractUsedFichas, pickFicha, buildFichaBlock } from '@/lib/nem/ficha-rotation'
+import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
 import {
   matchPlaneaciones,
   storePlaneacionEmbedding,
@@ -136,22 +138,10 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): { cont
     )
   }
 
-  // 2. PDA bank — the anti-hallucination source. Reproduce each contenido with EXACTLY its PDAs
-  //    (same count, verbatim) so the campos table matches the teacher's document fidelity.
-  if (p?.pda_bank?.length) {
-    parts.push(
-      `<pda_bank>\nPROCESOS DE DESARROLLO DE APRENDIZAJE DISPONIBLES (usa estos VERBATIM — no inventes otros). Para cada contenido, incluye EXACTAMENTE sus PDAs (mismo número, sin consolidar ni omitir):\n${p.pda_bank
-        .map(
-          (b) =>
-            `Campo: ${b.campo}\nContenido: ${b.contenido} (${(b.pdas ?? []).length} PDAs)\nPDAs:\n${(
-              b.pdas ?? []
-            )
-              .map((x) => `  • ${x}`)
-              .join('\n')}`
-        )
-        .join('\n\n')}\n</pda_bank>`
-    )
-  }
+  // 2. (removed) The teacher's extracted <pda_bank> used to be "la ÚNICA fuente" for
+  //    campos_formativos, but LLM extraction is lossy (incomplete/paraphrased fragments) and it
+  //    produced wrong desgloses. The OFFICIAL bank (cached system prefix) is now the only PDA text
+  //    source; her pda_bank only biases the contenido shortlist (see selectRelevantContenidos hint).
 
   // 3. Evaluation format for THIS school
   parts.push(
@@ -274,7 +264,8 @@ function buildQuincenaPrompt(
   styleBlock: string = '',
   richmondBlock: string = '',
   gameHint: string = '',
-  contenidosBlock: string = ''
+  contenidosBlock: string = '',
+  knowledgeBlock: string = ''
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
 
@@ -393,6 +384,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     styleBlock,
     profileCtx,
     contenidosBlock,
+    knowledgeBlock,
     durationBlock,
     proyectoSecciones,
     teacherReq,
@@ -415,7 +407,8 @@ function buildTallerPrompt(
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> },
   styleBlock: string = '',
   richmondBlock: string = '',
-  gameHint: string = ''
+  gameHint: string = '',
+  knowledgeBlock: string = ''
 ): string {
   const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
   const startStr = new Date(fn.start_date).toLocaleDateString('es-MX', {
@@ -460,7 +453,7 @@ ${richmondBlock}${gameHint ? '\n' + gameHint : ''}
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
 
   // Grounding is injected as a cached system prefix, not here.
-  return [styleBlock, profileCtx, requestData].filter(Boolean).join('\n\n')
+  return [styleBlock, profileCtx, knowledgeBlock, requestData].filter(Boolean).join('\n\n')
 }
 
 export async function POST(req: NextRequest) {
@@ -711,17 +704,27 @@ export async function POST(req: NextRequest) {
     const systemPrompt = planType === 'taller' ? TALLER_SYSTEM : QUINCENA_SYSTEM
     // Cached grounding prefix — identical across the main + all sub-plan calls in this generation.
     // Keeps the FULL bank so the Números sub-plan (legitimately Saberes/matemático) stays grounded.
-    const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni)}`
+    // The teacher's FULL example planeación (name-scrubbed at extraction) rides in the cached
+    // prefix too: it's the highest-fidelity voice/structure/content exemplar we have, it's stable
+    // across the main + sub-plan calls, and caching makes its ~7k tokens nearly free after the
+    // first call. Older profiles without raw_text (pre-upgrade uploads) simply omit the block.
+    const exampleBlock = profile?.raw_text
+      ? `\n\n<planeacion_ejemplo_completa>\nPlaneación REAL escrita por esta maestra (su formato oficial). Es tu referencia MÁXIMA de voz, estructura, profundidad y tipo de contenido — la nueva planeación debe leerse como escrita por la misma persona, con la misma densidad y estilo operativo:\n${profile.raw_text}\n</planeacion_ejemplo_completa>`
+      : ''
+    const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni)}${exampleBlock}`
 
     // Topic-relevance pre-selection: shortlist the contenidos that authentically fit THIS project's
     // theme so the main doc's campos_formativos stop including an irrelevant Saberes (Alejandra's #1).
     // Best-effort: empty block → prompt keeps full-bank behavior. Only the main quincena prompt uses it.
+    // The teacher's extracted pda_bank is a selection HINT only (biases which contenidos get picked);
+    // the official bank supplies all Contenido/PDA text, and enforceCamposFormativos guarantees it.
     const contenidosBlock =
       planType !== 'taller'
         ? contenidosSugeridosBlock(
             await selectRelevantContenidos(
               String(fn.project_name ?? ''),
-              String(fn.project_notes ?? '')
+              String(fn.project_notes ?? ''),
+              (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean)
             )
           )
         : ''
@@ -739,6 +742,23 @@ export async function POST(req: NextRequest) {
       : ''
     const styleBlock = [styleExamplesBlock(styleExamples), prefsBlock].filter(Boolean).join('\n\n')
 
+    // NEM knowledge RAG: retrieve EXACT relevant passages from the institutional corpus
+    // (context/*.md via migration 066) for THIS topic + methodology. Complements the always-on
+    // NEM_SYNTHESIS/grounding (long-tail knowledge). Query-dependent → NOT in cachePrefix.
+    // Best-effort: no key / migration not pushed / not ingested → empty block.
+    const mainUnitMetodologia = Array.isArray(fn.unidades_didacticas)
+      ? String(fn.unidades_didacticas[0]?.metodologia ?? '')
+      : ''
+    // Taller plans retrieve too — the corpus has Taller Crítico / metodología / evaluación
+    // passages that ground them just as well as quincenas.
+    const knowledgeQuery =
+      planType === 'taller'
+        ? `Taller Crítico ${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} evaluación formativa preescolar`
+        : `${mainUnitMetodologia} ${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} evaluación formativa preescolar`
+    const knowledgeBlock = nemKnowledgeBlock(
+      await matchNemKnowledge(supabase, knowledgeQuery.trim())
+    )
+
     const userPrompt =
       planType === 'taller'
         ? buildTallerPrompt(
@@ -749,7 +769,8 @@ export async function POST(req: NextRequest) {
             schedule,
             styleBlock,
             richmondBlock,
-            gameHint
+            gameHint,
+            knowledgeBlock
           )
         : buildQuincenaPrompt(
             fn,
@@ -763,7 +784,8 @@ export async function POST(req: NextRequest) {
             styleBlock,
             richmondBlock,
             gameHint,
-            contenidosBlock
+            contenidosBlock,
+            knowledgeBlock
           )
 
     const encoder = new TextEncoder()
@@ -774,11 +796,14 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`))
 
         try {
-          const raw = await callPlannerModel(systemPrompt, userPrompt, {
-            maxTokens: 16384,
-            cachePrefix,
-          })
+          // No maxTokens override: use the model default (20000) — Sonnet 5's tokenizer runs
+          // ~30% fatter, and the old 16384 pin risked truncating the multi-page document.
+          const raw = await callPlannerModel(systemPrompt, userPrompt, { cachePrefix })
           const planDocument = parsePlanJson(raw)
+
+          // Snap campos_formativos to the official bank: verbatim Contenidos + FULL PDA desglose,
+          // invented entries dropped. Code-guaranteed correctness, not prompt hoping.
+          planDocument.campos_formativos = enforceCamposFormativos(planDocument.campos_formativos)
 
           // Embed teacher's section order + titles so the viewer renders in the right order.
           if (sectionOrder.length) {
@@ -815,7 +840,6 @@ export async function POST(req: NextRequest) {
               letterDay: schedule.letterDay,
               numDay: schedule.numDay,
               includeProni,
-              pdaBank: profile?.pda_bank,
               evalColumns,
               cachePrefix,
             }
@@ -864,7 +888,7 @@ export async function POST(req: NextRequest) {
                           .filter(Boolean)
                           .join('. ') || undefined,
                     },
-                    { evalColumns, pdaBank: profile?.pda_bank, cachePrefix }
+                    { evalColumns, cachePrefix }
                   )
                 )
               )

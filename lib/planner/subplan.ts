@@ -1,6 +1,8 @@
 // Rich sub-plan (Letter & Number / Números) generation, shared by the inline pipeline
 // (generate-document) and the on-demand route (generate-subplan).
 import { callPlannerModel, parsePlanJson } from './model'
+import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
+import { METHODOLOGY_STRUCTURE } from './methodologies'
 
 export const SUBPLAN_SYSTEM = `Eres una asistente pedagógica experta en educación preescolar mexicana alineada al NEM 2024. Generas sub-planeaciones DETALLADAS para actividades específicas (Letter & Number / Números) dentro de una quincena, con la riqueza de una maestra titular experta. Tu respuesta es ÚNICAMENTE un objeto JSON válido sin texto adicional. Desarrolla cada momento con MÚLTIPLES actividades concretas — nunca contenido genérico o resumido.`
 
@@ -14,21 +16,15 @@ export function buildSubplanPrompt(
   letterDay: string,
   numDay: string,
   includeProni: boolean,
-  pdaBank?: Array<{ campo: string; contenido: string; pdas: string[] }>,
   evalColumns: string[] = ['Logrado', 'En proceso', 'Requiere apoyo']
 ): string {
   const projectName = sanitize(fn.project_name)
   const monthlyValue = sanitize(fn.monthly_value)
 
-  // Grounding is injected as a cached system prefix (see callPlannerModel cachePrefix), not here.
-  const pdaCtx = pdaBank?.length
-    ? `<pda_bank>\nUsa estos PDAs VERBATIM (no inventes otros):\n${pdaBank
-        .map((p) => `${p.campo}: ${(p.pdas ?? []).join(' | ')}`)
-        .join('\n')}\n</pda_bank>\n\n`
-    : ''
-
+  // Grounding (the FULL official Contenido/PDA bank) is injected as a cached system prefix
+  // (see callPlannerModel cachePrefix), not here — the official bank is the ONLY PDA source.
   const depth = `EXIGENCIAS DE PROFUNDIDAD:
-- "campos_formativos": 1-3 campos relevantes, cada contenido con 2-4 Procesos de Desarrollo de Aprendizaje (PDA) OFICIALES del Programa Fase 2 redactados VERBATIM (usa los del <pda_bank> si se proveen; no inventes otros).
+- "campos_formativos": 1-3 campos relevantes, elegidos de <contenidos_oficiales>. Cada contenido elegido con TODOS sus Procesos de Desarrollo de Aprendizaje (PDA) oficiales de 3er grado, VERBATIM — el desglose completo (mismo número, mismo orden, sin consolidar ni omitir). PDA = Proceso de Desarrollo de Aprendizaje; NUNCA escribas "aprendizajes esperados".
 - Cada momento de la estructura didáctica debe tener 4-8 actividades CONCRETAS y variadas (no genéricas).
 - "evaluacion": 5 aspectos concretos. Columnas de evaluación: ${evalColumns.join(' / ')} (NUNCA numérica).
 - Verbos en primera persona del singular. NO resumas, NO uses placeholders.`
@@ -36,7 +32,7 @@ export function buildSubplanPrompt(
   if (subType === 'letter_number') {
     const letter1 = sanitize(fn.letter_week1)
     const letter2 = sanitize(fn.letter_week2)
-    return `${pdaCtx}Genera un sub-plan DETALLADO de LETTERS (Centro de Interés, para los ${letterDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).
+    return `Genera un sub-plan DETALLADO de LETTERS (Centro de Interés, para los ${letterDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).
 IMPORTANTE: Este sub-plan es EXCLUSIVAMENTE de LETRAS. NUNCA menciones números, conteo, rangos numéricos ni actividades numéricas — los números van en un sub-plan de Números aparte. Todo el contenido (nombre, momentos, evaluación) debe ser únicamente sobre letras.
 Letras a trabajar: Semana 1="${letter1}", Semana 2="${letter2}"${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
 ${includeProni ? 'PRONI (Kinder 3): integra inglés — trazo de letras, vocabulario, canciones, identidad multilingüe.' : ''}
@@ -59,7 +55,7 @@ Reglas: Letters es SOLO los ${letterDay}. SOLO letras, sin contenido numérico. 
 ${depth}`
   }
 
-  return `${pdaCtx}Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
+  return `Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
 
 Formato de salida JSON:
 {
@@ -79,82 +75,9 @@ Reglas: Números es SOLO los ${numDay}. Evaluación cualitativa, nunca numérica
 ${depth}`
 }
 
-// Each NEM methodology has its own didactic structure (the keys + their human labels).
-// Exported so the main-document generator can give Unit 1 (the top-level proyecto) the right
-// shape for its chosen methodology, not always "Proyecto".
-export const METHODOLOGY_STRUCTURE: Record<string, { key: string; label: string }[]> = {
-  'Centro de Interés': [
-    { key: 'momento_1', label: '1° Momento: En contacto con la realidad' },
-    { key: 'momento_2', label: '2° Momento: Identificación e integración' },
-    { key: 'momento_3', label: '3° Momento: Expresión' },
-  ],
-  'Aprendizaje Basado en el Juego': [
-    { key: 'momento_1', label: '1° Momento: Planteamiento del juego' },
-    { key: 'momento_2', label: '2° Momento: Desarrollo de las actividades' },
-    { key: 'momento_3', label: '3° Momento: Compartimos la experiencia' },
-    { key: 'momento_4', label: '4° Momento: Comunidad de juego' },
-  ],
-  'Taller Crítico': [
-    { key: 'situacion_inicial', label: 'Situación Inicial' },
-    { key: 'organizacion', label: 'Organización de las Acciones (mesas/equipos, reglas)' },
-    { key: 'puesta_en_marcha', label: 'Puesta en Marcha (días con fechas)' },
-    { key: 'valoramos', label: 'Valoramos lo Aprendido' },
-  ],
-  Proyecto: [
-    { key: 'punto_de_partida', label: 'Punto de Partida' },
-    { key: 'planeacion', label: 'Planeación (incluye el friso)' },
-    { key: 'a_trabajar', label: 'A trabajar (libros Richmond con páginas si aplica)' },
-    { key: 'comunicamos', label: 'Comunicamos Nuestros Logros' },
-    { key: 'reflexion', label: 'Reflexión sobre el aprendizaje' },
-  ],
-  'Situación Didáctica': [
-    { key: 'inicio', label: 'Inicio' },
-    { key: 'desarrollo', label: 'Desarrollo' },
-    { key: 'cierre', label: 'Cierre' },
-  ],
-  Asamblea: [
-    { key: 'inicio', label: 'Inicio' },
-    { key: 'desarrollo', label: 'Desarrollo' },
-    { key: 'cierre', label: 'Cierre' },
-  ],
-  // The 4 NEM metodologías globalizadoras (fases oficiales).
-  'Aprendizaje Basado en Proyectos Comunitarios': [
-    { key: 'planeacion', label: 'Planeación' },
-    { key: 'accion', label: 'Acción' },
-    { key: 'intervencion', label: 'Intervención' },
-  ],
-  'Aprendizaje Basado en Indagación (STEAM)': [
-    { key: 'introduccion', label: 'Introducción al tema' },
-    { key: 'diseno', label: 'Diseño de la indagación' },
-    { key: 'organizacion', label: 'Organización de respuestas' },
-    { key: 'metacognicion', label: 'Metacognición' },
-  ],
-  'Aprendizaje Basado en Problemas': [
-    { key: 'presentacion', label: 'Presentación del problema' },
-    { key: 'recoleccion', label: 'Recolección de datos' },
-    { key: 'hipotesis', label: 'Hipótesis' },
-    { key: 'experimentacion', label: 'Experimentación' },
-    { key: 'analisis', label: 'Análisis y conclusiones' },
-  ],
-  'Aprendizaje-Servicio': [
-    { key: 'punto_de_partida', label: 'Punto de partida' },
-    { key: 'lo_que_se', label: 'Lo que sé y quiero saber' },
-    { key: 'organizamos', label: 'Organicemos las actividades' },
-    { key: 'creatividad', label: 'Creatividad en marcha' },
-    { key: 'compartimos', label: 'Compartimos y evaluamos' },
-  ],
-}
-
-// Render a methodology's didactic structure as an <estructura_proyecto> prompt block for the MAIN
-// unit (top-level proyecto). Lets Unit 1 be a Taller / Centro de Interés, not always a Proyecto.
-// Empty string when the methodology is unknown → the prompt keeps its default Proyecto structure.
-export function buildEstructuraProyectoBlock(metodologia?: string | null): string {
-  if (!metodologia) return ''
-  const struct = METHODOLOGY_STRUCTURE[metodologia]
-  if (!struct) return ''
-  const headings = struct.map((s) => `  **${s.label}**`).join('\n')
-  return `\n<estructura_proyecto>\nEl campo "proyecto" corresponde a una unidad de metodología "${metodologia}". Asigna el campo "metodologia": "${metodologia}". El campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden, desarrollando cada uno a profundidad:\n${headings}\n</estructura_proyecto>`
-}
+// Methodology structures live in ./methodologies (leaf module — lib/nem/grounding also uses it
+// without creating an import cycle). Re-exported here for existing importers.
+export { METHODOLOGY_STRUCTURE, buildEstructuraProyectoBlock } from './methodologies'
 
 // Generate a sub-planeación of ANY NEM methodology (Taller, ABJ, etc.), teacher-driven.
 export async function generateCustomSubplan(
@@ -163,7 +86,6 @@ export async function generateCustomSubplan(
   spec: { methodology: string; name: string; notes?: string },
   opts: {
     evalColumns?: string[]
-    pdaBank?: Array<{ campo: string; contenido: string; pdas: string[] }>
     cachePrefix?: string
   } = {}
 ): Promise<Record<string, unknown>> {
@@ -175,13 +97,8 @@ export async function generateCustomSubplan(
   const evalCols = opts.evalColumns?.length
     ? opts.evalColumns
     : ['Logrado', 'En proceso', 'Requiere apoyo']
-  const pdaCtx = opts.pdaBank?.length
-    ? `<pda_bank>\nUsa estos PDAs VERBATIM (no inventes otros):\n${opts.pdaBank
-        .map((p) => `${p.campo}: ${(p.pdas ?? []).join(' | ')}`)
-        .join('\n')}\n</pda_bank>\n\n`
-    : ''
 
-  const prompt = `${pdaCtx}Genera una sub-planeación DETALLADA de metodología "${spec.methodology}" titulada "${spec.name}", dentro del proyecto "${sanitize(fn.project_name)}" (valor del mes: ${sanitize(fn.monthly_value)}).
+  const prompt = `Genera una sub-planeación DETALLADA de metodología "${spec.methodology}" titulada "${spec.name}", dentro del proyecto "${sanitize(fn.project_name)}" (valor del mes: ${sanitize(fn.monthly_value)}).
 ${spec.notes ? `Indicaciones específicas de la maestra: ${sanitize(spec.notes)}` : ''}
 
 Formato de salida JSON (responde SOLO el objeto):
@@ -197,13 +114,15 @@ ${estructuraJson}
   "observaciones": ""
 }
 
-Reglas: 1-3 campos formativos con PDAs oficiales verbatim. 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
+Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido con TODOS sus PDA oficiales VERBATIM (desglose completo, sin consolidar ni omitir). 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
 
   const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
-    maxTokens: 6000,
+    maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
     cachePrefix: opts.cachePrefix,
   })
-  return parsePlanJson(raw)
+  const doc = parsePlanJson(raw)
+  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos)
+  return doc
 }
 
 export async function generateSubplan(
@@ -215,7 +134,6 @@ export async function generateSubplan(
     letterDay: string
     numDay: string
     includeProni: boolean
-    pdaBank?: Array<{ campo: string; contenido: string; pdas: string[] }>
     evalColumns?: string[]
     cachePrefix?: string
   }
@@ -227,12 +145,13 @@ export async function generateSubplan(
     opts.letterDay,
     opts.numDay,
     opts.includeProni,
-    opts.pdaBank,
     opts.evalColumns
   )
   const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
-    maxTokens: 6000,
+    maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
     cachePrefix: opts.cachePrefix,
   })
-  return parsePlanJson(raw)
+  const doc = parsePlanJson(raw)
+  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos)
+  return doc
 }

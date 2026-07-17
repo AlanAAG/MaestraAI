@@ -61,15 +61,25 @@ ${body}
  * Shortlist the contenidos relevant to a project topic. Best-effort — returns [] on any
  * failure (no key, bad JSON, empty topic) so the caller keeps the full-bank prompt behavior.
  */
-export async function selectRelevantContenidos(topic: string, notes = ''): Promise<ContenidoPDA[]> {
+export async function selectRelevantContenidos(
+  topic: string,
+  notes = '',
+  hint: string[] = []
+): Promise<ContenidoPDA[]> {
   const t = `${topic} ${notes}`.trim()
   if (!t) return []
   try {
     // Lazy import so the pure helpers (and their tests) don't instantiate the Anthropic client.
     const { streamToString } = await import('@/lib/claude')
+    const hintLine = hint.length
+      ? `LA MAESTRA SUELE TRABAJAR ESTOS CONTENIDOS (dales preferencia si son pertinentes al tema):\n${hint
+          .slice(0, 12)
+          .map((h) => `- ${h}`)
+          .join('\n')}\n`
+      : ''
     const raw = await streamToString(
       SELECT_SYSTEM,
-      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}\nCONTENIDOS DISPONIBLES:\n${buildContenidoMenu()}`
+      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}${hintLine}\nCONTENIDOS DISPONIBLES:\n${buildContenidoMenu()}`
     )
     const m = raw.match(/\[[\d,\s]*\]/)
     if (!m) return []

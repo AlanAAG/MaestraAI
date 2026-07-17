@@ -1,6 +1,19 @@
 // Official NEM Fase-2 grounding injected into generation prompts so the model REPRODUCES
 // official Contenidos/PDAs verbatim instead of inventing them.
 import { CONTENIDOS_FASE2_3 } from './contenidos-fase2'
+import { METHODOLOGY_STRUCTURE } from '@/lib/planner/methodologies'
+
+// The 6 modalidades oficiales (context/campos-formativos-modalidades.md — school ground truth).
+// METHODOLOGY_STRUCTURE also holds extra metodologías (Situación Didáctica, ABP…); the always-on
+// grounding lists only the official 6 to keep the rule crisp.
+const MODALIDADES_OFICIALES = [
+  'Taller Crítico',
+  'Rincones de Aprendizaje',
+  'Centro de Interés',
+  'Unidad Didáctica',
+  'Aprendizaje Basado en el Juego',
+  'Proyecto',
+]
 
 // Canonical 7 Ejes Articuladores (Plan de Estudio 2022, §8.1) — verbatim names + essence.
 export const EJES_FASE2: { nombre: string; esencia: string }[] = [
@@ -111,6 +124,14 @@ function proniBlock(): string {
 // `campos` narrows the Contenidos to specific campos (used by sub-plans to stay lean).
 export function nemGroundingBlock(includeProni: boolean, campos?: string[]): string {
   const ejes = EJES_FASE2.map((e) => `  • ${e.nombre}: ${e.esencia}`).join('\n')
+  const modalidades = MODALIDADES_OFICIALES.map((m) => {
+    // Strip UI annotations ("(incluye el friso)") and ordinal prefixes ("1° Momento: ") so the
+    // fases read exactly like the official document's names.
+    const fases = (METHODOLOGY_STRUCTURE[m] ?? []).map((f) =>
+      f.label.replace(/ \(.*\)$/, '').replace(/^\d+° Momento: /, '')
+    )
+    return `  • ${m}: ${fases.join(' → ')}`
+  }).join('\n')
   return `<contenidos_oficiales fase="2" grado="3">
 REGLA ABSOLUTA: Usa y REPRODUCE TEXTUALMENTE estos Contenidos y PDAs oficiales. Está PROHIBIDO inventar, parafrasear o abreviar un PDA. Si un campo/contenido no aplica al proyecto, simplemente no lo uses — pero cuando lo uses, cópialo VERBATIM.
 
@@ -124,7 +145,12 @@ ${ejes}
 
 <evaluacion_formativa>
 La evaluación es CUALITATIVA, continua y basada en la observación sistemática — NUNCA numérica ni porcentajes. Instrumentos válidos: observación sistemática, registro de avance, diario de trabajo, portafolio de evidencias, rúbrica, lista de cotejo. Cada aspecto a evaluar debe ser observable y redactado de forma concreta.
-</evaluacion_formativa>${
+</evaluacion_formativa>
+
+<modalidades>
+Las 6 modalidades de trabajo oficiales. TODOS los campos formativos pueden trabajarse a través de CUALQUIER modalidad — la elección depende de la intención pedagógica, no del campo. Cada modalidad sigue sus fases EXACTAS, EN ESTE ORDEN (usa estos nombres de fase textualmente como encabezados):
+${modalidades}
+</modalidades>${
     includeProni
       ? `
 

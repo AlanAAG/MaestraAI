@@ -21,6 +21,8 @@ const MODALIDADES = [
   'Proyecto',
   'Centro de Interés',
   'Taller Crítico',
+  'Rincones de Aprendizaje',
+  'Unidad Didáctica',
   'Aprendizaje Basado en el Juego',
   'Situación Didáctica',
   'Aprendizaje Basado en Proyectos Comunitarios',

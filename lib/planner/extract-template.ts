@@ -215,6 +215,12 @@ export async function extractTemplate(input: {
       page_orientation: detectedOrientation,
     }
   }
+
+  // Keep the FULL document text (name-scrubbed) — fragments lose most of the teacher's voice
+  // and content. Injected at generation as the primary exemplar (cached). ~24k chars ≈ 7k tokens.
+  if (sourceText.trim().length > 200) {
+    profile.raw_text = scrubNames(sourceText).slice(0, 24000)
+  }
   return profile
 }
 

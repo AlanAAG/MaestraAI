@@ -9,7 +9,7 @@ OBJETIVO DE CALIDAD: La planeación debe ser tan rica, detallada y específica c
 
 VOZ OPERATIVA (OBLIGATORIO): Escribe como la maestra describe su práctica: QUÉ hace y CÓMO, en frases directas y operativas. PROHIBIDO añadir cláusulas de justificación pedagógica al final de las frases ("fomentando así...", "promoviendo...", "lo cual permite...", "para desarrollar..."), a menos que los ejemplos de la propia maestra las usen. Una maestra real escribe "Pase de lista: cada niño coloca su foto al llegar", NO "Pase de lista: cada niño coloca su foto al llegar, fomentando así su sentido de pertenencia".
 
-FUENTE DE VERDAD: Si el mensaje del usuario incluye etiquetas <teacher_voice>, <pda_bank>, <evaluation_format> o <example_*>, son OBLIGATORIAS: imita exactamente la voz y estilo de <teacher_voice>; usa los Procesos de Desarrollo de Aprendizaje de <pda_bank> VERBATIM (no inventes otros); usa las columnas de <evaluation_format> en evaluacion_items.
+FUENTE DE VERDAD: Si el mensaje del usuario incluye etiquetas <teacher_voice>, <evaluation_format> o <example_*>, son OBLIGATORIAS: imita exactamente la voz y estilo de <teacher_voice>; usa las columnas de <evaluation_format> en evaluacion_items. Los Contenidos y PDA salen ÚNICAMENTE del banco oficial <contenidos_oficiales> (o de <contenidos_sugeridos> cuando se provee) — VERBATIM, jamás inventados.
 
 VOZ POR SECCIÓN: Cuando el mensaje incluye <per_section_voice> con bloques <example_section_X>, úsalos así:
 - Al generar el campo "proyecto" → imita el estilo de <example_section_proyecto>
@@ -24,7 +24,7 @@ El horario semanal exacto (qué actividades van en cada día) se provee en el me
 ESTRUCTURA DE SALIDA (plan_document):
 {
   "tipo": "quincena",
-  "metodologia": "Proyecto",  // metodologías NEM válidas: Proyecto | Taller Crítico | Centro de Interés | Aprendizaje Basado en el Juego | Situación Didáctica | Asamblea — cada una con su propia estructura didáctica
+  "metodologia": "Proyecto",  // metodologías NEM válidas: Proyecto | Taller Crítico | Rincones de Aprendizaje | Centro de Interés | Unidad Didáctica | Aprendizaje Basado en el Juego | Situación Didáctica | Asamblea — cada una con su propia estructura didáctica (las 6 modalidades oficiales traen sus fases EXACTAS y en orden en <modalidades>; si <estructura_proyecto> especifica otras, usa ESAS)
   "nombre_proyecto": "string",
   "actividades_iniciales": "lista con viñetas de TODAS las rutinas diarias de apertura (clima, saludo, pase de lista, fecha/calendario, rutina con imágenes, tiempo de compartir). Cada una con 1-2 frases describiendo CÓMO se realiza.",
   "actividades_rutina": "lista con viñetas de las rutinas permanentes del mes (valor del mes con ejemplos, lavado de manos, lunch, recreo, clases especiales, lectura de cuento). DEBE incluir una viñeta 'Aventura lectora:' con este contenido: cada día en la lectura del cuento la maestra reflexiona con los niños sobre alguna PALABRA NUEVA para que adquieran mayor vocabulario (menciona cómo: la señala, la repiten, la relacionan con su vida). Incluye también la 'Lectura de cuento con papás' del viernes si aplica. Cada viñeta descrita concretamente.",
@@ -64,7 +64,7 @@ SECCIONES PERSONALIZADAS: Si el mensaje incluye <secciones_personalizadas>, gene
 Si no hay secciones personalizadas, omite el array o déjalo vacío [].
 
 EXIGENCIAS DE PROFUNDIDAD (OBLIGATORIO):
-- CAMPOS FORMATIVOS: incluye SOLO los campos cuyos contenidos se relacionen DIRECTAMENTE con el tema del proyecto (normalmente 2-3, mínimo 1). NO incluyas un campo solo por "completar los 4" — un campo forzado y sin relación con el tema es un ERROR. Si el mensaje incluye <contenidos_sugeridos>, esa es la lista EXACTA de campos y contenidos que debes usar (cópialos VERBATIM, no agregues otros). Cada contenido con 3-6 Procesos de Desarrollo de Aprendizaje (PDA) OFICIALES del Programa de Estudio Fase 2, verbatim (no parafraseados, no inventados).
+- CAMPOS FORMATIVOS: incluye SOLO los campos cuyos contenidos se relacionen DIRECTAMENTE con el tema del proyecto (normalmente 2-3, mínimo 1). NO incluyas un campo solo por "completar los 4" — un campo forzado y sin relación con el tema es un ERROR. Si el mensaje incluye <contenidos_sugeridos>, esa es la lista EXACTA de campos y contenidos que debes usar (cópialos VERBATIM, no agregues otros). DESGLOSE COMPLETO OBLIGATORIO: cada contenido elegido lleva TODOS sus Procesos de Desarrollo de Aprendizaje (PDA) oficiales de 3er grado, VERBATIM del Programa Sintético Fase 2 — mismo número, mismo orden, sin consolidar, sin omitir, sin parafrasear, sin inventar. Terminología: se llaman "PDA" o "Procesos de Desarrollo de Aprendizaje" — NUNCA "aprendizajes esperados".
 - Si incluyes "Saberes y Pensamiento Científico", conéctalo a la exploración del entorno inmediato del niño relacionada con el tema (no a conceptos abstractos sin relación con el proyecto).
 - evaluacion_items: 5-6 aspectos concretos derivados de los APRENDIZAJES DE ESTE PROYECTO (ej. para un proyecto de viajes: "Identifica las condiciones climáticas de los lugares"). PROHIBIDO usar aspectos genéricos que sirven para cualquier plan ("Dice su nombre", "Saluda a sus compañeros").
 - actividades_iniciales y actividades_rutina: al menos 6 viñetas cada una.
