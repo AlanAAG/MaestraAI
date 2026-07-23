@@ -7,6 +7,17 @@ import { Separator } from '@/components/ui/separator'
 import { InitialsAvatar } from '@/components/ui/InitialsAvatar'
 import { SignOutButton } from '@/components/auth/SignOutButton'
 import type { FontKey } from '@/lib/design/fonts'
+import { THEME_BRAND } from '@/lib/design/themes'
+
+// App-wide color themes (full environment). 'default' = the app's gold.
+const APP_COLOR_OPTIONS: { value: string; label: string; swatch: string }[] = [
+  { value: 'default', label: 'Dorado (predeterminado)', swatch: '#b8860b' },
+  ...Object.entries(THEME_BRAND).map(([value, t]) => ({
+    value,
+    label: t.label,
+    swatch: t.brand,
+  })),
+]
 
 type DesignSettings = {
   font: FontKey
@@ -15,6 +26,7 @@ type DesignSettings = {
   lineIntensity: 'light' | 'medium' | 'strong'
   spacing: 'compact' | 'normal' | 'relaxed'
   app_font: 'default' | FontKey
+  app_color: string
 }
 const DEFAULT_DESIGN: DesignSettings = {
   font: 'sans',
@@ -23,6 +35,7 @@ const DEFAULT_DESIGN: DesignSettings = {
   lineIntensity: 'medium',
   spacing: 'normal',
   app_font: 'default',
+  app_color: 'default',
 }
 const FONT_OPTIONS: { value: DesignSettings['font']; label: string }[] = [
   { value: 'sans', label: 'Sans (moderna)' },
@@ -198,10 +211,14 @@ export default function PerfilPage() {
       })
       setSaveDMsg(res.ok ? 'Guardado' : 'No se pudo guardar')
       setTimeout(() => setSaveDMsg(''), 2500)
-      // The shell reads app_font once on mount — reload so the new interface font applies now.
+      // The shell reads app_font/app_color once on mount — reload so the new interface font +
+      // color theme apply immediately.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const prevAppFont = (teacher as any)?.design_settings?.app_font ?? 'default'
-      if (res.ok && design.app_font !== prevAppFont) window.location.reload()
+      const prev = (teacher as any)?.design_settings ?? {}
+      const changedShell =
+        design.app_font !== (prev.app_font ?? 'default') ||
+        design.app_color !== (prev.app_color ?? 'default')
+      if (res.ok && changedShell) window.location.reload()
     } finally {
       setSavingD(false)
     }
@@ -252,8 +269,9 @@ export default function PerfilPage() {
             {[teacher.subject, teacher.schools?.name].filter(Boolean).join(' · ') || teacher.email}
           </p>
         </div>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
           <RoleBadge role={teacher.role_type} />
+          <SignOutButton variant="button" />
         </div>
       </div>
 
@@ -498,6 +516,37 @@ export default function PerfilPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Color de la aplicación
+            </label>
+            <p className="text-xs text-text-secondary">
+              Cambia el ambiente de color de toda la app: botones, menú, fondos y tarjetas.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {APP_COLOR_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setDesign((d) => ({ ...d, app_color: o.value }))}
+                  title={o.label}
+                  aria-label={o.label}
+                  className={`flex h-10 items-center gap-2 rounded-lg border-2 px-3 transition-transform ${
+                    design.app_color === o.value
+                      ? 'border-text-primary scale-105'
+                      : 'border-transparent hover:scale-105'
+                  }`}
+                >
+                  <span
+                    className="h-5 w-5 rounded-full ring-1 ring-black/10"
+                    style={{ backgroundColor: o.swatch }}
+                  />
+                  <span className="text-xs text-text-primary">{o.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <Button onClick={handleDesignSave} disabled={savingD}>

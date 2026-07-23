@@ -23,6 +23,7 @@ import { InitialsAvatar } from '@/components/ui/InitialsAvatar'
 import { SignOutButton } from '@/components/auth/SignOutButton'
 import { TeacherNameProvider } from '@/components/app/TeacherContext'
 import { appFontStyle } from '@/lib/design/fonts'
+import { appThemeVars } from '@/lib/design/themes'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
@@ -51,6 +52,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [hasLmsSync, setHasLmsSync] = useState(false)
   const [teacherName, setTeacherName] = useState('')
   const [appFont, setAppFont] = useState<string | null>(null)
+  const [appColor, setAppColor] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -84,6 +86,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       setHasLmsSync(getEditorialConfig(teacher.editorial).has_lms_sync)
       setTeacherName(teacher.full_name || '')
       setAppFont(teacher.design_settings?.app_font ?? null)
+      setAppColor(teacher.design_settings?.app_color ?? null)
       setLoading(false)
     })
 
@@ -114,6 +117,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       root.style.fontFamily = ''
     }
   }, [appFont])
+
+  // App-wide color theme applied at the document root — a full environment shift (brand,
+  // surfaces, shadcn tokens). Cleaned up on exit so a theme change fully reverts.
+  useEffect(() => {
+    const vars = appThemeVars(appColor)
+    if (!vars) return
+    const root = document.documentElement
+    for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v)
+    return () => {
+      for (const k of Object.keys(vars)) root.style.removeProperty(k)
+    }
+  }, [appColor])
 
   if (loading) {
     return (

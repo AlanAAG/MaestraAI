@@ -184,6 +184,9 @@ export function WordSearchPdfDocument({
   generatedAt,
 }: WordSearchPdfProps) {
   const { grid, words, gridSize } = content
+  // Student-safe download: only the puzzle page — the solution/answer-key page is NOT bundled
+  // (teachers still see the solution in the app). Silences the "answers in the download" issue.
+  void wordPaths
   return (
     <Document title={`Sopa de Letras - ${title}`}>
       <GridPage
@@ -192,15 +195,6 @@ export function WordSearchPdfDocument({
         gridSize={gridSize}
         title={title}
         isAnswerKey={false}
-        generatedAt={generatedAt}
-      />
-      <GridPage
-        grid={grid}
-        words={words}
-        gridSize={gridSize}
-        wordPaths={wordPaths}
-        title={title}
-        isAnswerKey={true}
         generatedAt={generatedAt}
       />
     </Document>

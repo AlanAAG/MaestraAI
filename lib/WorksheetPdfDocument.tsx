@@ -148,17 +148,41 @@ export function WorksheetPdfDocument({
                 </View>
               ))}
 
-              {(activity.pairs ?? []).map((pair, pairIndex) => (
-                <View key={pairIndex} style={styles.itemBox}>
-                  <View style={styles.checkbox} />
-                  <Text style={styles.itemText}>
-                    {pair.word}
-                    {pair.translation || pair.description
-                      ? ` — ${pair.translation || pair.description}`
-                      : ''}
-                  </Text>
-                </View>
-              ))}
+              {/* Matching: two columns with the RIGHT side shuffled so a word never sits on its
+                  answer's row — otherwise the download reveals the answer. Kids draw the lines. */}
+              {(() => {
+                const pairs = activity.pairs ?? []
+                if (!pairs.length) return null
+                const answers = pairs.map((p) => p.translation || p.description || '')
+                const hasAnswers = answers.some(Boolean)
+                if (!hasAnswers) {
+                  return pairs.map((pair, i) => (
+                    <View key={i} style={styles.itemBox}>
+                      <View style={styles.checkbox} />
+                      <Text style={styles.itemText}>{pair.word}</Text>
+                    </View>
+                  ))
+                }
+                const shuffled = seededShuffle(answers, index * 13 + 5)
+                return (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 24 }}>
+                    <View style={{ flex: 1 }}>
+                      {pairs.map((pair, i) => (
+                        <Text key={i} style={[styles.itemText, { marginBottom: 10 }]}>
+                          {pair.word}
+                        </Text>
+                      ))}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      {shuffled.map((a, i) => (
+                        <Text key={i} style={[styles.itemText, { marginBottom: 10 }]}>
+                          {a}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
+                )
+              })()}
             </View>
           )
         })}

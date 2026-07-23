@@ -31,6 +31,22 @@ export function mapSelection(indices: unknown): ContenidoPDA[] {
   return out
 }
 
+/** Map teacher-selected contenido titles → verbatim bank rows (with full PDAs). Order-preserving,
+ * dedup, unknown titles dropped. Used when the teacher explicitly picks contenidos per unit. */
+export function contenidosFromTitles(titles: string[]): ContenidoPDA[] {
+  const byTitle = new Map(CONTENIDOS_FASE2_3.map((c) => [c.contenido, c]))
+  const seen = new Set<string>()
+  const out: ContenidoPDA[] = []
+  for (const t of titles) {
+    const row = byTitle.get(t)
+    if (row && !seen.has(t)) {
+      seen.add(t)
+      out.push(row)
+    }
+  }
+  return out
+}
+
 /** The `<contenidos_sugeridos>` prompt block injected into the main quincena user prompt. */
 export function contenidosSugeridosBlock(list: ContenidoPDA[]): string {
   if (!list.length) return ''

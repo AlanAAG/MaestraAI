@@ -4,7 +4,11 @@ import { z } from 'zod'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { nemGroundingBlock } from '@/lib/nem/grounding'
 import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
-import { selectRelevantContenidos, contenidosSugeridosBlock } from '@/lib/nem/select-contenidos'
+import {
+  selectRelevantContenidos,
+  contenidosSugeridosBlock,
+  contenidosFromTitles,
+} from '@/lib/nem/select-contenidos'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import { extractUsedFichas, pickFicha, buildFichaBlock } from '@/lib/nem/ficha-rotation'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
@@ -290,6 +294,8 @@ function buildQuincenaPrompt(
   const bookPages = fn.richmond_book_pages as {
     week1?: string
     week2?: string
+    week3?: string
+    week4?: string
     student_book?: string
     activity_book?: string
     assessment?: string
@@ -298,6 +304,8 @@ function buildQuincenaPrompt(
     ? [
         bookPages.week1 ? `- Semana 1: páginas del libro ${bookPages.week1}` : '',
         bookPages.week2 ? `- Semana 2: páginas del libro ${bookPages.week2}` : '',
+        bookPages.week3 ? `- Semana 3: páginas del libro ${bookPages.week3}` : '',
+        bookPages.week4 ? `- Semana 4: páginas del libro ${bookPages.week4}` : '',
         bookPages.student_book ? `- STUDENT BOOK páginas ${bookPages.student_book}` : '',
         bookPages.activity_book ? `- ACTIVITY BOOK páginas ${bookPages.activity_book}` : '',
         bookPages.assessment ? `- ASSESSMENT: ${bookPages.assessment}` : '',
@@ -358,17 +366,28 @@ Números: SOLO los ${schedule.numDay}
 ${proniNote}`
 
   // Mes = monthly (4-week) plan; reuses the quincena structure with a duration hint.
-  const isMes = fn.plan_type === 'mes'
+  // Month plans store plan_type='quincena' + is_month=true (the constraint-safe encoding).
+  const isMes = !!fn.is_month || fn.plan_type === 'mes'
   const durationBlock = isMes
     ? `<duracion>\nEsta planeación cubre UN MES COMPLETO (4 semanas). Distribuye el cronograma, el proyecto y las actividades a lo largo de las 4 semanas del mes, con progresión semana a semana. Las Letras y Números abarcan el mes completo.\n</duracion>`
     : ''
+
+  // Teacher's stated objective drives the whole plan (from the "¿Qué quieres que aprendan?" input).
+  const goalBlock = fn.learning_goal
+    ? `<objetivo_maestra>\nLo que la maestra quiere que los niños aprendan este ${isMes ? 'mes' : 'quincena'}: "${sanitize(fn.learning_goal)}".\nToda la planeación (proyecto, actividades, aprendizajes, evaluación) debe girar en torno a este objetivo.\n</objetivo_maestra>`
+    : ''
+
+  // Letters: 4 weeks for month plans, 2 for quincena.
+  const lettersLine = isMes
+    ? `Letras: Semana 1="${sanitize(fn.letter_week1)}" | Semana 2="${sanitize(fn.letter_week2)}" | Semana 3="${sanitize(fn.letter_week3)}" | Semana 4="${sanitize(fn.letter_week4)}"`
+    : `Letras: Semana 1="${sanitize(fn.letter_week1)}" | Semana 2="${sanitize(fn.letter_week2)}"`
 
   const requestData = `<request>
 PLANEACIÓN ${isMes ? 'MENSUAL' : 'QUINCENA'} ${fn.number}: ${sanitize(fn.project_name)}
 Nivel: Kinder 3 (5-6 años) | Del ${startStr} al ${endStr}
 Grado: ${fn._grade ?? fn.groups?.grade ?? ''} | Grupos: ${fn._gradeGroupNames ?? fn.groups?.name ?? ''} (esta planeación es para TODO el grado, inclusiva de todos sus grupos)
 Valor del mes: ${sanitize(fn.monthly_value)}
-Letras: Semana 1="${sanitize(fn.letter_week1)}" | Semana 2="${sanitize(fn.letter_week2)}"${vocabList ? `\nVocabulario maestra: ${vocabList}` : ''}
+${lettersLine}${vocabList ? `\nVocabulario maestra: ${vocabList}` : ''}
 
 ${neeSection}
 ${obsSection}
@@ -383,6 +402,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
   // Order: style examples → teacher voice → PDAs → proyecto structure → requests → continuity → schema → request.
   return [
     styleBlock,
+    goalBlock,
     profileCtx,
     contenidosBlock,
     knowledgeBlock,
@@ -722,15 +742,28 @@ export async function POST(req: NextRequest) {
     // Best-effort: empty block → prompt keeps full-bank behavior. Only the main quincena prompt uses it.
     // The teacher's extracted pda_bank is a selection HINT only (biases which contenidos get picked);
     // the official bank supplies all Contenido/PDA text, and enforceCamposFormativos guarantees it.
-    const contenidosBlock =
-      planType !== 'taller'
-        ? contenidosSugeridosBlock(
-            await selectRelevantContenidos(
-              String(fn.project_name ?? ''),
-              String(fn.project_notes ?? ''),
-              (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean)
+    // Teacher-selected contenidos (per unit) WIN: build the block verbatim from her choices.
+    // Otherwise fall back to the Haiku topic-relevance shortlist (seeded with her learning goal).
+    const teacherContenidoTitles: string[] = Array.isArray(fn.unidades_didacticas)
+      ? Array.from(
+          new Set(
+            fn.unidades_didacticas.flatMap((u: { contenidos?: unknown }) =>
+              Array.isArray(u?.contenidos) ? (u.contenidos as string[]) : []
             )
           )
+        )
+      : []
+    const contenidosBlock =
+      planType !== 'taller'
+        ? teacherContenidoTitles.length
+          ? contenidosSugeridosBlock(contenidosFromTitles(teacherContenidoTitles))
+          : contenidosSugeridosBlock(
+              await selectRelevantContenidos(
+                String(fn.project_name ?? ''),
+                `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
+                (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean)
+              )
+            )
         : ''
 
     // RAG: retrieve THIS teacher's most-similar past plans → inject as style examples (her voice).

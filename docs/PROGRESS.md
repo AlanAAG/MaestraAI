@@ -5,6 +5,23 @@ Current phase: Phase 6 — Quality & Polish (output quality, design, games, bran
 
 ---
 
+## Planeación + personalization + games batch (current)
+
+Batch from Alan + real user testing (his mom hit a crash creating a planeación). **Migration 068** (additive, graceful — apply in SQL editor). Deferred: flashcard "marco/cenefa" design editor (parked mid-brainstorm).
+
+- **BREAKING BUG FIXED — "Mes" planeación crash (`23514 fortnights_plan_type_check`)**: the UI inserted `plan_type='mes'` but the DB CHECK only allows `quincena|taller`. Fixed WITHOUT touching the constraint (which would break until applied): month plans now insert `plan_type='quincena'` + a new **`is_month`** flag (best-effort update). `generate-document` + `subplan` key mes behavior off `is_month`. Only DB-legal values are ever inserted → crash is impossible, works even before 068 is applied.
+- **Migration 068** (`fortnights`, all nullable/graceful): `is_month bool`, `letter_week3/4 text`, `learning_goal text`. `richmond_book_pages`/`unidades_didacticas`/`design_settings` extend in their existing JSONB (no columns).
+- **Mes = real 4 weeks**: `nueva` shows weeks 3-4 letters + book pages when Mes; generate-document injects all 4 weeks; the Letter&Number sub-plan spans the month (`is_month`). Quincena unchanged (2 weeks).
+- **Creation-page learning goal**: prominent "¿Qué quieres que aprendan los niños este mes/quincena?" textarea at the top of `nueva` (label flips on plan type) → `fortnights.learning_goal` → injected as `<objetivo_maestra>` (drives the whole plan) + seeds the contenido shortlist. NOT rendered as a plan section (per Alan).
+- **Per-unit contenidos + PDA dropdowns**: each Unidad didáctica gets a collapsible multi-select of the official `CONTENIDOS_FASE2_3` (grouped by campo). Stored on `unidades_didacticas`. When the teacher selects any, generation builds `<contenidos_sugeridos>` verbatim from her picks (`contenidosFromTitles`) instead of the Haiku shortlist; `enforceCamposFormativos` still snaps to official rows. Methodologies already per-unit.
+- **App-wide color themes** (full environment, not just accent): `lib/design/themes.ts` — 8 themes; each brand hex derives brand/hover/light/subtle + page/inset surfaces + shadcn `--primary`/`--ring`/`--secondary`. `design_settings.app_color` (JSONB); applied on `document.documentElement` via a layout useEffect (mirrors app_font); swatch picker in Mi Perfil "Diseño"; shared `/jugar` games follow via the wrapper. Plan-document `accent` stays separate. Tested (`themes.test.ts`).
+- **Logout visibility**: logout already existed in Configuración + at the bottom of Mi Perfil — added a prominent `SignOutButton` to the Mi Perfil **header** (top-right) so it's visible without scrolling.
+- **Bigger game words**: SortingGame bins (sm→lg) + item (2xl→3xl) + drop-zones (lg→xl); StudentBingoCard cells (base/xs→lg/sm, 5×5 cells h-14→h-16); Matching + PictureWordMatch buttons (2xl→3xl).
+- **Removed answers from downloadable PDFs**: letter-recognition — `hear_and_circle` options shuffled (correct no longer always first), `match_to_letter` right column shuffled (rows no longer align with the answer); word-search — the bundled answer-key page dropped from the student download (solution still visible in-app); worksheet matching — two columns with the right side shuffled (real line-drawing task). Bingo/memorama left as-is (cut-and-shuffle by design).
+- Verified: typecheck + lint clean, **173 tests (40 files)**, production build compiles. **Apply migration 068.**
+
+---
+
 ## What exists (current state)
 
 ### Infrastructure

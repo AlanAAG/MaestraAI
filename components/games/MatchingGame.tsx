@@ -82,7 +82,7 @@ export function MatchingGame({ content, onComplete }: Props) {
                   speak(w, 'en-US')
                   setSelected(w)
                 }}
-                className={`w-full rounded-xl border-2 px-3 py-4 text-2xl font-semibold transition active:scale-95 ${
+                className={`w-full rounded-xl border-2 px-3 py-4 text-3xl font-semibold transition active:scale-95 ${
                   done
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700 opacity-60'
                     : selected === w

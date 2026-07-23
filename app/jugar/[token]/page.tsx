@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { GameShell } from '@/components/games/GameShell'
 import { createServiceClient } from '@/lib/supabase/service'
 import { appFontStyle } from '@/lib/design/fonts'
+import { appThemeVars } from '@/lib/design/themes'
 import { TeacherVocabImages } from '@/components/games/TeacherImages'
 
 interface Props {
@@ -23,7 +24,11 @@ export default async function JugarPage({ params }: Props) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const design = (material as any).teachers?.design_settings
-  const fontStyle = appFontStyle(design?.app_font)
+  // Shared games follow the teacher's environment: font + color theme (best-effort).
+  const wrapperStyle = {
+    ...appFontStyle(design?.app_font),
+    ...(appThemeVars(design?.app_color) ?? {}),
+  } as React.CSSProperties
 
   // The owning teacher's uploaded vocab drawings — shared games show them live (best-effort).
   const imageMap: Record<string, string> = {}
@@ -41,7 +46,7 @@ export default async function JugarPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50" style={fontStyle}>
+    <div className="min-h-screen bg-gray-50" style={wrapperStyle}>
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center">
         <span className="text-sm font-semibold text-indigo-600">MaestraIA</span>
       </header>

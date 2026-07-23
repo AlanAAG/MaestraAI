@@ -20,6 +20,8 @@ const PatchSchema = z.object({
       spacing: z.enum(['compact', 'normal', 'relaxed']).optional(),
       // App-wide interface font (dashboard, planeaciones pages, games) — independent of `font`.
       app_font: z.enum(['default', 'sans', 'serif', 'rounded', 'century']).optional(),
+      // App-wide color theme (full environment) — a theme id from lib/design/themes.
+      app_color: z.string().max(30).optional(),
     })
     .optional(),
 })

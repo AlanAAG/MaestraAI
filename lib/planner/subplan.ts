@@ -30,11 +30,20 @@ export function buildSubplanPrompt(
 - Verbos en primera persona del singular. NO resumas, NO uses placeholders.`
 
   if (subType === 'letter_number') {
-    const letter1 = sanitize(fn.letter_week1)
-    const letter2 = sanitize(fn.letter_week2)
+    // Month plans (is_month) span 4 weeks of letters; quincena spans 2.
+    const isMonth = !!fn.is_month || fn.plan_type === 'mes'
+    const weekLetters = [
+      sanitize(fn.letter_week1),
+      sanitize(fn.letter_week2),
+      ...(isMonth ? [sanitize(fn.letter_week3), sanitize(fn.letter_week4)] : []),
+    ]
+    const lettersList = weekLetters.map((l, i) => `Semana ${i + 1}="${l}"`).join(', ')
+    const monthNote = isMonth
+      ? '\nEste Centro de Interés cubre UN MES COMPLETO (4 semanas): trabaja las 4 letras con progresión semana a semana.'
+      : ''
     return `Genera un sub-plan DETALLADO de LETTERS (Centro de Interés, para los ${letterDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).
 IMPORTANTE: Este sub-plan es EXCLUSIVAMENTE de LETRAS. NUNCA menciones números, conteo, rangos numéricos ni actividades numéricas — los números van en un sub-plan de Números aparte. Todo el contenido (nombre, momentos, evaluación) debe ser únicamente sobre letras.
-Letras a trabajar: Semana 1="${letter1}", Semana 2="${letter2}"${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
+Letras a trabajar: ${lettersList}${monthNote}${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
 ${includeProni ? 'PRONI (Kinder 3): integra inglés — trazo de letras, vocabulario, canciones, identidad multilingüe.' : ''}
 
 Formato de salida JSON:
@@ -55,7 +64,8 @@ Reglas: Letters es SOLO los ${letterDay}. SOLO letras, sin contenido numérico. 
 ${depth}`
   }
 
-  return `Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
+  const isMonthNum = !!fn.is_month || fn.plan_type === 'mes'
+  return `Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${isMonthNum ? '\nEste sub-plan cubre UN MES COMPLETO (4 semanas): amplía el rango numérico con progresión semana a semana.' : ''}${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
 
 Formato de salida JSON:
 {

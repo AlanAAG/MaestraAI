@@ -16,6 +16,13 @@ import { VocabularySections } from '@/components/richmond/VocabularySections'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { activeGroups } from '@/lib/groups/archive'
+import { CONTENIDOS_FASE2_3 } from '@/lib/nem/contenidos-fase2'
+
+// Official NEM Contenidos grouped by campo — the source for the per-unit contenidos picker.
+const CONTENIDOS_BY_CAMPO = CONTENIDOS_FASE2_3.reduce<Record<string, string[]>>((acc, c) => {
+  ;(acc[c.campo] ??= []).push(c.contenido)
+  return acc
+}, {})
 
 // NEM methodologies the teacher can pick per unit (must match keys in METHODOLOGY_STRUCTURE).
 const MODALIDADES = [
@@ -41,6 +48,9 @@ const FortnightSchema = z.object({
   monthly_value: z.string().max(100, 'Máximo 100 caracteres').optional(),
   letter_week1: z.string().regex(LETTERS_RE, 'Una o más letras separadas por coma').optional(),
   letter_week2: z.string().regex(LETTERS_RE, 'Una o más letras separadas por coma').optional(),
+  // Weeks 3-4 only used by month plans; validated the same way.
+  letter_week3: z.string().regex(LETTERS_RE, 'Una o más letras separadas por coma').optional(),
+  letter_week4: z.string().regex(LETTERS_RE, 'Una o más letras separadas por coma').optional(),
 })
 
 type Template = { id: string; label: string; plan_type: string }
@@ -48,13 +58,18 @@ type Template = { id: string; label: string; plan_type: string }
 export default function NuevaPlaneacionPage() {
   const router = useRouter()
   const [planType, setPlanType] = useState<'quincena' | 'taller' | 'mes'>('quincena')
+  const isMonth = planType === 'mes'
   const [formData, setFormData] = useState({
     start_date: '',
     end_date: '',
     monthly_value: '',
     letter_week1: '',
     letter_week2: '',
+    letter_week3: '',
+    letter_week4: '',
   })
+  // The teacher's answer to "¿Qué quieres que aprendan…?" — drives generation (not a plan section).
+  const [learningGoal, setLearningGoal] = useState('')
   // Planeaciones are per-GRADE. selectedGroupId is the representative group of that grade
   // (first one) — it provides the schedule + observation roster; generation fans out to all
   // groups of the grade.
@@ -72,6 +87,8 @@ export default function NuevaPlaneacionPage() {
   const [richmondBookPages, setRichmondBookPages] = useState({
     week1: '',
     week2: '',
+    week3: '',
+    week4: '',
   })
   // Richmond Unit Overview (book catalog) — PRONI / Kinder 3 only.
   const [richmondSelection, setRichmondSelection] = useState<RichmondSelection | null>(null)
@@ -83,8 +100,8 @@ export default function NuevaPlaneacionPage() {
   // Teacher-defined didactic units. Unit 1 = the project (its name is the plan's project_name);
   // the rest become sub-plans. Always starts with one unit since Unit 1 is now required.
   const [unidades, setUnidades] = useState<
-    Array<{ metodologia: string; nombre: string; tema: string }>
-  >([{ metodologia: 'Proyecto', nombre: '', tema: '' }])
+    Array<{ metodologia: string; nombre: string; tema: string; contenidos: string[] }>
+  >([{ metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [] }])
   // Optional teacher details (general + project-specific) — both feed generation.
   const [teacherNotes, setTeacherNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
@@ -119,10 +136,10 @@ export default function NuevaPlaneacionPage() {
   // for the letters she's working this quincena (Letra semana 1 + 2). Letters drive the vocab.
   const quincenaLetters = useMemo(
     () =>
-      [formData.letter_week1, formData.letter_week2]
+      [formData.letter_week1, formData.letter_week2, formData.letter_week3, formData.letter_week4]
         .flatMap((l) => l.split(',').map((x) => x.trim().toUpperCase()))
         .filter(Boolean),
-    [formData.letter_week1, formData.letter_week2]
+    [formData.letter_week1, formData.letter_week2, formData.letter_week3, formData.letter_week4]
   )
   const letterVocab = useMemo(
     () =>
@@ -272,13 +289,18 @@ export default function NuevaPlaneacionPage() {
     }
 
     try {
-      const validated = FortnightSchema.parse({
+      const parsed = FortnightSchema.parse({
         start_date: formData.start_date,
         end_date: formData.end_date,
         monthly_value: formData.monthly_value || undefined,
         letter_week1: formData.letter_week1 || undefined,
         letter_week2: formData.letter_week2 || undefined,
+        letter_week3: isMonth ? formData.letter_week3 || undefined : undefined,
+        letter_week4: isMonth ? formData.letter_week4 || undefined : undefined,
       })
+      // Only weeks 1-2 (existing columns) ride the main insert; weeks 3-4 + is_month + learning_goal
+      // go via a best-effort update below so a missing migration-068 column can't break creation.
+      const { letter_week3, letter_week4, ...validated } = parsed
 
       const supabase = createClient()
       const {
@@ -301,7 +323,12 @@ export default function NuevaPlaneacionPage() {
         return
       }
 
-      const hasBookPages = !!(richmondBookPages.week1 || richmondBookPages.week2)
+      const hasBookPages = !!(
+        richmondBookPages.week1 ||
+        richmondBookPages.week2 ||
+        richmondBookPages.week3 ||
+        richmondBookPages.week4
+      )
       const hasObsCal = Object.values(observationCalendar).some((v) => v.length > 0)
 
       // Auto-number: next in this teacher's sequence (1-12). Best-effort — defaults to 1.
@@ -330,7 +357,9 @@ export default function NuevaPlaneacionPage() {
           number: nextNumber,
           project_name: projectName, // derived from Unit 1 (the project)
           monthly_value: formData.monthly_value.trim() || null,
-          plan_type: planType,
+          // "Mes" stores a DB-legal plan_type + the is_month flag (best-effort update below).
+          // Never insert 'mes' — the CHECK constraint only allows quincena/taller.
+          plan_type: isMonth ? 'quincena' : planType,
           status: 'draft',
           vocabulary: letterVocab.length > 0 ? letterVocab : null,
           physical_materials: extraMaterials.length > 0 ? extraMaterials : null,
@@ -351,6 +380,25 @@ export default function NuevaPlaneacionPage() {
       await sb
         .from('fortnights')
         .update({ grade: selectedGrade })
+        .eq('id', fortnight.id)
+        .then(
+          () => {},
+          () => {}
+        )
+      // Month plan (4 weeks) + weeks 3-4 letters + learning goal (migration 068). Best-effort:
+      // a missing column just no-ops, so the plan is a normal quincena until 068 is applied.
+      await sb
+        .from('fortnights')
+        .update({
+          is_month: isMonth,
+          ...(isMonth
+            ? {
+                letter_week3: letter_week3 || null,
+                letter_week4: letter_week4 || null,
+              }
+            : {}),
+          learning_goal: learningGoal.trim() || null,
+        })
         .eq('id', fortnight.id)
         .then(
           () => {},
@@ -453,6 +501,28 @@ export default function NuevaPlaneacionPage() {
                 ? 'Plan de 1 mes (4 semanas) con proyecto, Letter & Number y Números'
                 : 'Taller crítico independiente (1-3 sesiones específicas)'}
           </p>
+        </Card>
+
+        {/* Learning goal — the north star that drives the whole generated plan. */}
+        <Card className="p-6 border-2 border-primary/30 bg-primary-light/20">
+          <label
+            htmlFor="learning_goal"
+            className="block text-base font-semibold text-text-primary"
+          >
+            ¿Qué quieres que aprendan los niños{' '}
+            {isMonth ? 'este mes' : planType === 'taller' ? 'en este taller' : 'esta quincena'}?
+          </label>
+          <p className="mt-1 mb-3 text-xs text-text-secondary">
+            Escríbelo con tus palabras. Toda la planeación se construye alrededor de esto.
+          </p>
+          <textarea
+            id="learning_goal"
+            value={learningGoal}
+            onChange={(e) => setLearningGoal(e.target.value)}
+            rows={3}
+            placeholder="Ej. Que reconozcan las emociones básicas y aprendan a nombrarlas en inglés, y que identifiquen las letras A y B."
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          />
         </Card>
 
         {/* Grade Selection — planeación covers the whole grade (all its groups) */}
@@ -562,6 +632,56 @@ export default function NuevaPlaneacionPage() {
                       placeholder="Tema / detalles (días con fechas, páginas de libros…)"
                       className="h-10 text-sm"
                     />
+                    {/* Optional: pick the official NEM contenidos + PDAs this unit works. */}
+                    <details className="rounded-lg border border-border bg-surface">
+                      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-secondary">
+                        Contenidos y aprendizajes (PDA){' '}
+                        {u.contenidos.length > 0 && (
+                          <span className="text-primary">· {u.contenidos.length} elegidos</span>
+                        )}
+                      </summary>
+                      <div className="max-h-56 space-y-3 overflow-y-auto px-3 pb-3">
+                        {Object.entries(CONTENIDOS_BY_CAMPO).map(([campo, contenidos]) => (
+                          <div key={campo}>
+                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                              {campo}
+                            </p>
+                            <div className="space-y-1">
+                              {contenidos.map((c) => {
+                                const checked = u.contenidos.includes(c)
+                                return (
+                                  <label
+                                    key={c}
+                                    className="flex cursor-pointer items-start gap-2 text-xs text-text-primary"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() =>
+                                        setUnidades((p) =>
+                                          p.map((x, idx) =>
+                                            idx === i
+                                              ? {
+                                                  ...x,
+                                                  contenidos: checked
+                                                    ? x.contenidos.filter((y) => y !== c)
+                                                    : [...x.contenidos, c],
+                                                }
+                                              : x
+                                          )
+                                        )
+                                      }
+                                      className="mt-0.5 accent-primary"
+                                    />
+                                    <span>{c}</span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                   </div>
                 ))}
               </div>
@@ -571,7 +691,10 @@ export default function NuevaPlaneacionPage() {
               variant="outline"
               size="sm"
               onClick={() =>
-                setUnidades((p) => [...p, { metodologia: 'Proyecto', nombre: '', tema: '' }])
+                setUnidades((p) => [
+                  ...p,
+                  { metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [] },
+                ])
               }
             >
               + Agregar unidad
@@ -622,6 +745,32 @@ export default function NuevaPlaneacionPage() {
                       className="h-9 text-sm"
                     />
                   </div>
+                  {isMonth && (
+                    <>
+                      <div>
+                        <label className="block text-xs text-text-secondary mb-1">Semana 3</label>
+                        <Input
+                          value={richmondBookPages.week3}
+                          onChange={(e) =>
+                            setRichmondBookPages((p) => ({ ...p, week3: e.target.value }))
+                          }
+                          placeholder="31-35"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-text-secondary mb-1">Semana 4</label>
+                        <Input
+                          value={richmondBookPages.week4}
+                          onChange={(e) =>
+                            setRichmondBookPages((p) => ({ ...p, week4: e.target.value }))
+                          }
+                          placeholder="36-40"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <Input
@@ -773,6 +922,58 @@ export default function NuevaPlaneacionPage() {
                   </p>
                 )}
               </div>
+              {isMonth && (
+                <>
+                  <div>
+                    <label
+                      htmlFor="letter_week3"
+                      className="block text-sm font-medium text-text-primary mb-2"
+                    >
+                      Letras semana 3
+                    </label>
+                    <Input
+                      id="letter_week3"
+                      value={formData.letter_week3}
+                      onChange={(e) => {
+                        setFormData({ ...formData, letter_week3: e.target.value.toUpperCase() })
+                        setFieldErrors({ ...fieldErrors, letter_week3: '' })
+                      }}
+                      placeholder="E, F"
+                      className={`min-h-[44px] ${fieldErrors.letter_week3 ? 'border-red-500' : ''}`}
+                    />
+                    {fieldErrors.letter_week3 && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.letter_week3}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="letter_week4"
+                      className="block text-sm font-medium text-text-primary mb-2"
+                    >
+                      Letras semana 4
+                    </label>
+                    <Input
+                      id="letter_week4"
+                      value={formData.letter_week4}
+                      onChange={(e) => {
+                        setFormData({ ...formData, letter_week4: e.target.value.toUpperCase() })
+                        setFieldErrors({ ...fieldErrors, letter_week4: '' })
+                      }}
+                      placeholder="G, H"
+                      className={`min-h-[44px] ${fieldErrors.letter_week4 ? 'border-red-500' : ''}`}
+                    />
+                    {fieldErrors.letter_week4 && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {fieldErrors.letter_week4}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </Card>
         )}

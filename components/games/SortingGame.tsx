@@ -121,7 +121,7 @@ export function SortingGame({ content, onComplete }: Props) {
           {content.categories.map((cat, i) => (
             <div
               key={cat.name}
-              className={`rounded-xl border-2 px-4 py-2 text-sm font-medium ${BIN_BASE[i % BIN_BASE.length]}`}
+              className={`rounded-xl border-2 px-4 py-2 text-lg font-medium ${BIN_BASE[i % BIN_BASE.length]}`}
             >
               {cat.name}: {tally[cat.name] ?? 0}
             </div>
@@ -156,7 +156,7 @@ export function SortingGame({ content, onComplete }: Props) {
           className="h-3/4 w-3/4"
           emojiClassName="text-5xl leading-none"
         />
-        <span className="mt-1 text-2xl font-bold text-gray-800">{item.word}</span>
+        <span className="mt-1 text-3xl font-bold text-gray-800">{item.word}</span>
       </div>
 
       {/* Category drop zones (tap also works as a fallback) */}
@@ -178,7 +178,7 @@ export function SortingGame({ content, onComplete }: Props) {
               onClick={() => handleSort(cat.name)}
               disabled={tapState !== 'idle'}
               className={[
-                'flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed py-4 px-2 text-lg font-semibold transition-all',
+                'flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed py-4 px-2 text-xl font-semibold transition-all',
                 isCorrect
                   ? 'scale-105 border-solid border-emerald-400 bg-emerald-50 text-emerald-800'
                   : isWrong

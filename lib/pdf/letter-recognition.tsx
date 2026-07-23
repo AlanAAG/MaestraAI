@@ -3,6 +3,7 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
 import { WatermarkFooter, PAGE_SIZE, PAGE_PADDING } from './base'
 import type { LetterRecognitionContent } from '@/lib/materials/letter-recognition'
+import { seededShuffle } from '@/lib/utils/shuffle'
 
 interface LetterRecognitionPdfProps {
   content: LetterRecognitionContent
@@ -196,7 +197,11 @@ export function LetterRecognitionPdfDocument({
                   <Text style={styles.imageBoxWord}>{item.word}</Text>
                 </View>
                 <View style={styles.letterOptions}>
-                  {[item.target_letter, ...item.foil_letters].slice(0, 4).map((l, j) => (
+                  {/* Shuffle so the correct letter isn't always first (was a giveaway). */}
+                  {seededShuffle(
+                    [item.target_letter, ...item.foil_letters].slice(0, 4),
+                    i * 17 + 3
+                  ).map((l, j) => (
                     <View key={j} style={styles.letterCircle}>
                       <Text style={styles.letterCircleText}>{l}</Text>
                     </View>
@@ -224,9 +229,13 @@ export function LetterRecognitionPdfDocument({
               ))}
             </View>
             <View style={styles.matchColumn}>
-              {items.map((item, i) => (
+              {/* Shuffle the letters column so each word no longer sits on its answer's row. */}
+              {seededShuffle(
+                items.map((it) => it.target_letter),
+                71
+              ).map((l, i) => (
                 <View key={i} style={styles.matchItem}>
-                  <Text style={styles.matchLetterText}>{item.target_letter}</Text>
+                  <Text style={styles.matchLetterText}>{l}</Text>
                 </View>
               ))}
             </View>
