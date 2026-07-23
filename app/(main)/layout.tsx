@@ -98,6 +98,23 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => subscription.unsubscribe()
   }, [router])
 
+  // App-wide font applied at the document root — reaches every component, game, and any
+  // portal-rendered overlay (a wrapper-div override would miss those). Cleaned up on exit.
+  useEffect(() => {
+    const style = appFontStyle(appFont)
+    if (!style) return
+    const root = document.documentElement
+    const stack = style.fontFamily as string
+    root.style.setProperty('--font-inter', stack)
+    root.style.setProperty('--font-dm-sans', stack)
+    root.style.fontFamily = stack
+    return () => {
+      root.style.removeProperty('--font-inter')
+      root.style.removeProperty('--font-dm-sans')
+      root.style.fontFamily = ''
+    }
+  }, [appFont])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg">
@@ -115,11 +132,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const bottomPrimary = navItems.filter((n) => BOTTOM_PRIMARY.includes(n.href))
   const bottomMore = navItems.filter((n) => !BOTTOM_PRIMARY.includes(n.href))
 
-  // App-wide font: shared helper overrides the next/font vars + fontFamily on the shell wrapper.
-  const fontStyle = appFontStyle(appFont)
-
   return (
-    <div className="flex min-h-screen" style={fontStyle}>
+    <div className="flex min-h-screen">
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex flex-col w-60 border-r border-[var(--color-border)] bg-surface py-6 px-3 gap-1 shrink-0 sticky top-0 h-screen overflow-y-auto">
         <div className="px-3 mb-6">

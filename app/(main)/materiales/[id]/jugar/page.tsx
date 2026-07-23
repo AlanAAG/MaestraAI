@@ -6,6 +6,7 @@ import { GameContainer } from '@/components/games/GameContainer'
 import { GameShell, PLAYABLE_TYPES } from '@/components/games/GameShell'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { TeacherVocabImages } from '@/components/games/TeacherImages'
 
 type Material = {
   id: string
@@ -116,7 +117,9 @@ export default function JugarMaterialPage() {
 
   return (
     <GameContainer onExit={handleExit}>
-      <GameShell type={material.type} content={material.content} vocabulary={[]} />
+      <TeacherVocabImages>
+        <GameShell type={material.type} content={material.content} vocabulary={[]} />
+      </TeacherVocabImages>
     </GameContainer>
   )
 }

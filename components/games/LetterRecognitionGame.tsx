@@ -108,7 +108,7 @@ export function LetterRecognitionGame({ content, onComplete }: Props) {
               key={l}
               onClick={() => answer(l)}
               disabled={state !== 'idle'}
-              className={`min-h-[64px] rounded-2xl border-2 font-mono text-2xl font-bold transition active:scale-95 ${
+              className={`min-h-[64px] rounded-2xl border-2 text-2xl font-bold transition active:scale-95 ${
                 ok
                   ? 'scale-105 border-emerald-400 bg-emerald-100 text-emerald-800'
                   : bad

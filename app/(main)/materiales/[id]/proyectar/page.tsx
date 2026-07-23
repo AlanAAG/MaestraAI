@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { FlashcardProjector, type Flashcard } from '@/components/games/FlashcardProjector'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { TeacherVocabImages } from '@/components/games/TeacherImages'
 
 type Material = {
   id: string
@@ -124,5 +125,9 @@ export default function ProyectarPage() {
     )
   }
 
-  return <FlashcardProjector cards={material.content.cards} onExit={handleExit} />
+  return (
+    <TeacherVocabImages>
+      <FlashcardProjector cards={material.content.cards} onExit={handleExit} />
+    </TeacherVocabImages>
+  )
 }

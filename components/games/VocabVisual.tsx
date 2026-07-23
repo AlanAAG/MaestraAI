@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { isEmoji, wordToEmoji } from '@/lib/materials/emoji'
+import { useTeacherImage } from './TeacherImages'
 
 // The single visual seam for every game. Resolution order:
 //   TEACHER-UPLOADED image (vocab-images bucket) → VALID stored emoji (AI sense-correct,
@@ -23,19 +24,23 @@ export function VocabVisual({
   // Track the failed URL (not a boolean) — games reuse one instance across items, so a single
   // dead URL must not disable images for every later word.
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
-  const imgOk = !!imageUrl && imageUrl !== failedUrl
+  // Live teacher image (TeacherVocabImages context) beats everything — it covers materials
+  // generated BEFORE the teacher uploaded her drawings, with no regeneration needed.
+  const liveTeacherUrl = useTeacherImage(word)
+  const src = liveTeacherUrl ?? imageUrl ?? null
+  const imgOk = !!src && src !== failedUrl
   // Teacher's own photo (Supabase vocab-images bucket) always wins over emojis.
-  // ponytail: provenance sniffed from the URL; if a non-bucket image source is ever added
-  // (gen-AI provider), stamp image_source at generation instead of extending this check.
-  const isTeacherImage = imgOk && imageUrl.includes('/vocab-images/')
+  // ponytail: stored-content provenance sniffed from the URL; if a non-bucket image source is
+  // ever added (gen-AI provider), stamp image_source at generation instead of extending this.
+  const isTeacherImage = !!liveTeacherUrl || (!!src && src.includes('/vocab-images/'))
   const glyph = (isEmoji(emoji) ? emoji : null) || wordToEmoji(word)
-  if (imgOk && (isTeacherImage || !glyph)) {
+  if (src && imgOk && (isTeacherImage || !glyph)) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={imageUrl}
+        src={src}
         alt={word}
-        onError={() => setFailedUrl(imageUrl)}
+        onError={() => setFailedUrl(src)}
         className={`object-contain ${className}`}
         draggable={false}
       />
