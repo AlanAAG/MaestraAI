@@ -497,6 +497,13 @@ Round 2 of Alan's game testing. No migrations.
 - **App font applied at `document.documentElement`** ((main) layout useEffect, cleanup on exit) instead of the wrapper div — reaches every component including portal-rendered overlays; letter-recognition choice buttons dropped `font-mono` so they follow the teacher's font (projector phonetics keep mono deliberately).
 - Verified: typecheck + lint clean, 169 tests, production build compiles.
 
+### Round 3 — kid-legible sizes + no translations (same session)
+
+- **Bigger words/letters in every game** (5-6 y/o ESL legibility): matching word buttons text-base→2xl + taller visual tiles; picture-word-match options text-base→2xl; sorting item word text-base→2xl + bin labels →lg; letter-recognition "Aa" buttons text-2xl→4xl (min-h 80px) + prompt →lg; memorama words →3xl; listen-and-tap reveal →3xl + prompt →lg; word-search grid letters clamp ~+25% + hint chips →xl; bingo 3×3 cells text-xs→base; worksheet circling tiles h-24→h-32 with base-size word; flashcards back word text-3xl→5xl; detail word-search preview table →base.
+- **Translations removed from flashcards** (English immersion; the picture is the meaning): FlashcardsGame back = big word only (definition/phonetic dropped); FlashcardProjector back = giant picture + word 80px (was "Definición" + Spanish text); flashcards detail list no longer shows `definition`.
+- **Font holdouts removed**: last `font-mono` on kid/teacher content (projector phonetics, detail letter chip, word-search preview table) now inherit the settings font — remaining monospace is only true identifiers (API keys, Richmond codes).
+- Note: "Hoja de trabajo" images were already live-resolved by the Round-2 provider (the whole detail page is wrapped) — the report predated that deploy.
+
 ## Group archiving — "Nuevo ciclo escolar" (current)
 
 End-of-school-year flow: archive the current group(s) — students and planeaciones PRESERVED (unlike delete, which cascades) — and create the new cohort's group. **Migration `067_group_archive.sql`**: `groups.archived_at timestamptz` + partial index (mirrors the `revoked_at` soft-delete pattern).

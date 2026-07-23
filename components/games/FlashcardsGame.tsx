@@ -90,11 +90,9 @@ export function FlashcardsGame({ content, onComplete }: Props) {
             />
             <span className="text-sm text-gray-400">Toca para ver</span>
           </div>
-          {/* Back: word + definition */}
+          {/* Back: the word, big — no translation (English immersion; the picture is the meaning) */}
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-3xl border-2 border-indigo-400 bg-indigo-50 p-5 text-center shadow-lg [backface-visibility:hidden] [transform:rotateY(180deg)]">
-            <p className="text-3xl font-bold text-gray-900">{card.word}</p>
-            {card.phonetic && <p className="text-sm text-indigo-500">{card.phonetic}</p>}
-            {card.definition && <p className="text-sm text-gray-600">{card.definition}</p>}
+            <p className="break-words text-5xl font-bold text-gray-900">{card.word}</p>
           </div>
         </motion.button>
       </div>

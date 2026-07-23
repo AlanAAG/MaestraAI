@@ -104,7 +104,7 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
 
       {/* Instruction + speak button */}
       <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-gray-500 text-center">Toca la imagen que escuchas</p>
+        <p className="text-lg text-gray-500 text-center">Toca la imagen que escuchas</p>
         <button
           onClick={speakWord}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-2xl transition-colors cursor-pointer min-h-[48px]"
@@ -146,7 +146,7 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
         })}
       </div>
 
-      {revealed && <p className="text-lg font-bold text-emerald-700">{target.word}</p>}
+      {revealed && <p className="text-3xl font-bold text-emerald-700">{target.word}</p>}
     </div>
   )
 }

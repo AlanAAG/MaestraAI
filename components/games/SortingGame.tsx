@@ -156,7 +156,7 @@ export function SortingGame({ content, onComplete }: Props) {
           className="h-3/4 w-3/4"
           emojiClassName="text-5xl leading-none"
         />
-        <span className="mt-1 text-base font-bold text-gray-800">{item.word}</span>
+        <span className="mt-1 text-2xl font-bold text-gray-800">{item.word}</span>
       </div>
 
       {/* Category drop zones (tap also works as a fallback) */}
@@ -178,7 +178,7 @@ export function SortingGame({ content, onComplete }: Props) {
               onClick={() => handleSort(cat.name)}
               disabled={tapState !== 'idle'}
               className={[
-                'flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed py-4 px-2 text-sm font-semibold transition-all',
+                'flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed py-4 px-2 text-lg font-semibold transition-all',
                 isCorrect
                   ? 'scale-105 border-solid border-emerald-400 bg-emerald-50 text-emerald-800'
                   : isWrong

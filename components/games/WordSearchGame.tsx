@@ -163,7 +163,7 @@ export function WordSearchGame({ content, onComplete }: Props) {
                     data-c={c}
                     className={[
                       'flex items-center justify-center rounded font-bold transition-colors cursor-pointer',
-                      'h-[clamp(2.75rem,7vmin,4rem)] w-[clamp(2.75rem,7vmin,4rem)] text-[clamp(1.1rem,3.5vmin,1.75rem)]',
+                      'h-[clamp(2.75rem,7vmin,4rem)] w-[clamp(2.75rem,7vmin,4rem)] text-[clamp(1.35rem,4.5vmin,2.25rem)]',
                       isFound
                         ? 'bg-emerald-400 text-white'
                         : isSelected
@@ -188,7 +188,7 @@ export function WordSearchGame({ content, onComplete }: Props) {
                 key={word}
                 onClick={() => setSelected(word)}
                 title="Toca para ver la tarjeta"
-                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-base font-semibold transition-all hover:scale-105 active:scale-95 ${
+                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xl font-semibold transition-all hover:scale-105 active:scale-95 ${
                   foundWordKeys.has(word)
                     ? 'border-emerald-300 bg-emerald-100 text-emerald-700 line-through opacity-60'
                     : 'border-gray-300 bg-white text-gray-700 hover:border-primary'

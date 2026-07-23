@@ -82,7 +82,7 @@ export function MatchingGame({ content, onComplete }: Props) {
                   speak(w, 'en-US')
                   setSelected(w)
                 }}
-                className={`w-full rounded-xl border-2 px-3 py-4 text-base font-semibold transition active:scale-95 ${
+                className={`w-full rounded-xl border-2 px-3 py-4 text-2xl font-semibold transition active:scale-95 ${
                   done
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700 opacity-60'
                     : selected === w
@@ -104,7 +104,7 @@ export function MatchingGame({ content, onComplete }: Props) {
                 key={w}
                 disabled={done}
                 onClick={() => tapImage(w)}
-                className={`flex h-[60px] w-full items-center justify-center rounded-xl border-2 transition active:scale-95 ${
+                className={`flex h-[76px] w-full items-center justify-center rounded-xl border-2 transition active:scale-95 ${
                   done
                     ? 'border-emerald-300 bg-emerald-50 opacity-60'
                     : wrong === w
@@ -116,8 +116,8 @@ export function MatchingGame({ content, onComplete }: Props) {
                   word={w}
                   emoji={p?.emoji}
                   imageUrl={p?.image_url}
-                  className="h-12 w-12"
-                  emojiClassName="text-3xl leading-none"
+                  className="h-16 w-16"
+                  emojiClassName="text-5xl leading-none"
                 />
               </button>
             )

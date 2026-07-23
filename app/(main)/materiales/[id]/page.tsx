@@ -385,8 +385,7 @@ export default function MaterialDetailPage() {
                         emojiClassName="text-4xl leading-none"
                       />
                     </div>
-                    <p className="font-semibold text-text-primary">{card.word}</p>
-                    <p className="mt-0.5 text-xs text-text-muted">{card.definition}</p>
+                    <p className="text-lg font-semibold text-text-primary">{card.word}</p>
                   </div>
                 )
               )}
@@ -475,7 +474,7 @@ export default function MaterialDetailPage() {
               </Button>
             </div>
             <div className="overflow-auto">
-              <table className="border-collapse font-mono text-sm">
+              <table className="border-collapse text-base">
                 <tbody>
                   {material.content?.grid?.map((row: string[], ri: number) => (
                     <tr key={ri}>
@@ -577,14 +576,16 @@ export default function MaterialDetailPage() {
                               ).map((opt, k) => (
                                 <div
                                   key={k}
-                                  className={`flex h-24 w-24 flex-col items-center justify-center rounded-xl border-2 p-1 ${opt.correct ? 'border-success bg-success-light' : 'border-border bg-inset'}`}
+                                  className={`flex h-32 w-32 flex-col items-center justify-center rounded-xl border-2 p-1 ${opt.correct ? 'border-success bg-success-light' : 'border-border bg-inset'}`}
                                 >
                                   <VocabVisual
                                     word={opt.w}
-                                    className="h-14 w-14"
-                                    emojiClassName="text-4xl leading-none"
+                                    className="h-16 w-16"
+                                    emojiClassName="text-5xl leading-none"
                                   />
-                                  <span className="mt-1 text-xs text-text-secondary">{opt.w}</span>
+                                  <span className="mt-1 text-base font-medium text-text-secondary">
+                                    {opt.w}
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -758,7 +759,7 @@ export default function MaterialDetailPage() {
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-subtle font-mono text-lg font-semibold text-brand">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-subtle text-lg font-semibold text-brand">
                           {item.target_letter}
                         </span>
                         <p className="font-medium text-text-primary">{item.word}</p>

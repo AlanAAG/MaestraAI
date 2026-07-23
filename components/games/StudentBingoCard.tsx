@@ -163,8 +163,8 @@ export function StudentBingoCard({ content }: Props) {
                 key={key}
                 onClick={() => handleCellTap(r, c)}
                 className={[
-                  'flex items-center justify-center rounded-xl border-2 font-medium text-xs text-center p-1 transition-all',
-                  size === 3 ? 'h-20 w-20' : 'h-14 w-14',
+                  'flex items-center justify-center rounded-xl border-2 font-medium text-center p-1 transition-all',
+                  size === 3 ? 'h-20 w-20 text-base' : 'h-14 w-14 text-xs',
                   isFree
                     ? 'bg-yellow-100 border-yellow-300 text-yellow-600'
                     : isMarked

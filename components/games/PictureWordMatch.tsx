@@ -125,7 +125,7 @@ export function PictureWordMatch({ content, onComplete }: Props) {
               onClick={() => handleAnswer(word)}
               disabled={answerState !== 'idle'}
               className={[
-                'py-4 px-3 rounded-2xl text-base font-semibold border-2 transition-all min-h-[60px] cursor-pointer active:scale-95',
+                'py-4 px-3 rounded-2xl text-2xl font-semibold border-2 transition-all min-h-[72px] cursor-pointer active:scale-95',
                 isCorrect
                   ? 'bg-emerald-100 border-emerald-400 text-emerald-800 scale-105'
                   : isWrong

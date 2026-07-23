@@ -180,7 +180,9 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
                       className="text-center w-full px-1"
                     >
                       {card.type === 'word' ? (
-                        <p className="text-2xl font-bold text-text-primary">{card.content}</p>
+                        <p className="break-words text-3xl font-bold text-text-primary">
+                          {card.content}
+                        </p>
                       ) : (
                         (() => {
                           const pair = pairs.find((p) => String(p.id) === card.pairId)

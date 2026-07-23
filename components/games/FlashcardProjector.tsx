@@ -239,10 +239,7 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
                     </div>
 
                     {card.phonetic && (
-                      <p
-                        className={`${colors.text} opacity-50 font-mono`}
-                        style={{ fontSize: '32px' }}
-                      >
+                      <p className={`${colors.text} opacity-50`} style={{ fontSize: '32px' }}>
                         {card.phonetic}
                       </p>
                     )}
@@ -258,30 +255,21 @@ export function FlashcardProjector({ cards, onExit }: FlashcardProjectorProps) {
                 )
               })()
             ) : (
-              <div className="text-center space-y-8 w-full">
-                {/* Definition title */}
-                <div>
-                  <h2 className={`${colors.text} font-bold mb-6`} style={{ fontSize: '48px' }}>
-                    Definición
-                  </h2>
-                </div>
-
-                {/* Definition */}
-                <div className="max-w-5xl">
-                  <p
-                    className={`${colors.text} font-semibold`}
-                    style={{ fontSize: '44px', lineHeight: '1.5' }}
-                  >
-                    {card.definition}
-                  </p>
-                </div>
-
-                {/* Flip hint */}
-                <div className="text-text-secondary mt-8">
-                  <p style={{ fontSize: '24px' }} className="opacity-60">
-                    Presiona ESPACIO o haz clic para volver
-                  </p>
-                </div>
+              // Back: picture + word, huge — no Spanish translation (the picture IS the meaning).
+              <div className="flex h-full w-full flex-col items-center justify-center gap-6 text-center">
+                <VocabVisual
+                  word={card.word}
+                  emoji={card.emoji}
+                  imageUrl={card.image_url}
+                  className="max-h-[55%]"
+                  emojiClassName="text-[clamp(6rem,30vmin,16rem)] leading-none"
+                />
+                <p className={`${colors.text} font-bold`} style={{ fontSize: '80px' }}>
+                  {card.word}
+                </p>
+                <p style={{ fontSize: '24px' }} className="opacity-60">
+                  Presiona ESPACIO o haz clic para volver
+                </p>
               </div>
             )}
           </motion.div>

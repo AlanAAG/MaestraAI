@@ -83,7 +83,7 @@ export function LetterRecognitionGame({ content, onComplete }: Props) {
   return (
     <div className="flex flex-col items-center gap-5 p-5">
       <GameProgress current={index} total={items.length} />
-      <p className="text-sm text-gray-500">¿Con qué letra empieza?</p>
+      <p className="text-lg text-gray-500">¿Con qué letra empieza?</p>
       <div className="flex h-[clamp(8rem,26vmin,14rem)] w-[clamp(8rem,26vmin,14rem)] items-center justify-center rounded-2xl bg-indigo-50 ring-2 ring-gray-200">
         <VocabVisual
           word={item.word}
@@ -108,7 +108,7 @@ export function LetterRecognitionGame({ content, onComplete }: Props) {
               key={l}
               onClick={() => answer(l)}
               disabled={state !== 'idle'}
-              className={`min-h-[64px] rounded-2xl border-2 text-2xl font-bold transition active:scale-95 ${
+              className={`min-h-[80px] rounded-2xl border-2 text-4xl font-bold transition active:scale-95 ${
                 ok
                   ? 'scale-105 border-emerald-400 bg-emerald-100 text-emerald-800'
                   : bad
