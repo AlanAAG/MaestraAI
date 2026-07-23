@@ -11,6 +11,7 @@ import { Users, Search, AlertCircle, MessageCircle, Plus, X, Mail } from 'lucide
 import { toast } from 'sonner'
 import { ParentContactsManager } from '@/components/app/ParentContactsManager'
 import { motion } from 'framer-motion'
+import { activeGroups } from '@/lib/groups/archive'
 
 interface Student {
   id: string
@@ -121,13 +122,15 @@ export default function AlumnosPage() {
         return
       }
 
-      // Load teacher's groups
+      // Load teacher's ACTIVE groups (select('*') + JS filter so a missing archived_at
+      // column pre-migration-067 reads as active).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: groupsData, error: groupsError } = await (supabase as any)
+      const { data: rawGroups, error: groupsError } = await (supabase as any)
         .from('groups')
-        .select('id, name, grade')
+        .select('*')
         .eq('titular_teacher_id', teacher.id)
         .order('name')
+      const groupsData = activeGroups<Group & { archived_at?: string | null }>(rawGroups ?? [])
 
       if (groupsError) {
         setLoadingState({

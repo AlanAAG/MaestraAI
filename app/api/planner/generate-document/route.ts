@@ -22,6 +22,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
 import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
+import { activeGroups } from '@/lib/groups/archive'
 import {
   generateSubplan,
   generateCustomSubplan,
@@ -503,15 +504,18 @@ export async function POST(req: NextRequest) {
     const includeProni = isProniApplicable(groupGrade)
     const schedule = getGroupSchedule(fn)
 
-    // All groups of this grade (taught by this teacher) — content must be inclusive of all of them.
+    // All ACTIVE groups of this grade (taught by this teacher) — content must be inclusive of
+    // all of them; archived cohorts (past school years) are excluded. select('*') + JS filter
+    // so a missing archived_at column (pre-migration 067) reads as active.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gradeGroupsData } = await (supabase as any)
       .from('groups')
-      .select('id, name')
+      .select('*')
       .eq('titular_teacher_id', teacherId)
       .eq('grade', groupGrade)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gradeGroups = (gradeGroupsData ?? []) as { id: string; name: string }[]
+    const gradeGroups = activeGroups(
+      (gradeGroupsData ?? []) as { id: string; name: string; archived_at?: string | null }[]
+    )
     const gradeGroupIds = gradeGroups.length ? gradeGroups.map((g) => g.id) : [fn.group_id]
     const gradeGroupNames = gradeGroups.map((g) => g.name).join(', ') || (fn.groups?.name ?? '')
     // Expose the inclusive group list + resolved grade to the prompt builders (which receive fn).

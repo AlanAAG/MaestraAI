@@ -15,6 +15,7 @@ import { UnitSelector, type RichmondSelection } from '@/components/richmond/Unit
 import { VocabularySections } from '@/components/richmond/VocabularySections'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { isProniApplicable } from '@/lib/nem-official-data'
+import { activeGroups } from '@/lib/groups/archive'
 
 // NEM methodologies the teacher can pick per unit (must match keys in METHODOLOGY_STRUCTURE).
 const MODALIDADES = [
@@ -214,12 +215,20 @@ export default function NuevaPlaneacionPage() {
         return
       }
 
+      // Active groups only (archived cohorts must not appear as planeación targets).
+      // select('*') + JS filter → works before migration 067.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: groupsData, error: groupsError } = await (supabase as any)
+      const { data: rawGroups, error: groupsError } = await (supabase as any)
         .from('groups')
-        .select('id, name, grade')
+        .select('*')
         .eq('titular_teacher_id', teacher.id)
         .order('name')
+      const groupsData = activeGroups<{
+        id: string
+        name: string
+        grade: string
+        archived_at?: string | null
+      }>(rawGroups ?? [])
 
       if (groupsError) {
         setError('No pude cargar tus grupos. Por favor recarga la página.')

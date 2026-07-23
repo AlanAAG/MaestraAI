@@ -14,6 +14,7 @@ import { ApiKeyManager } from '@/components/settings/ApiKeyManager'
 import { X, ExternalLink, CheckCircle2, Clock, Loader2, AlertCircle } from 'lucide-react'
 import { RichmondExtensionGuide } from '@/components/app/RichmondExtensionGuide'
 import { getEditorialConfig } from '@/lib/editorial/registry'
+import { activeGroups, archivedGroups } from '@/lib/groups/archive'
 import { toast } from 'sonner'
 
 // Replace with the real Chrome Web Store URL after the extension is approved.
@@ -30,6 +31,8 @@ export default function ConfiguracionPage() {
   const [school, setSchool] = useState<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [groups, setGroups] = useState<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [oldGroups, setOldGroups] = useState<any[]>([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [apiKeys, setApiKeys] = useState<any[]>([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,30 +112,22 @@ export default function ConfiguracionPage() {
           setSchool(schoolData)
         }
 
-        // Load groups with student counts
+        // Load groups with student counts. select('*') so archived_at reads as undefined
+        // (= active) before migration 067 lands.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: groupsData } = await (supabase as any)
           .from('groups')
-          .select(
-            `
-            id,
-            name,
-            grade,
-            academic_year,
-            richmond_class_code,
-            students:students(count)
-          `
-          )
+          .select('*, students:students(count)')
           .eq('titular_teacher_id', teacherData.id)
           .order('name')
 
-        setGroups(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          groupsData?.map((g: any) => ({
-            ...g,
-            student_count: g.students?.[0]?.count || 0,
-          })) || []
-        )
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allGroups = (groupsData ?? []).map((g: any) => ({
+          ...g,
+          student_count: g.students?.[0]?.count || 0,
+        }))
+        setGroups(activeGroups(allGroups))
+        setOldGroups(archivedGroups(allGroups))
 
         // Load API keys — exclude revoked ones (soft-deleted)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -337,6 +332,48 @@ export default function ConfiguracionPage() {
     setLoading(false)
     setGroupMode('list')
     setSelectedGroupId(null)
+    await loadData()
+  }
+
+  // End of school year: archive ALL current groups (students + planeaciones preserved),
+  // then open the creator for the new cohort's group.
+  async function handleNewCycle() {
+    if (
+      !confirm(
+        `¿Comenzar un nuevo ciclo escolar?\n\nTus ${groups.length} grupo(s) actuales se archivarán: los alumnos y sus datos se conservan, pero dejarán de aparecer en la app. Podrás restaurarlos desde "Grupos archivados".`
+      )
+    )
+      return
+
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('groups')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('titular_teacher_id', teacher.id)
+      .is('archived_at', null)
+    if (error) {
+      console.error('archive groups failed:', error)
+      toast.error('No se pudieron archivar los grupos. Intenta de nuevo.')
+      return
+    }
+    toast.success('Grupos archivados. Crea el grupo del nuevo ciclo.')
+    await loadData()
+    setGroupMode('create')
+  }
+
+  async function handleRestoreGroup(groupId: string) {
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('groups')
+      .update({ archived_at: null })
+      .eq('id', groupId)
+    if (error) {
+      toast.error('No se pudo restaurar el grupo.')
+      return
+    }
+    toast.success('Grupo restaurado.')
     await loadData()
   }
 
@@ -688,25 +725,65 @@ export default function ConfiguracionPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-text-primary">Mis Grupos</h2>
           {groupMode === 'list' && (
-            <Button
-              onClick={() => setGroupMode('create')}
-              className="min-h-[40px] bg-primary hover:bg-primary-dark"
-            >
-              Crear grupo
-            </Button>
+            <div className="flex gap-2">
+              {groups.length > 0 && (
+                <Button onClick={handleNewCycle} variant="outline" className="min-h-[40px]">
+                  Nuevo ciclo escolar
+                </Button>
+              )}
+              <Button
+                onClick={() => setGroupMode('create')}
+                className="min-h-[40px] bg-primary hover:bg-primary-dark"
+              >
+                Crear grupo
+              </Button>
+            </div>
           )}
         </div>
 
         {groupMode === 'list' && (
-          <GroupList
-            groups={groups}
-            onEdit={(id) => {
-              setSelectedGroupId(id)
-              setGroupMode('edit')
-            }}
-            onViewStudents={handleViewStudents}
-            onDelete={handleDeleteGroup}
-          />
+          <>
+            <GroupList
+              groups={groups}
+              onEdit={(id) => {
+                setSelectedGroupId(id)
+                setGroupMode('edit')
+              }}
+              onViewStudents={handleViewStudents}
+              onDelete={handleDeleteGroup}
+            />
+            {oldGroups.length > 0 && (
+              <details className="mt-4">
+                <summary className="cursor-pointer text-sm text-text-secondary hover:text-text-primary">
+                  Grupos archivados ({oldGroups.length})
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {oldGroups.map((g) => (
+                    <div
+                      key={g.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-inset p-3"
+                    >
+                      <div className="text-sm">
+                        <span className="font-medium text-text-primary">{g.name}</span>
+                        <span className="text-text-secondary">
+                          {' '}
+                          · {g.grade} · {g.academic_year} · {g.student_count} estudiantes
+                        </span>
+                      </div>
+                      <Button
+                        onClick={() => handleRestoreGroup(g.id)}
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[36px]"
+                      >
+                        Restaurar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </>
         )}
 
         {groupMode === 'create' && (

@@ -88,11 +88,15 @@ export async function GET(req: NextRequest) {
   let q = (supabase as any)
     .from('students')
     .select(
-      'id, group_id, has_nee, observation_day, level, richmond_student_id, first_name_encrypted, last_name_encrypted, parent_contact_encrypted, groups(name, grade)'
+      'id, group_id, has_nee, observation_day, level, richmond_student_id, first_name_encrypted, last_name_encrypted, parent_contact_encrypted, groups(*)'
     )
   if (groupParam && groupParam !== 'all') q = q.eq('group_id', groupParam)
-  const { data, error } = await q
+  const { data: rawData, error } = await q
   if (error) return NextResponse.json({ error: 'Failed to load students' }, { status: 500 })
+  // Students of archived groups (past school years) stay out of rosters. groups(*) + JS filter
+  // so a missing archived_at column (pre-migration 067) reads as active.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (rawData ?? []).filter((r: any) => !r.groups?.archived_at)
 
   type Row = {
     id: string

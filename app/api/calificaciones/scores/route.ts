@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decrypt } from '@/lib/encryption'
+import { activeGroups } from '@/lib/groups/archive'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -22,21 +23,32 @@ export async function GET(req: NextRequest) {
 
   const groupParam = new URL(req.url).searchParams.get('group_id') // specific uuid, or null/"all"
 
-  // The teacher's groups (RLS-scoped) — drives the filter UI.
+  // The teacher's ACTIVE groups (RLS-scoped) — drives the filter UI. select('*') + JS filter
+  // so a missing archived_at column (pre-migration 067) reads as active.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: groupRows } = await (supabase as any)
-    .from('groups')
-    .select('id, name, grade')
-    .order('name')
-  const groups = (groupRows ?? []) as Array<{ id: string; name: string; grade: string }>
+  const { data: groupRows } = await (supabase as any).from('groups').select('*').order('name')
+  const groups = activeGroups(
+    (groupRows ?? []) as Array<{
+      id: string
+      name: string
+      grade: string
+      archived_at?: string | null
+    }>
+  )
 
-  // Assignments: filter to one group, or all the teacher's groups (RLS already limits to theirs).
+  // Assignments: filter to one group, or all the teacher's ACTIVE groups (archived cohorts'
+  // homework stays out of the tracker; restore the group to see it again).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let aq = (supabase as any)
     .from('richmond_assignments')
     .select('id, group_id, title, due_at, total_students, total_submitted')
     .order('due_at', { ascending: true })
   if (groupParam && groupParam !== 'all') aq = aq.eq('group_id', groupParam)
+  else
+    aq = aq.in(
+      'group_id',
+      groups.map((g) => g.id)
+    )
   const { data: assignData } = await aq
 
   const assignments = (assignData ?? []) as Array<{

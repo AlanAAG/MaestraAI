@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ScoreDistributionChart } from '@/components/richmond/ScoreDistributionChart'
+import { activeGroups } from '@/lib/groups/archive'
 
 const EDITORIAL_NAMES: Record<string, string> = {
   richmond: 'Richmond LP',
@@ -142,11 +143,11 @@ export default function RichmondDashboard() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: g } = await (supabase as any)
         .from('groups')
-        .select('id, name, richmond_group_name')
+        .select('*')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .eq('titular_teacher_id', (t as any)?.id)
         .order('name')
-      const grps: Group[] = g || []
+      const grps: Group[] = activeGroups<Group & { archived_at?: string | null }>(g ?? [])
       setGroups(grps)
       if (grps.length) setSelectedGroupId(grps[0].id)
     }
