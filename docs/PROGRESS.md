@@ -19,6 +19,7 @@ Batch from Alan + real user testing (his mom hit a crash creating a planeación)
 - **Bigger game words**: SortingGame bins (sm→lg) + item (2xl→3xl) + drop-zones (lg→xl); StudentBingoCard cells (base/xs→lg/sm, 5×5 cells h-14→h-16); Matching + PictureWordMatch buttons (2xl→3xl).
 - **Removed answers from downloadable PDFs**: letter-recognition — `hear_and_circle` options shuffled (correct no longer always first), `match_to_letter` right column shuffled (rows no longer align with the answer); word-search — the bundled answer-key page dropped from the student download (solution still visible in-app); worksheet matching — two columns with the right side shuffled (real line-drawing task). Bingo/memorama left as-is (cut-and-shuffle by design).
 - Verified: typecheck + lint clean, **173 tests (40 files)**, production build compiles. **Apply migration 068.**
+- **Follow-up (stronger themes + clearer sections)**: themes were too subtle → `appThemeVars` now overrides the FULL surface set (page/card/inset/border + shadcn `--background`/`--card`/`--muted`/`--border`), not just the accent, with stronger tints; brand hexes bumped to vibrant values; **12 themes** (added Atardecer/Índigo/Cian/Fucsia/Ámbar). Mi Perfil "Diseño" split into two visually distinct bordered cards — **📄 Diseño de mis planeaciones** (the printed document) vs **🎨 Diseño de la aplicación** (the whole interface: app font + color), each with its own save button. Verified live on prod (green deploy).
 
 ---
 

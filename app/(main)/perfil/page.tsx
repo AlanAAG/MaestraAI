@@ -387,13 +387,15 @@ export default function PerfilPage() {
 
         <Separator />
 
-        {/* Diseño de mis planeaciones — global default (same as the plan document viewer edits) */}
-        <div className="space-y-4">
+        {/* SECTION 1 — Diseño de mis planeaciones (the printed/generated document, NOT the app) */}
+        <div className="rounded-xl border-2 border-border-strong bg-card p-5 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-text-primary">Diseño de mis planeaciones</h2>
+            <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
+              📄 Diseño de mis planeaciones
+            </h2>
             <p className="text-xs text-text-secondary mt-0.5">
-              Se aplica a tus planeaciones nuevas. También puedes ajustarlo dentro de cada
-              planeación.
+              Cómo se ven tus <strong>documentos de planeación</strong> (la hoja que imprimes). No
+              cambia la app. También puedes ajustarlo dentro de cada planeación.
             </p>
           </div>
 
@@ -496,13 +498,27 @@ export default function PerfilPage() {
             </div>
           </div>
 
+          <Button onClick={handleDesignSave} disabled={savingD}>
+            {savingD ? 'Guardando...' : saveDMsg || 'Guardar diseño de planeaciones'}
+          </Button>
+        </div>
+
+        {/* SECTION 2 — Diseño de la aplicación (the whole interface: font + color environment) */}
+        <div className="rounded-xl border-2 border-brand/50 bg-brand-subtle/50 p-5 space-y-5">
+          <div>
+            <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
+              🎨 Diseño de la aplicación
+            </h2>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Personaliza <strong>toda la interfaz</strong> — dashboard, menú, botones, fondos,
+              tarjetas y juegos. (Distinto del diseño de tus planeaciones de arriba.)
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
               Tipografía de la aplicación
             </label>
-            <p className="text-xs text-text-secondary">
-              Cambia la letra de toda la interfaz: dashboard, planeaciones, juegos.
-            </p>
             <select
               value={design.app_font}
               onChange={(e) =>
@@ -518,12 +534,12 @@ export default function PerfilPage() {
             </select>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
               Color de la aplicación
             </label>
             <p className="text-xs text-text-secondary">
-              Cambia el ambiente de color de toda la app: botones, menú, fondos y tarjetas.
+              Cambia el ambiente de color completo: botones, menú, fondos y tarjetas.
             </p>
             <div className="flex flex-wrap gap-2">
               {APP_COLOR_OPTIONS.map((o) => (
@@ -533,9 +549,9 @@ export default function PerfilPage() {
                   onClick={() => setDesign((d) => ({ ...d, app_color: o.value }))}
                   title={o.label}
                   aria-label={o.label}
-                  className={`flex h-10 items-center gap-2 rounded-lg border-2 px-3 transition-transform ${
+                  className={`flex h-10 items-center gap-2 rounded-lg border-2 bg-card px-3 transition-transform ${
                     design.app_color === o.value
-                      ? 'border-text-primary scale-105'
+                      ? 'border-text-primary scale-105 shadow-md'
                       : 'border-transparent hover:scale-105'
                   }`}
                 >
@@ -550,7 +566,7 @@ export default function PerfilPage() {
           </div>
 
           <Button onClick={handleDesignSave} disabled={savingD}>
-            {savingD ? 'Guardando...' : saveDMsg || 'Guardar diseño'}
+            {savingD ? 'Guardando...' : saveDMsg || 'Guardar diseño de la app'}
           </Button>
         </div>
 
