@@ -5,9 +5,10 @@ import { Loader2, BookOpen, Hash, Pencil, Check, X, Palette } from 'lucide-react
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
 import { displayFirstName } from '@/lib/planner/observation'
+import { FONT_MAP, type FontKey } from '@/lib/design/fonts'
 
 type Design = {
-  font: 'sans' | 'serif' | 'rounded' | 'century'
+  font: FontKey
   size: number
   accent: string
   lineIntensity: 'light' | 'medium' | 'strong'
@@ -19,14 +20,6 @@ const DEFAULT_DESIGN: Design = {
   accent: '#1f2937',
   lineIntensity: 'medium',
   spacing: 'normal',
-}
-const FONT_MAP: Record<Design['font'], string> = {
-  sans: 'ui-sans-serif, system-ui, sans-serif',
-  serif: 'Georgia, "Times New Roman", serif',
-  rounded: '"Baloo 2", "Comic Sans MS", ui-rounded, sans-serif',
-  // ponytail: Century Gothic isn't web-safe — rely on the fallback stack (real Century Gothic
-  // shows in Word/Office; on screen Futura/Trebuchet is the close cousin). No webfont dependency.
-  century: '"Century Gothic", Futura, "Trebuchet MS", "URW Gothic", sans-serif',
 }
 const SPACING_MAP: Record<Design['spacing'], number> = {
   compact: 1.4,
@@ -1081,6 +1074,10 @@ export function PlanDocumentViewer({
           fontSize: `${design.size}px`,
           fontFamily: FONT_MAP[design.font],
           lineHeight: SPACING_MAP[design.spacing ?? 'normal'],
+          // Headings inside the sheet are styled via var(--font-dm-sans) in globals.css; pin the
+          // vars to the DOCUMENT font so the app-wide interface font can't leak into the paper.
+          ['--font-dm-sans' as string]: FONT_MAP[design.font],
+          ['--font-inter' as string]: FONT_MAP[design.font],
           ['--doc-accent' as string]: design.accent,
           ['--doc-border' as string]: INTENSITY_MAP[design.lineIntensity],
         }}

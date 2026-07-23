@@ -3,17 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { WORKSHEETS_PROMPT } from '@/prompts/materials'
 import { classContextBlock, type FortnightContext } from './types'
 
-export type WorksheetActivity = {
-  type: 'tracing' | 'matching' | 'coloring' | 'circling' | 'sequencing'
-  title: string
-  instructions: string
-  items?: string[]
-  pairs?: Array<{ word: string; description: string }>
-}
-
-export type WorksheetContent = {
-  activities: WorksheetActivity[]
-}
+export type { WorksheetActivity, WorksheetContent, WorksheetItem } from './worksheet-content'
+import type { WorksheetContent } from './worksheet-content'
 
 export async function buildWorksheetContent(
   vocabulary: string[],

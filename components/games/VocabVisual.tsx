@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { isEmoji, wordToEmoji } from '@/lib/materials/emoji'
 
 // The single visual seam for every game. Resolution order:
-//   VALID stored emoji (AI sense-correct, validated) → curated word→emoji map → image → text.
+//   TEACHER-UPLOADED image (vocab-images bucket) → VALID stored emoji (AI sense-correct,
+//   validated) → curated word→emoji map → other image (Unsplash) → text.
 // The stored emoji is validated so a stray letter/text the model returned can't render as the
-// "visual"; a dead image URL falls through to text instead of a broken-image icon.
+// "visual"; a dead image URL falls through to emoji/text instead of a broken-image icon.
 export function VocabVisual({
   word,
   emoji,
@@ -19,8 +20,27 @@ export function VocabVisual({
   className?: string
   emojiClassName?: string
 }) {
-  const [imgFailed, setImgFailed] = useState(false)
+  // Track the failed URL (not a boolean) — games reuse one instance across items, so a single
+  // dead URL must not disable images for every later word.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const imgOk = !!imageUrl && imageUrl !== failedUrl
+  // Teacher's own photo (Supabase vocab-images bucket) always wins over emojis.
+  // ponytail: provenance sniffed from the URL; if a non-bucket image source is ever added
+  // (gen-AI provider), stamp image_source at generation instead of extending this check.
+  const isTeacherImage = imgOk && imageUrl.includes('/vocab-images/')
   const glyph = (isEmoji(emoji) ? emoji : null) || wordToEmoji(word)
+  if (imgOk && (isTeacherImage || !glyph)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageUrl}
+        alt={word}
+        onError={() => setFailedUrl(imageUrl)}
+        className={`object-contain ${className}`}
+        draggable={false}
+      />
+    )
+  }
   if (glyph) {
     return (
       <span
@@ -30,18 +50,6 @@ export function VocabVisual({
       >
         {glyph}
       </span>
-    )
-  }
-  if (imageUrl && !imgFailed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={imageUrl}
-        alt={word}
-        onError={() => setImgFailed(true)}
-        className={`object-contain ${className}`}
-        draggable={false}
-      />
     )
   }
   return (

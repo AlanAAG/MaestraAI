@@ -22,6 +22,7 @@ import { getEditorialConfig } from '@/lib/editorial/registry'
 import { InitialsAvatar } from '@/components/ui/InitialsAvatar'
 import { SignOutButton } from '@/components/auth/SignOutButton'
 import { TeacherNameProvider } from '@/components/app/TeacherContext'
+import { appFontStyle } from '@/lib/design/fonts'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
@@ -49,6 +50,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [showMore, setShowMore] = useState(false)
   const [hasLmsSync, setHasLmsSync] = useState(false)
   const [teacherName, setTeacherName] = useState('')
+  const [appFont, setAppFont] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -62,7 +64,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: teacher } = await (supabase as any)
         .from('teachers')
-        .select('id, editorial, full_name')
+        .select('id, editorial, full_name, design_settings')
         .eq('auth_id', user.id)
         .maybeSingle()
 
@@ -81,6 +83,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       setHasLmsSync(getEditorialConfig(teacher.editorial).has_lms_sync)
       setTeacherName(teacher.full_name || '')
+      setAppFont(teacher.design_settings?.app_font ?? null)
       setLoading(false)
     })
 
@@ -112,8 +115,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const bottomPrimary = navItems.filter((n) => BOTTOM_PRIMARY.includes(n.href))
   const bottomMore = navItems.filter((n) => !BOTTOM_PRIMARY.includes(n.href))
 
+  // App-wide font: shared helper overrides the next/font vars + fontFamily on the shell wrapper.
+  const fontStyle = appFontStyle(appFont)
+
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" style={fontStyle}>
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex flex-col w-60 border-r border-[var(--color-border)] bg-surface py-6 px-3 gap-1 shrink-0 sticky top-0 h-screen overflow-y-auto">
         <div className="px-3 mb-6">

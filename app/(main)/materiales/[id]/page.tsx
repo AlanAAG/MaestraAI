@@ -20,6 +20,8 @@ import { ListenAndTap, type ListenPair } from '@/components/games/ListenAndTap'
 import { VocabVisual } from '@/components/games/VocabVisual'
 import { GameShell, PLAYABLE_TYPES } from '@/components/games/GameShell'
 import { wordToEmoji } from '@/lib/materials/emoji'
+import { seededShuffle } from '@/lib/utils/shuffle'
+import { normalizeWorksheetItems } from '@/lib/materials/worksheet-content'
 
 type Material = {
   id: string
@@ -514,6 +516,112 @@ export default function MaterialDetailPage() {
         </Card>
       )}
 
+      {/* Worksheet (Hoja de Trabajo) */}
+      {(material.type === 'worksheet' || material.type === 'worksheets') && (
+        <div className="space-y-4">
+          <Button
+            onClick={() => handleDownload('HojaDeTrabajo.pdf')}
+            disabled={downloading}
+            className="bg-brand hover:bg-brand-hover"
+          >
+            {downloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Descargar PDF
+          </Button>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(material.content?.activities ?? []).map((activity: any, i: number) => {
+            const items = normalizeWorksheetItems(activity.items)
+            return (
+              <Card key={i} className="p-6 space-y-4">
+                <div>
+                  <h2 className="font-semibold text-text-primary">
+                    {activity.title || `Actividad ${i + 1}`}
+                  </h2>
+                  {(activity.teacher_instruction || activity.instructions) && (
+                    <p className="text-sm text-text-secondary mt-1">
+                      👩‍🏫 {activity.teacher_instruction || activity.instructions}
+                    </p>
+                  )}
+                </div>
+                {items.length > 0 && (
+                  <div className="space-y-4">
+                    {items.map((item, j) => (
+                      <div key={j} className="rounded-lg border border-border p-3">
+                        <p className="font-semibold text-text-primary mb-2">
+                          {item.word}
+                          {item.teacher_instruction && (
+                            <span className="ml-2 text-sm font-normal text-text-secondary">
+                              {item.teacher_instruction}
+                            </span>
+                          )}
+                        </p>
+                        {/* Options grid needs real foils — legacy string-items would render a
+                            single pre-highlighted "choice", which isn't an activity. */}
+                        {activity.type === 'circling' && (item.foil_words?.length ?? 0) > 0 && (
+                          <div className="flex flex-wrap gap-3">
+                            {seededShuffle(
+                              [
+                                { w: item.word, correct: true },
+                                ...(item.foil_words ?? []).map((w: string) => ({
+                                  w,
+                                  correct: false,
+                                })),
+                              ],
+                              i * 7 + j
+                            ).map((opt, k) => (
+                              <div
+                                key={k}
+                                className={`flex h-24 w-24 flex-col items-center justify-center rounded-xl border-2 p-1 ${opt.correct ? 'border-success bg-success-light' : 'border-border bg-inset'}`}
+                              >
+                                <VocabVisual
+                                  word={opt.w}
+                                  className="h-14 w-14"
+                                  emojiClassName="text-4xl leading-none"
+                                />
+                                <span className="mt-1 text-xs text-text-secondary">{opt.w}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(activity.pairs ?? []).length > 0 && (
+                  <div className="space-y-2">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {(activity.pairs ?? []).map((pair: any, j: number) => (
+                      <div
+                        key={j}
+                        className="flex items-center gap-3 rounded-lg border border-border p-3"
+                      >
+                        <div className="w-40 flex-shrink-0">
+                          <p className="font-semibold text-text-primary">{pair.word}</p>
+                          {(pair.translation || pair.description) && (
+                            <p className="text-xs text-text-muted">
+                              {pair.translation || pair.description}
+                            </p>
+                          )}
+                        </div>
+                        <span className="flex-1 border-t border-dashed border-border-strong" />
+                        <VocabVisual
+                          word={pair.word}
+                          className="h-14 w-14"
+                          emojiClassName="text-4xl leading-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
       {/* Song Worksheet */}
       {material.type === 'song_worksheet' && (
         <div className="space-y-4">
@@ -743,7 +851,7 @@ export default function MaterialDetailPage() {
                           ▶ {v.title}
                         </a>
                         <p className="text-sm text-text-muted">
-                          {v.channel} · {v.duration}
+                          {[v.channel, v.duration].filter(Boolean).join(' · ')}
                         </p>
                       </div>
                       {v.has_subtitles && (

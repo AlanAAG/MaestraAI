@@ -116,7 +116,9 @@ export function LetterRecognitionGame({ content, onComplete }: Props) {
                     : 'border-gray-200 bg-white text-gray-800 hover:border-indigo-300 hover:bg-indigo-50'
               }`}
             >
-              {l}
+              {/* Uppercase + lowercase together (Aa) — preschoolers learn both forms. */}
+              {l.toUpperCase()}
+              {l.toLowerCase()}
             </button>
           )
         })}

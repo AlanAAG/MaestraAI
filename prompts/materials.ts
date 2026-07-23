@@ -51,6 +51,8 @@ REGLAS:
 2. Instrucciones en español para el DOCENTE (1 oración clara)
 3. "image_query": 4-6 palabras en inglés para buscar ilustración — incluir "cartoon" o "illustration" + "white background"
 4. Para "matching" y "circling": 3-5 ítems máximo
+5. En "circling", "foil_words": las 2 palabras distractoras en inglés (una palabra simple cada una, coherentes con foil_image_queries)
+6. Para "coloring" y "sequencing" usa también "items": [{ "word": "...", "teacher_instruction": "..." }]
 
 FORMATO JSON exacto (sin texto adicional):
 {
@@ -63,6 +65,7 @@ FORMATO JSON exacto (sin texto adicional):
         {
           "word": "apple",
           "correct_image_query": "red apple cartoon illustration white background",
+          "foil_words": ["banana", "orange"],
           "foil_image_queries": [
             "yellow banana cartoon illustration white background",
             "orange fruit cartoon illustration white background"

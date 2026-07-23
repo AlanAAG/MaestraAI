@@ -6,13 +6,15 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { InitialsAvatar } from '@/components/ui/InitialsAvatar'
 import { SignOutButton } from '@/components/auth/SignOutButton'
+import type { FontKey } from '@/lib/design/fonts'
 
 type DesignSettings = {
-  font: 'sans' | 'serif' | 'rounded' | 'century'
+  font: FontKey
   size: number
   accent: string
   lineIntensity: 'light' | 'medium' | 'strong'
   spacing: 'compact' | 'normal' | 'relaxed'
+  app_font: 'default' | FontKey
 }
 const DEFAULT_DESIGN: DesignSettings = {
   font: 'sans',
@@ -20,12 +22,17 @@ const DEFAULT_DESIGN: DesignSettings = {
   accent: '#1f2937',
   lineIntensity: 'medium',
   spacing: 'normal',
+  app_font: 'default',
 }
 const FONT_OPTIONS: { value: DesignSettings['font']; label: string }[] = [
   { value: 'sans', label: 'Sans (moderna)' },
   { value: 'serif', label: 'Serif (clásica)' },
   { value: 'rounded', label: 'Redondeada' },
   { value: 'century', label: 'Century Gothic' },
+]
+const APP_FONT_OPTIONS: { value: DesignSettings['app_font']; label: string }[] = [
+  { value: 'default', label: 'Predeterminada (DM Sans + Inter)' },
+  ...FONT_OPTIONS,
 ]
 const SPACING_OPTIONS: { value: DesignSettings['spacing']; label: string }[] = [
   { value: 'compact', label: 'Compacto' },
@@ -191,6 +198,10 @@ export default function PerfilPage() {
       })
       setSaveDMsg(res.ok ? 'Guardado' : 'No se pudo guardar')
       setTimeout(() => setSaveDMsg(''), 2500)
+      // The shell reads app_font once on mount — reload so the new interface font applies now.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const prevAppFont = (teacher as any)?.design_settings?.app_font ?? 'default'
+      if (res.ok && design.app_font !== prevAppFont) window.location.reload()
     } finally {
       setSavingD(false)
     }
@@ -465,6 +476,28 @@ export default function PerfilPage() {
                 />
               ))}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Tipografía de la aplicación
+            </label>
+            <p className="text-xs text-text-secondary">
+              Cambia la letra de toda la interfaz: dashboard, planeaciones, juegos.
+            </p>
+            <select
+              value={design.app_font}
+              onChange={(e) =>
+                setDesign((d) => ({ ...d, app_font: e.target.value as DesignSettings['app_font'] }))
+              }
+              className="w-full h-10 max-w-sm rounded-sm border border-border bg-card px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
+            >
+              {APP_FONT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <Button onClick={handleDesignSave} disabled={savingD}>

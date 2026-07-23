@@ -150,6 +150,7 @@ export function MaterialGenerator({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             lesson_plan_id: lessonPlanId,
+            fortnight_id: fortnightId,
             vocabulary: vocabulary?.length ? vocabulary : undefined,
             material_types: generateTypes,
             options: {

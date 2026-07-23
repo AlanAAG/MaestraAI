@@ -23,6 +23,17 @@ export function classContextBlock(context: FortnightContext | null | undefined):
   return `Contexto de clase:\n- Proyecto: ${context.project_name}\n- Unidad Richmond: ${context.richmond_unit ?? 'N/A'}\n- Valor del mes: ${context.monthly_value ?? 'N/A'}${goals}\n\n`
 }
 
+// All focus letters of the fortnight — both weeks, comma-lists ("A, B") split and trimmed.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function fortnightLetters(fortnight: any): string[] {
+  return [fortnight?.letter_week1, fortnight?.letter_week2].filter(Boolean).flatMap((l: unknown) =>
+    String(l)
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean)
+  )
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function deriveFortnightContext(lessonPlan: any): FortnightContext {
   const fortnight = lessonPlan?.fortnights ?? {}

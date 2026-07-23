@@ -43,26 +43,26 @@ Class theme: ${ctx.project_name}
 
 Look at the ACTUAL words and choose 2 or 3 categories that genuinely fit ALL of them. Pick the
 categories from what the words actually are — do NOT default to "animals vs objects". For example:
-- people / roles (baby, astronaut, doctor, mom) → "Personas"
-- actions / verbs (run, jump, eat) → "Acciones"
+- people / roles (baby, astronaut, doctor, mom) → "People"
+- actions / verbs (run, jump, eat) → "Actions"
 - food, animals, toys, clothes, body parts, places, colors, transport… → use whichever fit
 Rules for the categories:
 - Every word must clearly belong to exactly ONE category (no word that fits two, no word left over).
 - If some words don't fit the others (e.g. "baby", "astronaut" among animals), ADD a category that
-  covers them (like "Personas") instead of forcing them into a wrong bin.
-- Named in SPANISH (the teacher will say the category name aloud).
+  covers them (like "People") instead of forcing them into a wrong bin.
+- Named in simple ENGLISH (this is an English class — e.g. "Animals", "Things", "People", "Food").
 
 For each item also give "emoji": the single best emoji for that word's exact sense (🐱 for cat, 👶 for baby, 👨‍🚀 for astronaut). Use "" if none fits.
 
 Return ONLY valid JSON with no markdown or explanation:
 {
   "categories": [
-    { "name": "Animales" },
-    { "name": "Juguetes" }
+    { "name": "Animals" },
+    { "name": "Toys" }
   ],
   "items": [
-    { "word": "cat", "category": "Animales", "emoji": "🐱" },
-    { "word": "ball", "category": "Juguetes", "emoji": "⚽" }
+    { "word": "cat", "category": "Animals", "emoji": "🐱" },
+    { "word": "ball", "category": "Toys", "emoji": "⚽" }
   ]
 }
 

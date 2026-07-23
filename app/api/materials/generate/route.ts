@@ -12,7 +12,11 @@ import { buildLetterRecognition } from '@/lib/materials/letter-recognition'
 import { buildMatching } from '@/lib/materials/matching'
 import { buildPictureWordMatch } from '@/lib/materials/picture-word-match'
 import { buildSortingGame } from '@/lib/materials/sorting'
-import { deriveFortnightContext, type FortnightContext } from '@/lib/materials/types'
+import {
+  deriveFortnightContext,
+  fortnightLetters,
+  type FortnightContext,
+} from '@/lib/materials/types'
 import { resolveSelectedContent } from '@/lib/richmond/queries'
 import { fetchVocabImages, fetchTeacherVocabImages } from '@/lib/images'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -21,6 +25,8 @@ import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 const GenerateMaterialsSchema = z
   .object({
     lesson_plan_id: z.string().uuid().optional(),
+    // Fortnight-level generation (document-view MaterialGenerator) — no lesson plan involved.
+    fortnight_id: z.string().uuid().optional(),
     vocabulary: z.array(z.string()).optional(),
     topic: z.string().max(200).optional(),
     material_types: z.array(
@@ -49,8 +55,8 @@ const GenerateMaterialsSchema = z
       })
       .optional(),
   })
-  .refine((d) => d.lesson_plan_id || (d.vocabulary && d.vocabulary.length > 0), {
-    message: 'Provide lesson_plan_id or vocabulary[]',
+  .refine((d) => d.lesson_plan_id || d.fortnight_id || (d.vocabulary && d.vocabulary.length > 0), {
+    message: 'Provide lesson_plan_id, fortnight_id, or vocabulary[]',
   })
 
 export async function POST(req: NextRequest) {
@@ -134,9 +140,34 @@ export async function POST(req: NextRequest) {
       fortnight_id_for_insert = lp.fortnight_id ?? null
     } else {
       // Standalone generation — vocabulary provided directly
-      vocabulary = input.vocabulary!
+      vocabulary = input.vocabulary ?? []
       projectTheme = input.topic || 'General English'
     }
+
+    // Fortnight-level generation: fetch the fortnight so letters/theme/richmond context work
+    // without a lesson plan (the document-view MaterialGenerator path).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let fortnightRow: any = null
+    if (!lessonPlan && input.fortnight_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: fnData } = await (supabase as any)
+        .from('fortnights')
+        .select('*')
+        .eq('id', input.fortnight_id)
+        .eq('teacher_id', teacherId)
+        .maybeSingle()
+      if (fnData) {
+        fortnightRow = fnData
+        fortnight_id_for_insert = fnData.id
+        if (!input.topic) projectTheme = fnData.project_name || projectTheme
+        if (vocabulary.length === 0 && Array.isArray(fnData.vocabulary)) {
+          vocabulary = fnData.vocabulary
+        }
+      }
+    }
+
+    // Fortnight data regardless of entry path (lesson plan join or direct fortnight fetch).
+    const fortnight = lessonPlan?.fortnights ?? fortnightRow
 
     if (vocabulary.length === 0) {
       return NextResponse.json(
@@ -151,26 +182,26 @@ export async function POST(req: NextRequest) {
     }
     const ctx: FortnightContext = lessonPlan
       ? deriveFortnightContext(lessonPlan)
-      : {
-          project_name: projectTheme,
-          monthly_value: null,
-          richmond_unit: null,
-          richmond_student_pages: null,
-          letter: vocabulary[0]?.[0]?.toUpperCase() ?? 'A',
-          grade: '',
-          methodology_types: null,
-        }
+      : fortnight
+        ? deriveFortnightContext({ fortnights: fortnight })
+        : {
+            project_name: projectTheme,
+            monthly_value: null,
+            richmond_unit: null,
+            richmond_student_pages: null,
+            letter: vocabulary[0]?.[0]?.toUpperCase() ?? 'A',
+            grade: '',
+            methodology_types: null,
+          }
 
     // Richmond unit learning goals → materials practice what the unit TEACHES, not just its words.
     // Best-effort: missing selection/tables → no goals, builders unchanged.
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fn = (lessonPlan as any)?.fortnights
-      if (fn?.richmond_unit_id) {
+      if (fortnight?.richmond_unit_id) {
         const selected = await resolveSelectedContent(
           supabase,
-          fn.richmond_unit_id,
-          (fn.richmond_lesson_group_ids as string[] | null) ?? []
+          fortnight.richmond_unit_id,
+          (fortnight.richmond_lesson_group_ids as string[] | null) ?? []
         )
         if (selected?.learning_goals?.length) ctx.learning_goals = selected.learning_goals
       }
@@ -214,24 +245,20 @@ export async function POST(req: NextRequest) {
             break
 
           case 'youtube':
-            content = await buildYoutubeRecommendations(vocabulary, projectTheme)
+            // Fortnight focus letters → Bounce Patrol letter songs prepended.
+            content = await buildYoutubeRecommendations(
+              vocabulary,
+              projectTheme,
+              fortnightLetters(fortnight)
+            )
             type = 'youtube_videos'
             isProjectable = true
             break
 
           case 'letter_recognition': {
             // Cover ALL letters of BOTH weeks (each field can be comma-separated, e.g. "A, B").
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const fn = (lessonPlan as any)?.fortnights
-            const letter = [fn?.letter_week1, fn?.letter_week2]
-              .filter(Boolean)
-              .flatMap((l: unknown) =>
-                String(l)
-                  .split(',')
-                  .map((x) => x.trim())
-                  .filter(Boolean)
-              )
-            const letters = letter.length ? letter : ['A']
+            const found = fortnightLetters(fortnight)
+            const letters = found.length ? found : ['A']
             const act = input.options?.letter_activity_type
             const activity = (
               ['hear_and_circle', 'match_to_letter', 'trace_and_say'].includes(act ?? '')

@@ -18,6 +18,8 @@ const PatchSchema = z.object({
       accent: z.string().max(20).optional(),
       lineIntensity: z.enum(['light', 'medium', 'strong']).optional(),
       spacing: z.enum(['compact', 'normal', 'relaxed']).optional(),
+      // App-wide interface font (dashboard, planeaciones pages, games) — independent of `font`.
+      app_font: z.enum(['default', 'sans', 'serif', 'rounded', 'century']).optional(),
     })
     .optional(),
 })
@@ -91,11 +93,18 @@ export async function PATCH(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: teacher } = await (supabase as any)
       .from('teachers')
-      .select('id')
+      .select('id, design_settings')
       .eq('auth_id', user.id)
       .single()
 
     if (!teacher) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Merge design_settings server-side: clients save partial Design objects (the plan viewer
+    // doesn't know app_font, the perfil page does) — a wholesale replace would wipe the other's keys.
+    const mergedDesign =
+      body.data.design_settings !== undefined
+        ? { ...(teacher.design_settings ?? {}), ...body.data.design_settings }
+        : undefined
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
@@ -112,9 +121,7 @@ export async function PATCH(req: NextRequest) {
         ...(body.data.profile_notes !== undefined
           ? { profile_notes: body.data.profile_notes }
           : {}),
-        ...(body.data.design_settings !== undefined
-          ? { design_settings: body.data.design_settings }
-          : {}),
+        ...(mergedDesign !== undefined ? { design_settings: mergedDesign } : {}),
       })
       .eq('auth_id', user.id)
       .select('id, full_name')

@@ -1,15 +1,18 @@
 // lib/WorksheetPdfDocument.tsx
 // SERVER-ONLY: import only from API routes, never from 'use client' components.
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { normalizeWorksheetItems, type WorksheetActivity } from '@/lib/materials/worksheet-content'
+import { seededShuffle } from '@/lib/utils/shuffle'
 
-type WorksheetActivity = {
+// Old content stored plain-string items and `instructions` — tolerated at render.
+type StoredActivity = Omit<WorksheetActivity, 'items' | 'type'> & {
   type: string
-  instructions: string
-  items: string[]
+  instructions?: string
+  items?: unknown
 }
 
 interface WorksheetPdfProps {
-  activities: WorksheetActivity[]
+  activities: StoredActivity[]
   letter?: string
   vocabulary: string[]
   generatedAt: string
@@ -70,19 +73,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 1.5,
   },
-  tracingLine: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#D1D5DB',
-    borderStyle: 'dashed',
-    marginBottom: 16,
-    paddingBottom: 20,
-  },
-  tracingLetter: {
-    fontSize: 48,
-    fontFamily: 'Helvetica-Bold',
-    color: '#E5E7EB',
-    textAlign: 'center',
-  },
   itemBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -98,15 +88,6 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 11,
     color: '#111827',
-  },
-  writingLines: {
-    marginTop: 8,
-  },
-  writingLine: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#D1D5DB',
-    marginBottom: 12,
-    height: 20,
   },
   footer: {
     position: 'absolute',
@@ -140,43 +121,47 @@ export function WorksheetPdfDocument({
         </View>
 
         {/* Activities */}
-        {activities.map((activity, index) => (
-          <View key={index} style={styles.activity}>
-            <Text style={styles.activityTitle}>
-              Actividad {index + 1}: {activity.type}
-            </Text>
-            <Text style={styles.instructions}>{activity.instructions}</Text>
+        {activities.map((activity, index) => {
+          const items = normalizeWorksheetItems(activity.items)
+          return (
+            <View key={index} style={styles.activity}>
+              <Text style={styles.activityTitle}>
+                Actividad {index + 1}: {activity.title || activity.type}
+              </Text>
+              <Text style={styles.instructions}>
+                {activity.teacher_instruction || activity.instructions || ''}
+              </Text>
 
-            {/* Render based on activity type */}
-            {activity.type.toLowerCase().includes('tracing') ||
-            activity.type.toLowerCase().includes('trazar') ? (
-              <View style={styles.tracingLine}>
-                <Text style={styles.tracingLetter}>{letter}</Text>
-              </View>
-            ) : null}
+              {items.map((item, itemIndex) => (
+                <View key={itemIndex} style={styles.itemBox}>
+                  <View style={styles.checkbox} />
+                  <Text style={styles.itemText}>
+                    {item.foil_words?.length
+                      ? // Circling: all options shuffled as equals — the correct answer must not be
+                        // typographically distinguishable on the printed student sheet.
+                        seededShuffle([item.word, ...item.foil_words], index * 7 + itemIndex).join(
+                          '      '
+                        )
+                      : item.word}
+                    {item.teacher_instruction ? ` — ${item.teacher_instruction}` : ''}
+                  </Text>
+                </View>
+              ))}
 
-            {activity.type.toLowerCase().includes('matching') ||
-            activity.type.toLowerCase().includes('relaciona') ? (
-              <View>
-                {activity.items.map((item, itemIndex) => (
-                  <View key={itemIndex} style={styles.itemBox}>
-                    <View style={styles.checkbox} />
-                    <Text style={styles.itemText}>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            {activity.type.toLowerCase().includes('writing') ||
-            activity.type.toLowerCase().includes('escribe') ? (
-              <View style={styles.writingLines}>
-                {activity.items.map((_, lineIndex) => (
-                  <View key={lineIndex} style={styles.writingLine} />
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ))}
+              {(activity.pairs ?? []).map((pair, pairIndex) => (
+                <View key={pairIndex} style={styles.itemBox}>
+                  <View style={styles.checkbox} />
+                  <Text style={styles.itemText}>
+                    {pair.word}
+                    {pair.translation || pair.description
+                      ? ` — ${pair.translation || pair.description}`
+                      : ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )
+        })}
 
         <Text style={styles.footer}>Generado el {generatedAt} · MaestraAI · maestraai.mx</Text>
       </Page>
