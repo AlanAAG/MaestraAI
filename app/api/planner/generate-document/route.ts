@@ -377,6 +377,21 @@ ${proniNote}`
     ? `<objetivo_maestra>\nLo que la maestra quiere que los niños aprendan este ${isMes ? 'mes' : 'quincena'}: "${sanitize(fn.learning_goal)}".\nToda la planeación (proyecto, actividades, aprendizajes, evaluación) debe girar en torno a este objetivo.\n</objetivo_maestra>`
     : ''
 
+  // Teacher-selected ejes articuladores (union across units, optional). When set, the plan MUST
+  // feature exactly these — overrides the model's "pick 2-3" default in the grounding block.
+  const teacherEjes: string[] = Array.isArray(fn.unidades_didacticas)
+    ? Array.from(
+        new Set(
+          fn.unidades_didacticas.flatMap((u: { ejes?: unknown }) =>
+            Array.isArray(u?.ejes) ? (u.ejes as string[]) : []
+          )
+        )
+      )
+    : []
+  const ejesBlock = teacherEjes.length
+    ? `<ejes_seleccionados>\nLa maestra eligió estos ejes articuladores para esta planeación. En el campo "ejes_articuladores" usa EXACTAMENTE estos (una viñeta por cada uno, conectado a una actividad CONCRETA de este plan). NO agregues otros ejes:\n${teacherEjes.map((e) => `  • ${e}`).join('\n')}\n</ejes_seleccionados>`
+    : ''
+
   // Letters: 4 weeks for month plans, 2 for quincena.
   const lettersLine = isMes
     ? `Letras: Semana 1="${sanitize(fn.letter_week1)}" | Semana 2="${sanitize(fn.letter_week2)}" | Semana 3="${sanitize(fn.letter_week3)}" | Semana 4="${sanitize(fn.letter_week4)}"`
@@ -405,6 +420,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     goalBlock,
     profileCtx,
     contenidosBlock,
+    ejesBlock,
     knowledgeBlock,
     durationBlock,
     proyectoSecciones,
@@ -460,6 +476,20 @@ ${JSON.stringify(schedule.cronograma)}
 Letter & Number: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}`
 
+  // Teacher-selected ejes articuladores (optional) — same override as the quincena path.
+  const teacherEjes: string[] = Array.isArray(fn.unidades_didacticas)
+    ? Array.from(
+        new Set(
+          fn.unidades_didacticas.flatMap((u: { ejes?: unknown }) =>
+            Array.isArray(u?.ejes) ? (u.ejes as string[]) : []
+          )
+        )
+      )
+    : []
+  const ejesBlock = teacherEjes.length
+    ? `<ejes_seleccionados>\nLa maestra eligió estos ejes articuladores. En "ejes_articuladores" usa EXACTAMENTE estos (uno por viñeta, ligado a una actividad concreta). NO agregues otros:\n${teacherEjes.map((e) => `  • ${e}`).join('\n')}\n</ejes_seleccionados>`
+    : ''
+
   const requestData = `<request>
 PLANEACIÓN TALLER: ${sanitize(fn.project_name)}
 Fechas: ${startStr} – ${endStr}
@@ -474,7 +504,9 @@ ${richmondBlock}${gameHint ? '\n' + gameHint : ''}
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
 
   // Grounding is injected as a cached system prefix, not here.
-  return [styleBlock, profileCtx, knowledgeBlock, requestData].filter(Boolean).join('\n\n')
+  return [styleBlock, profileCtx, ejesBlock, knowledgeBlock, requestData]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 export async function POST(req: NextRequest) {

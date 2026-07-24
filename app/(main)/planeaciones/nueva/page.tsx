@@ -14,7 +14,7 @@ import { toFirstNames, distributeObservations } from '@/lib/planner/observation'
 import { UnitSelector, type RichmondSelection } from '@/components/richmond/UnitSelector'
 import { VocabularySections } from '@/components/richmond/VocabularySections'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
-import { isProniApplicable } from '@/lib/nem-official-data'
+import { isProniApplicable, EJES_ARTICULADORES } from '@/lib/nem-official-data'
 import { activeGroups } from '@/lib/groups/archive'
 import { CONTENIDOS_FASE2_3 } from '@/lib/nem/contenidos-fase2'
 
@@ -100,8 +100,14 @@ export default function NuevaPlaneacionPage() {
   // Teacher-defined didactic units. Unit 1 = the project (its name is the plan's project_name);
   // the rest become sub-plans. Always starts with one unit since Unit 1 is now required.
   const [unidades, setUnidades] = useState<
-    Array<{ metodologia: string; nombre: string; tema: string; contenidos: string[] }>
-  >([{ metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [] }])
+    Array<{
+      metodologia: string
+      nombre: string
+      tema: string
+      contenidos: string[]
+      ejes: string[]
+    }>
+  >([{ metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [], ejes: [] }])
   // Optional teacher details (general + project-specific) — both feed generation.
   const [teacherNotes, setTeacherNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
@@ -682,6 +688,47 @@ export default function NuevaPlaneacionPage() {
                         ))}
                       </div>
                     </details>
+                    {/* Optional: pick the ejes articuladores this unit works (else the AI chooses). */}
+                    <details className="rounded-lg border border-border bg-surface">
+                      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-secondary">
+                        Ejes articuladores{' '}
+                        {u.ejes.length > 0 && (
+                          <span className="text-primary">· {u.ejes.length} elegidos</span>
+                        )}
+                      </summary>
+                      <div className="space-y-1 px-3 pb-3">
+                        {EJES_ARTICULADORES.map((eje) => {
+                          const checked = u.ejes.includes(eje)
+                          return (
+                            <label
+                              key={eje}
+                              className="flex cursor-pointer items-start gap-2 text-xs text-text-primary"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setUnidades((p) =>
+                                    p.map((x, idx) =>
+                                      idx === i
+                                        ? {
+                                            ...x,
+                                            ejes: checked
+                                              ? x.ejes.filter((y) => y !== eje)
+                                              : [...x.ejes, eje],
+                                          }
+                                        : x
+                                    )
+                                  )
+                                }
+                                className="mt-0.5 accent-primary"
+                              />
+                              <span>{eje}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </details>
                   </div>
                 ))}
               </div>
@@ -693,7 +740,7 @@ export default function NuevaPlaneacionPage() {
               onClick={() =>
                 setUnidades((p) => [
                   ...p,
-                  { metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [] },
+                  { metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [], ejes: [] },
                 ])
               }
             >

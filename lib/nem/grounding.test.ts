@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { CONTENIDOS_FASE2_3 } from './contenidos-fase2'
-import { nemGroundingBlock } from './grounding'
+import { nemGroundingBlock, EJES_FASE2 } from './grounding'
+import { EJES_ARTICULADORES } from '@/lib/nem-official-data'
 
 describe('NEM grounding', () => {
+  it('the ejes dropdown source matches the injected grounding list (no drift)', () => {
+    // The form dropdown uses EJES_ARTICULADORES; generation injects EJES_FASE2. Keep them identical.
+    expect(EJES_FASE2.map((e) => e.nombre)).toEqual([...EJES_ARTICULADORES])
+  })
+
   it('has all 34 contenidos with at least one 3° PDA each', () => {
     expect(CONTENIDOS_FASE2_3).toHaveLength(34)
     expect(CONTENIDOS_FASE2_3.every((c) => c.pdas3.length > 0)).toBe(true)
