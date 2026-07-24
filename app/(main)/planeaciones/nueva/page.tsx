@@ -107,7 +107,7 @@ export default function NuevaPlaneacionPage() {
       contenidos: string[]
       ejes: string[]
     }>
-  >([{ metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [], ejes: [] }])
+  >([{ metodologia: 'Automático', nombre: '', tema: '', contenidos: [], ejes: [] }])
   // Optional teacher details (general + project-specific) — both feed generation.
   const [teacherNotes, setTeacherNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
@@ -611,6 +611,7 @@ export default function NuevaPlaneacionPage() {
                         }
                         className="min-h-[40px] px-2 rounded-lg border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
                       >
+                        <option value="Automático">✨ Automático (la IA elige)</option>
                         {MODALIDADES.map((m) => (
                           <option key={m} value={m}>
                             {m}

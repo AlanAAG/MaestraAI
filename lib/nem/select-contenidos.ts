@@ -80,7 +80,8 @@ ${body}
 export async function selectRelevantContenidos(
   topic: string,
   notes = '',
-  hint: string[] = []
+  hint: string[] = [],
+  avoid: string[] = []
 ): Promise<ContenidoPDA[]> {
   const t = `${topic} ${notes}`.trim()
   if (!t) return []
@@ -93,9 +94,16 @@ export async function selectRelevantContenidos(
           .map((h) => `- ${h}`)
           .join('\n')}\n`
       : ''
+    // Anti-repeat: recently-used contenidos. Relevance wins; only vary as a tie-breaker.
+    const avoidLine = avoid.length
+      ? `ESTOS CONTENIDOS SE USARON EN PLANEACIONES RECIENTES (si hay opciones IGUAL de pertinentes al tema, prefiere OTRAS para dar variedad; NUNCA sacrifiques la pertinencia):\n${avoid
+          .slice(0, 15)
+          .map((a) => `- ${a}`)
+          .join('\n')}\n`
+      : ''
     const raw = await streamToString(
       SELECT_SYSTEM,
-      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}${hintLine}\nCONTENIDOS DISPONIBLES:\n${buildContenidoMenu()}`
+      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}${hintLine}${avoidLine}\nCONTENIDOS DISPONIBLES:\n${buildContenidoMenu()}`
     )
     const m = raw.match(/\[[\d,\s]*\]/)
     if (!m) return []

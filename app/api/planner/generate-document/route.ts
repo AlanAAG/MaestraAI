@@ -9,6 +9,7 @@ import {
   contenidosSugeridosBlock,
   contenidosFromTitles,
 } from '@/lib/nem/select-contenidos'
+import { autoSelectNem, extractRecentChoices } from '@/lib/planner/auto-select'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import { extractUsedFichas, pickFicha, buildFichaBlock } from '@/lib/nem/ficha-rotation'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
@@ -774,8 +775,65 @@ export async function POST(req: NextRequest) {
     // Best-effort: empty block → prompt keeps full-bank behavior. Only the main quincena prompt uses it.
     // The teacher's extracted pda_bank is a selection HINT only (biases which contenidos get picked);
     // the official bank supplies all Contenido/PDA text, and enforceCamposFormativos guarantees it.
+    // Smart auto-fill of the NEM dropdowns left blank (metodología / ejes), rotation-aware.
+    // Fetch the teacher's recent plans' pedagogical choices so auto-picks vary from them
+    // (relevance still wins). Best-effort; a failure leaves the prior behavior untouched.
+    let recentChoices = {
+      metodologias: [] as string[],
+      ejes: [] as string[],
+      contenidos: [] as string[],
+    }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: recentPlans } = await (supabase as any)
+        .from('fortnights')
+        .select('unidades_didacticas')
+        .eq('teacher_id', teacherId)
+        .neq('id', fn.id)
+        .order('created_at', { ascending: false })
+        .limit(6)
+      const recentUnits = (recentPlans ?? []).flatMap(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p: any) => (Array.isArray(p?.unidades_didacticas) ? p.unidades_didacticas : [])
+      )
+      recentChoices = extractRecentChoices(recentUnits)
+    } catch (err) {
+      console.error('[generate-document] recent-choices fetch failed:', err)
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unit0: any = Array.isArray(fn.unidades_didacticas) ? fn.unidades_didacticas[0] : null
+    if (unit0) {
+      const needMetodologia = !unit0.metodologia || unit0.metodologia === 'Automático'
+      const needEjes = !(
+        Array.isArray(fn.unidades_didacticas) &&
+        fn.unidades_didacticas.some(
+          (u: { ejes?: unknown }) => Array.isArray(u?.ejes) && u.ejes.length > 0
+        )
+      )
+      if (needMetodologia || needEjes) {
+        const auto = await autoSelectNem(
+          String(fn.project_name ?? ''),
+          `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
+          recentChoices,
+          { metodologia: needMetodologia, ejes: needEjes }
+        )
+        // Resolve 'Automático'/blank to a real methodology (fallback Proyecto) so the proyecto
+        // structure + label are never the placeholder. Any OTHER unit still on 'Automático' → Proyecto.
+        if (needMetodologia) unit0.metodologia = auto.metodologia ?? 'Proyecto'
+        if (needEjes && auto.ejes?.length) unit0.ejes = auto.ejes
+      }
+      // Never leave the placeholder on any unit (extras that stayed 'Automático').
+      if (Array.isArray(fn.unidades_didacticas)) {
+        for (const u of fn.unidades_didacticas) {
+          if (u && u.metodologia === 'Automático') u.metodologia = 'Proyecto'
+        }
+      }
+    }
+
     // Teacher-selected contenidos (per unit) WIN: build the block verbatim from her choices.
-    // Otherwise fall back to the Haiku topic-relevance shortlist (seeded with her learning goal).
+    // Otherwise fall back to the Haiku topic-relevance shortlist (seeded with her learning goal,
+    // and steered away from recently-used contenidos for variety).
     const teacherContenidoTitles: string[] = Array.isArray(fn.unidades_didacticas)
       ? Array.from(
           new Set(
@@ -793,7 +851,8 @@ export async function POST(req: NextRequest) {
               await selectRelevantContenidos(
                 String(fn.project_name ?? ''),
                 `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
-                (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean)
+                (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean),
+                recentChoices.contenidos
               )
             )
         : ''
