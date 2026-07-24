@@ -24,6 +24,7 @@ import { SignOutButton } from '@/components/auth/SignOutButton'
 import { TeacherNameProvider } from '@/components/app/TeacherContext'
 import { appFontStyle } from '@/lib/design/fonts'
 import { appThemeVars } from '@/lib/design/themes'
+import { writeDesignCookie } from '@/lib/design/vars'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
@@ -87,6 +88,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       setTeacherName(teacher.full_name || '')
       setAppFont(teacher.design_settings?.app_font ?? null)
       setAppColor(teacher.design_settings?.app_color ?? null)
+      // Keep the pre-paint cookie in sync with the DB so future loads apply the theme flash-free.
+      writeDesignCookie(teacher.design_settings?.app_color, teacher.design_settings?.app_font)
       setLoading(false)
     })
 

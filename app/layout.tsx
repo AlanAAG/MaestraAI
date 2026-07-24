@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/nextjs'
 import type { Metadata } from 'next'
 import { DM_Sans, Inter } from 'next/font/google'
 import './globals.css'
+import { DESIGN_INIT_SCRIPT } from '@/lib/design/vars'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -29,7 +30,11 @@ export function generateMetadata(): Metadata {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${inter.variable} ${dmSans.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        {/* Applies the teacher's saved color theme + font BEFORE paint (no flash of default). */}
+        <script dangerouslySetInnerHTML={{ __html: DESIGN_INIT_SCRIPT }} />
+        {children}
+      </body>
     </html>
   )
 }

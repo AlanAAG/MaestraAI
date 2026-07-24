@@ -8,6 +8,7 @@ import { InitialsAvatar } from '@/components/ui/InitialsAvatar'
 import { SignOutButton } from '@/components/auth/SignOutButton'
 import type { FontKey } from '@/lib/design/fonts'
 import { THEME_BRAND } from '@/lib/design/themes'
+import { writeDesignCookie } from '@/lib/design/vars'
 
 // App-wide color themes (full environment). 'default' = the app's gold.
 const APP_COLOR_OPTIONS: { value: string; label: string; swatch: string }[] = [
@@ -218,7 +219,11 @@ export default function PerfilPage() {
       const changedShell =
         design.app_font !== (prev.app_font ?? 'default') ||
         design.app_color !== (prev.app_color ?? 'default')
-      if (res.ok && changedShell) window.location.reload()
+      if (res.ok && changedShell) {
+        // Update the pre-paint cookie first so the reload shows the NEW theme with no flash.
+        writeDesignCookie(design.app_color, design.app_font)
+        window.location.reload()
+      }
     } finally {
       setSavingD(false)
     }
