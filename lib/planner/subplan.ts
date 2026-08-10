@@ -24,7 +24,7 @@ export function buildSubplanPrompt(
   // Grounding (the FULL official Contenido/PDA bank) is injected as a cached system prefix
   // (see callPlannerModel cachePrefix), not here — the official bank is the ONLY PDA source.
   const depth = `EXIGENCIAS DE PROFUNDIDAD:
-- "campos_formativos": 1-3 campos relevantes, elegidos de <contenidos_oficiales>. Cada contenido elegido con TODOS sus Procesos de Desarrollo de Aprendizaje (PDA) oficiales de 3er grado, VERBATIM — el desglose completo (mismo número, mismo orden, sin consolidar ni omitir). PDA = Proceso de Desarrollo de Aprendizaje; NUNCA escribas "aprendizajes esperados".
+- "campos_formativos": 1-3 campos relevantes, elegidos de <contenidos_oficiales>. Cada contenido elegido con TODOS sus Procesos de Desarrollo de Aprendizaje (PDA) oficiales tal como aparecen en <contenidos_oficiales> (el desglose del grado del grupo), VERBATIM — el desglose completo (mismo número, mismo orden, sin consolidar ni omitir). PDA = Proceso de Desarrollo de Aprendizaje; NUNCA escribas "aprendizajes esperados".
 - Cada momento de la estructura didáctica debe tener 4-8 actividades CONCRETAS y variadas (no genéricas).
 - "evaluacion": 5 aspectos concretos. Columnas de evaluación: ${evalColumns.join(' / ')} (NUNCA numérica).
 - Verbos en primera persona del singular. NO resumas, NO uses placeholders.`
@@ -102,7 +102,10 @@ export async function generateCustomSubplan(
   const struct =
     METHODOLOGY_STRUCTURE[spec.methodology] ?? METHODOLOGY_STRUCTURE['Situación Didáctica']
   const estructuraJson = struct
-    .map((s) => `    "${s.key}": "${s.label}: 4-8 actividades concretas, primera persona singular"`)
+    .map(
+      (s) =>
+        `    "${s.key}": "4-8 actividades concretas de ${s.label} en viñetas \"- \" (una por línea, una idea por viñeta), primera persona singular. NO repitas el nombre del momento dentro del texto: el encabezado ya lo dice."`
+    )
     .join(',\n')
   const evalCols = opts.evalColumns?.length
     ? opts.evalColumns
@@ -131,7 +134,7 @@ Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido
     cachePrefix: opts.cachePrefix,
   })
   const doc = parsePlanJson(raw)
-  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos)
+  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
   return doc
 }
 
@@ -162,6 +165,6 @@ export async function generateSubplan(
     cachePrefix: opts.cachePrefix,
   })
   const doc = parsePlanJson(raw)
-  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos)
+  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
   return doc
 }

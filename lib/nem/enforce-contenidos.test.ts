@@ -88,3 +88,40 @@ describe('enforceCamposFormativos', () => {
     expect(enforceCamposFormativos(nothingMatches)).toBe(nothingMatches)
   })
 })
+
+describe('grade-aware + teacher-picked PDAs', () => {
+  const row = OFFICIAL_NARRACION
+  const gen = [{ campo: 'Lenguajes', contenidos: [{ contenido: row.contenido, procesos: [] }] }]
+  const procesosOf = (out: unknown) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (out as any)[0].contenidos[0].procesos as string[]
+
+  it('injects the desglose of the plan grade', () => {
+    expect(procesosOf(enforceCamposFormativos(gen, { grade: 'Kinder 1' }))).toEqual(row.pdas1)
+    expect(procesosOf(enforceCamposFormativos(gen, { grade: 'Kinder 2' }))).toEqual(row.pdas2)
+    expect(procesosOf(enforceCamposFormativos(gen, { grade: 'Kinder 3' }))).toEqual(row.pdas3)
+    expect(procesosOf(enforceCamposFormativos(gen))).toEqual(row.pdas3) // default 3°
+  })
+
+  it('narrows to the teacher-picked PDAs, in official order', () => {
+    const picked = [row.pdas3[1], row.pdas3[0]]
+    const out = enforceCamposFormativos(gen, {
+      grade: 'Kinder 3',
+      procesos: { [row.contenido]: picked },
+    })
+    expect(procesosOf(out)).toEqual([row.pdas3[0], row.pdas3[1]])
+  })
+
+  it('keeps picks from other grades (teachers mix 1°/2°/3° in one plan)', () => {
+    const picked = [row.pdas3[0], row.pdas1[0]]
+    const out = procesosOf(
+      enforceCamposFormativos(gen, { grade: 'Kinder 3', procesos: { [row.contenido]: picked } })
+    )
+    expect(out).toEqual([row.pdas1[0], row.pdas3[0]]) // 1° → 2° → 3° order
+  })
+
+  it('falls back to the full desglose when the picks match nothing', () => {
+    const out = enforceCamposFormativos(gen, { procesos: { [row.contenido]: ['inventado'] } })
+    expect(procesosOf(out)).toEqual(row.pdas3)
+  })
+})

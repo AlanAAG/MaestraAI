@@ -1,6 +1,6 @@
 // Official NEM Fase-2 grounding injected into generation prompts so the model REPRODUCES
 // official Contenidos/PDAs verbatim instead of inventing them.
-import { CONTENIDOS_FASE2_3 } from './contenidos-fase2'
+import { CONTENIDOS_FASE2_3, pdasForGrade } from './contenidos-fase2'
 import { METHODOLOGY_STRUCTURE } from '@/lib/planner/methodologies'
 
 // The 6 modalidades oficiales (context/campos-formativos-modalidades.md — school ground truth).
@@ -98,14 +98,18 @@ export const PRONI_FASE2: { contenido: string; pdas: string[] }[] = [
   },
 ]
 
-function contenidosBlock(campos?: string[]): string {
+function contenidosBlock(campos?: string[], grade?: string | null): string {
   const byCampo = new Map<string, string[]>()
   const src = campos?.length
     ? CONTENIDOS_FASE2_3.filter((c) => campos.includes(c.campo))
     : CONTENIDOS_FASE2_3
   for (const c of src) {
     const lines = byCampo.get(c.campo) ?? []
-    lines.push(`  • Contenido: ${c.contenido}\n${c.pdas3.map((p) => `    - PDA: ${p}`).join('\n')}`)
+    lines.push(
+      `  • Contenido: ${c.contenido}\n${pdasForGrade(c, grade)
+        .map((p) => `    - PDA: ${p}`)
+        .join('\n')}`
+    )
     byCampo.set(c.campo, lines)
   }
   return Array.from(byCampo.entries())
@@ -122,7 +126,12 @@ function proniBlock(): string {
 
 // The grounding block prepended to generation prompts. `includeProni` only for Kinder 3.
 // `campos` narrows the Contenidos to specific campos (used by sub-plans to stay lean).
-export function nemGroundingBlock(includeProni: boolean, campos?: string[]): string {
+// `grade` ("Kinder 1/2/3") picks which official PDA desglose is injected; default 3°.
+export function nemGroundingBlock(
+  includeProni: boolean,
+  campos?: string[],
+  grade?: string | null
+): string {
   const ejes = EJES_FASE2.map((e) => `  • ${e.nombre}: ${e.esencia}`).join('\n')
   const modalidades = MODALIDADES_OFICIALES.map((m) => {
     // Strip UI annotations ("(incluye el friso)") and ordinal prefixes ("1° Momento: ") so the
@@ -132,10 +141,11 @@ export function nemGroundingBlock(includeProni: boolean, campos?: string[]): str
     )
     return `  • ${m}: ${fases.join(' → ')}`
   }).join('\n')
-  return `<contenidos_oficiales fase="2" grado="3">
-REGLA ABSOLUTA: Usa y REPRODUCE TEXTUALMENTE estos Contenidos y PDAs oficiales. Está PROHIBIDO inventar, parafrasear o abreviar un PDA. Si un campo/contenido no aplica al proyecto, simplemente no lo uses — pero cuando lo uses, cópialo VERBATIM.
+  const grado = grade?.includes('1') ? '1' : grade?.includes('2') ? '2' : '3'
+  return `<contenidos_oficiales fase="2" grado="${grado}">
+REGLA ABSOLUTA: Usa y REPRODUCE TEXTUALMENTE estos Contenidos y PDAs oficiales (desglose de ${grado}° grado). Está PROHIBIDO inventar, parafrasear o abreviar un PDA. Si un campo/contenido no aplica al proyecto, simplemente no lo uses — pero cuando lo uses, cópialo VERBATIM.
 
-${contenidosBlock(campos)}
+${contenidosBlock(campos, grade)}
 </contenidos_oficiales>
 
 <ejes_articuladores>

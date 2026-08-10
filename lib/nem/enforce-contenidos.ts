@@ -3,13 +3,20 @@
 // this normalizer makes it code-guaranteed: every generated contenido is fuzzy-matched against
 // the official bank and replaced with the official verbatim row (full PDA desglose). Invented or
 // unrecognizable contenidos are dropped. Applied after every generation parse (main doc + sub-plans).
-import { CONTENIDOS_FASE2_3, type ContenidoPDA } from './contenidos-fase2'
+import { CONTENIDOS_FASE2_3, pdasForGrade, type ContenidoPDA } from './contenidos-fase2'
 import { PRONI_FASE2 } from './grounding'
 
 // PRONI (inglés, Kinder 3) rows live inside Lenguajes per NEM — expose them in the same shape.
+// PRONI is Kinder 3-only, so the same PDA list stands in for every grade slot.
 const BANK: ContenidoPDA[] = [
   ...CONTENIDOS_FASE2_3,
-  ...PRONI_FASE2.map((p) => ({ campo: 'Lenguajes', contenido: p.contenido, pdas3: p.pdas })),
+  ...PRONI_FASE2.map((p) => ({
+    campo: 'Lenguajes',
+    contenido: p.contenido,
+    pdas1: p.pdas,
+    pdas2: p.pdas,
+    pdas3: p.pdas,
+  })),
 ]
 
 const normalize = (s: string) =>
@@ -65,12 +72,33 @@ export function matchContenido(text: string): ContenidoPDA | null {
 type GeneratedCampo = { campo?: unknown; contenidos?: unknown }
 type GeneratedContenido = { contenido?: unknown; procesos?: unknown }
 
+export type EnforceOptions = {
+  /** School grade label ("Kinder 1/2/3") → which official PDA desglose is verbatim-injected. */
+  grade?: string | null
+  /** Teacher-picked PDAs per contenido title — may mix grades (teachers routinely combine
+   * 1°/2°/3° PDAs in one planeación). Present ⇒ only those PDAs, in official 1°→2°→3° order. */
+  procesos?: Record<string, string[]>
+}
+
+/** Official PDAs for a row: the grade's desglose, or the teacher's cross-grade picks when she
+ * made any (matched against all three desgloses so a K3 plan can carry a 1° or 2° PDA). */
+export function officialProcesos(row: ContenidoPDA, opts?: EnforceOptions): string[] {
+  const picked = opts?.procesos?.[row.contenido]
+  if (!picked?.length) return [...pdasForGrade(row, opts?.grade)]
+  // Dedupe: PRONI rows repeat the same list across grade slots.
+  const chosen = Array.from(new Set([...row.pdas1, ...row.pdas2, ...row.pdas3])).filter((p) =>
+    picked.includes(p)
+  )
+  return chosen.length ? chosen : [...pdasForGrade(row, opts?.grade)]
+}
+
 /**
- * Snap every generated contenido to its official bank row: verbatim contenido text, the FULL
- * official PDA desglose, and the correct campo. Drops unmatched contenidos, regroups by campo
- * (canonical Fase 2 order), dedupes. Malformed input is returned unchanged.
+ * Snap every generated contenido to its official bank row: verbatim contenido text, the official
+ * PDA desglose for the grade (or the teacher's picked subset), and the correct campo. Drops
+ * unmatched contenidos, regroups by campo (canonical Fase 2 order), dedupes. Malformed input
+ * is returned unchanged.
  */
-export function enforceCamposFormativos(campos: unknown): unknown {
+export function enforceCamposFormativos(campos: unknown, opts?: EnforceOptions): unknown {
   if (!Array.isArray(campos)) return campos
   const byCampo = new Map<string, { contenido: string; procesos: string[] }[]>()
   const seen = new Set<string>()
@@ -86,7 +114,7 @@ export function enforceCamposFormativos(campos: unknown): unknown {
       if (seen.has(row.contenido)) continue
       seen.add(row.contenido)
       const arr = byCampo.get(row.campo) ?? []
-      arr.push({ contenido: row.contenido, procesos: [...row.pdas3] })
+      arr.push({ contenido: row.contenido, procesos: officialProcesos(row, opts) })
       byCampo.set(row.campo, arr)
     }
   }

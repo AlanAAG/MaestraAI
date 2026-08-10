@@ -16,11 +16,11 @@ import { VocabularySections } from '@/components/richmond/VocabularySections'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { isProniApplicable, EJES_ARTICULADORES } from '@/lib/nem-official-data'
 import { activeGroups } from '@/lib/groups/archive'
-import { CONTENIDOS_FASE2_3 } from '@/lib/nem/contenidos-fase2'
+import { CONTENIDOS_FASE2_3, pdasForGrade, type ContenidoPDA } from '@/lib/nem/contenidos-fase2'
 
 // Official NEM Contenidos grouped by campo — the source for the per-unit contenidos picker.
-const CONTENIDOS_BY_CAMPO = CONTENIDOS_FASE2_3.reduce<Record<string, string[]>>((acc, c) => {
-  ;(acc[c.campo] ??= []).push(c.contenido)
+const CONTENIDOS_BY_CAMPO = CONTENIDOS_FASE2_3.reduce<Record<string, ContenidoPDA[]>>((acc, c) => {
+  ;(acc[c.campo] ??= []).push(c)
   return acc
 }, {})
 
@@ -105,9 +105,16 @@ export default function NuevaPlaneacionPage() {
       nombre: string
       tema: string
       contenidos: string[]
+      // PDAs picked per contenido title. Missing/empty ⇒ the AI uses the full official desglose.
+      procesos: Record<string, string[]>
       ejes: string[]
     }>
-  >([{ metodologia: 'Automático', nombre: '', tema: '', contenidos: [], ejes: [] }])
+  >([{ metodologia: 'Automático', nombre: '', tema: '', contenidos: [], procesos: {}, ejes: [] }])
+  // Contenidos + PDA she already worked in recent plans (marked, not blocked).
+  const [worked, setWorked] = useState<{ contenidos: Set<string>; pdas: Set<string> }>({
+    contenidos: new Set(),
+    pdas: new Set(),
+  })
   // Optional teacher details (general + project-specific) — both feed generation.
   const [teacherNotes, setTeacherNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
@@ -123,6 +130,8 @@ export default function NuevaPlaneacionPage() {
     () => Array.from(new Set(groups.map((g) => g.grade).filter(Boolean))),
     [groups]
   )
+  // Which official PDA desglose the picker shows (Fase 2 = Kinder 1/2/3; anything else → 3°).
+  const gradeLabel = selectedGrade.includes('1') ? '1°' : selectedGrade.includes('2') ? '2°' : '3°'
   const gradeGroups = useMemo(
     () => groups.filter((g) => g.grade === selectedGrade),
     [groups, selectedGrade]
@@ -215,6 +224,39 @@ export default function NuevaPlaneacionPage() {
       .catch(() => {})
   }, [planType])
 
+  // Contenidos/PDA already worked in her recent planeaciones — shown in a different color so she
+  // can see at a glance what's been covered. Best-effort: a failure just leaves nothing marked.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function loadWorked(supabase: any, teacherId: string) {
+    try {
+      const { data } = await supabase
+        .from('fortnights')
+        .select('unidades_didacticas, campos:plan_document->campos_formativos')
+        .eq('teacher_id', teacherId)
+        .order('created_at', { ascending: false })
+        .limit(12)
+      const contenidos = new Set<string>()
+      const pdas = new Set<string>()
+      for (const row of data ?? []) {
+        for (const u of Array.isArray(row?.unidades_didacticas) ? row.unidades_didacticas : []) {
+          for (const c of Array.isArray(u?.contenidos) ? u.contenidos : [])
+            contenidos.add(String(c))
+          for (const list of Object.values(u?.procesos ?? {}))
+            for (const p of Array.isArray(list) ? list : []) pdas.add(String(p))
+        }
+        for (const campo of Array.isArray(row?.campos) ? row.campos : []) {
+          for (const c of Array.isArray(campo?.contenidos) ? campo.contenidos : []) {
+            if (c?.contenido) contenidos.add(String(c.contenido))
+            for (const p of Array.isArray(c?.procesos) ? c.procesos : []) pdas.add(String(p))
+          }
+        }
+      }
+      setWorked({ contenidos, pdas })
+    } catch {
+      /* nothing marked */
+    }
+  }
+
   async function loadGroups() {
     try {
       const supabase = createClient()
@@ -266,6 +308,7 @@ export default function NuevaPlaneacionPage() {
       setGroups(groupsData)
       setSelectedGrade(groupsData[0].grade ?? '')
       setSelectedGroupId(groupsData[0].id)
+      loadWorked(supabase, teacher.id)
     } catch {
       setError('Error al cargar los grupos')
     } finally {
@@ -647,41 +690,132 @@ export default function NuevaPlaneacionPage() {
                           <span className="text-primary">· {u.contenidos.length} elegidos</span>
                         )}
                       </summary>
-                      <div className="max-h-56 space-y-3 overflow-y-auto px-3 pb-3">
-                        {Object.entries(CONTENIDOS_BY_CAMPO).map(([campo, contenidos]) => (
+                      <p className="px-3 pb-2 text-[11px] text-text-secondary">
+                        Al elegir un contenido aparecen sus Procesos de Desarrollo de Aprendizaje
+                        (PDA) de 1°, 2° y 3° — puedes combinar grados. Si no marcas ninguno, la IA
+                        usa los de {gradeLabel}.
+                      </p>
+                      <div className="max-h-72 space-y-3 overflow-y-auto px-3 pb-3">
+                        {Object.entries(CONTENIDOS_BY_CAMPO).map(([campo, rows]) => (
                           <div key={campo}>
                             <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
                               {campo}
                             </p>
                             <div className="space-y-1">
-                              {contenidos.map((c) => {
+                              {rows.map((row) => {
+                                const c = row.contenido
                                 const checked = u.contenidos.includes(c)
+                                const picked = u.procesos[c] ?? []
                                 return (
-                                  <label
-                                    key={c}
-                                    className="flex cursor-pointer items-start gap-2 text-xs text-text-primary"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() =>
-                                        setUnidades((p) =>
-                                          p.map((x, idx) =>
-                                            idx === i
-                                              ? {
-                                                  ...x,
-                                                  contenidos: checked
-                                                    ? x.contenidos.filter((y) => y !== c)
-                                                    : [...x.contenidos, c],
-                                                }
-                                              : x
+                                  <div key={c}>
+                                    <label className="flex cursor-pointer items-start gap-2 text-xs text-text-primary">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() =>
+                                          setUnidades((p) =>
+                                            p.map((x, idx) => {
+                                              if (idx !== i) return x
+                                              // Unchecking a contenido drops its PDA picks too.
+                                              const rest = { ...x.procesos }
+                                              delete rest[c]
+                                              return {
+                                                ...x,
+                                                contenidos: checked
+                                                  ? x.contenidos.filter((y) => y !== c)
+                                                  : [...x.contenidos, c],
+                                                procesos: checked ? rest : x.procesos,
+                                              }
+                                            })
                                           )
-                                        )
-                                      }
-                                      className="mt-0.5 accent-primary"
-                                    />
-                                    <span>{c}</span>
-                                  </label>
+                                        }
+                                        className="mt-0.5 accent-primary"
+                                      />
+                                      <span
+                                        className={
+                                          worked.contenidos.has(c) ? 'text-success-text' : ''
+                                        }
+                                      >
+                                        {c}
+                                        {worked.contenidos.has(c) && (
+                                          <span className="ml-1 text-[10px]">· ya trabajado</span>
+                                        )}
+                                      </span>
+                                    </label>
+                                    {checked && (
+                                      <div className="ml-6 mt-1 space-y-2 border-l border-border pl-2">
+                                        <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                                          PDA{' '}
+                                          {picked.length > 0 ? (
+                                            <span className="text-primary">
+                                              · {picked.length} elegidos
+                                            </span>
+                                          ) : (
+                                            <span>· la IA usa los de {gradeLabel}</span>
+                                          )}
+                                        </p>
+                                        {/* All three grade desgloses — teachers routinely mix 1°/2°/3° in one plan. */}
+                                        {(['1°', '2°', '3°'] as const).map((g) => (
+                                          <div key={g} className="space-y-1">
+                                            <p className="text-[10px] font-semibold text-text-secondary">
+                                              {g} grado
+                                              {g === gradeLabel && (
+                                                <span className="font-normal"> (tu grado)</span>
+                                              )}
+                                            </p>
+                                            {pdasForGrade(row, g).map((pda) => {
+                                              const on = picked.includes(pda)
+                                              return (
+                                                <label
+                                                  key={pda}
+                                                  className="flex cursor-pointer items-start gap-2 text-[11px] text-text-secondary"
+                                                >
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={on}
+                                                    onChange={() =>
+                                                      setUnidades((p) =>
+                                                        p.map((x, idx) =>
+                                                          idx === i
+                                                            ? {
+                                                                ...x,
+                                                                procesos: {
+                                                                  ...x.procesos,
+                                                                  [c]: on
+                                                                    ? picked.filter(
+                                                                        (y) => y !== pda
+                                                                      )
+                                                                    : [...picked, pda],
+                                                                },
+                                                              }
+                                                            : x
+                                                        )
+                                                      )
+                                                    }
+                                                    className="mt-0.5 accent-primary"
+                                                  />
+                                                  <span
+                                                    className={
+                                                      worked.pdas.has(pda)
+                                                        ? 'text-success-text'
+                                                        : ''
+                                                    }
+                                                  >
+                                                    {pda}
+                                                    {worked.pdas.has(pda) && (
+                                                      <span className="ml-1 text-[10px]">
+                                                        · ya trabajado
+                                                      </span>
+                                                    )}
+                                                  </span>
+                                                </label>
+                                              )
+                                            })}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 )
                               })}
                             </div>
@@ -741,7 +875,14 @@ export default function NuevaPlaneacionPage() {
               onClick={() =>
                 setUnidades((p) => [
                   ...p,
-                  { metodologia: 'Proyecto', nombre: '', tema: '', contenidos: [], ejes: [] },
+                  {
+                    metodologia: 'Proyecto',
+                    nombre: '',
+                    tema: '',
+                    contenidos: [],
+                    procesos: {},
+                    ejes: [],
+                  },
                 ])
               }
             >

@@ -8,6 +8,7 @@
 // ponytail: 35 items → a Haiku shortlist, not embeddings/RAG. Upgrade to vectors only if a
 // flat menu measurably underperforms.
 import { CONTENIDOS_FASE2_3, type ContenidoPDA } from './contenidos-fase2'
+import { officialProcesos, type EnforceOptions } from './enforce-contenidos'
 
 const SELECT_SYSTEM = `Eres una asistente pedagógica experta en el NEM (preescolar, Fase 2). Recibes el TEMA de un proyecto y una lista numerada de Contenidos oficiales de los 4 Campos Formativos. Devuelve ÚNICAMENTE un arreglo JSON con los ÍNDICES de los Contenidos que pueden trabajarse de forma AUTÉNTICA y DIRECTA a través de ese tema. No fuerces campos que no se relacionen con el tema: es preferible 2-3 campos pertinentes que los 4. Normalmente 4-8 contenidos. Responde SOLO el arreglo, por ejemplo: [0,3,12,18]`
 
@@ -47,8 +48,9 @@ export function contenidosFromTitles(titles: string[]): ContenidoPDA[] {
   return out
 }
 
-/** The `<contenidos_sugeridos>` prompt block injected into the main quincena user prompt. */
-export function contenidosSugeridosBlock(list: ContenidoPDA[]): string {
+/** The `<contenidos_sugeridos>` prompt block injected into the main quincena user prompt.
+ * `opts` carries the grade (which PDA desglose) + the teacher's picked PDAs per contenido. */
+export function contenidosSugeridosBlock(list: ContenidoPDA[], opts?: EnforceOptions): string {
   if (!list.length) return ''
   const byCampo = new Map<string, ContenidoPDA[]>()
   for (const c of list) {
@@ -62,13 +64,20 @@ export function contenidosSugeridosBlock(list: ContenidoPDA[]): string {
         `CAMPO: ${campo}\n${items
           .map(
             (c) =>
-              `  • Contenido: ${c.contenido}\n${c.pdas3.map((p) => `    - PDA: ${p}`).join('\n')}`
+              `  • Contenido: ${c.contenido}\n${officialProcesos(c, opts)
+                .map((p) => `    - PDA: ${p}`)
+                .join('\n')}`
           )
           .join('\n')}`
     )
     .join('\n\n')
+  // Teacher-picked PDAs may come from another grade of Fase 2 — <contenidos_oficiales> only lists
+  // her own grade's desglose, so say explicitly that these lines override it.
+  const crossGrade = Object.keys(opts?.procesos ?? {}).length
+    ? '\nLa maestra eligió estos PDA explícitamente; algunos pueden ser de otro grado de la Fase 2 (1°, 2° o 3°). Son oficiales y VÁLIDOS: usa EXACTAMENTE los PDA de esta lista, aunque no aparezcan en <contenidos_oficiales>.'
+    : ''
   return `<contenidos_sugeridos>
-Estos Contenidos y PDAs oficiales fueron PRE-SELECCIONADOS por su relación DIRECTA con el tema de este proyecto. Construye "campos_formativos" ÚNICAMENTE con estos campos y contenidos, copiándolos VERBATIM. NO agregues un campo que no aparezca aquí (en especial, NO incluyas un campo solo por completar los 4).
+Estos Contenidos y PDAs oficiales fueron PRE-SELECCIONADOS por su relación DIRECTA con el tema de este proyecto. Construye "campos_formativos" ÚNICAMENTE con estos campos y contenidos, copiándolos VERBATIM. NO agregues un campo que no aparezca aquí (en especial, NO incluyas un campo solo por completar los 4).${crossGrade}
 ${body}
 </contenidos_sugeridos>`
 }

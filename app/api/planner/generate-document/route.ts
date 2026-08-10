@@ -11,6 +11,7 @@ import {
 } from '@/lib/nem/select-contenidos'
 import { autoSelectNem, extractRecentChoices } from '@/lib/planner/auto-select'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
+import type { ContenidoPDA } from '@/lib/nem/contenidos-fase2'
 import { extractUsedFichas, pickFicha, buildFichaBlock } from '@/lib/nem/ficha-rotation'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
 import {
@@ -35,7 +36,7 @@ import {
 } from '@/lib/planner/subplan'
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 import { buildSectionMeta } from '@/lib/planner/section-map'
-import { normalizePlanDocument } from '@/lib/planner/normalize-document'
+import { normalizePlanDocument, expandStrategyAcronym } from '@/lib/planner/normalize-document'
 import { decrypt } from '@/lib/encryption'
 import { scrubNames } from '@/lib/planner/extract-template'
 
@@ -46,7 +47,7 @@ const Schema = z.object({ fortnight_id: z.string().uuid() })
 const DEFAULT_CRONOGRAMA = {
   lunes: [
     'honores',
-    'E.C.P.C.E.E.L.Y',
+    'Estrategias comunitarias para la construcción de espacios escolares libres de violencia',
     'pausa activa',
     'proyecto',
     'educación física',
@@ -58,7 +59,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   martes: [
     'activación',
-    'E.C.P.C.E.E.L.Y',
+    'Estrategias comunitarias para la construcción de espacios escolares libres de violencia',
     'pausa activa',
     'letter and number',
     'computación',
@@ -70,7 +71,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   miercoles: [
     'activación',
-    'E.C.P.C.E.E.L.Y',
+    'Estrategias comunitarias para la construcción de espacios escolares libres de violencia',
     'pausa activa',
     'proyecto',
     'educación física',
@@ -82,7 +83,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   jueves: [
     'activación',
-    'E.C.P.C.E.E.L.Y',
+    'Estrategias comunitarias para la construcción de espacios escolares libres de violencia',
     'pausa activa',
     'números',
     'cantos y juegos',
@@ -94,7 +95,7 @@ const DEFAULT_CRONOGRAMA = {
   ],
   viernes: [
     'activación',
-    'E.C.P.C.E.E.L.Y',
+    'Estrategias comunitarias para la construcción de espacios escolares libres de violencia',
     'pausa activa',
     'proyecto',
     'cuento con papás',
@@ -318,7 +319,7 @@ function buildQuincenaPrompt(
   const neeSection =
     neeStudents.length > 0
       ? `ALUMNOS CON NEE (incluir en ajustes_razonables):\n${neeStudents.map((s) => `- ${s.display_name}${s.nee_notes ? ': ' + s.nee_notes : ''}`).join('\n')}`
-      : 'NEE: (ninguno en este grupo)'
+      : 'NEE: ninguno identificado en este grupo. AUN ASÍ, ajustes_razonables lleva su estructura completa (viñeta inicial + las 5 categorías con "## "), con estrategias de diseño universal para TODO el grupo.'
 
   // PRONI contenidos/PDAs come from <proni_contenidos> in the grounding block (verbatim).
   const proniNote = includeProni
@@ -361,7 +362,7 @@ function buildQuincenaPrompt(
   const pausasBlock = String(fn.__pausasBlock ?? '')
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma, sin modificarlo):
-${JSON.stringify(schedule.cronograma)}
+${expandStrategyAcronym(JSON.stringify(schedule.cronograma))}
 Letter & Number: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}
 ${proniNote}`
@@ -473,7 +474,7 @@ function buildTallerPrompt(
   const { context: profileCtx } = profileContext(profile, evalColumns)
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma):
-${JSON.stringify(schedule.cronograma)}
+${expandStrategyAcronym(JSON.stringify(schedule.cronograma))}
 Letter & Number: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}`
 
@@ -768,7 +769,7 @@ export async function POST(req: NextRequest) {
     const exampleBlock = profile?.raw_text
       ? `\n\n<planeacion_ejemplo_completa>\nPlaneación REAL escrita por esta maestra (su formato oficial). Es tu referencia MÁXIMA de voz, estructura, profundidad y tipo de contenido — la nueva planeación debe leerse como escrita por la misma persona, con la misma densidad y estilo operativo:\n${profile.raw_text}\n</planeacion_ejemplo_completa>`
       : ''
-    const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni)}${exampleBlock}`
+    const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni, undefined, groupGrade)}${exampleBlock}`
 
     // Topic-relevance pre-selection: shortlist the contenidos that authentically fit THIS project's
     // theme so the main doc's campos_formativos stop including an irrelevant Saberes (Alejandra's #1).
@@ -843,19 +844,33 @@ export async function POST(req: NextRequest) {
           )
         )
       : []
+    // Per-contenido PDAs the teacher ticked (blank ⇒ the full official desglose for the grade).
+    const teacherProcesos: Record<string, string[]> = {}
+    if (Array.isArray(fn.unidades_didacticas)) {
+      for (const u of fn.unidades_didacticas as { procesos?: unknown }[]) {
+        const picks = u?.procesos
+        if (!picks || typeof picks !== 'object') continue
+        for (const [contenido, list] of Object.entries(picks as Record<string, unknown>)) {
+          if (!Array.isArray(list) || !list.length) continue
+          teacherProcesos[contenido] = Array.from(
+            new Set([...(teacherProcesos[contenido] ?? []), ...list.map(String)])
+          )
+        }
+      }
+    }
+    const nemOpts = { grade: groupGrade, procesos: teacherProcesos }
+    // The rows behind the block — also the deterministic fallback if the model returns no
+    // campos_formativos (the contenidos+PDA table must ALWAYS precede the proyecto/taller).
+    const selectedContenidoRows: ContenidoPDA[] = teacherContenidoTitles.length
+      ? contenidosFromTitles(teacherContenidoTitles)
+      : await selectRelevantContenidos(
+          String(fn.project_name ?? ''),
+          `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
+          (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean),
+          recentChoices.contenidos
+        )
     const contenidosBlock =
-      planType !== 'taller'
-        ? teacherContenidoTitles.length
-          ? contenidosSugeridosBlock(contenidosFromTitles(teacherContenidoTitles))
-          : contenidosSugeridosBlock(
-              await selectRelevantContenidos(
-                String(fn.project_name ?? ''),
-                `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
-                (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean),
-                recentChoices.contenidos
-              )
-            )
-        : ''
+      planType !== 'taller' ? contenidosSugeridosBlock(selectedContenidoRows, nemOpts) : ''
 
     // RAG: retrieve THIS teacher's most-similar past plans → inject as style examples (her voice).
     // Best-effort; empty if no key / migration 054 not pushed / no prior plans.
@@ -931,7 +946,25 @@ export async function POST(req: NextRequest) {
 
           // Snap campos_formativos to the official bank: verbatim Contenidos + FULL PDA desglose,
           // invented entries dropped. Code-guaranteed correctness, not prompt hoping.
-          planDocument.campos_formativos = enforceCamposFormativos(planDocument.campos_formativos)
+          planDocument.campos_formativos = enforceCamposFormativos(
+            planDocument.campos_formativos,
+            nemOpts
+          )
+          // The contenidos + PDA table must always exist before the proyecto/taller body. If the
+          // model skipped campos_formativos, rebuild it from the contenidos this plan was grounded
+          // on (teacher's picks, or the topic shortlist).
+          if (
+            !Array.isArray(planDocument.campos_formativos) ||
+            !planDocument.campos_formativos.length
+          ) {
+            planDocument.campos_formativos = enforceCamposFormativos(
+              selectedContenidoRows.map((r) => ({
+                campo: r.campo,
+                contenidos: [{ contenido: r.contenido, procesos: [] }],
+              })),
+              nemOpts
+            )
+          }
 
           // Embed teacher's section order + titles so the viewer renders in the right order.
           if (sectionOrder.length) {
