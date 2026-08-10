@@ -1,6 +1,7 @@
 // lib/materials/games.ts
 import Anthropic from '@anthropic-ai/sdk'
 import { GAMES_PROMPT } from '@/prompts/materials'
+import { keepVocabItems } from './own-vocab'
 import { classContextBlock, type FortnightContext } from './types'
 import { extractJson } from './ai-json'
 
@@ -67,5 +68,7 @@ Genera pares de memoria para este vocabulario.`
       image_url: imageMap?.[pair.word.toLowerCase()] ?? pair.image_url,
     }))
 
+  // Her words only — the model must not slip in vocabulary she never taught.
+  result.pairs = keepVocabItems(result.pairs ?? [], (p) => p.word, vocabulary)
   return result
 }

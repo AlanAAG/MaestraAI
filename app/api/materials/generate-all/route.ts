@@ -9,7 +9,7 @@ import { buildGameContent } from '@/lib/materials/games'
 import { buildMatching } from '@/lib/materials/matching'
 import { buildPictureWordMatch } from '@/lib/materials/picture-word-match'
 import { buildSortingGame } from '@/lib/materials/sorting'
-import { deriveFortnightContext } from '@/lib/materials/types'
+import { deriveFortnightContext, fortnightLetters } from '@/lib/materials/types'
 import { fetchVocabImages, fetchTeacherVocabImages } from '@/lib/images'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { extractVocabulary } from '@/lib/materials/vocab-utils'
@@ -88,6 +88,8 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ctx = deriveFortnightContext(lessonPlan as any)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const quincenaLetters = fortnightLetters((lessonPlan as any).fortnights)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fortnightId = (lessonPlan as any).fortnight_id as string
 
   type Job = {
@@ -120,7 +122,7 @@ export async function POST(req: NextRequest) {
       key: 'picture_word_match',
       type: 'picture_word_match',
       isProjectable: true,
-      build: () => buildPictureWordMatch(vocabulary, ctx, imageMap),
+      build: () => buildPictureWordMatch(vocabulary, ctx, imageMap, quincenaLetters),
     },
     {
       key: 'sorting_game',

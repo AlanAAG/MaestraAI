@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { renderMaterialPdf } from '@/lib/pdf/render-material'
+import { fetchTeacherVocabImages } from '@/lib/images'
 
 const ExportInputSchema = z.object({
   material_id: z.string().uuid(),
@@ -78,7 +79,12 @@ export async function POST(req: NextRequest) {
       year: 'numeric',
     })
 
-    const result = await renderMaterialPdf(material, generatedAt)
+    // Teacher drawings for the coloring sheet. Best-effort: no images → framed boxes to draw in.
+    const imageMap = await fetchTeacherVocabImages(supabase, material.vocabulary ?? []).catch(
+      () => ({})
+    )
+
+    const result = await renderMaterialPdf(material, generatedAt, imageMap)
 
     if (!result) {
       return NextResponse.json(

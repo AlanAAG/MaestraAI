@@ -8,12 +8,15 @@ import { seededShuffle } from '@/lib/utils/shuffle'
 import { VocabVisual } from '@/components/games/VocabVisual'
 import { GameProgress } from '@/components/games/GameProgress'
 import { GameComplete } from '@/components/games/GameComplete'
+import { useGameScore, type GameResult } from '@/hooks/useGameScore'
 
 type PictureWordMatchItem = {
   word: string
   image_url?: string
   emoji?: string
   foils: string[]
+  /** Letter being studied — shown beside the picture in upper + lower case. */
+  letter?: string
 }
 
 type PictureWordMatchContent = {
@@ -22,7 +25,7 @@ type PictureWordMatchContent = {
 
 interface Props {
   content: PictureWordMatchContent
-  onComplete?: () => void
+  onComplete?: (result?: GameResult) => void
 }
 
 type AnswerState = 'idle' | 'correct' | 'wrong'
@@ -30,6 +33,7 @@ type AnswerState = 'idle' | 'correct' | 'wrong'
 export function PictureWordMatch({ content, onComplete }: Props) {
   const { speak } = useSpeech()
   const sfx = useSound()
+  const score = useGameScore()
   const [index, setIndex] = useState(0)
   const [answerState, setAnswerState] = useState<AnswerState>('idle')
   const [wrongWord, setWrongWord] = useState<string | null>(null)
@@ -62,12 +66,13 @@ export function PictureWordMatch({ content, onComplete }: Props) {
             setComplete(true)
             sfx.win()
             celebrate()
-            onComplete?.()
+            onComplete?.(score.result(content.items.length))
           } else {
             setIndex((i) => i + 1)
           }
         }, 900)
       } else {
+        score.miss(item.word)
         setWrongWord(word)
         setAnswerState('wrong')
         sfx.wrong()
@@ -77,7 +82,7 @@ export function PictureWordMatch({ content, onComplete }: Props) {
         }, 600)
       }
     },
-    [answerState, item, index, content.items.length, speak, onComplete, sfx]
+    [answerState, item, index, content.items.length, speak, onComplete, sfx, score]
   )
 
   if (complete) {
@@ -86,23 +91,39 @@ export function PictureWordMatch({ content, onComplete }: Props) {
 
   if (!item) return null
 
+  // Older saved games have no stored letter — fall back to the word's own initial.
+  const letter = (item.letter ?? item.word.trim()[0] ?? '').trim()
+
   return (
     <div className="flex flex-col items-center gap-5 p-5">
       <GameProgress current={index} total={content.items.length} />
 
-      {/* Visual card — emoji-first, image/text fallback */}
-      <div
-        className={[
-          'w-[clamp(9rem,30vmin,16rem)] h-[clamp(9rem,30vmin,16rem)] rounded-2xl flex items-center justify-center bg-indigo-50 transition-all duration-300',
-          answerState === 'correct' ? 'ring-4 ring-emerald-400 scale-105' : 'ring-2 ring-gray-200',
-        ].join(' ')}
-      >
-        <VocabVisual
-          word={item.word}
-          emoji={item.emoji}
-          imageUrl={item.image_url}
-          className="w-full h-full rounded-2xl p-2"
-        />
+      {/* Visual card + the studied letter (upper/lower case) so children can match the initial */}
+      <div className="flex items-center gap-4">
+        <div
+          className={[
+            'w-[clamp(9rem,30vmin,16rem)] h-[clamp(9rem,30vmin,16rem)] rounded-2xl flex items-center justify-center bg-indigo-50 transition-all duration-300',
+            answerState === 'correct'
+              ? 'ring-4 ring-emerald-400 scale-105'
+              : 'ring-2 ring-gray-200',
+          ].join(' ')}
+        >
+          <VocabVisual
+            word={item.word}
+            emoji={item.emoji}
+            imageUrl={item.image_url}
+            className="w-full h-full rounded-2xl p-2"
+          />
+        </div>
+        {letter && (
+          <div
+            className="flex flex-col items-center justify-center rounded-2xl border-2 border-indigo-200 bg-white px-4 py-3 leading-none text-indigo-700"
+            aria-label={`Letra ${letter.toUpperCase()}`}
+          >
+            <span className="text-[clamp(2rem,8vmin,4rem)] font-bold">{letter.toUpperCase()}</span>
+            <span className="text-[clamp(2rem,8vmin,4rem)] font-bold">{letter.toLowerCase()}</span>
+          </div>
+        )}
       </div>
 
       {/* Replay pronunciation */}

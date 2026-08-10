@@ -1,6 +1,6 @@
 // lib/WorksheetPdfDocument.tsx
 // SERVER-ONLY: import only from API routes, never from 'use client' components.
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { normalizeWorksheetItems, type WorksheetActivity } from '@/lib/materials/worksheet-content'
 import { seededShuffle } from '@/lib/utils/shuffle'
 
@@ -16,6 +16,8 @@ interface WorksheetPdfProps {
   letter?: string
   vocabulary: string[]
   generatedAt: string
+  /** word (lowercase) → teacher's drawing. Coloring pages need a real picture to color. */
+  imageMap?: Record<string, string>
 }
 
 const styles = StyleSheet.create({
@@ -89,6 +91,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#111827',
   },
+  // Coloring: one big framed picture per word — the sheet IS the drawing.
+  colorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  colorBox: {
+    width: 150,
+    height: 165,
+    border: '2px solid #D1D5DB',
+    borderRadius: 8,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  colorImage: {
+    width: 128,
+    height: 128,
+    objectFit: 'contain',
+  },
+  colorCaption: {
+    fontSize: 11,
+    color: '#111827',
+    marginTop: 4,
+    textAlign: 'center',
+  },
   footer: {
     position: 'absolute',
     bottom: 30,
@@ -105,6 +134,7 @@ export function WorksheetPdfDocument({
   letter,
   vocabulary,
   generatedAt,
+  imageMap = {},
 }: WorksheetPdfProps) {
   return (
     <Document title={`Worksheet ${letter ? `- Letra ${letter}` : ''} - MaestraAI`}>
@@ -132,21 +162,47 @@ export function WorksheetPdfDocument({
                 {activity.teacher_instruction || activity.instructions || ''}
               </Text>
 
-              {items.map((item, itemIndex) => (
-                <View key={itemIndex} style={styles.itemBox}>
-                  <View style={styles.checkbox} />
-                  <Text style={styles.itemText}>
-                    {item.foil_words?.length
-                      ? // Circling: all options shuffled as equals — the correct answer must not be
-                        // typographically distinguishable on the printed student sheet.
-                        seededShuffle([item.word, ...item.foil_words], index * 7 + itemIndex).join(
-                          '      '
-                        )
-                      : item.word}
-                    {item.teacher_instruction ? ` — ${item.teacher_instruction}` : ''}
-                  </Text>
+              {/* Coloring: print the picture (teacher's drawing) or an empty frame to draw in —
+                  a coloring sheet with no image is just a list of words. */}
+              {activity.type === 'coloring' && items.length > 0 && (
+                <View style={styles.colorRow}>
+                  {items.map((item, itemIndex) => {
+                    const src = imageMap[item.word?.toLowerCase() ?? '']
+                    return (
+                      <View key={itemIndex} style={styles.colorBox}>
+                        {src ? (
+                          // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt
+                          <Image src={src} style={styles.colorImage} />
+                        ) : (
+                          <View />
+                        )}
+                        <Text style={styles.colorCaption}>
+                          {item.word}
+                          {item.teacher_instruction ? ` — ${item.teacher_instruction}` : ''}
+                        </Text>
+                      </View>
+                    )
+                  })}
                 </View>
-              ))}
+              )}
+
+              {activity.type !== 'coloring' &&
+                items.map((item, itemIndex) => (
+                  <View key={itemIndex} style={styles.itemBox}>
+                    <View style={styles.checkbox} />
+                    <Text style={styles.itemText}>
+                      {item.foil_words?.length
+                        ? // Circling: all options shuffled as equals — the correct answer must not be
+                          // typographically distinguishable on the printed student sheet.
+                          seededShuffle(
+                            [item.word, ...item.foil_words],
+                            index * 7 + itemIndex
+                          ).join('      ')
+                        : item.word}
+                      {item.teacher_instruction ? ` — ${item.teacher_instruction}` : ''}
+                    </Text>
+                  </View>
+                ))}
 
               {/* Matching: two columns with the RIGHT side shuffled so a word never sits on its
                   answer's row — otherwise the download reveals the answer. Kids draw the lines. */}

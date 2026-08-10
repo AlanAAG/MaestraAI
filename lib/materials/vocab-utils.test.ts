@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { studiedLetter } from './picture-word-match'
 import { extractVocabulary } from './vocab-utils'
 
 describe('extractVocabulary', () => {
@@ -24,5 +25,17 @@ describe('extractVocabulary', () => {
 
   it('filters out empty strings', () => {
     expect(extractVocabulary(['cat', '', 'dog', '   '])).toEqual(['cat', 'dog', '   '])
+  })
+})
+
+describe('studiedLetter', () => {
+  it('uses the quincena letter the word belongs to', () => {
+    expect(studiedLetter('apple', ['A', 'B'])).toBe('A')
+    expect(studiedLetter('ball', ['A', 'B'])).toBe('B')
+  })
+  it('falls back to the word initial when no quincena letter matches', () => {
+    expect(studiedLetter('cat', ['A', 'B'])).toBe('C')
+    expect(studiedLetter('dog')).toBe('D')
+    expect(studiedLetter('')).toBe('')
   })
 })

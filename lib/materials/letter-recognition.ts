@@ -72,11 +72,37 @@ export function foilsFor(letter: string, index: number): string[] {
   return seededShuffle(pool, index * 31 + L.charCodeAt(0) * 7 + 1).slice(0, 3)
 }
 
+/**
+ * Keep only items the teacher actually owns: her vocabulary, and (when she has uploaded
+ * drawings) only words that have HER image — so a sheet never mixes her flashcards with emojis.
+ * Falls back to the unfiltered list if filtering would leave too little to print.
+ */
+export function keepOwnContent(
+  items: LetterRecognitionItem[],
+  vocabulary: string[],
+  imageMap: Record<string, string>
+): LetterRecognitionItem[] {
+  const vocab = new Set(vocabulary.map((v) => v.trim().toLowerCase()))
+  const inVocab = items.filter((it) =>
+    vocab.has(
+      String(it.word ?? '')
+        .trim()
+        .toLowerCase()
+    )
+  )
+  const hasImages = Object.keys(imageMap).length > 0
+  const withImages = hasImages ? inVocab.filter((it) => it.image_url) : inVocab
+  const kept = withImages.length >= 3 ? withImages : inVocab
+  return kept.length >= 3 ? kept : items
+}
+
 export async function buildLetterRecognition(
   vocabulary: string[],
   letters: string | string[],
   activityType: ActivityType = 'hear_and_circle',
-  imageMap: Record<string, string> = {}
+  imageMap: Record<string, string> = {},
+  /** "Usar solo mi contenido": her words + her flashcard images, no invented words/emojis. */
+  onlyOwnContent = true
 ): Promise<LetterRecognitionContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -90,9 +116,13 @@ export async function buildLetterRecognition(
   )
   const focus = letterList.length ? letterList : ['A']
 
-  const prompt = LETTER_RECOGNITION_PROMPT.replace('{vocabulary}', vocabulary.join(', '))
+  let prompt = LETTER_RECOGNITION_PROMPT.replace('{vocabulary}', vocabulary.join(', '))
     .replace('{letter}', focus.join(', '))
     .replace('{activity_type}', activityType)
+  // Ask for her words only — the code filter below is the guarantee, this just avoids waste.
+  if (onlyOwnContent) {
+    prompt += `\n\nREGLA ADICIONAL (OBLIGATORIA): usa ÚNICAMENTE palabras del VOCABULARIO de la maestra. NO inventes ni agregues palabras que no estén en esa lista, aunque queden pocos ítems.`
+  }
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -122,9 +152,14 @@ export async function buildLetterRecognition(
       ...it,
       target_letter: target,
       foil_letters: foilsFor(target, i),
-      emoji: wordToEmoji(it.word) ?? undefined,
+      // With "solo mi contenido" the visual is HER drawing or nothing — never an emoji next to it.
+      emoji:
+        onlyOwnContent && imageMap[it.word.toLowerCase()]
+          ? undefined
+          : (wordToEmoji(it.word) ?? undefined),
       image_url: imageMap[it.word.toLowerCase()],
     }
   })
+  if (onlyOwnContent) parsed.items = keepOwnContent(parsed.items, vocabulary, imageMap)
   return parsed
 }

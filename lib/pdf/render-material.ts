@@ -16,7 +16,9 @@ export type RenderResult = { buffer: Buffer; filename: string }
 export async function renderMaterialPdf(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   material: any,
-  generatedAt: string
+  generatedAt: string,
+  /** word (lowercase) → teacher's drawing; used by the coloring sheet. */
+  imageMap: Record<string, string> = {}
 ): Promise<RenderResult | null> {
   switch (material.type) {
     case 'flashcards': {
@@ -38,6 +40,7 @@ export async function renderMaterialPdf(
           letter: material.letter || undefined,
           vocabulary: material.vocabulary || [],
           generatedAt,
+          imageMap,
         }) as React.ReactElement<DocumentProps>
       )
       return { buffer, filename: `Worksheet_${material.letter || 'Actividades'}.pdf` }

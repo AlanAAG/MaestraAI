@@ -45,6 +45,8 @@ const GenerateMaterialsSchema = z
       .object({
         memory_pairs: z.number().int().min(3).max(10).optional(),
         letter_activity_type: z.string().optional(),
+        // "Usar solo mi contenido": her vocabulary + her flashcard images (default on).
+        only_own_content: z.boolean().optional(),
       })
       .optional(),
     // Vocabulary provenance (display-ready label) — stored as content._vocab_source for card badges.
@@ -265,7 +267,13 @@ export async function POST(req: NextRequest) {
                 ? act
                 : 'hear_and_circle'
             ) as 'hear_and_circle' | 'match_to_letter' | 'trace_and_say'
-            content = await buildLetterRecognition(vocabulary, letters, activity, imageMap)
+            content = await buildLetterRecognition(
+              vocabulary,
+              letters,
+              activity,
+              imageMap,
+              input.options?.only_own_content !== false
+            )
             type = 'letter_recognition'
             isProjectable = false
             break
@@ -278,7 +286,12 @@ export async function POST(req: NextRequest) {
             break
 
           case 'picture_word_match':
-            content = await buildPictureWordMatch(vocabulary, ctx, imageMap)
+            content = await buildPictureWordMatch(
+              vocabulary,
+              ctx,
+              imageMap,
+              fortnightLetters(fortnight)
+            )
             type = 'picture_word_match'
             isProjectable = true
             break

@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { FortnightContext } from './types'
 import { extractJson } from './ai-json'
 import { sanitizeEmoji } from './emoji'
+import { keepVocabItems } from './own-vocab'
 
 export type SortingCategory = {
   name: string
@@ -41,15 +42,16 @@ export async function buildSortingGame(
 Vocabulary: ${vocabulary.join(', ')}
 Class theme: ${ctx.project_name}
 
-Look at the ACTUAL words and choose 2 or 3 categories that genuinely fit ALL of them. Pick the
+Look at the ACTUAL words and choose 2 to 4 categories that genuinely fit ALL of them. Pick the
 categories from what the words actually are — do NOT default to "animals vs objects". For example:
 - people / roles (baby, astronaut, doctor, mom) → "People"
 - actions / verbs (run, jump, eat) → "Actions"
 - food, animals, toys, clothes, body parts, places, colors, transport… → use whichever fit
 Rules for the categories:
 - Every word must clearly belong to exactly ONE category (no word that fits two, no word left over).
-- If some words don't fit the others (e.g. "baby", "astronaut" among animals), ADD a category that
-  covers them (like "People") instead of forcing them into a wrong bin.
+- PEOPLE RULE: if ANY word names a person, family member or role (baby, boy, girl, mom, dad,
+  brother, sister, grandma, friend, teacher, doctor, firefighter, astronaut, police officer…),
+  you MUST create a "People" category for them. People NEVER go in "Things" or "Objects".
 - Named in simple ENGLISH (this is an English class — e.g. "Animals", "Things", "People", "Food").
 
 For each item also give "emoji": the single best emoji for that word's exact sense (🐱 for cat, 👶 for baby, 👨‍🚀 for astronaut). Use "" if none fits.
@@ -66,7 +68,7 @@ Return ONLY valid JSON with no markdown or explanation:
   ]
 }
 
-Assign EVERY vocabulary word to exactly one category. Use at most 3 categories.`
+Assign EVERY vocabulary word to exactly one category. Use 2 to 4 categories.`
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -98,5 +100,5 @@ Assign EVERY vocabulary word to exactly one category. Use at most 3 categories.`
     image_url: imageMap[item.word.toLowerCase()],
   }))
 
-  return { categories, items }
+  return { categories, items: keepVocabItems(items, (i) => i.word, vocabulary) }
 }

@@ -7,6 +7,7 @@ import { seededShuffle } from '@/lib/utils/shuffle'
 import { VocabVisual } from '@/components/games/VocabVisual'
 import { GameProgress } from '@/components/games/GameProgress'
 import { GameComplete } from '@/components/games/GameComplete'
+import { useGameScore, type GameResult } from '@/hooks/useGameScore'
 
 type SortingCategory = {
   name: string
@@ -27,7 +28,7 @@ type SortingContent = {
 
 interface Props {
   content: SortingContent
-  onComplete?: () => void
+  onComplete?: (result?: GameResult) => void
 }
 
 type TapState = 'idle' | 'correct' | 'wrong'
@@ -44,6 +45,7 @@ const BIN_BASE = [
 export function SortingGame({ content, onComplete }: Props) {
   const { speak } = useSpeech()
   const sfx = useSound()
+  const score = useGameScore()
 
   const shuffledItems = useMemo(() => seededShuffle(content.items, 42), [content.items])
 
@@ -75,12 +77,13 @@ export function SortingGame({ content, onComplete }: Props) {
             setComplete(true)
             sfx.win()
             celebrate()
-            onComplete?.()
+            onComplete?.(score.result(shuffledItems.length))
           } else {
             setIndex((i) => i + 1)
           }
         }, 900)
       } else {
+        score.miss(item.word)
         setTapState('wrong')
         sfx.wrong()
         setTimeout(() => {
@@ -89,7 +92,7 @@ export function SortingGame({ content, onComplete }: Props) {
         }, 600)
       }
     },
-    [tapState, item, index, shuffledItems.length, speak, onComplete, sfx]
+    [tapState, item, index, shuffledItems.length, speak, onComplete, sfx, score]
   )
 
   const catUnderPoint = (x: number, y: number) =>
@@ -163,7 +166,12 @@ export function SortingGame({ content, onComplete }: Props) {
       <div
         className={[
           'grid w-full gap-3',
-          content.categories.length === 2 ? 'grid-cols-2' : 'grid-cols-3',
+          // 4 bins wrap into a 2×2 grid so each stays tappable on a tablet.
+          content.categories.length === 2
+            ? 'grid-cols-2'
+            : content.categories.length >= 4
+              ? 'grid-cols-2'
+              : 'grid-cols-3',
         ].join(' ')}
       >
         {content.categories.map((cat, i) => {

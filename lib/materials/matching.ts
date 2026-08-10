@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { MATCHING_PROMPT } from '@/prompts/materials'
+import { keepVocabItems } from './own-vocab'
 import { classContextBlock, type FortnightContext } from './types'
 import { extractJson } from './ai-json'
 
@@ -47,5 +48,6 @@ export async function buildMatching(
     }))
   }
 
+  result.pairs = keepVocabItems(result.pairs ?? [], (p) => p.word, vocabulary, 2)
   return result
 }

@@ -2,12 +2,22 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { FortnightContext } from './types'
 import { extractJson } from './ai-json'
 import { sanitizeEmoji } from './emoji'
+import { keepVocabItems, vocabFoils } from './own-vocab'
 
 export type PictureWordMatchItem = {
   word: string
   image_url?: string
   emoji?: string
   foils: string[]
+  /** Letter being studied for this word — shown next to the picture as "A a". */
+  letter?: string
+}
+
+/** The quincena letter this word belongs to (its initial), else the word's own initial. */
+export function studiedLetter(word: string, letters: string[] = []): string {
+  const initial = word.trim()[0] ?? ''
+  const match = letters.find((l) => l.trim()[0]?.toUpperCase() === initial.toUpperCase())
+  return (match?.trim()[0] ?? initial).toUpperCase()
 }
 
 export type PictureWordMatchContent = {
@@ -17,7 +27,8 @@ export type PictureWordMatchContent = {
 export async function buildPictureWordMatch(
   vocabulary: string[],
   ctx: FortnightContext,
-  imageMap: Record<string, string> = {}
+  imageMap: Record<string, string> = {},
+  letters: string[] = []
 ): Promise<PictureWordMatchContent> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -57,11 +68,14 @@ Include ALL ${vocabulary.length} vocabulary words.`
   }
 
   return {
-    items: parsed.items.map((item) => ({
+    // Her vocabulary only — both the prompts AND the wrong-answer choices, so a child never sees
+    // a word the teacher never taught.
+    items: keepVocabItems(parsed.items, (i) => i.word, vocabulary).map((item) => ({
       word: item.word,
-      foils: item.foils.slice(0, 3),
+      foils: vocabFoils(item.word, vocabulary, 3, item.foils ?? []),
       emoji: sanitizeEmoji(item.emoji),
       image_url: imageMap[item.word.toLowerCase()],
+      letter: studiedLetter(item.word, letters),
     })),
   }
 }

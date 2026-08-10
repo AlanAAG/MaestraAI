@@ -108,6 +108,9 @@ export function MaterialGenerator({
   const [difficulty, setDifficulty] = useState<Difficulty>('kinder')
   const [letterActivityType, setLetterActivityType] =
     useState<LetterActivityType>('hear_and_circle')
+  // "Usar solo mi contenido": her vocabulary + her flashcard drawings, never invented words
+  // or emojis mixed in. On by default — mixing is the surprising behaviour, not the useful one.
+  const [onlyOwnContent, setOnlyOwnContent] = useState(true)
   const [memoryPairs, setMemoryPairs] = useState(6)
   const [generating, setGenerating] = useState(false)
   const [currentPhase, setCurrentPhase] = useState('')
@@ -157,6 +160,7 @@ export function MaterialGenerator({
               ...(selectedTypes.has('letter_recognition')
                 ? { letter_activity_type: letterActivityType }
                 : {}),
+              only_own_content: onlyOwnContent,
               ...(selectedTypes.has('games') ? { memory_pairs: memoryPairs } : {}),
             },
           }),
@@ -355,6 +359,19 @@ export function MaterialGenerator({
                     </button>
                   ))}
                 </div>
+                <label className="mt-3 flex items-start gap-2 text-xs text-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={onlyOwnContent}
+                    onChange={(e) => setOnlyOwnContent(e.target.checked)}
+                    className="mt-0.5 accent-primary"
+                  />
+                  <span>
+                    <span className="font-medium text-text-primary">Usar solo mi contenido</span> —
+                    únicamente palabras de mi vocabulario, con mis dibujos. Apágalo si quieres que
+                    la IA agregue palabras e imágenes propias.
+                  </span>
+                </label>
               </OptionPanel>
             )}
 
