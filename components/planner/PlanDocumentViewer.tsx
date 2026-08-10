@@ -1,9 +1,10 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Loader2, BookOpen, Hash, Pencil, Check, X, Palette } from 'lucide-react'
+import { Loader2, BookOpen, Pencil, Check, X, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
+import { expandStrategyAcronym } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import { FONT_MAP, type FontKey } from '@/lib/design/fonts'
 
@@ -228,7 +229,7 @@ function CronogramaGrid({ cronograma }: { cronograma: Record<string, string[]> }
                   key={d}
                   className="px-2 py-1 border border-[color:var(--doc-border,#d1d5db)] text-center text-gray-700 align-top"
                 >
-                  {cronograma[d]?.[i] ?? ''}
+                  {expandStrategyAcronym(cronograma[d]?.[i] ?? '')}
                 </td>
               ))}
             </tr>
@@ -366,9 +367,9 @@ function SubPlanBlock({
   evalColumns?: string[]
 }) {
   const [loading, setLoading] = useState(false)
-  const label =
-    subType === 'letter_number' ? `Letter & Number (${dayLabel})` : `Números (${dayLabel})`
-  const icon = subType === 'letter_number' ? <BookOpen size={15} /> : <Hash size={15} />
+  const label = subType === 'letter_number' ? `Letters (${dayLabel})` : `Números (${dayLabel})`
+  // Números carries no icon — the # glyph read as a stray numeral in the document.
+  const icon = subType === 'letter_number' ? <BookOpen size={15} /> : null
 
   async function generate() {
     setLoading(true)
@@ -406,7 +407,8 @@ function SubPlanBlock({
   }
 
   return (
-    <section className="mt-7">
+    // Each sub-plan starts on its own page in print/PDF (teacher's format).
+    <section className="mt-12 break-before-page">
       <div className="flex items-center justify-between border-b border-[color:var(--doc-border,#d1d5db)] pb-1.5 mb-3">
         <h2 className="flex items-center gap-2 text-[0.8125em] font-bold uppercase tracking-wide text-gray-800">
           {icon}
@@ -435,11 +437,11 @@ function SubPlanBlock({
           <CamposFormativosView campos={subPlan.campos_formativos} />
         ) : null}
         {subPlan.estructura_didactica && (
-          <div className="space-y-2">
+          <div className="space-y-6">
             <p className="font-semibold text-[0.875em] text-gray-900">Estructura Didáctica</p>
             {Object.entries(subPlan.estructura_didactica).map(([key, val]) => (
-              <div key={key}>
-                <p className="font-medium text-[0.75em] text-gray-600 mb-1">
+              <div key={key} className="mt-6">
+                <p className="font-bold text-[0.8125em] text-gray-900 mb-1.5">
                   {estructuraLabel(key)}
                 </p>
                 <MdContent text={val} />
@@ -548,7 +550,7 @@ function CustomSubPlansSection({
   return (
     <>
       {customs.map((sp, i) => (
-        <section key={i} className="mt-7">
+        <section key={i} className="mt-12 break-before-page">
           <div className="border-b border-[color:var(--doc-border,#d1d5db)] pb-1.5 mb-3">
             <h2 className="text-[0.8125em] font-bold uppercase tracking-wide text-gray-800">
               {sp.metodologia}
@@ -562,11 +564,11 @@ function CustomSubPlansSection({
               <CamposFormativosView campos={sp.campos_formativos} />
             ) : null}
             {sp.estructura_didactica && (
-              <div className="space-y-2">
+              <div className="space-y-6">
                 <p className="font-semibold text-[0.875em] text-gray-900">Estructura Didáctica</p>
                 {Object.entries(sp.estructura_didactica).map(([k, v]) => (
-                  <div key={k}>
-                    <p className="font-medium text-[0.75em] text-gray-600 mb-1">
+                  <div key={k} className="mt-6">
+                    <p className="font-bold text-[0.8125em] text-gray-900 mb-1.5">
                       {estructuraLabel(k)}
                     </p>
                     <MdContent text={v} />
@@ -1128,6 +1130,12 @@ export function PlanDocumentViewer({
                 <MdContent text={pd.ajustes_razonables} />
               </DocSection>
             )}
+            {/* Contenidos + PDA table right before the taller body (same rule as the proyecto). */}
+            {pd.campos_formativos?.length ? (
+              <DocSection title="Campos Formativos">
+                <CamposFormativosView campos={pd.campos_formativos} />
+              </DocSection>
+            ) : null}
             {pd.desarrollo_taller && (
               <DocSection
                 title="Desarrollo del Taller"

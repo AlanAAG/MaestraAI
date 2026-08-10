@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { applyNeeNames, decryptNeeMap } from '@/lib/planner/nee-names'
+import { expandStrategyAcronym } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import {
   Document,
@@ -197,6 +198,19 @@ const DEFAULT_QUINCENA_ORDER = [
   'evaluacion_items',
 ]
 
+// Momento headings: same labels the viewer shows ("2° Momento: Identificación e integración").
+const MOMENTO_LABELS: Record<string, string> = {
+  '1': '1° Momento: En contacto con la realidad',
+  '2': '2° Momento: Identificación e integración',
+  '3': '3° Momento: Expresión',
+}
+function momentoLabel(key: string): string {
+  const m = key.match(/^momento_(\d+)$/)
+  if (m) return MOMENTO_LABELS[m[1]] ?? `${m[1]}° Momento`
+  const words = key.replace(/_/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 function cronogramaTable(cronograma: Record<string, string[]>, borderColor: string): Table {
   const days = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
   const headers = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
@@ -225,7 +239,7 @@ function cronogramaTable(cronograma: Record<string, string[]>, borderColor: stri
         children: days.map(
           (d) =>
             new TableCell({
-              children: [new Paragraph(cronograma[d]?.[i] ?? '')],
+              children: [new Paragraph(expandStrategyAcronym(cronograma[d]?.[i] ?? ''))],
               width: { size: 20, type: WidthType.PERCENTAGE },
             })
         ),
@@ -634,6 +648,8 @@ export async function POST(req: NextRequest) {
       // Taller: fixed order (teacher order not yet tracked for taller plans)
       for (const key of [
         'ajustes_razonables',
+        // Contenidos + PDA table goes right before the taller body (same rule as the proyecto).
+        'campos_formativos',
         'desarrollo_taller',
         'actividades_iniciales',
         'actividades_rutina',
@@ -654,8 +670,10 @@ export async function POST(req: NextRequest) {
     for (const sp of pd.sub_planes ?? []) {
       children.push(
         new Paragraph({
-          text: sp.tipo === 'letter_number' ? 'Letter & Number' : 'Números',
+          text: sp.tipo === 'letter_number' ? 'Letters' : 'Números',
           heading: HeadingLevel.HEADING_2,
+          // Every sub-plan starts on a fresh page (teacher's format).
+          pageBreakBefore: true,
         })
       )
       children.push(
@@ -674,7 +692,16 @@ export async function POST(req: NextRequest) {
       }
       if (sp.estructura_didactica) {
         for (const [key, val] of Object.entries(sp.estructura_didactica)) {
-          children.push(...mdToParas(val as string, `${key.replace('momento_', '')}° Momento`))
+          // Momento label in explicit bold (not a Word heading style) + double space around it,
+          // so "1° Momento…" stands out and the momentos read clearly separated.
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: momentoLabel(key), bold: true })],
+              spacing: { before: 240, after: 120 },
+            })
+          )
+          children.push(...mdToParas(val as string))
+          children.push(new Paragraph(''))
         }
       }
       if (sp.evaluacion?.length) {

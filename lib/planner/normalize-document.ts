@@ -19,6 +19,47 @@ const STRING_FIELDS = [
   'ejes_articuladores',
 ] as const
 
+// The school writes the community strategy as an acronym in its schedule, but the planeación must
+// spell it out (teacher requirement). Expanded at save AND at render so older saved plans read
+// correctly too.
+export const ESTRATEGIA_COMUNITARIA_FULL =
+  'Estrategias comunitarias para la construcción de espacios escolares libres de violencia'
+const ACRONYM_RE = /\bE\.?\s?C\.?\s?P\.?\s?C\.?\s?E\.?\s?E\.?\s?L\.?\s?[YV]\.?/gi
+
+/** Replace the E.C.P.C.E.E.L.Y acronym (any dotted/spaced variant) with its full name. */
+export function expandStrategyAcronym(text: string): string {
+  return text.replace(ACRONYM_RE, ESTRATEGIA_COMUNITARIA_FULL)
+}
+
+// Inside the proyecto / taller / sub-plan momentos the teacher wants ONE BULLET PER IDEA: every
+// punto y aparte is a separate topic. The prompt asks for it; this makes it code-guaranteed.
+// Headings (**Momento**, ## …), bullets and numbered steps are left untouched.
+const HEADING_RE = /^(#{1,6}\s|\*\*[^*]+\*\*:?\s*$)/
+const LIST_RE = /^([-•*]\s|\d+[.)]\s)/
+
+// The model often repeats the momento label inside its own text ("1° Momento: En contacto con la
+// realidad. Inicio la sesión…") right under the heading that already says it. Strip the echo.
+const MOMENTO_ECHO_RE = /^\s*\d+\s*°?\s*Momento\s*:?[^.\n]*\.?\s*/i
+
+export function stripMomentoEcho(text: string): string {
+  return text.replace(MOMENTO_ECHO_RE, '')
+}
+
+export function bulletizeMomentos(text: string): string {
+  const out: string[] = []
+  for (const line of text.split('\n')) {
+    const t = line.trim()
+    if (HEADING_RE.test(t)) {
+      // Blank line before every momento heading → double space between momentos.
+      if (out.length && out[out.length - 1].trim()) out.push('')
+      out.push(line)
+      continue
+    }
+    out.push(!t || LIST_RE.test(t) ? line : `- ${t}`)
+  }
+  return out.join('\n')
+}
+
 // Coerce any shape into readable markdown text.
 export function sectionToString(v: unknown): string {
   if (typeof v === 'string') return v
@@ -53,7 +94,8 @@ function normalizeSubPlan(sp: any): any {
   const out = { ...sp }
   if (out.estructura_didactica && typeof out.estructura_didactica === 'object') {
     const ed: Record<string, string> = {}
-    for (const [k, val] of Object.entries(out.estructura_didactica)) ed[k] = sectionToString(val)
+    for (const [k, val] of Object.entries(out.estructura_didactica))
+      ed[k] = bulletizeMomentos(stripMomentoEcho(sectionToString(val)))
     out.estructura_didactica = ed
   }
   if ('observaciones' in out) out.observaciones = sectionToString(out.observaciones)
@@ -72,6 +114,10 @@ export function normalizePlanDocument(pd: any): any {
   for (const k of STRING_FIELDS) {
     if (k in out) out[k] = sectionToString(out[k])
   }
+  // One bullet per idea inside the didactic development (teacher's format).
+  for (const k of ['proyecto', 'desarrollo_taller'] as const) {
+    if (typeof out[k] === 'string' && out[k]) out[k] = bulletizeMomentos(out[k])
+  }
   // Quality signal (best-effort, no retry): the proyecto must contain bold momento headings.
   if (
     typeof out.proyecto === 'string' &&
@@ -81,6 +127,15 @@ export function normalizePlanDocument(pd: any): any {
     console.warn(
       '[normalize] proyecto has no bold momento headings — model ignored the structure rule'
     )
+  }
+  if (out.cronograma && typeof out.cronograma === 'object') {
+    const cr: Record<string, unknown> = {}
+    for (const [day, acts] of Object.entries(out.cronograma)) {
+      cr[day] = Array.isArray(acts)
+        ? acts.map((a) => (typeof a === 'string' ? expandStrategyAcronym(a) : a))
+        : acts
+    }
+    out.cronograma = cr
   }
   if (Array.isArray(out.custom_sections)) {
     out.custom_sections = out.custom_sections

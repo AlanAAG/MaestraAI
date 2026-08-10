@@ -45,7 +45,8 @@ describe('normalizePlanDocument', () => {
         { tipo: 'numeros', estructura_didactica: { momento_1: ['a', 'b'] }, observaciones: ['c'] },
       ],
     })
-    expect(pd.sub_planes[0].estructura_didactica.momento_1).toBe('a\n\nb')
+    // each idea becomes its own bullet (teacher's momento format)
+    expect(pd.sub_planes[0].estructura_didactica.momento_1).toBe('- a\n\n- b')
     expect(pd.sub_planes[0].observaciones).toBe('c')
   })
   it('leaves structured arrays untouched', () => {
@@ -56,6 +57,6 @@ describe('normalizePlanDocument', () => {
   it('is idempotent', () => {
     const once = normalizePlanDocument({ proyecto: ['a', 'b'] })
     const twice = normalizePlanDocument(once)
-    expect(twice.proyecto).toBe('a\n\nb')
+    expect(twice.proyecto).toBe('- a\n\n- b')
   })
 })
