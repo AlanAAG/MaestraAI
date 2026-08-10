@@ -8,6 +8,7 @@ import { seededShuffle } from '@/lib/utils/shuffle'
 import { VocabVisual } from './VocabVisual'
 import { GameProgress } from './GameProgress'
 import { GameComplete } from './GameComplete'
+import { useGameScore, type GameResult } from '@/hooks/useGameScore'
 
 type Item = {
   word: string
@@ -19,12 +20,13 @@ type Item = {
 type Content = { items: Item[] }
 interface Props {
   content: Content
-  onComplete?: () => void
+  onComplete?: (result?: GameResult) => void
 }
 
 // Show the word's picture + speak it; tap the letter it starts with (target among foils).
 export function LetterRecognitionGame({ content, onComplete }: Props) {
   const sfx = useSound()
+  const score = useGameScore()
   const { speak } = useSpeech()
   const items = content.items ?? []
   const [index, setIndex] = useState(0)
@@ -61,12 +63,13 @@ export function LetterRecognitionGame({ content, onComplete }: Props) {
           setDone(true)
           sfx.win()
           celebrate()
-          onComplete?.()
+          onComplete?.(score.result(items.length))
         } else {
           setIndex((i) => i + 1)
         }
       }, 900)
     } else {
+      score.miss(item.word)
       setWrong(l)
       setState('wrong')
       sfx.wrong()

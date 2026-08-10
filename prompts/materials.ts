@@ -179,8 +179,9 @@ LETRAS FOCO: {letter}
 TIPO: {activity_type}
 
 Si hay varias LETRAS FOCO (ej. "A, B"), genera ítems que cubran TODAS, balanceadas (aprox. mitad
-de ítems por cada letra). El "target_letter" de cada ítem es la inicial REAL de su palabra. Usa
-palabras del VOCABULARIO (o palabras simples y concretas) cuya inicial sea una de las letras foco.
+de ítems por cada letra). El "target_letter" de cada ítem es la inicial REAL de su palabra. Usa ÚNICAMENTE
+palabras del VOCABULARIO cuya inicial sea una de las letras foco. PROHIBIDO inventar o agregar
+palabras que no estén en el VOCABULARIO, aunque queden pocos ítems.
 
 CONTEXTO: Los niños NO leen ni escriben todavía. El docente guía todo verbalmente.
 El docente muestra la imagen, dice la palabra en inglés, los niños responden con el gesto o señal del tipo de actividad.

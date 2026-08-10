@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { GameShell } from '@/components/games/GameShell'
+import { PlayerGate } from '@/components/games/PlayerGate'
 import { createServiceClient } from '@/lib/supabase/service'
 import { appFontStyle } from '@/lib/design/fonts'
 import { appThemeVars } from '@/lib/design/themes'
@@ -30,6 +30,19 @@ export default async function JugarPage({ params }: Props) {
     ...(appThemeVars(design?.app_color) ?? {}),
   } as React.CSSProperties
 
+  // Homework threshold (migration 069). Fetched apart so an unapplied migration can never 404 a game.
+  let minCorrect: number | null = null
+  try {
+    const { data } = await supabase
+      .from('materials')
+      .select('homework_min_correct')
+      .eq('play_token', params.token)
+      .single()
+    minCorrect = (data?.homework_min_correct as number | null) ?? null
+  } catch {
+    // migration 069 not applied → free play
+  }
+
   // The owning teacher's uploaded vocab drawings — shared games show them live (best-effort).
   const imageMap: Record<string, string> = {}
   try {
@@ -52,10 +65,12 @@ export default async function JugarPage({ params }: Props) {
       </header>
       <main className="max-w-3xl mx-auto py-6 px-4 sm:px-6">
         <TeacherVocabImages map={imageMap}>
-          <GameShell
+          <PlayerGate
+            token={params.token}
             type={material.type as string}
             content={material.content as Record<string, unknown>}
             vocabulary={(material.vocabulary as string[]) ?? []}
+            minCorrect={minCorrect}
           />
         </TeacherVocabImages>
       </main>

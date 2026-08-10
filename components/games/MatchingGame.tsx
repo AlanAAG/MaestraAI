@@ -6,17 +6,19 @@ import { celebrate } from '@/lib/ui/celebrate'
 import { seededShuffle } from '@/lib/utils/shuffle'
 import { VocabVisual } from './VocabVisual'
 import { GameComplete } from './GameComplete'
+import { useGameScore, type GameResult } from '@/hooks/useGameScore'
 
 type Pair = { word: string; image_url?: string; emoji?: string }
 type Content = { pairs: Pair[] }
 interface Props {
   content: Content
-  onComplete?: () => void
+  onComplete?: (result?: GameResult) => void
 }
 
 // Tap a word, then tap its image. Correct pairs lock; all matched → win.
 export function MatchingGame({ content, onComplete }: Props) {
   const sfx = useSound()
+  const score = useGameScore()
   const { speak } = useSpeech()
   const pairs = useMemo(() => (content.pairs ?? []).slice(0, 6), [content.pairs])
   const words = useMemo(
@@ -53,9 +55,10 @@ export function MatchingGame({ content, onComplete }: Props) {
       if (next.size === pairs.length) {
         sfx.win()
         celebrate()
-        onComplete?.()
+        onComplete?.(score.result(pairs.length))
       }
     } else {
+      score.miss(word)
       sfx.wrong()
       setWrong(word)
       setTimeout(() => setWrong(null), 500)

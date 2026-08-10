@@ -14,6 +14,7 @@ import {
   Check,
   X,
   Headphones,
+  Palette,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ListenAndTap, type ListenPair } from '@/components/games/ListenAndTap'
@@ -23,6 +24,7 @@ import { wordToEmoji } from '@/lib/materials/emoji'
 import { seededShuffle } from '@/lib/utils/shuffle'
 import { normalizeWorksheetItems } from '@/lib/materials/worksheet-content'
 import { TeacherVocabImages } from '@/components/games/TeacherImages'
+import { ColoringCanvas } from '@/components/games/ColoringCanvas'
 
 type Material = {
   id: string
@@ -35,6 +37,7 @@ type Material = {
   lesson_plans: { day_number: number } | null
   fortnights: { project_name: string } | null
   shared_with_parents?: boolean
+  homework_min_correct?: number | null
 }
 
 async function downloadPdf(materialId: string, filename: string): Promise<string | null> {
@@ -69,9 +72,52 @@ export default function MaterialDetailPage() {
   const [showShareModal, setShowShareModal] = useState(false)
   const [copied, setCopied] = useState(false)
   const [listenPairs, setListenPairs] = useState<ListenPair[] | null>(null)
+  // Open coloring item (digital brush). null = closed.
+  const [coloring, setColoring] = useState<{ word: string; instruction?: string } | null>(null)
   const [sharingSchool, setSharingSchool] = useState(false)
   const [shareSchoolSuccess, setShareSchoolSuccess] = useState(false)
   const [sharingFamilia, setSharingFamilia] = useState(false)
+  // Homework: minimum aciertos before the game counts as done at home.
+  const [minCorrect, setMinCorrect] = useState('')
+  const [savingMin, setSavingMin] = useState(false)
+  const [emailing, setEmailing] = useState(false)
+  const [emailMsg, setEmailMsg] = useState('')
+  // Home-play results for this game (migration 069). Empty until kids play.
+  const [plays, setPlays] = useState<
+    { nickname: string; avatar: string; correct: number; total: number; passed: boolean | null }[]
+  >([])
+
+  async function saveMinCorrect(value: string) {
+    setMinCorrect(value)
+    setSavingMin(true)
+    try {
+      const n = value.trim() === '' ? null : Number(value)
+      await fetch(`/api/materials/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ homework_min_correct: n }),
+      })
+      setMaterial((m) => (m ? { ...m, homework_min_correct: n } : m))
+    } finally {
+      setSavingMin(false)
+    }
+  }
+
+  async function emailFamilies() {
+    setEmailing(true)
+    setEmailMsg('')
+    try {
+      const res = await fetch(`/api/materials/${id}/share-email`, { method: 'POST' })
+      const data = await res.json()
+      setEmailMsg(
+        res.ok ? `Enviado a ${data.sent} de ${data.total} familias` : (data.error ?? 'No se envió')
+      )
+    } catch {
+      setEmailMsg('No se envió')
+    } finally {
+      setEmailing(false)
+    }
+  }
 
   async function toggleFamilia() {
     if (!material) return
@@ -182,16 +228,34 @@ export default function MaterialDetailPage() {
           supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .from('materials' as any)
-            .select('shared_with_parents')
+            .select('shared_with_parents, homework_min_correct')
             .eq('id', id)
             .single()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .then(({ data: d }: any) => {
-              if (d)
-                setMaterial((m) => (m ? { ...m, shared_with_parents: !!d.shared_with_parents } : m))
+              if (d) {
+                setMaterial((m) =>
+                  m
+                    ? {
+                        ...m,
+                        shared_with_parents: !!d.shared_with_parents,
+                        homework_min_correct: d.homework_min_correct ?? null,
+                      }
+                    : m
+                )
+                setMinCorrect(d.homework_min_correct ? String(d.homework_min_correct) : '')
+              }
             })
         }
       })
+  }, [id])
+
+  // Who played at home. Best-effort: no results / migration pending → the section stays hidden.
+  useEffect(() => {
+    fetch(`/api/materials/${id}/plays`)
+      .then((r) => r.json())
+      .then((d) => setPlays(d.plays ?? []))
+      .catch(() => {})
   }, [id])
 
   if (loading) {
@@ -560,6 +624,32 @@ export default function MaterialDetailPage() {
                               </span>
                             )}
                           </p>
+                          {/* Coloring: the picture IS the activity — without it the sheet is just
+                            a word. Big enough to color on paper, tappable to color on screen. */}
+                          {activity.type === 'coloring' && (
+                            <div className="flex flex-col items-start gap-2">
+                              <div className="flex h-44 w-44 items-center justify-center rounded-2xl border-2 border-border bg-card p-2">
+                                <VocabVisual
+                                  word={item.word}
+                                  className="h-full w-full"
+                                  emojiClassName="text-[7rem] leading-none"
+                                />
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setColoring({
+                                    word: item.word,
+                                    instruction: item.teacher_instruction,
+                                  })
+                                }
+                                className="gap-2"
+                              >
+                                <Palette className="h-4 w-4" /> Colorear en línea
+                              </Button>
+                            </div>
+                          )}
                           {/* Options grid needs real foils — legacy string-items would render a
                             single pre-highlighted "choice", which isn't an activity. */}
                           {activity.type === 'circling' && (item.foil_words?.length ?? 0) > 0 && (
@@ -1014,6 +1104,49 @@ export default function MaterialDetailPage() {
           </div>
         )}
 
+        {/* Digital coloring */}
+        {coloring && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl">
+              <ColoringCanvas
+                word={coloring.word}
+                instruction={coloring.instruction}
+                onClose={() => setColoring(null)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Home-play results — only once someone has played */}
+        {plays.length > 0 && (
+          <section className="mt-8 rounded-2xl border border-border bg-card p-5">
+            <h2 className="text-sm font-semibold text-text-primary">Quién ha jugado en casa</h2>
+            <ul className="mt-3 space-y-2">
+              {plays.map((p, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-xl border border-border px-3 py-2"
+                >
+                  <span className="flex items-center gap-2 text-sm text-text-primary">
+                    <span className="text-lg">{p.avatar}</span>
+                    {p.nickname}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      p.passed === false
+                        ? 'bg-warning-light text-warning-text'
+                        : 'bg-success-light text-success-text'
+                    }`}
+                  >
+                    {p.correct} de {p.total} aciertos
+                    {p.passed === false ? ' · debe repetir' : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* Share modal */}
         {showShareModal && playUrl && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
@@ -1063,6 +1196,41 @@ export default function MaterialDetailPage() {
                   )}
                 </button>
               </div>
+
+              {/* Homework: require a minimum number of aciertos at home */}
+              <div className="rounded-xl border border-border p-3">
+                <label className="block text-xs font-medium text-text-primary">
+                  Ponerlo de tarea
+                </label>
+                <p className="mt-0.5 text-[11px] text-text-secondary">
+                  Si el niño no llega a este número de aciertos, el juego le pide repetir. Déjalo
+                  vacío para juego libre.
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={minCorrect}
+                    onChange={(e) => saveMinCorrect(e.target.value)}
+                    placeholder="—"
+                    className="w-20 rounded-lg border border-border bg-inset px-3 py-1.5 text-sm text-text-primary"
+                  />
+                  <span className="text-xs text-text-secondary">
+                    aciertos mínimos {savingMin && '· guardando…'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Email to families */}
+              <button
+                onClick={emailFamilies}
+                disabled={emailing}
+                className="w-full rounded-xl border border-border py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-inset disabled:opacity-50"
+              >
+                {emailing ? 'Enviando…' : 'Enviar por correo a las familias'}
+              </button>
+              {emailMsg && <p className="text-center text-xs text-text-secondary">{emailMsg}</p>}
 
               {/* WhatsApp */}
               <a

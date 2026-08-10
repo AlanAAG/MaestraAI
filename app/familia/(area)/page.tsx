@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { decryptName } from '@/lib/students/name'
 import { grantsAccess } from '@/lib/parents/links'
+import { LinkPlayerCard } from '@/components/parents/LinkPlayerCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,10 +24,22 @@ interface Material {
   play_token: string
 }
 
+interface Juego {
+  title: string
+  correct: number
+  total: number
+  passed: boolean | null
+  at: string
+}
+
 interface ChildView {
+  id: string
   name: string
   tareas: Tarea[]
   materiales: Material[]
+  /** null = the teacher turned game results off, or no profile is linked yet. */
+  juegos: Juego[] | null
+  playerLinked: boolean
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -108,10 +121,55 @@ export default async function FamiliaPage() {
       .order('generated_at', { ascending: false })
       .limit(24)
 
+    // Game results (migration 069). Visible only if the teacher allows it AND the child's play
+    // profile was linked with its code. Best-effort: any error → the section simply doesn't show.
+    let juegos: Juego[] | null = null
+    let playerLinked = false
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: teacher } = await (service as any)
+        .from('teachers')
+        .select('share_game_scores')
+        .eq('id', link.teacher_id)
+        .single()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: players } = await (service as any)
+        .from('game_players')
+        .select('id')
+        .eq('student_id', link.student_id)
+      playerLinked = !!players?.length
+      if (teacher?.share_game_scores !== false && playerLinked) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: plays } = await (service as any)
+          .from('game_plays')
+          .select('correct, total, passed, created_at, materials(type, content)')
+          .in(
+            'player_id',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (players ?? []).map((p: any) => p.id)
+          )
+          .order('created_at', { ascending: false })
+          .limit(20)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        juegos = (plays ?? []).map((p: any) => ({
+          title: p.materials?.content?.title ?? TYPE_LABELS[p.materials?.type] ?? 'Juego',
+          correct: p.correct,
+          total: p.total,
+          passed: p.passed,
+          at: p.created_at,
+        }))
+      }
+    } catch {
+      // migration 069 not applied yet → no games section
+    }
+
     children.push({
+      id: link.student_id,
       name: first || 'Tu hijo/a',
       tareas,
       materiales: (materials ?? []) as Material[],
+      juegos,
+      playerLinked,
     })
   }
 
@@ -154,6 +212,52 @@ export default async function FamiliaPage() {
                     }`}
                   >
                     {t.done ? 'Entregado' : 'Pendiente'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
+            Sus aciertos en los juegos
+          </h2>
+          {!child.playerLinked ? (
+            <div className="mb-8">
+              <LinkPlayerCard studentId={child.id} childName={child.name} />
+            </div>
+          ) : child.juegos === null ? (
+            <p className="text-text-secondary text-sm mb-8">
+              La maestra no está compartiendo los resultados de los juegos.
+            </p>
+          ) : child.juegos.length === 0 ? (
+            <p className="text-text-secondary text-sm mb-8">
+              Aún no hay partidas registradas. ¡A jugar!
+            </p>
+          ) : (
+            <ul className="space-y-2 mb-8">
+              {child.juegos.map((j, k) => (
+                <li
+                  key={k}
+                  className="flex items-center justify-between bg-surface border border-border rounded-xl px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{j.title}</p>
+                    <p className="text-xs text-text-secondary">
+                      {new Date(j.at).toLocaleDateString('es-MX', {
+                        day: 'numeric',
+                        month: 'long',
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs font-medium px-3 py-1 rounded-full ${
+                      j.passed === false
+                        ? 'bg-warning-light text-warning-text'
+                        : 'bg-success-light text-success-text'
+                    }`}
+                  >
+                    {j.correct} de {j.total} aciertos
+                    {j.passed === false ? ' · falta repetir' : ''}
                   </span>
                 </li>
               ))}

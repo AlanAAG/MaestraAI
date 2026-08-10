@@ -3,7 +3,11 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 
-const PatchSchema = z.object({ shared_with_parents: z.boolean() })
+const PatchSchema = z.object({
+  shared_with_parents: z.boolean().optional(),
+  // Homework: minimum aciertos to consider the game done. null = free play.
+  homework_min_correct: z.number().int().min(1).max(200).nullable().optional(),
+})
 
 // PATCH — toggle family sharing. Sharing ON mints a play_token if the material has none
 // (the /familia area links straight to /jugar/[token]).
@@ -42,9 +46,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .single()
     if (!material) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const updates: Record<string, unknown> = { shared_with_parents: body.data.shared_with_parents }
-    if (body.data.shared_with_parents && !material.play_token) {
-      updates.play_token = crypto.randomUUID().replace(/-/g, '')
+    const updates: Record<string, unknown> = {}
+    if (body.data.shared_with_parents !== undefined) {
+      updates.shared_with_parents = body.data.shared_with_parents
+      if (body.data.shared_with_parents && !material.play_token) {
+        updates.play_token = crypto.randomUUID().replace(/-/g, '')
+      }
+    }
+    if (body.data.homework_min_correct !== undefined) {
+      updates.homework_min_correct = body.data.homework_min_correct
+    }
+    if (!Object.keys(updates).length) {
+      return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

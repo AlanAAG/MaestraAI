@@ -11,6 +11,8 @@ import { MatchingGame } from './MatchingGame'
 import { LetterRecognitionGame } from './LetterRecognitionGame'
 import { FlashcardsGame } from './FlashcardsGame'
 import { GameComplete } from './GameComplete'
+import { ColoringBook } from './ColoringBook'
+import type { GameResult } from '@/hooks/useGameScore'
 
 // Game types with an interactive web player (drives the detail page + /jugar gating).
 export const PLAYABLE_TYPES = [
@@ -22,6 +24,9 @@ export const PLAYABLE_TYPES = [
   'matching',
   'letter_recognition',
   'flashcards',
+  // Worksheets are playable when they carry a coloring activity (digital brush).
+  'worksheet',
+  'worksheets',
 ]
 
 const GAME_TITLES: Record<string, string> = {
@@ -33,20 +38,27 @@ const GAME_TITLES: Record<string, string> = {
   sorting_game: 'Ordena y clasifica',
   matching: 'Relaciona',
   letter_recognition: 'Reconoce la letra',
+  worksheet: 'Colorea',
+  worksheets: 'Colorea',
 }
 
 interface Props {
   type: string
   content: Record<string, unknown>
   vocabulary: string[]
+  /** Called once per finished run with the aciertos, when the player is known (home play). */
+  onResult?: (result: GameResult & { durationS: number }) => void
+  /** Homework: minimum aciertos required; below it the child is asked to play again. */
+  minCorrect?: number | null
 }
 
-export function GameShell({ type, content, vocabulary }: Props) {
+export function GameShell({ type, content, vocabulary, onResult, minCorrect }: Props) {
   const [started, setStarted] = useState(false)
   const [paused, setPaused] = useState(false)
   const [done, setDone] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [runId, setRunId] = useState(0) // bump to remount (restart) the game fresh
+  const [result, setResult] = useState<GameResult | null>(null)
   const { muted, play, pause, toggleMute } = useGameAudio()
 
   const title = GAME_TITLES[type] ?? 'Juego'
@@ -59,11 +71,19 @@ export function GameShell({ type, content, vocabulary }: Props) {
   }, [started, paused, done])
   const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
+  // A run finished: remember the aciertos and hand them to the page (which stores them).
+  function finish(r?: GameResult) {
+    setDone(true)
+    setResult(r ?? null)
+    if (r) onResult?.({ ...r, durationS: seconds })
+  }
+
   // The Start click is the user gesture browsers require to begin audio → music autoplays here.
   function start() {
     setStarted(true)
     setPaused(false)
     setDone(false)
+    setResult(null)
     setSeconds(0)
     play()
   }
@@ -78,6 +98,7 @@ export function GameShell({ type, content, vocabulary }: Props) {
   function restart() {
     setSeconds(0)
     setDone(false)
+    setResult(null)
     setPaused(false)
     setRunId((r) => r + 1)
     if (!muted) play()
@@ -85,6 +106,7 @@ export function GameShell({ type, content, vocabulary }: Props) {
   function replay() {
     setSeconds(0)
     setDone(false)
+    setResult(null)
     setRunId((r) => r + 1)
     if (!muted) play()
   }
@@ -93,39 +115,44 @@ export function GameShell({ type, content, vocabulary }: Props) {
     type === 'word_search' ? (
       <WordSearchGame
         content={content as Parameters<typeof WordSearchGame>[0]['content']}
-        onComplete={() => setDone(true)}
+        onComplete={finish}
       />
     ) : type === 'bingo' ? (
       <StudentBingoCard content={content as Parameters<typeof StudentBingoCard>[0]['content']} />
     ) : type === 'memory_game' ? (
       <MemoryMatch
         pairs={(content.pairs as Parameters<typeof MemoryMatch>[0]['pairs']) ?? []}
-        onComplete={() => setDone(true)}
+        onComplete={finish}
       />
     ) : type === 'picture_word_match' ? (
       <PictureWordMatch
         content={content as Parameters<typeof PictureWordMatch>[0]['content']}
-        onComplete={() => setDone(true)}
+        onComplete={finish}
       />
     ) : type === 'sorting_game' ? (
       <SortingGame
         content={content as Parameters<typeof SortingGame>[0]['content']}
-        onComplete={() => setDone(true)}
+        onComplete={finish}
       />
     ) : type === 'matching' ? (
       <MatchingGame
         content={content as Parameters<typeof MatchingGame>[0]['content']}
-        onComplete={() => setDone(true)}
+        onComplete={finish}
       />
     ) : type === 'letter_recognition' ? (
       <LetterRecognitionGame
         content={content as Parameters<typeof LetterRecognitionGame>[0]['content']}
-        onComplete={() => setDone(true)}
+        onComplete={finish}
+      />
+    ) : type === 'worksheet' || type === 'worksheets' ? (
+      <ColoringBook
+        activities={(content.activities as Parameters<typeof ColoringBook>[0]['activities']) ?? []}
+        onComplete={finish}
       />
     ) : type === 'flashcards' ? (
       <FlashcardsGame
         content={content as Parameters<typeof FlashcardsGame>[0]['content']}
-        onComplete={() => setDone(true)}
+        onComplete={finish}
       />
     ) : (
       <div className="p-8 text-center text-gray-400">
@@ -198,7 +225,21 @@ export function GameShell({ type, content, vocabulary }: Props) {
           <p className="text-xs text-gray-400">La música de fondo se activa al comenzar 🎵</p>
         </div>
       ) : done ? (
-        <GameComplete title="¡Muy bien!" sub={`Terminaste en ${clock}`} onReplay={replay} />
+        (() => {
+          const passed = minCorrect == null || !result || result.correct >= minCorrect
+          return (
+            <GameComplete
+              title={passed ? '¡Muy bien!' : '¡Casi!'}
+              sub={
+                result
+                  ? `${result.correct} de ${result.total} aciertos · ${clock}` +
+                    (passed ? '' : ` · necesitas ${minCorrect} para terminar la tarea`)
+                  : `Terminaste en ${clock}`
+              }
+              onReplay={replay}
+            />
+          )
+        })()
       ) : (
         <div className="relative" key={runId}>
           {game}

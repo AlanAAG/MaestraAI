@@ -8,12 +8,13 @@ import { seededShuffle } from '@/lib/utils/shuffle'
 import { VocabVisual } from '@/components/games/VocabVisual'
 import { GameProgress } from '@/components/games/GameProgress'
 import { GameComplete } from '@/components/games/GameComplete'
+import { useGameScore, type GameResult } from '@/hooks/useGameScore'
 
 export type ListenPair = { word: string; image_url?: string; emoji?: string }
 
 interface Props {
   pairs: ListenPair[]
-  onComplete?: () => void
+  onComplete?: (result?: GameResult) => void
 }
 
 type SelectState = 'idle' | 'correct' | 'wrong'
@@ -21,6 +22,7 @@ type SelectState = 'idle' | 'correct' | 'wrong'
 export function ListenAndTap({ pairs, onComplete }: Props) {
   const { speak } = useSpeech()
   const sfx = useSound()
+  const score = useGameScore()
   const [round, setRound] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [selectState, setSelectState] = useState<SelectState>('idle')
@@ -68,12 +70,13 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
             setComplete(true)
             sfx.win()
             celebrate()
-            onComplete?.()
+            onComplete?.(score.result(total))
           } else {
             setRound((r) => r + 1)
           }
         }, 1000)
       } else {
+        score.miss(round)
         setWrongIdx(idx)
         setSelectState('wrong')
         sfx.wrong()
@@ -83,7 +86,7 @@ export function ListenAndTap({ pairs, onComplete }: Props) {
         }, 700)
       }
     },
-    [selectState, options, target, round, total, speak, onComplete, sfx]
+    [selectState, options, target, round, total, speak, onComplete, sfx, score]
   )
 
   if (total === 0 || !target) {

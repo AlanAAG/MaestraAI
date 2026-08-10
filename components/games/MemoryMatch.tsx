@@ -8,6 +8,7 @@ import { VocabVisual } from '@/components/games/VocabVisual'
 import { useSound } from '@/hooks/useSound'
 import { useSpeech } from '@/hooks/useSpeech'
 import { celebrate } from '@/lib/ui/celebrate'
+import { useGameScore, type GameResult } from '@/hooks/useGameScore'
 
 type CardPair = {
   id: string
@@ -26,7 +27,7 @@ type Card = {
 
 interface MemoryMatchProps {
   pairs: CardPair[]
-  onComplete?: () => void
+  onComplete?: (result?: GameResult) => void
 }
 
 export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
@@ -37,6 +38,7 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
   const [isComplete, setIsComplete] = useState(false)
   const [moves, setMoves] = useState(0)
   const sfx = useSound()
+  const score = useGameScore()
   const { speak } = useSpeech()
 
   // Initialize cards on mount with a deterministic seed derived from pair IDs
@@ -68,7 +70,7 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
       sfx.win()
       celebrate()
       if (onComplete) {
-        setTimeout(() => onComplete(), 2000)
+        setTimeout(() => onComplete(score.result(pairs.length)), 2000)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +106,9 @@ export function MemoryMatch({ pairs, onComplete }: MemoryMatchProps) {
         const word = pairs.find((p) => String(p.id) === firstCard.pairId)?.word
         if (word) speak(word, 'en-US')
       } else {
-        // No match, flip back after delay
+        // No match: both flipped pairs count as a miss.
+        score.miss(firstCard?.pairId ?? first)
+        score.miss(secondCard?.pairId ?? second)
         sfx.wrong()
         setTimeout(() => {
           setFlipped([])

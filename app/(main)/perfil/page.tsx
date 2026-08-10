@@ -81,6 +81,7 @@ type Teacher = {
   teaching_style?: string | null
   profile_notes?: string | null
   english_period_minutes?: number | null
+  share_game_scores?: boolean | null
   design_settings?: DesignSettings | null
   schools: { name: string; city: string; plan: string } | null
 }
@@ -120,6 +121,8 @@ export default function PerfilPage() {
   const [teachingStyle, setTeachingStyle] = useState('')
   const [profileNotes, setProfileNotes] = useState('')
   const [periodMinutes, setPeriodMinutes] = useState(45)
+  // Do families see their child's game aciertos? (teacher's call)
+  const [shareGameScores, setShareGameScores] = useState(true)
   const [savingP, setSavingP] = useState(false)
   const [savePMsg, setSavePMsg] = useState('')
 
@@ -142,6 +145,7 @@ export default function PerfilPage() {
         setTeachingStyle(data.teaching_style || '')
         setProfileNotes(data.profile_notes || '')
         setPeriodMinutes(data.english_period_minutes ?? 45)
+        setShareGameScores(data.share_game_scores !== false)
         if (data.design_settings) setDesign({ ...DEFAULT_DESIGN, ...data.design_settings })
         if (data.role_type === 'admin') loadTeam()
       })
@@ -192,6 +196,7 @@ export default function PerfilPage() {
           teaching_style: teachingStyle.trim(),
           profile_notes: profileNotes.trim(),
           english_period_minutes: periodMinutes,
+          share_game_scores: shareGameScores,
         }),
       })
       setSavePMsg(res.ok ? 'Guardado' : 'No se pudo guardar')
@@ -384,6 +389,23 @@ export default function PerfilPage() {
               La IA distribuye las actividades para ocupar este tiempo.
             </p>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-3">
+            <input
+              type="checkbox"
+              checked={shareGameScores}
+              onChange={(e) => setShareGameScores(e.target.checked)}
+              className="mt-0.5 accent-primary"
+            />
+            <span>
+              <span className="block text-sm text-text-primary">
+                Las familias pueden ver los aciertos de sus hijos en los juegos
+              </span>
+              <span className="block text-xs text-text-muted">
+                Si lo apagas, los papás siguen viendo los juegos pero no los resultados.
+              </span>
+            </span>
+          </label>
 
           <Button onClick={handlePersonalizationSave} disabled={savingP}>
             {savingP ? 'Guardando...' : savePMsg || 'Guardar personalización'}

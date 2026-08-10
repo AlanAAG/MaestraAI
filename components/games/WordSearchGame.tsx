@@ -6,6 +6,7 @@ import { useSound } from '@/hooks/useSound'
 import { celebrate } from '@/lib/ui/celebrate'
 import { GameComplete } from '@/components/games/GameComplete'
 import { VocabVisual } from '@/components/games/VocabVisual'
+import { useGameScore, type GameResult } from '@/hooks/useGameScore'
 
 type WordSearchContent = {
   grid: string[][]
@@ -16,7 +17,7 @@ type WordSearchContent = {
 
 interface Props {
   content: WordSearchContent
-  onComplete?: () => void
+  onComplete?: (result?: GameResult) => void
 }
 
 type Cell = { row: number; col: number }
@@ -25,6 +26,7 @@ export function WordSearchGame({ content, onComplete }: Props) {
   const { grid, words, wordPaths } = content
   const { speak } = useSpeech()
   const sfx = useSound()
+  const score = useGameScore()
 
   const [dragStart, setDragStart] = useState<Cell | null>(null)
   const [dragCells, setDragCells] = useState<Cell[]>([])
@@ -115,6 +117,7 @@ export function WordSearchGame({ content, onComplete }: Props) {
     if (!dragStart) return
     const end = dragCells[dragCells.length - 1]
     if (dragCells.length >= 2 && !tryMatch(dragStart, end)) {
+      score.miss(`${end.row}-${end.col}`)
       setWrongFlash(end)
       sfx.wrong()
       setTimeout(() => setWrongFlash(null), 400)
@@ -128,9 +131,9 @@ export function WordSearchGame({ content, onComplete }: Props) {
       setComplete(true)
       sfx.win()
       celebrate()
-      onComplete?.()
+      onComplete?.(score.result(words.length))
     }
-  }, [foundWordKeys, words.length, onComplete, sfx])
+  }, [foundWordKeys, words.length, onComplete, sfx, score])
 
   const remainingWords = words.filter((w) => !foundWordKeys.has(w))
 
