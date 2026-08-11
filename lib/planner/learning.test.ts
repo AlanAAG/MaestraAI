@@ -34,3 +34,25 @@ describe('buildDistillUserPrompt', () => {
     expect(p).toContain('(ninguna)')
   })
 })
+
+describe('buildDistillUserPrompt with feedback', () => {
+  it('includes ratings and comments as a feedback block', () => {
+    const p = buildDistillUserPrompt(
+      [],
+      [],
+      [
+        { section_key: null, rating: 2, comment: 'Muy genérica' },
+        { section_key: 'proyecto', rating: null, comment: 'Faltan materiales concretos' },
+      ]
+    )
+    expect(p).toContain('FEEDBACK DIRECTO')
+    expect(p).toContain('2/5')
+    expect(p).toContain('Muy genérica')
+    expect(p).toContain('proyecto')
+    expect(p).toContain('Faltan materiales concretos')
+  })
+
+  it('omits the block when there is no feedback', () => {
+    expect(buildDistillUserPrompt([], [])).not.toContain('FEEDBACK DIRECTO')
+  })
+})

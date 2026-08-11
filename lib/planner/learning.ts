@@ -3,6 +3,7 @@
 // injected into future generations. All DB calls are best-effort (graceful until migration 055).
 import Anthropic from '@anthropic-ai/sdk'
 import type { TeacherProfile } from '@/types/teacher-profile'
+import type { FeedbackRow } from './feedback'
 import { planEmbeddingText } from './embeddings'
 
 const REFRESH_AFTER_CORRECTIONS = 5
@@ -33,7 +34,11 @@ export function isStale(
   return (nowMs - new Date(refreshedAt).getTime()) / ONE_DAY > REFRESH_AFTER_DAYS
 }
 
-export function buildDistillUserPrompt(planTexts: string[], corrections: Correction[]): string {
+export function buildDistillUserPrompt(
+  planTexts: string[],
+  corrections: Correction[],
+  feedback: FeedbackRow[] = []
+): string {
   const plans = planTexts
     .map((t, i) => `--- Planeación ${i + 1} ---\n${t.slice(0, 2000)}`)
     .join('\n\n')
@@ -43,7 +48,20 @@ export function buildDistillUserPrompt(planTexts: string[], corrections: Correct
         `Sección "${c.section}":\nANTES (IA): ${(c.original ?? '').slice(0, 500)}\nDESPUÉS (maestra): ${(c.edited ?? '').slice(0, 500)}`
     )
     .join('\n\n')
-  return `PLANEACIONES RECIENTES DE LA MAESTRA:\n${plans || '(ninguna)'}\n\nCORRECCIONES QUE HIZO (lo que la IA escribió vs lo que ella prefirió):\n${corr || '(ninguna)'}`
+  // Explicit signal: what she SAID about the output. Low ratings' comments are the
+  // highest-priority preferences (she took the time to explain what was wrong).
+  const fb = feedback
+    .filter((f) => f.rating != null || (f.comment ?? '').trim())
+    .map((f) => {
+      const scope = f.section_key ? `Sección "${f.section_key}"` : 'Planeación completa'
+      const stars = f.rating != null ? ` — calificación ${f.rating}/5` : ''
+      return `${scope}${stars}: ${(f.comment ?? '').slice(0, 500)}`
+    })
+    .join('\n')
+  const fbBlock = fb
+    ? `\n\nFEEDBACK DIRECTO DE LA MAESTRA (máxima prioridad, en especial los comentarios con calificación baja):\n${fb}`
+    : ''
+  return `PLANEACIONES RECIENTES DE LA MAESTRA:\n${plans || '(ninguna)'}\n\nCORRECCIONES QUE HIZO (lo que la IA escribió vs lo que ella prefirió):\n${corr || '(ninguna)'}${fbBlock}`
 }
 
 const DISTILL_SYSTEM = `Eres un analista de estilo docente. A partir de las planeaciones y correcciones de UNA maestra de preescolar, destila su estilo para que otra IA escriba EXACTAMENTE como ella.
@@ -122,13 +140,20 @@ export async function refreshLearnedProfile(
       .eq('teacher_id', teacherId)
       .order('created_at', { ascending: false })
       .limit(20)
+    const { data: fbRows } = await supabase
+      .from('plan_feedback')
+      .select('section_key, rating, comment')
+      .eq('teacher_id', teacherId)
+      .order('created_at', { ascending: false })
+      .limit(20)
 
     const planTexts: string[] = (plans ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((p: any) => planEmbeddingText(p.plan_document ?? {}))
       .filter((t: string) => t.trim().length > 0)
     const corr = (corrections ?? []) as Correction[]
-    const sourceCount = planTexts.length + corr.length
+    const fb = (fbRows ?? []) as FeedbackRow[]
+    const sourceCount = planTexts.length + corr.length + fb.length
     if (sourceCount === 0) return null
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -138,7 +163,7 @@ export async function refreshLearnedProfile(
       temperature: 0,
       system: DISTILL_SYSTEM,
       messages: [
-        { role: 'user', content: buildDistillUserPrompt(planTexts, corr) },
+        { role: 'user', content: buildDistillUserPrompt(planTexts, corr, fb) },
         { role: 'assistant', content: '{' },
       ],
     })
