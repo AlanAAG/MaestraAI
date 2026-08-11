@@ -1,12 +1,18 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Loader2, BookOpen, Pencil, Check, X, Palette } from 'lucide-react'
+import { Loader2, BookOpen, Pencil, Check, X, Palette, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
 import { expandStrategyAcronym } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import { FONT_MAP, type FontKey } from '@/lib/design/fonts'
+import {
+  PlanFeedbackProvider,
+  PlanFeedbackFooter,
+  SectionCommentBox,
+  useSectionFeedback,
+} from '@/components/planner/PlanFeedback'
 
 type Design = {
   font: FontKey
@@ -108,15 +114,18 @@ function DocSection({
   children,
   editValue,
   onSave,
+  feedbackKey,
 }: {
   title: string
   children: React.ReactNode
   editValue?: unknown
   onSave?: (v: string) => Promise<void>
+  feedbackKey?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(toText(editValue))
   const [saving, setSaving] = useState(false)
+  const fb = useSectionFeedback(feedbackKey)
 
   async function handleSave() {
     if (!onSave) return
@@ -133,19 +142,38 @@ function DocSection({
     <section className="mt-7 first:mt-0">
       <div className="flex items-center justify-between border-b border-[color:var(--doc-border,#d1d5db)] pb-1.5 mb-3">
         <h2 className="text-[0.8125em] font-bold uppercase tracking-wide text-gray-800">{title}</h2>
-        {onSave && !editing && (
-          <button
-            type="button"
-            onClick={() => {
-              setDraft(toText(editValue))
-              setEditing(true)
-            }}
-            className="flex items-center gap-1 text-[0.75em] text-primary hover:underline print:hidden py-1 px-2 -my-1 -mr-2 rounded hover:bg-primary/5"
-          >
-            <Pencil size={12} /> Editar
-          </button>
-        )}
+        <div className="flex items-center">
+          {fb && (
+            <button
+              type="button"
+              onClick={fb.toggle}
+              aria-label={fb.comment ? 'Ver comentario de la sección' : 'Comentar esta sección'}
+              className="relative flex items-center gap-1 text-[0.75em] text-primary hover:underline print:hidden py-1 px-2 -my-1 rounded hover:bg-primary/5 cursor-pointer"
+            >
+              <MessageSquare size={12} />
+              {fb.comment && (
+                <span
+                  className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary"
+                  aria-hidden
+                />
+              )}
+            </button>
+          )}
+          {onSave && !editing && (
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(toText(editValue))
+                setEditing(true)
+              }}
+              className="flex items-center gap-1 text-[0.75em] text-primary hover:underline print:hidden py-1 px-2 -my-1 -mr-2 rounded hover:bg-primary/5"
+            >
+              <Pencil size={12} /> Editar
+            </button>
+          )}
+        </div>
       </div>
+      {fb?.open && feedbackKey && <SectionCommentBox sectionKey={feedbackKey} />}
       {editing ? (
         <div className="space-y-2">
           <textarea
@@ -832,6 +860,7 @@ function QuincenaSections({
             title={t(key)}
             editValue={pd.actividades_iniciales}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey={key}
           >
             <MdContent text={pd.actividades_iniciales} />
           </DocSection>
@@ -843,6 +872,7 @@ function QuincenaSections({
             title={t(key)}
             editValue={pd.actividades_rutina}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey={key}
           >
             <MdContent text={pd.actividades_rutina} />
           </DocSection>
@@ -854,6 +884,7 @@ function QuincenaSections({
             title={t(key)}
             editValue={pd.aventura_lectora}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey={key}
           >
             <MdContent text={pd.aventura_lectora} />
           </DocSection>
@@ -865,6 +896,7 @@ function QuincenaSections({
             title={t(key)}
             editValue={pd.estrategia_comunitaria}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey={key}
           >
             <MdContent text={pd.estrategia_comunitaria} />
           </DocSection>
@@ -876,6 +908,7 @@ function QuincenaSections({
             title={t(key)}
             editValue={pd.pausas_activas}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey={key}
           >
             <MdContent text={pd.pausas_activas} />
           </DocSection>
@@ -889,6 +922,7 @@ function QuincenaSections({
             title={t(key)}
             editValue={pd.ajustes_razonables}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey={key}
           >
             <MdContent text={applyNeeNames(pd.ajustes_razonables, neeNames ?? {})} />
           </DocSection>
@@ -900,6 +934,7 @@ function QuincenaSections({
             title={t(key)}
             editValue={pd.ejes_articuladores}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey={key}
           >
             <MdContent text={pd.ejes_articuladores} />
           </DocSection>
@@ -925,6 +960,7 @@ function QuincenaSections({
             title={proyectoTitle}
             editValue={pd.proyecto}
             onSave={(v) => handleEdit(key, v)}
+            feedbackKey="proyecto"
           >
             {absorbed && <CamposFormativosView campos={pd.campos_formativos!} />}
             {absorbed && <p className="font-bold mt-4 mb-2 uppercase">Del Proyecto</p>}
@@ -1050,7 +1086,7 @@ export function PlanDocumentViewer({
   ].filter(Boolean)
 
   return (
-    <div>
+    <PlanFeedbackProvider fortnightId={fortnightId} onReload={onReload}>
       {/* Drives the printed/"PDF (imprimir)" page orientation — like changing page layout in Word.
           Without this @page rule the print stays portrait no matter the toggle. */}
       <style>{`@page { size: ${orientation === 'horizontal' ? 'landscape' : 'portrait'}; margin: 12mm; }`}</style>
@@ -1126,6 +1162,7 @@ export function PlanDocumentViewer({
                 title="Ajustes Razonables"
                 editValue={pd.ajustes_razonables}
                 onSave={(v) => handleEdit('ajustes_razonables', v)}
+                feedbackKey="ajustes_razonables"
               >
                 <MdContent text={pd.ajustes_razonables} />
               </DocSection>
@@ -1141,6 +1178,7 @@ export function PlanDocumentViewer({
                 title="Desarrollo del Taller"
                 editValue={pd.desarrollo_taller}
                 onSave={(v) => handleEdit('desarrollo_taller', v)}
+                feedbackKey="desarrollo_taller"
               >
                 <MdContent text={pd.desarrollo_taller} />
               </DocSection>
@@ -1150,6 +1188,7 @@ export function PlanDocumentViewer({
                 title="Actividades Iniciales"
                 editValue={pd.actividades_iniciales}
                 onSave={(v) => handleEdit('actividades_iniciales', v)}
+                feedbackKey="actividades_iniciales"
               >
                 <MdContent text={pd.actividades_iniciales} />
               </DocSection>
@@ -1159,6 +1198,7 @@ export function PlanDocumentViewer({
                 title="Actividades de Rutina y Permanentes"
                 editValue={pd.actividades_rutina}
                 onSave={(v) => handleEdit('actividades_rutina', v)}
+                feedbackKey="actividades_rutina"
               >
                 <MdContent text={pd.actividades_rutina} />
               </DocSection>
@@ -1168,6 +1208,7 @@ export function PlanDocumentViewer({
                 title="Aventura Lectora"
                 editValue={pd.aventura_lectora}
                 onSave={(v) => handleEdit('aventura_lectora', v)}
+                feedbackKey="aventura_lectora"
               >
                 <MdContent text={pd.aventura_lectora} />
               </DocSection>
@@ -1177,6 +1218,7 @@ export function PlanDocumentViewer({
                 title="Pausas Activas"
                 editValue={pd.pausas_activas}
                 onSave={(v) => handleEdit('pausas_activas', v)}
+                feedbackKey="pausas_activas"
               >
                 <MdContent text={pd.pausas_activas} />
               </DocSection>
@@ -1246,7 +1288,8 @@ export function PlanDocumentViewer({
         <p className="text-[0.6875em] text-gray-400 italic pt-8 text-center">
           Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024
         </p>
+        <PlanFeedbackFooter />
       </div>
-    </div>
+    </PlanFeedbackProvider>
   )
 }
