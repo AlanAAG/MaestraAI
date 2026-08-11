@@ -937,6 +937,54 @@ export type Database = {
           },
         ]
       }
+      plan_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          embedding: string | null
+          fortnight_id: string
+          id: string
+          rating: number | null
+          section_key: string | null
+          teacher_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          embedding?: string | null
+          fortnight_id: string
+          id?: string
+          rating?: number | null
+          section_key?: string | null
+          teacher_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          embedding?: string | null
+          fortnight_id?: string
+          id?: string
+          rating?: number | null
+          section_key?: string | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plan_feedback_fortnight_id_fkey'
+            columns: ['fortnight_id']
+            isOneToOne: false
+            referencedRelation: 'fortnights'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'plan_feedback_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       planeacion_embeddings: {
         Row: {
           content: string | null
