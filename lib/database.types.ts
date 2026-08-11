@@ -244,8 +244,12 @@ export type Database = {
           grade: string | null
           group_id: string
           id: string
+          is_month: boolean
+          learning_goal: string | null
           letter_week1: string | null
           letter_week2: string | null
+          letter_week3: string | null
+          letter_week4: string | null
           methodology_types: string[] | null
           monthly_value: string | null
           nem_ejes: string[] | null
@@ -278,8 +282,12 @@ export type Database = {
           grade?: string | null
           group_id: string
           id?: string
+          is_month?: boolean
+          learning_goal?: string | null
           letter_week1?: string | null
           letter_week2?: string | null
+          letter_week3?: string | null
+          letter_week4?: string | null
           methodology_types?: string[] | null
           monthly_value?: string | null
           nem_ejes?: string[] | null
@@ -312,8 +320,12 @@ export type Database = {
           grade?: string | null
           group_id?: string
           id?: string
+          is_month?: boolean
+          learning_goal?: string | null
           letter_week1?: string | null
           letter_week2?: string | null
+          letter_week3?: string | null
+          letter_week4?: string | null
           methodology_types?: string[] | null
           monthly_value?: string | null
           nem_ejes?: string[] | null
@@ -364,6 +376,112 @@ export type Database = {
           },
         ]
       }
+      game_players: {
+        Row: {
+          avatar: string
+          code: string
+          created_at: string
+          id: string
+          last_seen_at: string
+          nickname: string
+          student_id: string | null
+          teacher_id: string
+        }
+        Insert: {
+          avatar?: string
+          code: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          nickname: string
+          student_id?: string | null
+          teacher_id: string
+        }
+        Update: {
+          avatar?: string
+          code?: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          nickname?: string
+          student_id?: string | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'game_players_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'game_players_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      game_plays: {
+        Row: {
+          correct: number
+          created_at: string
+          duration_s: number | null
+          id: string
+          material_id: string
+          passed: boolean | null
+          player_id: string
+          teacher_id: string
+          total: number
+        }
+        Insert: {
+          correct?: number
+          created_at?: string
+          duration_s?: number | null
+          id?: string
+          material_id: string
+          passed?: boolean | null
+          player_id: string
+          teacher_id: string
+          total?: number
+        }
+        Update: {
+          correct?: number
+          created_at?: string
+          duration_s?: number | null
+          id?: string
+          material_id?: string
+          passed?: boolean | null
+          player_id?: string
+          teacher_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'game_plays_material_id_fkey'
+            columns: ['material_id']
+            isOneToOne: false
+            referencedRelation: 'materials'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'game_plays_player_id_fkey'
+            columns: ['player_id']
+            isOneToOne: false
+            referencedRelation: 'game_players'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'game_plays_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       group_teachers: {
         Row: {
           day_of_week: string[] | null
@@ -406,6 +524,7 @@ export type Database = {
       groups: {
         Row: {
           academic_year: string
+          archived_at: string | null
           created_at: string | null
           fixed_weekly_schedule: Json | null
           grade: string | null
@@ -420,6 +539,7 @@ export type Database = {
         }
         Insert: {
           academic_year: string
+          archived_at?: string | null
           created_at?: string | null
           fixed_weekly_schedule?: Json | null
           grade?: string | null
@@ -434,6 +554,7 @@ export type Database = {
         }
         Update: {
           academic_year?: string
+          archived_at?: string | null
           created_at?: string | null
           fixed_weekly_schedule?: Json | null
           grade?: string | null
@@ -545,6 +666,7 @@ export type Database = {
           fortnight_id: string | null
           fortnight_pack_id: string | null
           generated_at: string | null
+          homework_min_correct: number | null
           id: string
           is_projectable: boolean | null
           lesson_plan_id: string | null
@@ -565,6 +687,7 @@ export type Database = {
           fortnight_id?: string | null
           fortnight_pack_id?: string | null
           generated_at?: string | null
+          homework_min_correct?: number | null
           id?: string
           is_projectable?: boolean | null
           lesson_plan_id?: string | null
@@ -585,6 +708,7 @@ export type Database = {
           fortnight_id?: string | null
           fortnight_pack_id?: string | null
           generated_at?: string | null
+          homework_min_correct?: number | null
           id?: string
           is_projectable?: boolean | null
           lesson_plan_id?: string | null
@@ -629,6 +753,36 @@ export type Database = {
             referencedColumns: ['id']
           },
         ]
+      }
+      nem_knowledge: {
+        Row: {
+          content: string
+          created_at: string | null
+          embedding: string | null
+          heading_path: string | null
+          id: string
+          source: string
+          tokens: number | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          heading_path?: string | null
+          id?: string
+          source: string
+          tokens?: number | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          heading_path?: string | null
+          id?: string
+          source?: string
+          tokens?: number | null
+        }
+        Relationships: []
       }
       parent_contacts: {
         Row: {
@@ -1629,6 +1783,7 @@ export type Database = {
           richmond_vocab_seeded_at: string | null
           role_type: string | null
           school_id: string | null
+          share_game_scores: boolean
           subject: string | null
           teaching_style: string | null
         }
@@ -1651,6 +1806,7 @@ export type Database = {
           richmond_vocab_seeded_at?: string | null
           role_type?: string | null
           school_id?: string | null
+          share_game_scores?: boolean
           subject?: string | null
           teaching_style?: string | null
         }
@@ -1673,6 +1829,7 @@ export type Database = {
           richmond_vocab_seeded_at?: string | null
           role_type?: string | null
           school_id?: string | null
+          share_game_scores?: boolean
           subject?: string | null
           teaching_style?: string | null
         }
@@ -1813,6 +1970,16 @@ export type Database = {
           id: string
           name: string
           state: string
+        }[]
+      }
+      match_nem_knowledge: {
+        Args: { match_count: number; query_embedding: string }
+        Returns: {
+          content: string
+          heading_path: string
+          id: string
+          similarity: number
+          source: string
         }[]
       }
       match_planeaciones: {

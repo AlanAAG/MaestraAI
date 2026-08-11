@@ -28,8 +28,7 @@ See git history for full feature log. Major systems:
 
 ## Pending migrations
 
-None — everything through 069 is applied (verified 2026-08-10 via REST probes).
-Still TODO once: `supabase migration repair` + `supabase gen types typescript --linked > lib/database.types.ts`
+None — everything through 069 is applied, ledger repaired, types regenerated (2026-08-10).
 
 ## What does NOT exist yet
 
