@@ -28,4 +28,18 @@ describe('buildRegeneratePrompt', () => {
   it('system prompt demands ONLY the section text back', () => {
     expect(REGENERATE_SYSTEM).toContain('ÚNICAMENTE')
   })
+
+  it('system prompt requires anonymous student labels to be preserved', () => {
+    expect(REGENERATE_SYSTEM).toContain('Alumno A')
+  })
+
+  it('includes style samples only when present', () => {
+    const withSamples = buildRegeneratePrompt({
+      ...args,
+      styleSamples: ['Fragmento de su voz.', 'Otro fragmento.'],
+    })
+    expect(withSamples).toContain('<voz_de_la_maestra>')
+    expect(withSamples).toContain('Fragmento de su voz.')
+    expect(buildRegeneratePrompt(args)).not.toContain('<voz_de_la_maestra>')
+  })
 })

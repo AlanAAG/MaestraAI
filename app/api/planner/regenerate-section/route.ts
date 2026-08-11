@@ -7,6 +7,7 @@ import { normalizePlanDocument } from '@/lib/planner/normalize-document'
 import { getLearnedProfile } from '@/lib/planner/learning'
 import { FEEDBACK_SECTIONS, feedbackConflictTarget } from '@/lib/planner/feedback'
 import { REGENERATE_SYSTEM, buildRegeneratePrompt } from '@/lib/planner/regenerate-section'
+import { storePlaneacionEmbedding, planEmbeddingText } from '@/lib/planner/embeddings'
 
 export const maxDuration = 120
 
@@ -58,21 +59,18 @@ export async function POST(req: NextRequest) {
 
     // Save the comment as feedback first — even if the model call fails, the signal is kept.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from('plan_feedback')
-      .upsert(
-        {
-          teacher_id: teacher.id,
-          fortnight_id,
-          section_key,
-          rating: null,
-          comment,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: feedbackConflictTarget(section_key) }
-      )
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(null, (e: any) => console.error('[regenerate-section] feedback save skipped:', e))
+    const { error: fbError } = await (supabase as any).from('plan_feedback').upsert(
+      {
+        teacher_id: teacher.id,
+        fortnight_id,
+        section_key,
+        rating: null,
+        comment,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: feedbackConflictTarget(section_key) }
+    )
+    if (fbError) console.error('[regenerate-section] feedback save skipped:', fbError)
 
     const learned = await getLearnedProfile(
       supabase,
@@ -87,6 +85,8 @@ export async function POST(req: NextRequest) {
         comment,
         projectName: String(fn.project_name ?? ''),
         preferences: learned?.preferences ?? '',
+        // Shape from getLearnedProfile/refreshLearnedProfile: LearnedProfile.profile.writing_style_samples.
+        styleSamples: learned?.profile?.writing_style_samples ?? [],
       }),
       { maxTokens: 4000 }
     )
@@ -105,16 +105,28 @@ export async function POST(req: NextRequest) {
       .eq('id', fortnight_id)
     if (error) throw error
 
-    // The implicit loop learns from this too (original → regenerated).
+    // Re-embed the updated doc so teacher-voice RAG retrieves the regenerated text (same as manual edits).
+    await storePlaneacionEmbedding(supabase, {
+      fortnightId: fortnight_id,
+      teacherId: teacher.id,
+      projectName: String(fn.project_name ?? ''),
+      content: planEmbeddingText(updated),
+    })
+
+    // The implicit loop learns from this too (original → regenerated). Tagged 'regen:' — this is
+    // AI output, not the teacher's own words, so it must NOT be distilled as her writing voice
+    // (see refreshLearnedProfile's `.not('section', 'like', 'regen:%')` filter); her intent
+    // already flows in via plan_feedback above.
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('plan_corrections').insert({
+      const { error: corrError } = await (supabase as any).from('plan_corrections').insert({
         teacher_id: teacher.id,
         fortnight_id,
-        section: section_key,
+        section: `regen:${section_key}`,
         original: currentText.slice(0, 6000),
         edited: String(updated[section_key] ?? value).slice(0, 6000),
       })
+      if (corrError) console.error('[regenerate-section] correction capture skipped:', corrError)
     } catch (e) {
       console.error('[regenerate-section] correction capture skipped:', e)
     }

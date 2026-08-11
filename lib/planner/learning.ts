@@ -134,10 +134,13 @@ export async function refreshLearnedProfile(
       .not('plan_document', 'is', null)
       .order('created_at', { ascending: false })
       .limit(5)
+    // Exclude regenerate-section corrections ('regen:' prefix): those are AI output, not the
+    // teacher's own edits, and must not be distilled as her writing voice.
     const { data: corrections } = await supabase
       .from('plan_corrections')
       .select('section, original, edited')
       .eq('teacher_id', teacherId)
+      .not('section', 'like', 'regen:%')
       .order('created_at', { ascending: false })
       .limit(20)
     const { data: fbRows } = await supabase

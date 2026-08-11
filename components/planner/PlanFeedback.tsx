@@ -102,7 +102,10 @@ export function PlanFeedbackProvider({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fortnight_id: fortnightId, section_key: key, comment: c }),
         })
-        if (!res.ok) throw new Error((await res.json()).error ?? 'No se pudo regenerar')
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}) as { error?: string })
+          throw new Error(data.error ?? 'No se pudo regenerar')
+        }
         setSectionComments((p) => ({ ...p, [key]: c }))
         setOpenSection(null)
         onReload()
@@ -145,6 +148,7 @@ export function SectionCommentBox({ sectionKey }: { sectionKey: string }) {
         onChange={(e) => setText(e.target.value)}
         rows={2}
         maxLength={2000}
+        aria-label="Comentario para esta sección"
         placeholder="Comentario para esta sección (ej. 'muy larga', 'usa mis palabras de la semana')"
         className="w-full rounded-md border border-[color:var(--doc-border,#d1d5db)] bg-white px-2 py-1.5 text-[0.8125em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary"
       />
@@ -202,6 +206,8 @@ export function PlanFeedbackFooter() {
   const [expanded, setExpanded] = useState(false)
   useEffect(() => {
     setComment(ctx?.globalComment ?? '')
+    // A saved comment loaded from the server (reload) must not stay hidden behind the collapsed footer.
+    if ((ctx?.globalComment ?? '').trim()) setExpanded(true)
   }, [ctx?.globalComment])
   if (!ctx) return null
   const current = ctx.rating ?? 0
@@ -230,7 +236,7 @@ export function PlanFeedbackFooter() {
                   /* keep UI state; she can retry */
                 }
               }}
-              className="cursor-pointer p-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="cursor-pointer p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Star
                 size={20}
@@ -249,6 +255,7 @@ export function PlanFeedbackFooter() {
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             maxLength={2000}
+            aria-label="Comentario general sobre la planeación"
             placeholder="¿Algo que mejorar para la próxima? (opcional)"
             className="flex-1 rounded-md border border-[color:var(--doc-border,#d1d5db)] bg-white px-2 py-1.5 text-[0.8125em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary"
           />
