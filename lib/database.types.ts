@@ -945,7 +945,7 @@ export type Database = {
           fortnight_id: string
           id: string
           rating: number | null
-          section_key: string | null
+          section_key: string
           teacher_id: string
         }
         Insert: {
@@ -955,7 +955,7 @@ export type Database = {
           fortnight_id: string
           id?: string
           rating?: number | null
-          section_key?: string | null
+          section_key?: string
           teacher_id: string
         }
         Update: {
@@ -965,7 +965,7 @@ export type Database = {
           fortnight_id?: string
           id?: string
           rating?: number | null
-          section_key?: string | null
+          section_key?: string
           teacher_id?: string
         }
         Relationships: [

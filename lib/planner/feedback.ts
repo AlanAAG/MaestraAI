@@ -21,7 +21,11 @@ export const FEEDBACK_SECTIONS = new Set([
   'desarrollo_taller',
 ])
 
-/** Upsert conflict target — must match the partial unique indexes in migration 070. */
+/** DB sentinel for global (whole-document) feedback — '' because partial unique indexes can't be upsert targets. */
+export const GLOBAL_SECTION = ''
+
+/** Upsert conflict target — must match the plain unique index in migration 071. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function feedbackConflictTarget(sectionKey: string | null): string {
-  return sectionKey ? 'fortnight_id,teacher_id,section_key' : 'fortnight_id,teacher_id'
+  return 'fortnight_id,teacher_id,section_key'
 }

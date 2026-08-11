@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { feedbackConflictTarget, FEEDBACK_SECTIONS } from '@/lib/planner/feedback'
+import {
+  feedbackConflictTarget,
+  FEEDBACK_SECTIONS,
+  GLOBAL_SECTION,
+  type FeedbackRow,
+} from '@/lib/planner/feedback'
 
 const PostSchema = z
   .object({
@@ -11,9 +16,15 @@ const PostSchema = z
     rating: z.number().int().min(1).max(5).optional(),
     comment: z.string().trim().max(2000).optional(),
   })
-  .refine((d) => d.rating !== undefined || (d.comment ?? '').length > 0, {
-    message: 'rating o comment requerido',
-  })
+  .refine(
+    (d) =>
+      d.section_key
+        ? (d.comment ?? '').length > 0
+        : d.rating !== undefined || (d.comment ?? '').length > 0,
+    {
+      message: 'rating o comment requerido',
+    }
+  )
 
 // Ownership: the fortnight must belong to the teacher. Returns teacher id or null.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,7 +69,7 @@ export async function POST(req: NextRequest) {
       {
         teacher_id: teacherId,
         fortnight_id,
-        section_key: section_key ?? null,
+        section_key: section_key ?? GLOBAL_SECTION,
         // Section comments carry no rating; global rows keep whichever fields were sent.
         rating: section_key ? null : (rating ?? null),
         comment: comment || null,
@@ -92,7 +103,11 @@ export async function GET(req: NextRequest) {
       .from('plan_feedback')
       .select('section_key, rating, comment')
       .eq('fortnight_id', fortnightId)
-    return NextResponse.json({ feedback: data ?? [] })
+    const rows = (data ?? []).map((f: FeedbackRow) => ({
+      ...f,
+      section_key: f.section_key === GLOBAL_SECTION ? null : f.section_key,
+    }))
+    return NextResponse.json({ feedback: rows })
   } catch (err) {
     console.error('[plan-feedback:get]', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
