@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Loader2, Megaphone, ClipboardList, Trash2, Mail } from 'lucide-react'
+import { GroupForum } from '@/components/forum/GroupForum'
 
 type MaterialOption = { id: string; label: string }
 type Post = {
@@ -37,6 +38,7 @@ const TYPE_LABELS: Record<string, string> = {
 export default function GrupoWallPage() {
   const { id } = useParams<{ id: string }>()
   const [groupName, setGroupName] = useState('')
+  const [forumCtx, setForumCtx] = useState<{ teacherId: string; name: string } | null>(null)
   const [posts, setPosts] = useState<Post[] | null>(null)
   const [materials, setMaterials] = useState<MaterialOption[]>([])
   // Composer
@@ -61,10 +63,17 @@ export default function GrupoWallPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: g } = await (supabase as any)
         .from('groups')
-        .select('name')
+        .select('name, titular_teacher_id')
         .eq('id', id)
         .single()
       if (g) setGroupName(g.name)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: me } = await (supabase as any)
+        .from('teachers')
+        .select('id, full_name')
+        .limit(1)
+        .single()
+      if (g && me) setForumCtx({ teacherId: g.titular_teacher_id, name: me.full_name ?? 'Maestra' })
       // Teacher's materials for the tarea picker (RLS scopes to hers).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: mats } = await (supabase as any)
@@ -283,6 +292,20 @@ export default function GrupoWallPage() {
           })}
         </div>
       )}
+      {/* Dudas de las familias */}
+      <section className="mt-10">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-secondary">
+          Dudas de las familias
+        </h2>
+        {forumCtx && (
+          <GroupForum
+            groupId={id}
+            groupTeacherId={forumCtx.teacherId}
+            authorName={`Miss ${forumCtx.name.split(' ')[0]}`}
+            isTeacher
+          />
+        )}
+      </section>
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { decryptName } from '@/lib/students/name'
 import { grantsAccess } from '@/lib/parents/links'
 import { tareaEntregada, type PlayRow } from '@/lib/groups/classroom'
 import { LinkPlayerCard } from '@/components/parents/LinkPlayerCard'
+import { GroupForum } from '@/components/forum/GroupForum'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,8 @@ interface Post {
 
 interface ChildView {
   id: string
+  groupId: string | null
+  groupTeacherId: string | null
   name: string
   tareas: Tarea[]
   materiales: Material[]
@@ -103,7 +106,7 @@ export default async function FamiliaPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: student } = await (service as any)
       .from('students')
-      .select('id, group_id, first_name_encrypted, last_name_encrypted')
+      .select('id, group_id, first_name_encrypted, last_name_encrypted, groups(titular_teacher_id)')
       .eq('id', link.student_id)
       .single()
     if (!student) continue
@@ -232,6 +235,9 @@ export default async function FamiliaPage() {
 
     children.push({
       id: link.student_id,
+      groupId: student.group_id ?? null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      groupTeacherId: (student as any).groups?.titular_teacher_id ?? null,
       name: first || 'Tu hijo/a',
       tareas,
       materiales: (materials ?? []) as Material[],
@@ -306,6 +312,23 @@ export default async function FamiliaPage() {
               ))}
             </ul>
           )}
+
+          <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
+            Dudas al profesor
+          </h2>
+          <div className="mb-8">
+            {child.groupId && child.groupTeacherId ? (
+              <GroupForum
+                groupId={child.groupId}
+                groupTeacherId={child.groupTeacherId}
+                authorName={`Familia de ${child.name}`}
+              />
+            ) : (
+              <p className="text-sm text-text-secondary">
+                El foro del grupo aún no está disponible.
+              </p>
+            )}
+          </div>
 
           <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
             Tareas
