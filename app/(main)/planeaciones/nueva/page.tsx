@@ -114,6 +114,8 @@ export default function NuevaPlaneacionPage() {
       ejes: string[]
     }>
   >([{ metodologia: 'Automático', nombre: '', tema: '', contenidos: [], procesos: {}, ejes: [] }])
+  // One combined document (default) or separate planeaciones (principal + Letters + Números).
+  const [splitDocuments, setSplitDocuments] = useState(false)
   // Contenidos + PDA she already worked in recent plans (marked, not blocked).
   const [worked, setWorked] = useState<{ contenidos: Set<string>; pdas: Set<string> }>({
     contenidos: new Set(),
@@ -451,6 +453,8 @@ export default function NuevaPlaneacionPage() {
               }
             : {}),
           learning_goal: learningGoal.trim() || null,
+          // Separate documents choice (migration 073).
+          split_documents: splitDocuments,
           // Números por semana (migration 072) — free text ("1-10", "50, 51…").
           number_week1: formData.number_week1.trim() || null,
           number_week2: formData.number_week2.trim() || null,
@@ -1212,6 +1216,49 @@ export default function NuevaPlaneacionPage() {
                     Semana {i + 1} ({groupSchedule?.numeros_day ?? 'jueves'})
                   </p>
                 </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* One document vs separate documents — quincena only */}
+        {planType !== 'taller' && (
+          <Card className="p-6 border-2">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">Documentos</h3>
+            <p className="text-xs text-text-secondary mb-3">¿Cómo quieres tu planeación?</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                {
+                  value: false,
+                  label: 'Una sola planeación',
+                  desc: 'Todo en un documento: proyecto, Letters y Números.',
+                },
+                {
+                  value: true,
+                  label: 'Planeaciones separadas',
+                  desc: 'Principal (sin Letters ni Números) + Letters + Números, cada una por su lado.',
+                },
+              ].map((opt) => (
+                <label
+                  key={String(opt.value)}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition-colors ${
+                    splitDocuments === opt.value
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-surface hover:border-border-strong'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="split_documents"
+                    checked={splitDocuments === opt.value}
+                    onChange={() => setSplitDocuments(opt.value)}
+                    className="mt-0.5 accent-primary"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-text-primary">{opt.label}</span>
+                    <span className="block text-xs text-text-secondary">{opt.desc}</span>
+                  </span>
+                </label>
               ))}
             </div>
           </Card>

@@ -26,7 +26,7 @@ import { FileType, Link2 } from 'lucide-react'
 import { LoadingGeneration } from '@/components/app/LoadingGeneration'
 import { LessonPlanEditor } from '@/components/app/LessonPlanEditor'
 import { MaterialGenerator } from '@/components/app/MaterialGenerator'
-import { PlanDocumentViewer } from '@/components/planner/PlanDocumentViewer'
+import { PlanDocumentViewer, type SplitDoc } from '@/components/planner/PlanDocumentViewer'
 
 const TYPE_LABELS: Record<string, string> = {
   flashcards: 'Flashcards',
@@ -84,6 +84,7 @@ type Fortnight = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   plan_document?: Record<string, any> | null
   observation_calendar?: Record<string, string[]> | null
+  split_documents?: boolean | null
   groups?: { name?: string; fixed_weekly_schedule?: GroupSchedule | null } | null
 }
 
@@ -124,6 +125,8 @@ export default function PlaneacionDetailPage() {
   const [exportingDocx, setExportingDocx] = useState(false)
   const [teacherName, setTeacherName] = useState('')
   const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>('vertical')
+  // Split-documents mode: which planeación is on screen (drives print + DOCX export too).
+  const [activeDoc, setActiveDoc] = useState<SplitDoc>('main')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -363,7 +366,11 @@ export default function PlaneacionDetailPage() {
       const res = await fetch('/api/planner/export-docx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fortnight_id: fortnight.id, orientation }),
+        body: JSON.stringify({
+          fortnight_id: fortnight.id,
+          orientation,
+          ...(fortnight.split_documents ? { doc: activeDoc } : {}),
+        }),
       })
       if (!res.ok) {
         const msg = await res
@@ -693,6 +700,9 @@ export default function PlaneacionDetailPage() {
                 orientation={orientation}
                 logoUrl={logoUrl}
                 onReload={loadData}
+                splitDocuments={!!fortnight.split_documents}
+                activeDoc={activeDoc}
+                onActiveDocChange={setActiveDoc}
               />
             </>
           )}

@@ -48,6 +48,8 @@ function tableBorders(color: string) {
 const Schema = z.object({
   fortnight_id: z.string().uuid(),
   orientation: z.enum(['vertical', 'horizontal']).optional(),
+  // Split-documents mode: which planeación to export. Omitted = the full combined document.
+  doc: z.enum(['main', 'letters', 'numeros']).optional(),
 })
 
 type CampoFormativo = {
@@ -470,6 +472,18 @@ export async function POST(req: NextRequest) {
     }
 
     const pd = (fn.plan_document ?? {}) as PlanDocument
+    // Split-documents export: 'main' drops the Letters/Números sub-plans (custom units stay);
+    // 'letters'/'numeros' emit ONLY that sub-plan (with the shared title header).
+    const docChoice = body.data.doc
+    const onlySub = docChoice === 'letters' || docChoice === 'numeros'
+    if (docChoice === 'main') {
+      pd.sub_planes = (pd.sub_planes ?? []).filter(
+        (sp) => !['letter_number', 'numeros'].includes(sp.tipo)
+      )
+    } else if (onlySub) {
+      const wanted = docChoice === 'letters' ? 'letter_number' : 'numeros'
+      pd.sub_planes = (pd.sub_planes ?? []).filter((sp) => sp.tipo === wanted)
+    }
     if (!pd.tipo)
       return NextResponse.json({ error: 'No hay documento generado aún' }, { status: 422 })
 
@@ -630,7 +644,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (pd.tipo === 'quincena') {
+    if (onlySub) {
+      // Single sub-plan document: header/title already pushed above; only the sub-plan follows.
+    } else if (pd.tipo === 'quincena') {
       // Respect teacher's section order if stored, otherwise canonical default.
       const order = [...(pd._section_order ?? DEFAULT_QUINCENA_ORDER)]
       const covered = new Set(order)
@@ -672,8 +688,8 @@ export async function POST(req: NextRequest) {
         new Paragraph({
           text: sp.tipo === 'letter_number' ? 'Letters' : 'Números',
           heading: HeadingLevel.HEADING_2,
-          // Every sub-plan starts on a fresh page (teacher's format).
-          pageBreakBefore: true,
+          // Every sub-plan starts on a fresh page (teacher's format) — unless it IS the document.
+          pageBreakBefore: !onlySub,
         })
       )
       children.push(
@@ -771,7 +787,11 @@ export async function POST(req: NextRequest) {
 
     const buf = await Packer.toBuffer(doc)
 
-    const filename = `planeacion-${pd.tipo}-${fn.number ?? ''}.docx`
+    const filename = onlySub
+      ? `planeacion-${docChoice}-${fn.number ?? ''}.docx`
+      : docChoice === 'main'
+        ? `planeacion-principal-${fn.number ?? ''}.docx`
+        : `planeacion-${pd.tipo}-${fn.number ?? ''}.docx`
     return new Response(buf as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

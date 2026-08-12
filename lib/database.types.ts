@@ -272,6 +272,7 @@ export type Database = {
           richmond_student_pages: string | null
           richmond_unit: string | null
           richmond_unit_id: string | null
+          split_documents: boolean
           start_date: string
           status: string | null
           teacher_id: string
@@ -314,6 +315,7 @@ export type Database = {
           richmond_student_pages?: string | null
           richmond_unit?: string | null
           richmond_unit_id?: string | null
+          split_documents?: boolean
           start_date: string
           status?: string | null
           teacher_id: string
@@ -356,6 +358,7 @@ export type Database = {
           richmond_student_pages?: string | null
           richmond_unit?: string | null
           richmond_unit_id?: string | null
+          split_documents?: boolean
           start_date?: string
           status?: string | null
           teacher_id?: string

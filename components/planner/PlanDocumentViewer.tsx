@@ -403,6 +403,7 @@ function SubPlanBlock({
   dayLabel,
   onGenerated,
   evalColumns,
+  standalone = false,
 }: {
   subPlan?: SubPlan
   fortnightId: string
@@ -410,6 +411,8 @@ function SubPlanBlock({
   dayLabel: string
   onGenerated: () => void
   evalColumns?: string[]
+  /** Split mode: this sub-plan IS the document — no page break / extra top margin. */
+  standalone?: boolean
 }) {
   const [loading, setLoading] = useState(false)
   const label = subType === 'letter_number' ? `Letters (${dayLabel})` : `Números (${dayLabel})`
@@ -452,8 +455,8 @@ function SubPlanBlock({
   }
 
   return (
-    // Each sub-plan starts on its own page in print/PDF (teacher's format).
-    <section className="mt-12 break-before-page">
+    // Each sub-plan starts on its own page in print/PDF (teacher's format) — unless it IS the doc.
+    <section className={standalone ? 'mt-2' : 'mt-12 break-before-page'}>
       <div className="flex items-center justify-between border-b border-[color:var(--doc-border,#d1d5db)] pb-1.5 mb-3">
         <h2 className="flex items-center gap-2 text-[0.8125em] font-bold uppercase tracking-wide text-gray-800">
           {icon}
@@ -1027,7 +1030,13 @@ interface PlanDocumentViewerProps {
   orientation?: 'vertical' | 'horizontal'
   logoUrl?: string | null
   onReload: () => void
+  /** Teacher chose separate documents: principal (no Letters/Números) + Letters + Números. */
+  splitDocuments?: boolean
+  activeDoc?: SplitDoc
+  onActiveDocChange?: (doc: SplitDoc) => void
 }
+
+export type SplitDoc = 'main' | 'letters' | 'numeros'
 
 export function PlanDocumentViewer({
   planDocument: pd,
@@ -1042,8 +1051,16 @@ export function PlanDocumentViewer({
   orientation = 'vertical',
   logoUrl,
   onReload,
+  splitDocuments = false,
+  activeDoc = 'main',
+  onActiveDocChange,
 }: PlanDocumentViewerProps) {
   const isQuincena = pd.tipo !== 'taller'
+  // Split mode: which of the three documents is on screen (main sections vs one sub-plan).
+  const split = splitDocuments && isQuincena
+  const showMain = !split || activeDoc === 'main'
+  const showLetters = !split || activeDoc === 'letters'
+  const showNumeros = !split || activeDoc === 'numeros'
   const letterDay = capitalize(schedule?.letter_number_day ?? 'martes')
   const numDay = capitalize(schedule?.numeros_day ?? 'jueves')
 
@@ -1159,13 +1176,40 @@ export function PlanDocumentViewer({
           )}
         </header>
 
+        {/* Split documents: pick which planeación is on screen (also drives print + DOCX). */}
+        {split && (
+          <div className="mb-6 flex gap-2 print:hidden">
+            {(
+              [
+                ['main', 'Principal'],
+                ['letters', `Letters (${letterDay})`],
+                ['numeros', `Números (${numDay})`],
+              ] as [SplitDoc, string][]
+            ).map(([doc, label]) => (
+              <button
+                key={doc}
+                type="button"
+                onClick={() => onActiveDocChange?.(doc)}
+                aria-pressed={activeDoc === doc}
+                className={`cursor-pointer rounded-full border px-4 py-1.5 text-[0.8125em] font-medium transition-colors duration-200 ${
+                  activeDoc === doc
+                    ? 'border-gray-800 bg-gray-800 text-white'
+                    : 'border-[color:var(--doc-border,#d1d5db)] bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ── Dynamic section rendering ─────────────────────────────────────────────
              Quincena: sections render in the teacher's order (_section_order),
              with the teacher's exact titles (_section_titles). Falls back to the
              canonical order when no profile was used (older plans / system template).
              Taller: fixed order (simpler format, fewer sections).
         ─────────────────────────────────────────────────────────────────────────── */}
-        {isQuincena ? (
+        {showMain && isQuincena ? (
           <QuincenaSections
             pd={pd}
             observationCalendar={observationCalendar}
@@ -1272,40 +1316,44 @@ export function PlanDocumentViewer({
               </DocSection>
             ))}
 
-        {/* Sub-plans (quincena only) — rendered as continuation document sections */}
-        {isQuincena && (
-          <>
-            <SubPlanBlock
-              subPlan={letterSub}
-              fortnightId={fortnightId}
-              subType="letter_number"
-              dayLabel={letterDay}
-              onGenerated={onReload}
-              evalColumns={pd.evaluation_columns}
-            />
-            <SubPlanBlock
-              subPlan={numSub}
-              fortnightId={fortnightId}
-              subType="numeros"
-              dayLabel={numDay}
-              onGenerated={onReload}
-              evalColumns={pd.evaluation_columns}
-            />
-          </>
+        {/* Sub-plans — inline continuation (combined mode) or their own document (split mode) */}
+        {isQuincena && showLetters && (
+          <SubPlanBlock
+            subPlan={letterSub}
+            fortnightId={fortnightId}
+            subType="letter_number"
+            dayLabel={letterDay}
+            onGenerated={onReload}
+            evalColumns={pd.evaluation_columns}
+            standalone={split}
+          />
+        )}
+        {isQuincena && showNumeros && (
+          <SubPlanBlock
+            subPlan={numSub}
+            fortnightId={fortnightId}
+            subType="numeros"
+            dayLabel={numDay}
+            onGenerated={onReload}
+            evalColumns={pd.evaluation_columns}
+            standalone={split}
+          />
         )}
 
         {/* Teacher-added sub-planeaciones of any methodology (Taller, ABJ, Día del Niño…) */}
-        <CustomSubPlansSection
-          subPlanes={pd.sub_planes}
-          fortnightId={fortnightId}
-          evalColumns={pd.evaluation_columns}
-          onReload={onReload}
-        />
+        {showMain && (
+          <CustomSubPlansSection
+            subPlanes={pd.sub_planes}
+            fortnightId={fortnightId}
+            evalColumns={pd.evaluation_columns}
+            onReload={onReload}
+          />
+        )}
 
         <p className="text-[0.6875em] text-gray-400 italic pt-8 text-center">
           Programa de Estudio para la Educación Preescolar, Fase 2. SEP, 2024
         </p>
-        <PlanFeedbackFooter />
+        {showMain && <PlanFeedbackFooter />}
       </div>
     </PlanFeedbackProvider>
   )
