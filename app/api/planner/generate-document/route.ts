@@ -44,6 +44,22 @@ export const maxDuration = 300
 
 const Schema = z.object({ fortnight_id: z.string().uuid() })
 
+// <archivos_de_la_maestra>: extracted text of files attached at creation (migration 075).
+// Hard-capped so a huge upload can't blow the prompt; malformed rows skipped silently.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function attachmentsBlock(fn: any): string {
+  const list = Array.isArray(fn?.attachment_context) ? fn.attachment_context : []
+  const items = list
+    .filter((a: { name?: unknown; text?: unknown }) => a?.name && typeof a?.text === 'string')
+    .slice(0, 3)
+    .map(
+      (a: { name: string; text: string }) =>
+        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, 6000)}`
+    )
+  if (!items.length) return ''
+  return `<archivos_de_la_maestra>\nLa maestra adjuntó estos documentos para ESTA planeación. TÓMALOS EN CUENTA: usa sus temas, fechas, páginas, vocabulario e indicaciones donde apliquen (sin copiarlos íntegros).\n${items.join('\n\n')}\n</archivos_de_la_maestra>`
+}
+
 const DEFAULT_CRONOGRAMA = {
   lunes: [
     'honores',
@@ -347,6 +363,8 @@ function buildQuincenaPrompt(
       ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
       : '')
 
+  // Reference files the teacher attached at creation (migration 075) — extracted text.
+  const attachBlock = attachmentsBlock(fn)
   // High-priority: the teacher's explicit requests + continuity with the previous quincena.
   const tNotes = String(fn.teacher_notes ?? '').slice(0, 1500)
   const pNotes = String(fn.project_notes ?? '').slice(0, 1500)
@@ -427,6 +445,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     durationBlock,
     proyectoSecciones,
     teacherReq,
+    attachBlock,
     continuityBlock,
     fichaBlock,
     pausasBlock,
@@ -506,7 +525,7 @@ ${richmondBlock}${gameHint ? '\n' + gameHint : ''}
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
 
   // Grounding is injected as a cached system prefix, not here.
-  return [styleBlock, profileCtx, ejesBlock, knowledgeBlock, requestData]
+  return [styleBlock, profileCtx, ejesBlock, knowledgeBlock, attachmentsBlock(fn), requestData]
     .filter(Boolean)
     .join('\n\n')
 }

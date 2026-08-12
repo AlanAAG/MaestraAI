@@ -126,6 +126,46 @@ export default function NuevaPlaneacionPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   // Binary choice: use the teacher's uploaded format, or MaestraIA's built-in design.
   const [useSystemTemplate, setUseSystemTemplate] = useState(false)
+  // Reference files the AI must consider (extracted text, never the file itself).
+  const [attachments, setAttachments] = useState<{ name: string; text: string }[]>([])
+  const [attaching, setAttaching] = useState(false)
+  const [attachError, setAttachError] = useState('')
+
+  async function handleAttach(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (attachments.length >= 3) {
+      setAttachError('Máximo 3 archivos por planeación.')
+      return
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      setAttachError('Archivo demasiado grande (máx 6MB).')
+      return
+    }
+    setAttaching(true)
+    setAttachError('')
+    try {
+      const base64 = btoa(
+        new Uint8Array(await file.arrayBuffer()).reduce(
+          (acc, b) => acc + String.fromCharCode(b),
+          ''
+        )
+      )
+      const res = await fetch('/api/planner/attachments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: file.name, mimeType: file.type, base64 }),
+      })
+      const data = await res.json().catch(() => ({}) as { error?: string })
+      if (!res.ok) throw new Error(data.error ?? 'No pude procesar el archivo.')
+      setAttachments((p) => [...p, { name: data.name, text: data.text }])
+    } catch (err) {
+      setAttachError(err instanceof Error ? err.message : 'No pude procesar el archivo.')
+    } finally {
+      setAttaching(false)
+    }
+  }
   const [groupSchedule, setGroupSchedule] = useState<{
     letter_number_day?: string
     numeros_day?: string
@@ -455,6 +495,8 @@ export default function NuevaPlaneacionPage() {
           learning_goal: learningGoal.trim() || null,
           // Separate documents choice (migration 073).
           split_documents: splitDocuments,
+          // Reference files' extracted text (migration 075).
+          ...(attachments.length ? { attachment_context: attachments } : {}),
           // Números por semana (migration 072) — free text ("1-10", "50, 51…").
           number_week1: formData.number_week1.trim() || null,
           number_week2: formData.number_week2.trim() || null,
@@ -1408,6 +1450,55 @@ export default function NuevaPlaneacionPage() {
             </div>
           </Card>
         )}
+
+        {/* Reference files the AI must take into account */}
+        <Card className="p-6 border-2">
+          <h3 className="text-sm font-semibold text-text-primary mb-1">
+            Archivos de apoyo <span className="font-normal text-text-secondary">(opcional)</span>
+          </h3>
+          <p className="text-xs text-text-secondary mb-3">
+            Adjunta documentos que la IA debe tomar en cuenta al crear la planeación: calendario
+            escolar, páginas del libro, circulares… (PDF, Word, imagen o texto — máx 3).
+          </p>
+          {attachments.length > 0 && (
+            <ul className="mb-3 space-y-2">
+              {attachments.map((a, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2"
+                >
+                  <span className="min-w-0 truncate text-sm text-text-primary">📎 {a.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))}
+                    className="cursor-pointer rounded p-1 text-text-disabled hover:bg-red-50 hover:text-red-600"
+                    aria-label={`Quitar ${a.name}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {attachError && <p className="mb-2 text-xs text-error">{attachError}</p>}
+          <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-medium text-text-primary transition-colors hover:border-primary">
+            {attaching ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Leyendo archivo…
+              </>
+            ) : (
+              <>+ Adjuntar archivo</>
+            )}
+            <input
+              type="file"
+              accept=".pdf,.docx,.txt,image/jpeg,image/png,image/webp"
+              onChange={handleAttach}
+              disabled={attaching || attachments.length >= 3}
+              className="hidden"
+              aria-label="Adjuntar archivo de apoyo"
+            />
+          </label>
+        </Card>
 
         {/* Actions */}
         <div className="flex gap-3">

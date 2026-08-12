@@ -239,6 +239,7 @@ export type Database = {
       }
       fortnights: {
         Row: {
+          attachment_context: Json | null
           created_at: string | null
           end_date: string
           grade: string | null
@@ -282,6 +283,7 @@ export type Database = {
           vocabulary: string[] | null
         }
         Insert: {
+          attachment_context?: Json | null
           created_at?: string | null
           end_date: string
           grade?: string | null
@@ -325,6 +327,7 @@ export type Database = {
           vocabulary?: string[] | null
         }
         Update: {
+          attachment_context?: Json | null
           created_at?: string | null
           end_date?: string
           grade?: string | null
