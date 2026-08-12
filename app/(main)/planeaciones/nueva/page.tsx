@@ -710,7 +710,9 @@ export default function NuevaPlaneacionPage() {
                       <p className="px-3 pb-2 text-[11px] text-text-secondary">
                         Al elegir un contenido aparecen sus Procesos de Desarrollo de Aprendizaje
                         (PDA) de 1°, 2° y 3° — puedes combinar grados. Si no marcas ninguno, la IA
-                        usa los de {gradeLabel}.
+                        usa los de {gradeLabel}.{' '}
+                        <span className="text-error font-medium">En rojo con ✓</span> lo que ya
+                        trabajaste en planeaciones anteriores.
                       </p>
                       <div className="max-h-72 space-y-3 overflow-y-auto px-3 pb-3">
                         {Object.entries(CONTENIDOS_BY_CAMPO).map(([campo, rows]) => (

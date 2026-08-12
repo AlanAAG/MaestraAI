@@ -16,6 +16,7 @@ interface Fortnight {
   project_name: string
   start_date: string
   end_date: string
+  created_at?: string | null
   status: 'draft' | 'approved'
 }
 
@@ -254,6 +255,11 @@ export default function PlaneacionesPage() {
                     <Calendar size={14} className="inline flex-shrink-0 mt-0.5" />
                     {formatDate(fortnight.start_date)} - {formatDate(fortnight.end_date)}
                   </p>
+                  {fortnight.created_at && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Creada el {formatDate(fortnight.created_at)}
+                    </p>
+                  )}
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-2">
                   <StatusBadge status={fortnight.status} />
