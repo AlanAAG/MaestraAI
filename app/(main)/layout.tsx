@@ -15,6 +15,7 @@ import {
   ClipboardList,
   MoreHorizontal,
   X,
+  Megaphone,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Toaster } from '@/components/ui/sonner'
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: '/vocabulario', icon: BookA, label: 'Vocabulario' },
   { href: '/materiales', icon: Package, label: 'Materiales' },
   { href: '/alumnos', icon: Users, label: 'Alumnos' },
+  { href: '/grupos', icon: Megaphone, label: 'Grupos' },
   { href: '/calificaciones-richmond', icon: ClipboardList, label: 'Calificaciones' },
   { href: '/red', icon: Network, label: 'Mi Escuela' },
   { href: '/perfil', icon: UserCircle, label: 'Mi Perfil' },
