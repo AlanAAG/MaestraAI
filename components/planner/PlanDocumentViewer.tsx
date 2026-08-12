@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import { Loader2, BookOpen, Pencil, Check, X, Palette, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
-import { expandStrategyAcronym } from '@/lib/planner/normalize-document'
+import { expandStrategyAcronym, bulletizeMomentos } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import { FONT_MAP, type FontKey } from '@/lib/design/fonts'
 import {
@@ -221,10 +221,27 @@ function toText(v: unknown): string {
   return JSON.stringify(v, null, 2)
 }
 
-function MdContent({ text }: { text: unknown }) {
+// Momento sections (proyecto, taller, sub-plan momentos): one bullet per idea + visible space
+// around each **Momento** heading. Applied at RENDER so plans saved before the bulletize rule
+// display correctly without regenerating. `bulletizeMomentos` is idempotent, so newer plans
+// (already bulleted at save) pass through unchanged.
+function momentosDisplay(text: string): string {
+  return bulletizeMomentos(text)
+    .split('\n')
+    .map((line) => {
+      // A whole-line bold "heading" becomes a real markdown heading → prose gives it real
+      // margins above and below (the space the teacher asked for). Bold look is preserved.
+      const m = line.trim().match(/^\*\*([^*]+)\*\*(:?)\s*$/)
+      return m ? `#### ${m[1]}${m[2]}` : line
+    })
+    .join('\n')
+}
+
+function MdContent({ text, momentos = false }: { text: unknown; momentos?: boolean }) {
+  const raw = toText(text)
   return (
-    <div className="prose prose-sm max-w-none text-gray-800 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 prose-headings:text-gray-900">
-      <ReactMarkdown>{toText(text)}</ReactMarkdown>
+    <div className="prose prose-sm max-w-none text-gray-800 prose-p:my-1.5 prose-ul:my-2 prose-li:my-1 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-h4:mt-5 prose-h4:mb-2 prose-h4:text-[1em]">
+      <ReactMarkdown>{momentos ? momentosDisplay(raw) : raw}</ReactMarkdown>
     </div>
   )
 }
@@ -472,7 +489,7 @@ function SubPlanBlock({
                 <p className="font-bold text-[0.8125em] text-gray-900 mb-1.5">
                   {estructuraLabel(key)}
                 </p>
-                <MdContent text={val} />
+                <MdContent text={val} momentos />
               </div>
             ))}
           </div>
@@ -599,7 +616,7 @@ function CustomSubPlansSection({
                     <p className="font-bold text-[0.8125em] text-gray-900 mb-1.5">
                       {estructuraLabel(k)}
                     </p>
-                    <MdContent text={v} />
+                    <MdContent text={v} momentos />
                   </div>
                 ))}
               </div>
@@ -964,7 +981,7 @@ function QuincenaSections({
           >
             {absorbed && <CamposFormativosView campos={pd.campos_formativos!} />}
             {absorbed && <p className="font-bold mt-4 mb-2 uppercase">Del Proyecto</p>}
-            <MdContent text={pd.proyecto} />
+            <MdContent text={pd.proyecto} momentos />
           </DocSection>
         )
       }
@@ -1180,7 +1197,7 @@ export function PlanDocumentViewer({
                 onSave={(v) => handleEdit('desarrollo_taller', v)}
                 feedbackKey="desarrollo_taller"
               >
-                <MdContent text={pd.desarrollo_taller} />
+                <MdContent text={pd.desarrollo_taller} momentos />
               </DocSection>
             )}
             {pd.actividades_iniciales && (

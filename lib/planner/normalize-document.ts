@@ -47,14 +47,19 @@ export function stripMomentoEcho(text: string): string {
 
 export function bulletizeMomentos(text: string): string {
   const out: string[] = []
+  let afterHeading = false
   for (const line of text.split('\n')) {
     const t = line.trim()
     if (HEADING_RE.test(t)) {
-      // Blank line before every momento heading → double space between momentos.
+      // Blank line before every momento heading → clear space between momentos.
       if (out.length && out[out.length - 1].trim()) out.push('')
       out.push(line)
+      afterHeading = true
       continue
     }
+    // Blank line after the heading too, so the title breathes on both sides (viewer + Word).
+    if (afterHeading && t) out.push('')
+    afterHeading = false
     out.push(!t || LIST_RE.test(t) ? line : `- ${t}`)
   }
   return out.join('\n')

@@ -37,6 +37,7 @@ describe('bulletizeMomentos', () => {
     ].join('\n')
     expect(bulletizeMomentos(src).split('\n')).toEqual([
       '**Punto de Partida**',
+      '', // blank line after the heading
       '- Iniciaré preguntando a los niños cómo se sienten.',
       '- Presentaré materiales diversos.',
       '',
@@ -49,7 +50,7 @@ describe('bulletizeMomentos', () => {
 
   it('is idempotent and runs on proyecto at save time', () => {
     const out = normalizePlanDocument({ proyecto: '**Momento**\nUna idea.' })
-    expect(out.proyecto).toBe('**Momento**\n- Una idea.')
+    expect(out.proyecto).toBe('**Momento**\n\n- Una idea.')
     expect(normalizePlanDocument(out).proyecto).toBe(out.proyecto)
   })
 })
@@ -76,7 +77,7 @@ describe('momento spacing', () => {
   it('inserts a blank line before each momento heading, idempotently', () => {
     const src = '**Punto de Partida**\nUna idea.\n**A trabajar**\nOtra idea.'
     const once = bulletizeMomentos(src)
-    expect(once).toBe('**Punto de Partida**\n- Una idea.\n\n**A trabajar**\n- Otra idea.')
+    expect(once).toBe('**Punto de Partida**\n\n- Una idea.\n\n**A trabajar**\n\n- Otra idea.')
     expect(bulletizeMomentos(once)).toBe(once)
   })
 })
