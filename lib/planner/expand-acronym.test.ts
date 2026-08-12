@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   bulletizeMomentos,
+  normalizeActivityLabel,
   stripMomentoEcho,
   expandStrategyAcronym,
   ESTRATEGIA_COMUNITARIA_FULL,
@@ -79,5 +80,26 @@ describe('momento spacing', () => {
     const once = bulletizeMomentos(src)
     expect(once).toBe('**Punto de Partida**\n\n- Una idea.\n\n**A trabajar**\n\n- Otra idea.')
     expect(bulletizeMomentos(once)).toBe(once)
+  })
+})
+
+describe('normalizeActivityLabel', () => {
+  it('un-merges Letters/Números combos and drops PRONI tags', () => {
+    expect(normalizeActivityLabel('Letters and Numbers (PRONI)')).toBe('Letters')
+    expect(normalizeActivityLabel('Numbers y Letters')).toBe('Letters')
+    expect(normalizeActivityLabel('Letter & Number (PRONI: Vocabulary)')).toBe('Letters')
+    expect(normalizeActivityLabel('Letters - PRONI')).toBe('Letters')
+  })
+
+  it('leaves separate activities and normal text alone', () => {
+    expect(normalizeActivityLabel('Letters')).toBe('Letters')
+    expect(normalizeActivityLabel('Números: identificación de figuras')).toBe(
+      'Números: identificación de figuras'
+    )
+    expect(normalizeActivityLabel('Pausa activa')).toBe('Pausa activa')
+  })
+
+  it('still expands the community-strategy acronym', () => {
+    expect(normalizeActivityLabel('E.C.P.C.E.E.L.Y')).toBe(ESTRATEGIA_COMUNITARIA_FULL)
   })
 })

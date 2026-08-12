@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { applyNeeNames, decryptNeeMap } from '@/lib/planner/nee-names'
-import { expandStrategyAcronym } from '@/lib/planner/normalize-document'
+import { normalizeActivityLabel } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import {
   Document,
@@ -241,7 +241,7 @@ function cronogramaTable(cronograma: Record<string, string[]>, borderColor: stri
         children: days.map(
           (d) =>
             new TableCell({
-              children: [new Paragraph(expandStrategyAcronym(cronograma[d]?.[i] ?? ''))],
+              children: [new Paragraph(normalizeActivityLabel(cronograma[d]?.[i] ?? ''))],
               width: { size: 20, type: WidthType.PERCENTAGE },
             })
         ),

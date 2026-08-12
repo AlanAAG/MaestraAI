@@ -39,6 +39,9 @@ ESTRUCTURA DE SALIDA (plan_document):
     // ni uses siglas. La estrategia comunitaria se escribe SIEMPRE completa:
     // "Estrategias comunitarias para la construcción de espacios escolares libres de violencia"
     // (NUNCA "E.C.P.C.E.E.L.Y" ni ninguna otra abreviatura).
+    // Letters y Números son actividades SEPARADAS (cada una en su día) — NUNCA "Letters and
+    // Numbers" ni combinadas. La palabra "PRONI" es interna: NUNCA aparece en el cronograma,
+    // títulos ni nombres de actividades (el inglés simplemente se integra en Letters).
     "lunes": ["lista completa de actividades del lunes en orden, tal como el horario del grupo"],
     "martes": ["..."],
     "miercoles": ["..."],

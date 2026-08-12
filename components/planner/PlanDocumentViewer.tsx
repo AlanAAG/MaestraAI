@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import { Loader2, BookOpen, Pencil, Check, X, Palette, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
-import { expandStrategyAcronym, bulletizeMomentos } from '@/lib/planner/normalize-document'
+import { normalizeActivityLabel, bulletizeMomentos } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import { FONT_MAP, type FontKey } from '@/lib/design/fonts'
 import {
@@ -274,7 +274,7 @@ function CronogramaGrid({ cronograma }: { cronograma: Record<string, string[]> }
                   key={d}
                   className="px-2 py-1 border border-[color:var(--doc-border,#d1d5db)] text-center text-gray-700 align-top"
                 >
-                  {expandStrategyAcronym(cronograma[d]?.[i] ?? '')}
+                  {normalizeActivityLabel(cronograma[d]?.[i] ?? '')}
                 </td>
               ))}
             </tr>

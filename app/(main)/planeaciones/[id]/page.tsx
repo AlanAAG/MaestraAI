@@ -782,13 +782,9 @@ export default function PlaneacionDetailPage() {
                                   {block.time}
                                 </p>
                                 <h4 className="text-base font-semibold text-text-primary mt-1">
-                                  {block.activity}
+                                  {/* Old plans carry a "[PRONI: área]" marker — internal, never shown. */}
+                                  {block.activity.replace(/\s*\[PRONI:[^\]]*\]/gi, '')}
                                 </h4>
-                                {block.activity.includes('[PRONI:') && (
-                                  <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full font-medium bg-info-light text-info-text border border-info">
-                                    PRONI
-                                  </span>
-                                )}
                               </div>
                               <span
                                 className={`text-xs px-3 py-1 rounded-full font-medium ${getMethodologyColor(block.methodology)}`}

@@ -60,7 +60,7 @@ Formato de salida JSON:
   "evaluacion": [{"aspecto": "Escribe la letra Xx"}, {"aspecto": "Reconoce la letra Xx"}, {"aspecto": "Reconoce y escribe palabras que comienzan con Xx"}, {"aspecto": "Modela letras y palabras con plastilina"}, {"aspecto": "Trabaja y juega respetando reglas de convivencia"}]
 }
 
-Reglas: Letters es SOLO los ${letterDay}. SOLO letras, sin contenido numérico. Evaluación cualitativa, nunca numérica.
+Reglas: Letters es SOLO los ${letterDay}. SOLO letras, sin contenido numérico. NUNCA escribas "PRONI" ni combines Letters con Números en el nombre o los títulos. Evaluación cualitativa, nunca numérica.
 ${depth}`
   }
 
@@ -92,7 +92,7 @@ Formato de salida JSON:
   "evaluacion": [{"aspecto": "Reconoce los números del rango trabajado"}, {"aspecto": "Traza los números del rango"}, {"aspecto": "Cuenta objetos del rango"}, {"aspecto": "Construye colecciones"}, {"aspecto": "Trabaja y juega respetando reglas de convivencia"}]
 }
 
-Reglas: Números es SOLO los ${numDay}. Evaluación cualitativa, nunca numérica.
+Reglas: Números es SOLO los ${numDay}. NUNCA escribas "PRONI" ni combines Números con Letters en el nombre o los títulos. Evaluación cualitativa, nunca numérica.
 ${depth}`
 }
 

@@ -358,11 +358,11 @@ function buildPrompt(
   const proniSection = includeProni
     ? `PRONI (Kinder 3 — integrar de forma natural, NO como clase separada):
 Áreas: Familiarization with English | Vocabulary development | Oral communication | Written language awareness | Cultural awareness | Multilingual identity
-Mínimo 1 actividad PRONI por semana en el bloque de ${cap(letterDay)}. Marca con [PRONI: área].`
+Mínimo 1 actividad de inglés por semana en el bloque de ${cap(letterDay)}. NUNCA escribas la palabra "PRONI" en el nombre de la actividad ni en el texto visible.`
     : ''
 
   const richmondSection = richmondUnit
-    ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? `\n${richmondInstructions.slice(0, 300)}` : ''}\nBloque PRONI de ${cap(letterDay)} debe alinearse a esta unidad.`
+    ? `UNIDAD RICHMOND: "${richmondUnit}"${richmondInstructions ? `\n${richmondInstructions.slice(0, 300)}` : ''}\nEl bloque de inglés de ${cap(letterDay)} debe alinearse a esta unidad (sin mencionar "PRONI").`
     : ''
 
   const materialsBaseline =

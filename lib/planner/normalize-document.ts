@@ -31,6 +31,22 @@ export function expandStrategyAcronym(text: string): string {
   return text.replace(ACRONYM_RE, ESTRATEGIA_COMUNITARIA_FULL)
 }
 
+// Letters and Números are ALWAYS separate sections, and PRONI is an internal program name —
+// never a visible tag. The model still slips "Letters and Numbers (PRONI)" into activity
+// labels/sub-plan names; this scrubs it deterministically.
+const COMBINED_LETTERS_RE =
+  /\b(letters?\s*(?:&|and|y)\s*n[uú]m(?:bers?|eros?)|n[uú]m(?:bers?|eros?)\s*(?:&|and|y)\s*letters?)\b/gi
+const PRONI_TAG_RE = /\s*[([]\s*PRONI[^)\]]*[)\]]|\s*[-–—:]\s*PRONI\b/gi
+
+/** Activity/section label cleanup: acronym expansion + un-merge Letters/Números + drop PRONI tags. */
+export function normalizeActivityLabel(text: string): string {
+  return expandStrategyAcronym(text)
+    .replace(COMBINED_LETTERS_RE, 'Letters')
+    .replace(PRONI_TAG_RE, '')
+    .replace(/ {2,}/g, ' ')
+    .trim()
+}
+
 // Inside the proyecto / taller / sub-plan momentos the teacher wants ONE BULLET PER IDEA: every
 // punto y aparte is a separate topic. The prompt asks for it; this makes it code-guaranteed.
 // Headings (**Momento**, ## …), bullets and numbered steps are left untouched.
@@ -103,6 +119,7 @@ function normalizeSubPlan(sp: any): any {
       ed[k] = bulletizeMomentos(stripMomentoEcho(sectionToString(val)))
     out.estructura_didactica = ed
   }
+  if (typeof out.nombre === 'string') out.nombre = normalizeActivityLabel(out.nombre)
   if ('observaciones' in out) out.observaciones = sectionToString(out.observaciones)
   return out
 }
@@ -137,7 +154,7 @@ export function normalizePlanDocument(pd: any): any {
     const cr: Record<string, unknown> = {}
     for (const [day, acts] of Object.entries(out.cronograma)) {
       cr[day] = Array.isArray(acts)
-        ? acts.map((a) => (typeof a === 'string' ? expandStrategyAcronym(a) : a))
+        ? acts.map((a) => (typeof a === 'string' ? normalizeActivityLabel(a) : a))
         : acts
     }
     out.cronograma = cr
