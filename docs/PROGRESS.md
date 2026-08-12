@@ -6,8 +6,8 @@ Current phase: Phase 6 — Quality & Polish
 ## Current state
 
 - Next.js 14 App Router + Tailwind v3 + shadcn/ui + Supabase
-- **220 tests passing (48 files)**, typecheck + lint clean, production build on Vercel
-- Migrations applied through **073**
+- **227 tests passing (49 files)**, typecheck + lint clean, production build on Vercel
+- Migrations applied through **074**
 - Migration ledger repaired — `supabase db push` works normally
 
 ## What exists
@@ -19,6 +19,7 @@ See git history for full feature log. Major systems:
 - **Richmond integration**: Chrome extension sync, CSV/XLSX import, analytics dashboard, TG5A catalog (migration 057 applied), per-unit vocabulary in lesson plans
 - **Auth & Onboarding**: Email/password + Google OAuth, 7-step wizard, consent records
 - **Parent accounts**: Invite flow, /familia area, shared materials toggle (migration 065 applied)
+- **Group classroom (/grupos)**: Classroom-style wall per group — anuncios + tareas (material asignado + fecha límite), publicación manda correo automático a todas las familias del grupo (contactos de ficha + papás invitados, dedup), /familia muestra el muro por hijo con Entregado/Pendiente vía game_plays (migration 074)
 - **Home play (juegos en casa)**: anonymous kid profiles (apodo + avatar, no PII) on `/jugar/[token]`, aciertos stored per run, homework threshold per game ("mínimo N aciertos → si no, repetir"), parent links the child's profile with a 6-char code and sees the aciertos in /familia (teacher can turn results off in Perfil), teacher sees "quién ha jugado en casa" + can email the link to all invited families (migration 069 applied)
 - **Group archiving**: "Nuevo ciclo escolar" soft-archive (migration 067 applied)
 - **NEM grounding**: Verbatim contenidos bank (35 items, full 1°/2°/3° PDA desglose — grounding, prompt block and snap-to-bank all use the plan's grade), enforce-contenidos snap, NEM knowledge RAG (migration 066 applied + ingested), fichero de la paz rotation, auto-ficha picker

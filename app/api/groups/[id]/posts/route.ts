@@ -7,6 +7,9 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { decrypt } from '@/lib/encryption'
 import { mergeRecipients } from '@/lib/groups/classroom'
 
+// Sending N sequential emails can exceed the default serverless window on big groups.
+export const maxDuration = 60
+
 // Group classroom wall: POST publishes an anuncio/tarea AND emails every family of the group
 // (student contact emails + invited parents, deduped). GET lists the wall. Teacher-only; RLS
 // gives parents read access via /familia's own fetch.
