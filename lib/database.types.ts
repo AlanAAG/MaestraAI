@@ -534,6 +534,7 @@ export type Database = {
       }
       group_posts: {
         Row: {
+          attachments: Json | null
           body: string | null
           created_at: string
           due_date: string | null
@@ -545,6 +546,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          attachments?: Json | null
           body?: string | null
           created_at?: string
           due_date?: string | null
@@ -556,6 +558,7 @@ export type Database = {
           title: string
         }
         Update: {
+          attachments?: Json | null
           body?: string | null
           created_at?: string
           due_date?: string | null
@@ -583,6 +586,61 @@ export type Database = {
           },
           {
             foreignKeyName: 'group_posts_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      group_questions: {
+        Row: {
+          author_auth: string
+          author_name: string
+          body: string
+          created_at: string
+          group_id: string
+          id: string
+          reply_to: string | null
+          teacher_id: string
+        }
+        Insert: {
+          author_auth: string
+          author_name: string
+          body: string
+          created_at?: string
+          group_id: string
+          id?: string
+          reply_to?: string | null
+          teacher_id: string
+        }
+        Update: {
+          author_auth?: string
+          author_name?: string
+          body?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          reply_to?: string | null
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'group_questions_group_id_fkey'
+            columns: ['group_id']
+            isOneToOne: false
+            referencedRelation: 'groups'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'group_questions_reply_to_fkey'
+            columns: ['reply_to']
+            isOneToOne: false
+            referencedRelation: 'group_questions'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'group_questions_teacher_id_fkey'
             columns: ['teacher_id']
             isOneToOne: false
             referencedRelation: 'teachers'
@@ -1573,6 +1631,51 @@ export type Database = {
           },
         ]
       }
+      school_invites: {
+        Row: {
+          claimed_at: string | null
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          role: string
+          school_id: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          school_id: string
+        }
+        Update: {
+          claimed_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'school_invites_invited_by_fkey'
+            columns: ['invited_by']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'school_invites_school_id_fkey'
+            columns: ['school_id']
+            isOneToOne: false
+            referencedRelation: 'schools'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       schools: {
         Row: {
           city: string | null
@@ -1581,6 +1684,7 @@ export type Database = {
           logo_url: string | null
           name: string
           plan: string | null
+          slug: string | null
           state: string | null
         }
         Insert: {
@@ -1590,6 +1694,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           plan?: string | null
+          slug?: string | null
           state?: string | null
         }
         Update: {
@@ -1599,6 +1704,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           plan?: string | null
+          slug?: string | null
           state?: string | null
         }
         Relationships: []
@@ -1655,6 +1761,54 @@ export type Database = {
             columns: ['group_id']
             isOneToOne: false
             referencedRelation: 'groups'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      task_submissions: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          note: string | null
+          post_id: string
+          student_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          note?: string | null
+          post_id: string
+          student_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          note?: string | null
+          post_id?: string
+          student_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_submissions_post_id_fkey'
+            columns: ['post_id']
+            isOneToOne: false
+            referencedRelation: 'group_posts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'task_submissions_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
             referencedColumns: ['id']
           },
         ]

@@ -110,6 +110,13 @@ export default function OnboardingPage() {
       return false
     }
 
+    // If the director already allow-listed this email, link the school right away.
+    try {
+      await fetch('/api/school/claim-invite', { method: 'POST' })
+    } catch {
+      // best-effort — /red retries the claim on every load
+    }
+
     // Record the consents the teacher gave on the registration page
     try {
       const raw = localStorage.getItem('pendingConsents')

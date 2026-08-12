@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, ChevronDown, Download, Trash2, X } from 'lucide-react'
+import { SchoolAdminPanel } from '@/components/school/SchoolAdminPanel'
 
 type Announcement = {
   id: string
@@ -96,6 +97,8 @@ export default function RedPage() {
 
   useEffect(() => {
     async function load() {
+      // Idempotent: link this account to a school if her email is on an allowlist.
+      await fetch('/api/school/claim-invite', { method: 'POST' }).catch(() => {})
       const [meRes, annRes, resRes, tplRes] = await Promise.all([
         fetch('/api/teachers/me'),
         fetch('/api/school/announcements'),
@@ -253,6 +256,12 @@ export default function RedPage() {
           </label>
         </div>
       </div>
+
+      {roleType === 'admin' && (
+        <div className="mb-8">
+          <SchoolAdminPanel />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Avisos (2/3 width) */}
