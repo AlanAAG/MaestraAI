@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Loader2, Megaphone, ClipboardList, Trash2, Mail } from 'lucide-react'
 import { GroupForum } from '@/components/forum/GroupForum'
+import { AttachmentLink } from '@/components/files/AttachmentLink'
 
 type MaterialOption = { id: string; label: string }
 type Post = {
@@ -18,6 +19,7 @@ type Post = {
   body: string | null
   due_date: string | null
   created_at: string
+  attachments?: { name: string; path: string }[] | null
   materials?: { type: string; play_token: string | null; content?: { title?: string } } | null
   group_post_emails?: { sent: number; total: number }[]
 }
@@ -48,6 +50,56 @@ export default function GrupoWallPage() {
   const [materialId, setMaterialId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [publishing, setPublishing] = useState(false)
+  const [files, setFiles] = useState<{ name: string; path: string }[]>([])
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [subs, setSubs] = useState<
+    Record<
+      string,
+      {
+        id: string
+        file_path: string
+        file_name: string
+        note: string | null
+        student_name: string
+      }[]
+    >
+  >({})
+
+  async function attachFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || files.length >= 3) return
+    if (file.size > 6 * 1024 * 1024) {
+      setError('Archivo demasiado grande (máx 6MB).')
+      return
+    }
+    setUploadingFile(true)
+    setError('')
+    try {
+      const base64 = btoa(
+        new Uint8Array(await file.arrayBuffer()).reduce((a, b) => a + String.fromCharCode(b), '')
+      )
+      const res = await fetch(`/api/groups/${id}/files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: file.name, mimeType: file.type, base64 }),
+      })
+      const data = await res.json().catch(() => ({}) as { error?: string })
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo subir')
+      setFiles((p) => [...p, { name: data.name, path: data.path }])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo subir')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  async function loadSubs(postId: string) {
+    const res = await fetch(`/api/groups/${id}/submissions?post_id=${postId}`)
+    if (res.ok) setSubs((p) => ({ ...p, [postId]: undefined as never }))
+    const data = await res.json().catch(() => ({ submissions: [] }))
+    setSubs((p) => ({ ...p, [postId]: data.submissions ?? [] }))
+  }
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
@@ -107,6 +159,7 @@ export default function GrupoWallPage() {
           body: body.trim() || undefined,
           material_id: kind === 'tarea' ? materialId || undefined : undefined,
           due_date: kind === 'tarea' && dueDate ? dueDate : undefined,
+          attachments: files.length ? files : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}) as { error?: string })
@@ -120,6 +173,7 @@ export default function GrupoWallPage() {
       setBody('')
       setMaterialId('')
       setDueDate('')
+      setFiles([])
       loadPosts()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo publicar')
@@ -213,6 +267,35 @@ export default function GrupoWallPage() {
             </div>
           </div>
         )}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          {files.map((f, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1 text-xs text-text-primary"
+            >
+              📎 {f.name}
+              <button
+                type="button"
+                onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}
+                className="cursor-pointer text-text-disabled hover:text-red-600"
+                aria-label={`Quitar ${f.name}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:border-primary">
+            {uploadingFile ? <Loader2 size={13} className="animate-spin" /> : '📎'} Adjuntar archivo
+            <input
+              type="file"
+              accept=".pdf,.docx,image/jpeg,image/png,image/webp"
+              onChange={attachFile}
+              disabled={uploadingFile || files.length >= 3}
+              className="hidden"
+              aria-label="Adjuntar archivo a la publicación"
+            />
+          </label>
+        </div>
         {error && <p className="mb-2 text-sm text-error">{error}</p>}
         {notice && (
           <p className="mb-2 flex items-center gap-1.5 text-sm text-success-text">
@@ -272,6 +355,50 @@ export default function GrupoWallPage() {
                         {TYPE_LABELS[p.materials.type] ?? 'Material'}
                         {p.materials.content?.title ? ` — ${p.materials.content.title}` : ''}
                       </Link>
+                    )}
+                    {(p.attachments ?? []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {(p.attachments ?? []).map((a, i) => (
+                          <AttachmentLink key={i} path={a.path} name={a.name} />
+                        ))}
+                      </div>
+                    )}
+                    {p.kind === 'tarea' && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            subs[p.id]
+                              ? setSubs((x) => ({ ...x, [p.id]: undefined as never }))
+                              : loadSubs(p.id)
+                          }
+                          className="cursor-pointer text-xs font-medium text-primary hover:underline"
+                        >
+                          {subs[p.id] ? 'Ocultar entregas' : 'Ver entregas'}
+                        </button>
+                        {subs[p.id] && (
+                          <ul className="mt-2 space-y-1.5">
+                            {subs[p.id].length === 0 ? (
+                              <li className="text-xs text-text-secondary">Aún no hay entregas.</li>
+                            ) : (
+                              subs[p.id].map((sub) => (
+                                <li
+                                  key={sub.id}
+                                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs"
+                                >
+                                  <span className="font-medium text-text-primary">
+                                    {sub.student_name}
+                                  </span>
+                                  <AttachmentLink path={sub.file_path} name={sub.file_name} />
+                                  {sub.note && (
+                                    <span className="text-text-secondary">“{sub.note}”</span>
+                                  )}
+                                </li>
+                              ))
+                            )}
+                          </ul>
+                        )}
+                      </div>
                     )}
                     <p className="mt-2 text-xs text-text-muted">
                       {fmt(p.created_at)}

@@ -24,6 +24,10 @@ const PostSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    attachments: z
+      .array(z.object({ name: z.string().min(1).max(160), path: z.string().min(1).max(300) }))
+      .max(3)
+      .optional(),
   })
   .refine((d) => d.kind !== 'tarea' || d.material_id, {
     message: 'Una tarea necesita un material asignado',
@@ -90,6 +94,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         body: body.data.body || null,
         material_id: body.data.material_id ?? null,
         due_date: body.data.due_date ?? null,
+        // Only paths uploaded for THIS group are accepted (upload route created them).
+        attachments:
+          body.data.attachments?.filter((a) => a.path.startsWith(`g/${group.id}/`)) ?? null,
       })
       .select('id')
       .single()
@@ -146,6 +153,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 ${body.data.body ? `<p style="white-space:pre-line">${body.data.body}</p>` : ''}
 ${playUrl ? `<p><a href="${playUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Abrir la actividad</a></p>` : ''}
 ${due ? `<p style="color:#666">Fecha límite: ${due}</p>` : ''}
+${body.data.attachments?.length ? `<p style="color:#666">📎 ${body.data.attachments.length} archivo(s) adjunto(s) — ábrelos desde el portal de familias.</p>` : ''}
 <p style="color:#666;font-size:13px"><a href="${base}/familia">Ver todos los anuncios en MaestraIA</a></p>`
 
     let sent = 0
@@ -193,7 +201,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { data: posts } = await (supabase as any)
       .from('group_posts')
       .select(
-        'id, kind, title, body, material_id, due_date, created_at, materials(type, play_token, content), group_post_emails(sent, total)'
+        'id, kind, title, body, material_id, due_date, created_at, attachments, materials(type, play_token, content), group_post_emails(sent, total)'
       )
       .eq('group_id', params.id)
       .order('created_at', { ascending: false })

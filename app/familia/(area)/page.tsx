@@ -10,6 +10,8 @@ import { grantsAccess } from '@/lib/parents/links'
 import { tareaEntregada, type PlayRow } from '@/lib/groups/classroom'
 import { LinkPlayerCard } from '@/components/parents/LinkPlayerCard'
 import { GroupForum } from '@/components/forum/GroupForum'
+import { SubmitTarea } from '@/components/parents/SubmitTarea'
+import { AttachmentLink } from '@/components/files/AttachmentLink'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +39,7 @@ interface Juego {
 interface Post {
   id: string
   kind: 'anuncio' | 'tarea'
+  attachments: { name: string; path: string }[]
   title: string
   body: string | null
   due_date: string | null
@@ -216,6 +219,19 @@ export default async function FamiliaPage() {
       } catch {
         /* migration 069 absent → no delivery state */
       }
+      // Homework files this family already uploaded (a submission also counts as entregada).
+      let submittedPosts = new Set<string>()
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: mySubs } = await (service as any)
+          .from('task_submissions')
+          .select('post_id')
+          .eq('student_id', link.student_id)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        submittedPosts = new Set((mySubs ?? []).map((x: any) => x.post_id))
+      } catch {
+        /* migration 078 absent */
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       posts = (rawPosts ?? []).map((p: any) => ({
         id: p.id,
@@ -227,7 +243,11 @@ export default async function FamiliaPage() {
         material_type: p.materials?.type ?? null,
         material_title: p.materials?.content?.title ?? null,
         play_token: p.materials?.play_token ?? null,
-        entregada: p.kind === 'tarea' ? tareaEntregada(p.material_id, plays) : null,
+        attachments: Array.isArray(p.attachments) ? p.attachments : [],
+        entregada:
+          p.kind === 'tarea'
+            ? tareaEntregada(p.material_id, plays) || submittedPosts.has(p.id)
+            : null,
       }))
     } catch {
       /* migration 074 absent → no wall */
@@ -294,6 +314,18 @@ export default async function FamiliaPage() {
                         >
                           Abrir la actividad
                         </Link>
+                      )}
+                      {p.attachments.length > 0 && (
+                        <span className="mt-1 flex flex-wrap gap-3">
+                          {p.attachments.map((a, i) => (
+                            <AttachmentLink key={i} path={a.path} name={a.name} />
+                          ))}
+                        </span>
+                      )}
+                      {p.kind === 'tarea' && (
+                        <span className="mt-2 block">
+                          <SubmitTarea postId={p.id} studentId={child.id} />
+                        </span>
                       )}
                     </div>
                     {p.entregada !== null && (

@@ -6,8 +6,8 @@ Current phase: Phase 6 — Quality & Polish
 ## Current state
 
 - Next.js 14 App Router + Tailwind v3 + shadcn/ui + Supabase
-- **227 tests passing (49 files)**, typecheck + lint clean, production build on Vercel
-- Migrations applied through **075**
+- **230 tests passing (50 files)**, typecheck + lint clean, production build on Vercel
+- Migrations applied through **079**
 - Migration ledger repaired — `supabase db push` works normally
 
 ## What exists
@@ -19,6 +19,7 @@ See git history for full feature log. Major systems:
 - **Richmond integration**: Chrome extension sync, CSV/XLSX import, analytics dashboard, TG5A catalog (migration 057 applied), per-unit vocabulary in lesson plans
 - **Auth & Onboarding**: Email/password + Google OAuth, 7-step wizard, consent records
 - **Parent accounts**: Invite flow, /familia area, shared materials toggle (migration 065 applied)
+- **School environment**: escuela → maestra → grupos → familias con roles y RLS. Director (role_type admin) define el portal `/escuela/<slug>`, allowlist de correos (school_invites) con invitación por email y claim automático al registrarse; foro de dudas por grupo (familias preguntan, la miss responde); archivos adjuntos en anuncios/tareas (bucket privado class-files, URLs firmadas con chequeo de membresía) y entrega de tareas por las familias con vista de entregas por alumno (migrations 076-079)
 - **Group classroom (/grupos)**: Classroom-style wall per group — anuncios + tareas (material asignado + fecha límite), publicación manda correo automático a todas las familias del grupo (contactos de ficha + papás invitados, dedup), /familia muestra el muro por hijo con Entregado/Pendiente vía game_plays (migration 074)
 - **Home play (juegos en casa)**: anonymous kid profiles (apodo + avatar, no PII) on `/jugar/[token]`, aciertos stored per run, homework threshold per game ("mínimo N aciertos → si no, repetir"), parent links the child's profile with a 6-char code and sees the aciertos in /familia (teacher can turn results off in Perfil), teacher sees "quién ha jugado en casa" + can email the link to all invited families (migration 069 applied)
 - **Group archiving**: "Nuevo ciclo escolar" soft-archive (migration 067 applied)
