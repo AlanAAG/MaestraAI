@@ -7,7 +7,7 @@ import OpenAI from 'openai'
 export async function callPlannerModel(
   system: string,
   user: string,
-  opts: { maxTokens?: number; cachePrefix?: string } = {}
+  opts: { maxTokens?: number; cachePrefix?: string; label?: string } = {}
 ): Promise<string> {
   // Sonnet 5's tokenizer produces ~30% more tokens for the same text — give output headroom
   // so documents sized for the old 16384 cap don't truncate.
@@ -40,6 +40,12 @@ export async function callPlannerModel(
         system: systemParam,
         messages: [{ role: 'user', content: user }],
       })
+      // Cost telemetry: cache reads are ~90% cheaper — this line is how we SEE whether the
+      // cachePrefix is actually hitting, and where the input tokens go. One line per call.
+      const u = resp.usage
+      console.log(
+        `[planner-tokens] ${opts.label ?? 'call'}: in=${u.input_tokens} cache_write=${u.cache_creation_input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0} out=${u.output_tokens}`
+      )
       if (resp.stop_reason === 'max_tokens') {
         // Diagnostic: the document was cut off. parsePlanJson recovery may still salvage it,
         // but this means maxTokens should rise or the request should be split.

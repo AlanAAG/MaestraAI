@@ -37,6 +37,7 @@ import {
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 import { buildSectionMeta } from '@/lib/planner/section-map'
 import { normalizePlanDocument, expandStrategyAcronym } from '@/lib/planner/normalize-document'
+import { validatePlanDocument } from '@/lib/planner/validate-document'
 import { decrypt } from '@/lib/encryption'
 import { scrubNames } from '@/lib/planner/extract-template'
 
@@ -786,7 +787,7 @@ export async function POST(req: NextRequest) {
     // across the main + sub-plan calls, and caching makes its ~7k tokens nearly free after the
     // first call. Older profiles without raw_text (pre-upgrade uploads) simply omit the block.
     const exampleBlock = profile?.raw_text
-      ? `\n\n<planeacion_ejemplo_completa>\nPlaneación REAL escrita por esta maestra (su formato oficial). Es tu referencia MÁXIMA de voz, estructura, profundidad y tipo de contenido — la nueva planeación debe leerse como escrita por la misma persona, con la misma densidad y estilo operativo:\n${profile.raw_text}\n</planeacion_ejemplo_completa>`
+      ? `\n\n<planeacion_ejemplo_completa>\nPlaneación REAL escrita por esta maestra (su formato oficial). Es tu referencia MÁXIMA de voz, estructura, profundidad y tipo de contenido — la nueva planeación debe leerse como escrita por la misma persona, con la misma densidad y estilo operativo:\n${String(profile.raw_text).slice(0, 15000)}\n</planeacion_ejemplo_completa>`
       : ''
     const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni, undefined, groupGrade)}${exampleBlock}`
 
@@ -960,7 +961,10 @@ export async function POST(req: NextRequest) {
         try {
           // No maxTokens override: use the model default (20000) — Sonnet 5's tokenizer runs
           // ~30% fatter, and the old 16384 pin risked truncating the multi-page document.
-          const raw = await callPlannerModel(systemPrompt, userPrompt, { cachePrefix })
+          const raw = await callPlannerModel(systemPrompt, userPrompt, {
+            cachePrefix,
+            label: `main:${planType}`,
+          })
           const planDocument = parsePlanJson(raw)
 
           // Snap campos_formativos to the official bank: verbatim Contenidos + FULL PDA desglose,
@@ -983,6 +987,16 @@ export async function POST(req: NextRequest) {
               })),
               nemOpts
             )
+          }
+
+          // Strict local format validation (pure, cheap). Issues are logged + stamped on the
+          // doc — never block delivery; they're the signal for prompt/normalizer fixes.
+          const formatIssues = validatePlanDocument(planDocument)
+          if (formatIssues.length) {
+            console.warn('[generate-document] format issues:', JSON.stringify(formatIssues))
+            planDocument._format_issues = formatIssues
+          } else {
+            delete planDocument._format_issues
           }
 
           // Embed teacher's section order + titles so the viewer renders in the right order.

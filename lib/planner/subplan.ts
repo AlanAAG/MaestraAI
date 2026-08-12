@@ -143,6 +143,7 @@ Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido
   const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
     maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
     cachePrefix: opts.cachePrefix,
+    label: `subplan:custom:${spec.methodology}`,
   })
   const doc = parsePlanJson(raw)
   doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
@@ -174,6 +175,7 @@ export async function generateSubplan(
   const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
     maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
     cachePrefix: opts.cachePrefix,
+    label: `subplan:${subType}`,
   })
   const doc = parsePlanJson(raw)
   doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
