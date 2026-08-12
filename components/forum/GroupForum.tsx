@@ -63,15 +63,27 @@ export function GroupForum({
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Inicia sesión de nuevo')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: err } = await (supabase as any).from('group_questions').insert({
-        group_id: groupId,
-        teacher_id: groupTeacherId,
-        author_auth: user.id,
-        author_name: authorName,
-        body: body.trim(),
-        reply_to: replyTo,
-      })
+      const { data: inserted, error: err } = await (supabase as any)
+        .from('group_questions')
+        .insert({
+          group_id: groupId,
+          teacher_id: groupTeacherId,
+          author_auth: user.id,
+          author_name: authorName,
+          body: body.trim(),
+          reply_to: replyTo,
+        })
+        .select('id')
+        .single()
       if (err) throw new Error('No se pudo enviar')
+      // Best-effort email to the other side (teacher on new dudas, thread author on replies).
+      if (inserted?.id) {
+        fetch('/api/forum/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question_id: inserted.id }),
+        }).catch(() => {})
+      }
       setBody('')
       setReplyTo(null)
       load()

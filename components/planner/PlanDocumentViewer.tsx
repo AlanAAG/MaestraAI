@@ -70,6 +70,7 @@ const SUBPLAN_METHODOLOGIES = [
   'Aprendizaje Basado en el Juego',
   'Situación Didáctica',
   'Asamblea',
+  'Gamificación',
 ]
 
 type PlanDoc = {

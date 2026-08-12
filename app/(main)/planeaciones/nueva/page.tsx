@@ -37,6 +37,7 @@ const MODALIDADES = [
   'Aprendizaje Basado en Indagación (STEAM)',
   'Aprendizaje Basado en Problemas',
   'Aprendizaje-Servicio',
+  'Gamificación',
 ] as const
 
 // One or more single letters separated by commas (e.g. "A" or "A, B"). Accent-aware.

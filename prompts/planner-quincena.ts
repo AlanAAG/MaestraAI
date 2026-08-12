@@ -24,7 +24,7 @@ El horario semanal exacto (qué actividades van en cada día) se provee en el me
 ESTRUCTURA DE SALIDA (plan_document):
 {
   "tipo": "quincena",
-  "metodologia": "Proyecto",  // metodologías NEM válidas: Proyecto | Taller Crítico | Rincones de Aprendizaje | Centro de Interés | Unidad Didáctica | Aprendizaje Basado en el Juego | Situación Didáctica | Asamblea — cada una con su propia estructura didáctica (las 6 modalidades oficiales traen sus fases EXACTAS y en orden en <modalidades>; si <estructura_proyecto> especifica otras, usa ESAS)
+  "metodologia": "Proyecto",  // metodologías NEM válidas: Proyecto | Taller Crítico | Rincones de Aprendizaje | Centro de Interés | Unidad Didáctica | Aprendizaje Basado en el Juego | Situación Didáctica | Asamblea | Gamificación — cada una con su propia estructura didáctica (las 6 modalidades oficiales traen sus fases EXACTAS y en orden en <modalidades>; si <estructura_proyecto> especifica otras, usa ESAS)
   "nombre_proyecto": "string",
   "actividades_iniciales": "lista con viñetas de TODAS las rutinas diarias de apertura (clima, saludo, pase de lista, fecha/calendario, rutina con imágenes, tiempo de compartir). Cada una con 1-2 frases describiendo CÓMO se realiza.",
   "actividades_rutina": "lista con viñetas de las rutinas permanentes del mes (valor del mes con ejemplos, lavado de manos, lunch, recreo, clases especiales, lectura de cuento). DEBE incluir una viñeta 'Aventura lectora:' con este contenido: cada día en la lectura del cuento la maestra reflexiona con los niños sobre alguna PALABRA NUEVA para que adquieran mayor vocabulario (menciona cómo: la señala, la repiten, la relacionan con su vida). Incluye también la 'Lectura de cuento con papás' del viernes si aplica. Cada viñeta descrita concretamente.",
@@ -74,6 +74,8 @@ EXIGENCIAS DE PROFUNDIDAD (OBLIGATORIO):
 - actividades_iniciales y actividades_rutina: al menos 6 viñetas cada una.
 - El calendario de observación de alumnos lo renderiza la aplicación — NUNCA lo repitas ni lo copies dentro de ningún campo de texto (ni en cronograma, ni en proyecto, ni en custom_sections).
 - NO resumas, NO uses placeholders, NO escribas "etc.". Desarrolla todo.
+
+GAMIFICACIÓN (cuando la metodología es "Gamificación"): TODA la planeación se redacta como un juego — una narrativa envolvente (universo, personajes, misión general) que conecta cada momento; las actividades son MISIONES y RETOS con nombres lúdicos; los avances se celebran con logros e insignias DEL JUEGO (estrellas, medallas de la misión — son mecánica de motivación, NUNCA calificaciones del alumno); el cierre es el evento final del juego. El cronograma y las secciones usan el vocabulario de la narrativa. La evaluación del aprendizaje sigue siendo la CUALITATIVA de siempre, fuera de la mecánica del juego.
 
 REGLAS NEM INVIOLABLES:
 - Respeta TODA la normativa de los bloques <ejes_articuladores>, <perfil_egreso_fase2>, <campos_formativos>, <evaluacion_reglas>, <proni_regla> y <privacidad> provistos al inicio (NEM_SYNTHESIS).

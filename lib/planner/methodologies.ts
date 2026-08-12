@@ -71,6 +71,16 @@ export const METHODOLOGY_STRUCTURE: Record<string, { key: string; label: string 
     { key: 'experimentacion', label: 'Experimentación' },
     { key: 'analisis', label: 'Análisis y conclusiones' },
   ],
+  // Gamificación: the whole plan runs as a game — narrative universe, misiones, logros.
+  // (Insignias/avances are GAME mechanics for motivation; student evaluation stays qualitative.)
+  Gamificación: [
+    { key: 'narrativa', label: 'Narrativa e inmersión (universo del juego y personajes)' },
+    { key: 'reglas', label: 'Reglas del juego y equipos' },
+    { key: 'misiones', label: 'Misiones y retos (actividades como desafíos progresivos)' },
+    { key: 'logros', label: 'Logros e insignias (avances visibles del juego)' },
+    { key: 'evento_final', label: 'Evento final (gran misión de cierre)' },
+    { key: 'reflexion', label: 'Reflexión sobre el aprendizaje' },
+  ],
   'Aprendizaje-Servicio': [
     { key: 'punto_de_partida', label: 'Punto de partida' },
     { key: 'lo_que_se', label: 'Lo que sé y quiero saber' },
