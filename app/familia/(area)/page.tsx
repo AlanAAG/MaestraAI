@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { decryptName } from '@/lib/students/name'
 import { grantsAccess } from '@/lib/parents/links'
+import { tareaEntregada, type PlayRow } from '@/lib/groups/classroom'
 import { LinkPlayerCard } from '@/components/parents/LinkPlayerCard'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,19 @@ interface Juego {
   at: string
 }
 
+interface Post {
+  id: string
+  kind: 'anuncio' | 'tarea'
+  title: string
+  body: string | null
+  due_date: string | null
+  created_at: string
+  material_type: string | null
+  material_title: string | null
+  play_token: string | null
+  entregada: boolean | null // null = anuncio (no delivery state)
+}
+
 interface ChildView {
   id: string
   name: string
@@ -40,6 +54,7 @@ interface ChildView {
   /** null = the teacher turned game results off, or no profile is linked yet. */
   juegos: Juego[] | null
   playerLinked: boolean
+  posts: Post[]
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -88,7 +103,7 @@ export default async function FamiliaPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: student } = await (service as any)
       .from('students')
-      .select('id, first_name_encrypted, last_name_encrypted')
+      .select('id, group_id, first_name_encrypted, last_name_encrypted')
       .eq('id', link.student_id)
       .single()
     if (!student) continue
@@ -163,6 +178,58 @@ export default async function FamiliaPage() {
       // migration 069 not applied yet → no games section
     }
 
+    // Group wall: anuncios + tareas for the child's group. Tarea delivery state comes from the
+    // child's linked play profiles (best-effort — everything degrades to just the feed).
+    let posts: Post[] = []
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rawPosts } = await (service as any)
+        .from('group_posts')
+        .select(
+          'id, kind, title, body, material_id, due_date, created_at, materials(type, play_token, content)'
+        )
+        .eq('group_id', student.group_id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      let plays: PlayRow[] = []
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: players } = await (service as any)
+          .from('game_players')
+          .select('id')
+          .eq('student_id', link.student_id)
+        if (players?.length) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: playRows } = await (service as any)
+            .from('game_plays')
+            .select('material_id, passed')
+            .in(
+              'player_id',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              players.map((p: any) => p.id)
+            )
+          plays = (playRows ?? []) as PlayRow[]
+        }
+      } catch {
+        /* migration 069 absent → no delivery state */
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      posts = (rawPosts ?? []).map((p: any) => ({
+        id: p.id,
+        kind: p.kind,
+        title: p.title,
+        body: p.body,
+        due_date: p.due_date,
+        created_at: p.created_at,
+        material_type: p.materials?.type ?? null,
+        material_title: p.materials?.content?.title ?? null,
+        play_token: p.materials?.play_token ?? null,
+        entregada: p.kind === 'tarea' ? tareaEntregada(p.material_id, plays) : null,
+      }))
+    } catch {
+      /* migration 074 absent → no wall */
+    }
+
     children.push({
       id: link.student_id,
       name: first || 'Tu hijo/a',
@@ -170,6 +237,7 @@ export default async function FamiliaPage() {
       materiales: (materials ?? []) as Material[],
       juegos,
       playerLinked,
+      posts,
     })
   }
 
@@ -180,6 +248,64 @@ export default async function FamiliaPage() {
           <h1 className="text-2xl font-semibold font-display text-text-primary mb-6">
             {child.name}
           </h1>
+
+          <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
+            Anuncios y tareas del grupo
+          </h2>
+          {child.posts.length === 0 ? (
+            <p className="text-text-secondary text-sm mb-8">Aún no hay anuncios de la maestra.</p>
+          ) : (
+            <ul className="space-y-2 mb-8">
+              {child.posts.map((p) => (
+                <li key={p.id} className="bg-surface border border-border rounded-xl px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-text-primary">
+                        {p.kind === 'tarea' ? '📝 ' : '📣 '}
+                        {p.title}
+                      </p>
+                      {p.body && (
+                        <p className="mt-1 whitespace-pre-line text-xs text-text-secondary">
+                          {p.body}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-text-muted">
+                        {new Date(p.created_at).toLocaleDateString('es-MX', {
+                          day: 'numeric',
+                          month: 'long',
+                        })}
+                        {p.due_date
+                          ? ` · entrega: ${new Date(`${p.due_date}T12:00:00`).toLocaleDateString(
+                              'es-MX',
+                              { day: 'numeric', month: 'long' }
+                            )}`
+                          : ''}
+                      </p>
+                      {p.play_token && (
+                        <Link
+                          href={`/jugar/${p.play_token}`}
+                          className="mt-1 inline-block text-xs font-medium text-brand underline"
+                        >
+                          Abrir la actividad
+                        </Link>
+                      )}
+                    </div>
+                    {p.entregada !== null && (
+                      <span
+                        className={`shrink-0 text-xs font-medium px-3 py-1 rounded-full ${
+                          p.entregada
+                            ? 'bg-success-light text-success-text'
+                            : 'bg-warning-light text-warning-text'
+                        }`}
+                      >
+                        {p.entregada ? 'Entregado' : 'Pendiente'}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
             Tareas
