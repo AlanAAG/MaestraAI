@@ -256,6 +256,10 @@ export type Database = {
           number: number
           number_range_week1: string | null
           number_range_week2: string | null
+          number_week1: string | null
+          number_week2: string | null
+          number_week3: string | null
+          number_week4: string | null
           observation_calendar: Json | null
           physical_materials: string[] | null
           plan_document: Json | null
@@ -294,6 +298,10 @@ export type Database = {
           number: number
           number_range_week1?: string | null
           number_range_week2?: string | null
+          number_week1?: string | null
+          number_week2?: string | null
+          number_week3?: string | null
+          number_week4?: string | null
           observation_calendar?: Json | null
           physical_materials?: string[] | null
           plan_document?: Json | null
@@ -332,6 +340,10 @@ export type Database = {
           number?: number
           number_range_week1?: string | null
           number_range_week2?: string | null
+          number_week1?: string | null
+          number_week2?: string | null
+          number_week3?: string | null
+          number_week4?: string | null
           observation_calendar?: Json | null
           physical_materials?: string[] | null
           plan_document?: Json | null

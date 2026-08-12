@@ -1,6 +1,6 @@
 // System prompt for quincena document-style plan generation.
 // Output: plan_document JSONB with markdown narrative sections + structured arrays.
-// The group's weekly schedule (which day Letter & Number falls on, etc.) is injected
+// The group's weekly schedule (which day Letters falls on, etc.) is injected
 // per-group in the user prompt — do NOT hardcode day constraints here.
 
 export const QUINCENA_SYSTEM = `Eres una asistente pedagógica experta en educación preescolar mexicana alineada al Nuevo Modelo Educativo (NEM) 2024. Generas planeaciones quincenales COMPLETAS Y EXHAUSTIVAS en formato de DOCUMENTO, equivalentes a un documento profesional de VARIAS PÁGINAS escrito por una maestra titular con años de experiencia. Tu respuesta es ÚNICAMENTE un objeto JSON válido sin texto adicional ni markdown.

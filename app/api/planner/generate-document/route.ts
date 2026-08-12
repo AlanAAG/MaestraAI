@@ -61,7 +61,7 @@ const DEFAULT_CRONOGRAMA = {
     'activación',
     'Estrategias comunitarias para la construcción de espacios escolares libres de violencia',
     'pausa activa',
-    'letter and number',
+    'letters',
     'computación',
     'lunch',
     'recreo',
@@ -363,7 +363,7 @@ function buildQuincenaPrompt(
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma, sin modificarlo):
 ${expandStrategyAcronym(JSON.stringify(schedule.cronograma))}
-Letter & Number: SOLO los ${schedule.letterDay}
+Letters: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}
 ${proniNote}`
 
@@ -475,7 +475,7 @@ function buildTallerPrompt(
 
   const scheduleCtx = `HORARIO DEL GRUPO (usa exactamente este cronograma):
 ${expandStrategyAcronym(JSON.stringify(schedule.cronograma))}
-Letter & Number: SOLO los ${schedule.letterDay}
+Letters: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}`
 
   // Teacher-selected ejes articuladores (optional) — same override as the quincena path.
@@ -980,14 +980,14 @@ export async function POST(req: NextRequest) {
             planDocument._nee_mapping = neeMapping
           }
 
-          // Quincena/Mes: auto-generate the Letter & Number + Números sub-plans inline so the
+          // Quincena/Mes: auto-generate the Letters + Números sub-plans inline so the
           // document is a complete bundle on first generation (matches the teacher's format).
           // Run in parallel — they only depend on fortnight data, not on the main doc.
           if (planType !== 'taller') {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ phase: 'subplanes' })}\n\n`)
             )
-            // Sub-plans (Letter & Number especially) must use the Richmond book vocab when present.
+            // Sub-plans (Letters especially) must use the Richmond book vocab when present.
             const subVocabList = richmondContent?.vocabulary?.length
               ? Array.from(
                   new Set([

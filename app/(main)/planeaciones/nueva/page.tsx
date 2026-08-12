@@ -67,6 +67,10 @@ export default function NuevaPlaneacionPage() {
     letter_week2: '',
     letter_week3: '',
     letter_week4: '',
+    number_week1: '',
+    number_week2: '',
+    number_week3: '',
+    number_week4: '',
   })
   // The teacher's answer to "¿Qué quieres que aprendan…?" — drives generation (not a plan section).
   const [learningGoal, setLearningGoal] = useState('')
@@ -447,6 +451,15 @@ export default function NuevaPlaneacionPage() {
               }
             : {}),
           learning_goal: learningGoal.trim() || null,
+          // Números por semana (migration 072) — free text ("1-10", "50, 51…").
+          number_week1: formData.number_week1.trim() || null,
+          number_week2: formData.number_week2.trim() || null,
+          ...(isMonth
+            ? {
+                number_week3: formData.number_week3.trim() || null,
+                number_week4: formData.number_week4.trim() || null,
+              }
+            : {}),
         })
         .eq('id', fortnight.id)
         .then(
@@ -545,9 +558,9 @@ export default function NuevaPlaneacionPage() {
           </div>
           <p className="mt-2 text-xs text-text-secondary">
             {planType === 'quincena'
-              ? 'Plan de 2 semanas con proyecto, Letter & Number y Números'
+              ? 'Plan de 2 semanas con proyecto, Letters y Números'
               : planType === 'mes'
-                ? 'Plan de 1 mes (4 semanas) con proyecto, Letter & Number y Números'
+                ? 'Plan de 1 mes (4 semanas) con proyecto, Letters y Números'
                 : 'Taller crítico independiente (1-3 sesiones específicas)'}
           </p>
         </Card>
@@ -1163,6 +1176,43 @@ export default function NuevaPlaneacionPage() {
                   </div>
                 </>
               )}
+            </div>
+          </Card>
+        )}
+
+        {/* Numbers — quincena only, mirrors the Letters card (drives the Números sub-plan) */}
+        {planType !== 'taller' && (
+          <Card className="p-6 border-2">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">Números a trabajar</h3>
+            <p className="text-xs text-text-secondary mb-4">
+              El rango o los números por semana (ej. 1-10 o 50, 51, 52). Vacío = la IA elige la
+              progresión.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              {(isMonth
+                ? (['number_week1', 'number_week2', 'number_week3', 'number_week4'] as const)
+                : (['number_week1', 'number_week2'] as const)
+              ).map((field, i) => (
+                <div key={field}>
+                  <label
+                    htmlFor={field}
+                    className="block text-sm font-medium text-text-primary mb-2"
+                  >
+                    Números semana {i + 1}
+                  </label>
+                  <Input
+                    id={field}
+                    value={formData[field]}
+                    onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                    placeholder={i === 0 ? '1-10' : ''}
+                    maxLength={60}
+                    className="min-h-[44px]"
+                  />
+                  <p className="mt-1 text-xs text-text-secondary">
+                    Semana {i + 1} ({groupSchedule?.numeros_day ?? 'jueves'})
+                  </p>
+                </div>
+              ))}
             </div>
           </Card>
         )}

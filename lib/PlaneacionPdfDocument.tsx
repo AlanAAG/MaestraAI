@@ -180,8 +180,8 @@ export function PlaneacionPdfDocument(props: PlaneacionDocumentProps) {
           <View style={{ marginTop: 30, padding: 12, backgroundColor: '#F3F4F6', borderRadius: 4 }}>
             <Text style={{ fontSize: 9, color: '#6B7280', lineHeight: 1.6 }}>
               Nota: Esta planeación respeta el cronograma fijo institucional (Honores los lunes,
-              Letter & Number los martes, etc.) e incluye los 4 elementos permanentes diarios: valor
-              del mes, pausa activa, estrategia comunitaria y aventura lectora.
+              Letters los martes, etc.) e incluye los 4 elementos permanentes diarios: valor del
+              mes, pausa activa, estrategia comunitaria y aventura lectora.
             </Text>
           </View>
         </View>

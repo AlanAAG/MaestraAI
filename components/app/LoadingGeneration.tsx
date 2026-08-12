@@ -27,7 +27,7 @@ const STEPS: { key: LoadingGenerationProps['phase']; label: string; desc: string
   {
     key: 'subplanes',
     label: 'Sub-planeaciones',
-    desc: 'Letter & Number y Números, con sus momentos',
+    desc: 'Letters y Números, con sus momentos',
   },
 ]
 

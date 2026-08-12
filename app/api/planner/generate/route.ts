@@ -337,7 +337,7 @@ function buildPrompt(
   const startStr = new Date(fortnight.start_date).toLocaleDateString('es-MX')
   const endStr = new Date(fortnight.end_date).toLocaleDateString('es-MX')
 
-  // Letter & Number / Números days are per-group config — never hardcode (CLAUDE.md rule).
+  // Letters / Números days are per-group config — never hardcode (CLAUDE.md rule).
   const sched = fortnight.groups?.fixed_weekly_schedule
   const letterDay: string = sched?.letter_number_day ?? 'martes'
   const numDay: string = sched?.numeros_day ?? 'jueves'
@@ -392,7 +392,7 @@ Letras: Semana 1="${letterWeek1}" | Semana 2="${letterWeek2}"${vocabList ? `\nVo
 Período de inglés: ${periodMinutes} min.
 
 HORARIO FIJO (INVIOLABLE):
-${cap(letterDay)} → Letter & Number (letra de la semana)
+${cap(letterDay)} → Letters (letra de la semana)
 ${cap(numDay)} → Números
 Los demás días: Proyecto mensual, Honores, Ed. Física, Cantos y Juegos y Cuento con papás según el horario del grupo
 
@@ -425,7 +425,7 @@ Genera exactamente 10 días de planeaciones. Responde ÚNICAMENTE con un objeto 
 ]}
 
 REGLAS:
-- Letter & Number SOLO ${cap(letterDay)} | Números SOLO ${cap(numDay)}
+- Letters SOLO ${cap(letterDay)} | Números SOLO ${cap(numDay)}
 - 4-5 bloques por día | Máx 80 caracteres por actividad | Máx 3 materiales por bloque
 - Campos Formativos válidos: ${NEM_FIELDS.join(' | ')}
 - Ejes Articuladores válidos: ${NEM_AXES.join(' | ')}

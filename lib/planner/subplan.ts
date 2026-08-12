@@ -1,10 +1,10 @@
-// Rich sub-plan (Letter & Number / Números) generation, shared by the inline pipeline
+// Rich sub-plan (Letters / Números) generation, shared by the inline pipeline
 // (generate-document) and the on-demand route (generate-subplan).
 import { callPlannerModel, parsePlanJson } from './model'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import { METHODOLOGY_STRUCTURE } from './methodologies'
 
-export const SUBPLAN_SYSTEM = `Eres una asistente pedagógica experta en educación preescolar mexicana alineada al NEM 2024. Generas sub-planeaciones DETALLADAS para actividades específicas (Letter & Number / Números) dentro de una quincena, con la riqueza de una maestra titular experta. Tu respuesta es ÚNICAMENTE un objeto JSON válido sin texto adicional. Desarrolla cada momento con MÚLTIPLES actividades concretas — nunca contenido genérico o resumido.`
+export const SUBPLAN_SYSTEM = `Eres una asistente pedagógica experta en educación preescolar mexicana alineada al NEM 2024. Generas sub-planeaciones DETALLADAS para actividades específicas (Letters / Números) dentro de una quincena, con la riqueza de una maestra titular experta. Tu respuesta es ÚNICAMENTE un objeto JSON válido sin texto adicional. Desarrolla cada momento con MÚLTIPLES actividades concretas — nunca contenido genérico o resumido.`
 
 const sanitize = (s: string | null | undefined) => (s || '').replace(/[\r\n]/g, ' ').slice(0, 200)
 
@@ -65,7 +65,18 @@ ${depth}`
   }
 
   const isMonthNum = !!fn.is_month || fn.plan_type === 'mes'
-  return `Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${isMonthNum ? '\nEste sub-plan cubre UN MES COMPLETO (4 semanas): amplía el rango numérico con progresión semana a semana.' : ''}${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
+  // Teacher-declared numbers per week (migration 072). Empty → the model picks the progression.
+  const numberWeeks = [
+    sanitize(fn.number_week1),
+    sanitize(fn.number_week2),
+    ...(isMonthNum ? [sanitize(fn.number_week3), sanitize(fn.number_week4)] : []),
+  ]
+  const numbersLine = numberWeeks.some(Boolean)
+    ? `\nNÚMEROS A TRABAJAR (OBLIGATORIO, usa EXACTAMENTE estos):\n${numberWeeks
+        .map((n, i) => (n ? `Semana ${i + 1}: ${n}` : `Semana ${i + 1}: (continúa la progresión)`))
+        .join('\n')}`
+    : ''
+  return `Genera un sub-plan DETALLADO de NÚMEROS (Centro de Interés, para los ${numDay}) dentro del proyecto "${projectName}" (valor del mes: ${monthlyValue}).${isMonthNum ? '\nEste sub-plan cubre UN MES COMPLETO (4 semanas): amplía el rango numérico con progresión semana a semana.' : ''}${numbersLine}${vocabList ? `\nVocabulario inglés relacionado: ${vocabList}` : ''}
 
 Formato de salida JSON:
 {
