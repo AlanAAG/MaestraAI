@@ -6,15 +6,15 @@ Current phase: Phase 6 — Quality & Polish
 ## Current state
 
 - Next.js 14 App Router + Tailwind v3 + shadcn/ui + Supabase
-- **216 tests passing (48 files)**, typecheck + lint clean, production build on Vercel
-- Migrations applied through **071** — verified live against the remote DB (all tables/columns respond)
-- Remote migration ledger unrepaired — apply future migrations via SQL editor until `supabase migration repair` is run
+- **220 tests passing (48 files)**, typecheck + lint clean, production build on Vercel
+- Migrations applied through **073**
+- Migration ledger repaired — `supabase db push` works normally
 
 ## What exists
 
 See git history for full feature log. Major systems:
 
-- **Lesson Planner**: Quincena / Taller / Mes plans, NEM/PRONI alignment, 4-week support, teacher voice RAG, self-improving learning loop, per-unit contenidos + PDA (per contenido, grade-aware 1°/2°/3°) + ejes + methodology dropdowns, auto-fill blank NEM fields, DOCX/PDF export, inline editing, feedback loop (rating 1-5 + comentarios por sección estilo Word + regenerar sección con el comentario; alimenta el perfil aprendido — migrations 070-071)
+- **Lesson Planner**: Quincena / Taller / Mes plans, NEM/PRONI alignment, 4-week support, teacher voice RAG, self-improving learning loop, per-unit contenidos + PDA (per contenido, grade-aware 1°/2°/3°) + ejes + methodology dropdowns, auto-fill blank NEM fields, DOCX/PDF export, inline editing, Números por semana, split documents (principal + Letters + Números por separado, elegible al crear), feedback loop (rating 1-5 + comentarios por sección estilo Word + regenerar sección con el comentario; alimenta el perfil aprendido — migrations 070-071)
 - **Materials & Games**: 9 game types (incl. digital coloring: big picture + crayons/brush/eraser/undo/save, on screen and shareable via play token), flashcards, worksheets, bingo, word search, sorting, picture-word-match, memorama — all shareable via play token (/jugar/[token]); teacher-uploaded vocab images win in every game
 - **Richmond integration**: Chrome extension sync, CSV/XLSX import, analytics dashboard, TG5A catalog (migration 057 applied), per-unit vocabulary in lesson plans
 - **Auth & Onboarding**: Email/password + Google OAuth, 7-step wizard, consent records
