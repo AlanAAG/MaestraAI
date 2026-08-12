@@ -497,6 +497,96 @@ export type Database = {
           },
         ]
       }
+      group_post_emails: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          sent: number
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          sent?: number
+          total?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          sent?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'group_post_emails_post_id_fkey'
+            columns: ['post_id']
+            isOneToOne: false
+            referencedRelation: 'group_posts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      group_posts: {
+        Row: {
+          body: string | null
+          created_at: string
+          due_date: string | null
+          group_id: string
+          id: string
+          kind: string
+          material_id: string | null
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          due_date?: string | null
+          group_id: string
+          id?: string
+          kind: string
+          material_id?: string | null
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          due_date?: string | null
+          group_id?: string
+          id?: string
+          kind?: string
+          material_id?: string | null
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'group_posts_group_id_fkey'
+            columns: ['group_id']
+            isOneToOne: false
+            referencedRelation: 'groups'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'group_posts_material_id_fkey'
+            columns: ['material_id']
+            isOneToOne: false
+            referencedRelation: 'materials'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'group_posts_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       group_teachers: {
         Row: {
           day_of_week: string[] | null
