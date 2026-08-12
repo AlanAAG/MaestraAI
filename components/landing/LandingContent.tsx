@@ -36,6 +36,7 @@ import {
   Lock,
   ShieldCheck,
 } from 'lucide-react'
+import { FeatureExplorer } from './FeatureExplorer'
 
 // ── Motion presets (varied per section so the scroll doesn't feel repetitive) ─
 
@@ -724,7 +725,8 @@ export default function LandingContent() {
                 {...(reduced ? {} : fadeUp(0.16))}
                 className="mt-5 text-lg text-text-secondary max-w-md"
               >
-                Tu quincena, planeada en 10 minutos.
+                Tu quincena planeada en minutos — y juegos, tareas y familias conectadas en un solo
+                lugar.
               </motion.p>
 
               <motion.div {...(reduced ? {} : fadeUp(0.24))} className="mt-9" id="waitlist">
@@ -929,6 +931,9 @@ export default function LandingContent() {
           </motion.div>
         </div>
       </section>
+
+      {/* ── 5.5 · Feature explorer — tabbed real-interface mockups + loop + long-tail grid ── */}
+      <FeatureExplorer reduced={reduced} onCta={scrollToWaitlist} />
 
       {/* ── 6 · Trust strip — infinite marquee (static wrap under reduced motion) ── */}
       <section className="bg-card border-y border-border py-10 overflow-hidden">
