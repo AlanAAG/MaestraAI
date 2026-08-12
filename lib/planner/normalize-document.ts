@@ -38,6 +38,17 @@ const COMBINED_LETTERS_RE =
   /\b(letters?\s*(?:&|and|y)\s*n[uú]m(?:bers?|eros?)|n[uú]m(?:bers?|eros?)\s*(?:&|and|y)\s*letters?)\b/gi
 const PRONI_TAG_RE = /\s*[([]\s*PRONI[^)\]]*[)\]]|\s*[-–—:]\s*PRONI\b/gi
 
+/** Narrative-safe scrub for the mechanical banned strings: expand the acronym, un-merge
+ * Letters/Números, drop "(PRONI…)" tags and soften remaining PRONI mentions to "inglés".
+ * Wording problems (e.g. "aprendizajes esperados") stay for the validator — rewriting them
+ * deterministically would risk mangling the teacher's text. */
+export function scrubNarrative(text: string): string {
+  return expandStrategyAcronym(text)
+    .replace(COMBINED_LETTERS_RE, 'Letters')
+    .replace(/\s*[([]\s*PRONI[^)\]]*[)\]]/gi, '')
+    .replace(/\bPRONI\b/g, 'inglés')
+}
+
 /** Activity/section label cleanup: acronym expansion + un-merge Letters/Números + drop PRONI tags. */
 export function normalizeActivityLabel(text: string): string {
   return expandStrategyAcronym(text)
@@ -134,7 +145,7 @@ export function normalizePlanDocument(pd: any): any {
   if (!pd || typeof pd !== 'object') return pd
   const out = { ...pd }
   for (const k of STRING_FIELDS) {
-    if (k in out) out[k] = sectionToString(out[k])
+    if (k in out) out[k] = scrubNarrative(sectionToString(out[k]))
   }
   // One bullet per idea inside the didactic development (teacher's format).
   for (const k of ['proyecto', 'desarrollo_taller'] as const) {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   bulletizeMomentos,
   normalizeActivityLabel,
+  scrubNarrative,
   stripMomentoEcho,
   expandStrategyAcronym,
   ESTRATEGIA_COMUNITARIA_FULL,
@@ -101,5 +102,20 @@ describe('normalizeActivityLabel', () => {
 
   it('still expands the community-strategy acronym', () => {
     expect(normalizeActivityLabel('E.C.P.C.E.E.L.Y')).toBe(ESTRATEGIA_COMUNITARIA_FULL)
+  })
+})
+
+describe('scrubNarrative', () => {
+  it('auto-repairs the mechanical banned strings in narrative text', () => {
+    expect(scrubNarrative('Actividad de Letters and Numbers (PRONI: Vocabulary) hoy')).toBe(
+      'Actividad de Letters hoy'
+    )
+    expect(scrubNarrative('los contenidos de PRONI se integran')).toBe(
+      'los contenidos de inglés se integran'
+    )
+  })
+  it('runs on narrative fields at save time', () => {
+    const out = normalizePlanDocument({ ejes_articuladores: 'Con E.C.P.C.E.E.L.Y y PRONI' })
+    expect(out.ejes_articuladores).not.toMatch(/PRONI|E\.C\.P/)
   })
 })

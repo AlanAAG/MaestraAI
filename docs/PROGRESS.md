@@ -6,7 +6,7 @@ Current phase: Phase 6 — Quality & Polish
 ## Current state
 
 - Next.js 14 App Router + Tailwind v3 + shadcn/ui + Supabase
-- **235 tests passing (51 files)**, typecheck + lint clean, production build on Vercel
+- **237 tests passing (51 files)**, typecheck + lint clean, production build on Vercel
 - Migrations applied through **079**
 - Migration ledger repaired — `supabase db push` works normally
 

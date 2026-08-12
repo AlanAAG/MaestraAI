@@ -1,7 +1,16 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Loader2, BookOpen, Pencil, Check, X, Palette, MessageSquare } from 'lucide-react'
+import {
+  Loader2,
+  BookOpen,
+  Pencil,
+  Check,
+  X,
+  Palette,
+  MessageSquare,
+  AlertTriangle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
 import { normalizeActivityLabel, bulletizeMomentos } from '@/lib/planner/normalize-document'
@@ -97,11 +106,54 @@ type PlanDoc = {
   _section_titles?: Record<string, string>
   _formatting_rules?: { section_title_trailing_colon?: boolean }
   _nee_mapping?: Record<string, string>
+  _format_issues?: { section: string; issue: string }[]
 }
 
 type GroupSchedule = {
   letter_number_day?: string
   numeros_day?: string
+}
+
+// Amber, dismissible, print-hidden. The teacher fixes with Editar or "Regenerar con este
+// comentario" on the flagged section — this banner just makes the validator's findings visible.
+function FormatIssuesBanner({ issues }: { issues: { section: string; issue: string }[] }) {
+  const [open, setOpen] = useState(true)
+  if (!open) return null
+  return (
+    <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 print:hidden">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-medium text-amber-900">
+              {issues.length === 1
+                ? 'Un detalle de formato que vale la pena revisar'
+                : `${issues.length} detalles de formato que vale la pena revisar`}
+            </p>
+            <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
+              {issues.slice(0, 5).map((i, k) => (
+                <li key={k}>
+                  <span className="font-semibold">{i.section}</span>: {i.issue}
+                </li>
+              ))}
+              {issues.length > 5 && <li>… y {issues.length - 5} más</li>}
+            </ul>
+            <p className="mt-1.5 text-xs text-amber-700">
+              Corrígelo con “Editar” o con un comentario + “Regenerar” en esa sección.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-label="Ocultar aviso de formato"
+          className="cursor-pointer rounded p-1 text-amber-600 hover:bg-amber-100"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function capitalize(s: string) {
@@ -1176,6 +1228,10 @@ export function PlanDocumentViewer({
             <p className="text-[0.75em] text-gray-500 mt-2">{metaParts.join('  ·  ')}</p>
           )}
         </header>
+
+        {/* Format-quality banner: the strict validator found details worth a look. Discreet,
+            dismissible per render, never printed. */}
+        {(pd._format_issues?.length ?? 0) > 0 && <FormatIssuesBanner issues={pd._format_issues!} />}
 
         {/* Split documents: pick which planeación is on screen (also drives print + DOCX). */}
         {split && (
