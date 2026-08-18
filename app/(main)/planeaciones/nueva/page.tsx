@@ -795,12 +795,14 @@ export default function NuevaPlaneacionPage() {
                                       />
                                       <span
                                         className={
-                                          worked.contenidos.has(c) ? 'text-success-text' : ''
+                                          worked.contenidos.has(c) ? 'font-medium text-error' : ''
                                         }
                                       >
                                         {c}
                                         {worked.contenidos.has(c) && (
-                                          <span className="ml-1 text-[10px]">· ya trabajado</span>
+                                          <span className="ml-1 text-[10px] font-semibold">
+                                            ✓ ya trabajado
+                                          </span>
                                         )}
                                       </span>
                                     </label>
@@ -859,14 +861,14 @@ export default function NuevaPlaneacionPage() {
                                                   <span
                                                     className={
                                                       worked.pdas.has(pda)
-                                                        ? 'text-success-text'
+                                                        ? 'font-medium text-error'
                                                         : ''
                                                     }
                                                   >
                                                     {pda}
                                                     {worked.pdas.has(pda) && (
-                                                      <span className="ml-1 text-[10px]">
-                                                        · ya trabajado
+                                                      <span className="ml-1 text-[10px] font-semibold">
+                                                        ✓ ya trabajado
                                                       </span>
                                                     )}
                                                   </span>
