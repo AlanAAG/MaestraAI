@@ -630,16 +630,30 @@ export async function POST(req: NextRequest) {
         `Planeación anterior (#${prev.number}): proyecto "${prevProj}", valor del mes "${prev.monthly_value}".`
     }
 
+    // Fichero de la Paz + pausas rotation source: EVERY plan the teacher has generated
+    // (any group/grade), by creation order. The old source reused prevRows, which filters
+    // lt(start_date) — plans sharing a start_date (very common while testing, and legal in
+    // real use) were invisible to each other, so every generation picked ficha 1.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rotationRows } = await (supabase as any)
+      .from('fortnights')
+      .select('plan_document')
+      .eq('teacher_id', teacherId)
+      .neq('id', fn.id)
+      .not('plan_document', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(12)
+
     // Fichero de la Paz: pick a ficha NOT used in past plans (code-side rotation, never LLM choice).
     const usedFichas = extractUsedFichas(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (prevRows ?? []).map((r: any) => r.plan_document?.estrategia_comunitaria as string)
+      (rotationRows ?? []).map((r: any) => r.plan_document?.estrategia_comunitaria as string)
     )
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(fn as any).__fichaBlock = buildFichaBlock(pickFicha(usedFichas))
 
     // Pausas activas: expose the last 2 plans' pausas so the model rotates every 2 planeaciones.
-    const prevPausas = (prevRows ?? [])
+    const prevPausas = (rotationRows ?? [])
       .slice(0, 2)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((r: any) => String(r.plan_document?.pausas_activas ?? '').slice(0, 600))
