@@ -55,7 +55,7 @@ function attachmentsBlock(fn: any): string {
     .slice(0, 3)
     .map(
       (a: { name: string; text: string }) =>
-        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, 6000)}`
+        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, 9000)}`
     )
   if (!items.length) return ''
   return `<archivos_de_la_maestra>\nLa maestra adjuntó estos documentos para ESTA planeación. TÓMALOS EN CUENTA: usa sus temas, fechas, páginas, vocabulario e indicaciones donde apliquen (sin copiarlos íntegros).\n${items.join('\n\n')}\n</archivos_de_la_maestra>`

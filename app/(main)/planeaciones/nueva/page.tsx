@@ -140,23 +140,36 @@ export default function NuevaPlaneacionPage() {
       setAttachError('Máximo 3 archivos por planeación.')
       return
     }
-    if (file.size > 6 * 1024 * 1024) {
-      setAttachError('Archivo demasiado grande (máx 6MB).')
+    // 25MB: heavy multi-page PDFs with images fit; Claude's own PDF ceiling is 32MB/100 pages.
+    if (file.size > 25 * 1024 * 1024) {
+      setAttachError('Archivo demasiado grande (máx 25MB).')
       return
     }
     setAttaching(true)
     setAttachError('')
     try {
-      const base64 = btoa(
-        new Uint8Array(await file.arrayBuffer()).reduce(
-          (acc, b) => acc + String.fromCharCode(b),
-          ''
-        )
-      )
+      // 1) Signed upload straight to Storage (bypasses the API body-size cap for big files).
+      const urlRes = await fetch('/api/planner/attachments/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: file.name }),
+      })
+      const urlData = await urlRes
+        .json()
+        .catch(() => ({}) as { error?: string; path?: string; token?: string })
+      if (!urlRes.ok || !urlData.path || !urlData.token) {
+        throw new Error(urlData.error ?? 'No pude preparar la subida.')
+      }
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from('class-files')
+        .uploadToSignedUrl(urlData.path, urlData.token, file, { contentType: file.type })
+      if (upErr) throw new Error('No se pudo subir el archivo.')
+      // 2) Extract the text server-side (the file is deleted after extraction).
       const res = await fetch('/api/planner/attachments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: file.name, mimeType: file.type, base64 }),
+        body: JSON.stringify({ name: file.name, mimeType: file.type, path: urlData.path }),
       })
       const data = await res.json().catch(() => ({}) as { error?: string })
       if (!res.ok) throw new Error(data.error ?? 'No pude procesar el archivo.')
@@ -1461,7 +1474,8 @@ export default function NuevaPlaneacionPage() {
           </h3>
           <p className="text-xs text-text-secondary mb-3">
             Adjunta documentos que la IA debe tomar en cuenta al crear la planeación: calendario
-            escolar, páginas del libro, circulares… (PDF, Word, imagen o texto — máx 3).
+            escolar, páginas del libro, circulares… (PDF, Word, imagen o texto — máx 3, hasta 25MB
+            cada uno).
           </p>
           {attachments.length > 0 && (
             <ul className="mb-3 space-y-2">
