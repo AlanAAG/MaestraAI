@@ -306,16 +306,16 @@ const MD_COMPONENTS = {
     <strong {...p} className="font-bold text-gray-900" />
   ),
   h1: (p: React.ComponentProps<'h1'>) => (
-    <h3 {...p} className="mb-2 mt-5 text-[1.05em] font-bold text-gray-900" />
+    <h3 {...p} className="mb-2 mt-7 text-[1.05em] font-bold text-gray-900" />
   ),
   h2: (p: React.ComponentProps<'h2'>) => (
-    <h3 {...p} className="mb-2 mt-5 text-[1.05em] font-bold text-gray-900" />
+    <h3 {...p} className="mb-2 mt-7 text-[1.05em] font-bold text-gray-900" />
   ),
   h3: (p: React.ComponentProps<'h3'>) => (
-    <h4 {...p} className="mb-2 mt-4 text-[1em] font-bold text-gray-900" />
+    <h4 {...p} className="mb-2 mt-7 text-[1em] font-bold text-gray-900" />
   ),
   h4: (p: React.ComponentProps<'h4'>) => (
-    <h4 {...p} className="mb-2 mt-5 text-[1em] font-bold text-gray-900" />
+    <h4 {...p} className="mb-2 mt-7 text-[1em] font-bold text-gray-900" />
   ),
 }
 
@@ -569,10 +569,10 @@ function SubPlanBlock({
           <CamposFormativosView campos={subPlan.campos_formativos} />
         ) : null}
         {subPlan.estructura_didactica && (
-          <div className="space-y-6">
+          <div className="space-y-8">
             <p className="font-semibold text-[0.875em] text-gray-900">Estructura Didáctica</p>
             {Object.entries(subPlan.estructura_didactica).map(([key, val]) => (
-              <div key={key} className="mt-6">
+              <div key={key} className="mt-8">
                 <p className="font-bold text-[0.8125em] text-gray-900 mb-1.5">
                   {estructuraLabel(key)}
                 </p>
@@ -696,10 +696,10 @@ function CustomSubPlansSection({
               <CamposFormativosView campos={sp.campos_formativos} />
             ) : null}
             {sp.estructura_didactica && (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <p className="font-semibold text-[0.875em] text-gray-900">Estructura Didáctica</p>
                 {Object.entries(sp.estructura_didactica).map(([k, v]) => (
-                  <div key={k} className="mt-6">
+                  <div key={k} className="mt-8">
                     <p className="font-bold text-[0.8125em] text-gray-900 mb-1.5">
                       {estructuraLabel(k)}
                     </p>
@@ -951,7 +951,7 @@ function QuincenaSections({
             await handleEdit('custom_sections', JSON.stringify(updated))
           }}
         >
-          <MdContent text={cs.content} />
+          <MdContent text={cs.content} momentos />
         </DocSection>
       )
     }
@@ -1400,7 +1400,7 @@ export function PlanDocumentViewer({
                   await handleEdit('custom_sections', JSON.stringify(updated))
                 }}
               >
-                <MdContent text={s.content} />
+                <MdContent text={s.content} momentos />
               </DocSection>
             ))}
 
