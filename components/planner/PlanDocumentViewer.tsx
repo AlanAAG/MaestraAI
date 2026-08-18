@@ -290,11 +290,42 @@ function momentosDisplay(text: string): string {
     .join('\n')
 }
 
+// Explicit element styles — @tailwindcss/typography was never installed, so the old `prose`
+// classes did NOTHING and Tailwind's preflight stripped list markers: bullets existed in the
+// data but rendered as flush plain lines. These mappings are the actual document typography.
+const MD_COMPONENTS = {
+  ul: (p: React.ComponentProps<'ul'>) => (
+    <ul {...p} className="my-2 list-disc space-y-1.5 pl-5 marker:text-gray-400" />
+  ),
+  ol: (p: React.ComponentProps<'ol'>) => (
+    <ol {...p} className="my-2 list-decimal space-y-1.5 pl-5 marker:text-gray-400" />
+  ),
+  li: (p: React.ComponentProps<'li'>) => <li {...p} className="leading-relaxed" />,
+  p: (p: React.ComponentProps<'p'>) => <p {...p} className="my-2 leading-relaxed" />,
+  strong: (p: React.ComponentProps<'strong'>) => (
+    <strong {...p} className="font-bold text-gray-900" />
+  ),
+  h1: (p: React.ComponentProps<'h1'>) => (
+    <h3 {...p} className="mb-2 mt-5 text-[1.05em] font-bold text-gray-900" />
+  ),
+  h2: (p: React.ComponentProps<'h2'>) => (
+    <h3 {...p} className="mb-2 mt-5 text-[1.05em] font-bold text-gray-900" />
+  ),
+  h3: (p: React.ComponentProps<'h3'>) => (
+    <h4 {...p} className="mb-2 mt-4 text-[1em] font-bold text-gray-900" />
+  ),
+  h4: (p: React.ComponentProps<'h4'>) => (
+    <h4 {...p} className="mb-2 mt-5 text-[1em] font-bold text-gray-900" />
+  ),
+}
+
 function MdContent({ text, momentos = false }: { text: unknown; momentos?: boolean }) {
   const raw = toText(text)
   return (
-    <div className="prose prose-sm max-w-none text-gray-800 prose-p:my-1.5 prose-ul:my-2 prose-li:my-1 prose-strong:text-gray-900 prose-headings:text-gray-900 prose-h4:mt-5 prose-h4:mb-2 prose-h4:text-[1em]">
-      <ReactMarkdown>{momentos ? momentosDisplay(raw) : raw}</ReactMarkdown>
+    <div className="max-w-none text-gray-800">
+      <ReactMarkdown components={MD_COMPONENTS}>
+        {momentos ? momentosDisplay(raw) : raw}
+      </ReactMarkdown>
     </div>
   )
 }
