@@ -727,6 +727,20 @@ export async function POST(req: NextRequest) {
       children.push(new Paragraph(''))
     }
 
+    // Anexos: named list (the files themselves open from the platform).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const annexes = Array.isArray((fn as any).attachment_context)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ((fn as any).attachment_context as any[]).filter((a) => a?.name)
+      : []
+    if (annexes.length) {
+      children.push(new Paragraph({ text: 'Anexos', heading: HeadingLevel.HEADING_2 }))
+      for (const a of annexes) {
+        children.push(new Paragraph({ children: [new TextRun({ text: `• ${String(a.name)}` })] }))
+      }
+      children.push(new Paragraph(''))
+    }
+
     // Footer citation
     children.push(
       new Paragraph({

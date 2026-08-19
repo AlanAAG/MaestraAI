@@ -16,6 +16,7 @@ import { applyNeeNames } from '@/lib/planner/nee-names'
 import { normalizeActivityLabel, bulletizeMomentos } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import { FONT_MAP, type FontKey } from '@/lib/design/fonts'
+import { AttachmentLink } from '@/components/files/AttachmentLink'
 import {
   PlanFeedbackProvider,
   PlanFeedbackFooter,
@@ -1114,6 +1115,8 @@ interface PlanDocumentViewerProps {
   orientation?: 'vertical' | 'horizontal'
   logoUrl?: string | null
   onReload: () => void
+  /** Files the teacher attached at creation — annexed to the document (openable). */
+  attachments?: { name: string; path?: string | null }[] | null
   /** Teacher chose separate documents: principal (no Letters/Números) + Letters + Números. */
   splitDocuments?: boolean
   activeDoc?: SplitDoc
@@ -1135,6 +1138,7 @@ export function PlanDocumentViewer({
   orientation = 'vertical',
   logoUrl,
   onReload,
+  attachments = null,
   splitDocuments = false,
   activeDoc = 'main',
   onActiveDocChange,
@@ -1436,6 +1440,26 @@ export function PlanDocumentViewer({
             evalColumns={pd.evaluation_columns}
             onReload={onReload}
           />
+        )}
+
+        {/* Anexos: the files attached at creation, part of the delivered document. */}
+        {showMain && (attachments?.length ?? 0) > 0 && (
+          <section className="mt-10">
+            <h2 className="mb-3 border-b border-[color:var(--doc-border,#d1d5db)] pb-1.5 text-[0.8125em] font-bold uppercase tracking-wide text-gray-800">
+              Anexos
+            </h2>
+            <ul className="space-y-1.5">
+              {attachments!.map((a, i) => (
+                <li key={i} className="text-[0.875em] text-gray-800">
+                  {a.path ? (
+                    <AttachmentLink path={a.path} name={a.name} />
+                  ) : (
+                    <span>📎 {a.name}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <p className="text-[0.6875em] text-gray-400 italic pt-8 text-center">

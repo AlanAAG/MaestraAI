@@ -26,6 +26,7 @@ export function safeFileName(name: string): string {
 export type FileScope =
   | { kind: 'post'; groupId: string }
   | { kind: 'submission'; postId: string; studentId: string }
+  | { kind: 'plan'; teacherId: string }
 
 /** Parse a storage path back into its ACL scope. Null = unrecognized (deny). */
 export function parseFilePath(path: string): FileScope | null {
@@ -35,6 +36,10 @@ export function parseFilePath(path: string): FileScope | null {
   }
   if (parts[0] === 's' && parts.length === 4 && parts[1] && parts[2] && parts[3]) {
     return { kind: 'submission', postId: parts[1], studentId: parts[2] }
+  }
+  // Plan annexes (worksheets/reference files attached at creation) — owner teacher only.
+  if (parts[0] === 'pa' && parts.length === 3 && parts[1] && parts[2]) {
+    return { kind: 'plan', teacherId: parts[1] }
   }
   return null
 }

@@ -128,7 +128,9 @@ export default function NuevaPlaneacionPage() {
   // Binary choice: use the teacher's uploaded format, or MaestraIA's built-in design.
   const [useSystemTemplate, setUseSystemTemplate] = useState(false)
   // Reference files the AI must consider (extracted text, never the file itself).
-  const [attachments, setAttachments] = useState<{ name: string; text: string }[]>([])
+  const [attachments, setAttachments] = useState<{ name: string; text: string; path?: string }[]>(
+    []
+  )
   const [attaching, setAttaching] = useState(false)
   const [attachError, setAttachError] = useState('')
 
@@ -173,7 +175,7 @@ export default function NuevaPlaneacionPage() {
       })
       const data = await res.json().catch(() => ({}) as { error?: string })
       if (!res.ok) throw new Error(data.error ?? 'No pude procesar el archivo.')
-      setAttachments((p) => [...p, { name: data.name, text: data.text }])
+      setAttachments((p) => [...p, { name: data.name, text: data.text, path: data.path }])
     } catch (err) {
       setAttachError(err instanceof Error ? err.message : 'No pude procesar el archivo.')
     } finally {

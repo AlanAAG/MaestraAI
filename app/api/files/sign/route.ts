@@ -49,6 +49,8 @@ export async function GET(req: NextRequest) {
           (l: any) => grantsAccess(l) && l.students?.group_id === scope.groupId
         )
       }
+    } else if (scope.kind === 'plan') {
+      allowed = !!teacher && teacher.id === scope.teacherId
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: post } = await (service as any)

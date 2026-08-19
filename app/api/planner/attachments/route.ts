@@ -19,7 +19,7 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50MB upload cap
 // Claude's per-request PDF ceiling is 32MB / 100 pages — bigger PDFs get SPLIT by pages
 // (pdf-lib) and transcribed part by part.
 const CLAUDE_PDF_BYTES = 28 * 1024 * 1024
-const MAX_TEXT = 9000
+const MAX_TEXT = 12000
 
 const Schema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -35,7 +35,7 @@ const Schema = z.object({
 })
 
 const TRANSCRIBE =
-  'Transcribe el contenido de este documento de forma fiel (texto, listas, fechas, páginas, vocabulario). Si hay tablas, escríbelas como listas. Si es muy largo, prioriza: temas, fechas, indicaciones y vocabulario. Responde SOLO con el contenido transcrito, sin comentarios.'
+  'Transcribe este documento de forma FIEL y ESTRUCTURADA para que una IA de planeación docente lo use: conserva títulos y subtítulos, listas como listas, tablas como listas etiquetadas, y COPIA VERBATIM fechas, páginas de libros, vocabulario, instrucciones y consignas. Si es una hoja de trabajo o material imprimible, describe también QUÉ debe hacer el alumno en ella (actividad, materiales, propósito). Si es muy largo, prioriza: temas, fechas, indicaciones, vocabulario y actividades. Responde SOLO con el contenido transcrito, sin comentarios.'
 
 export async function POST(req: NextRequest) {
   const service = createServiceClient()
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
               } as unknown as Anthropic.TextBlockParam)
         const resp = await anthropic.messages.create({
           model: 'claude-haiku-4-5',
-          max_tokens: 4000,
+          max_tokens: 6000,
           temperature: 0,
           messages: [
             { role: 'user', content: [source, { type: 'text', text: TRANSCRIBE + note }] },
@@ -162,17 +162,12 @@ export async function POST(req: NextRequest) {
         { status: 422 }
       )
     }
-    return NextResponse.json({ name, text: text.slice(0, MAX_TEXT) })
+    return NextResponse.json({ name, text: text.slice(0, MAX_TEXT), path })
   } catch (err) {
     console.error('[plan-attachments]', err)
     return NextResponse.json({ error: 'No pude procesar el archivo.' }, { status: 500 })
-  } finally {
-    // Only the extracted text survives — the uploaded file is temporary by design.
-    if (path) {
-      service.storage
-        .from(CLASS_FILES_BUCKET)
-        .remove([path])
-        .catch(() => {})
-    }
   }
+  // NOTE: the file is intentionally KEPT — it becomes an annex of the planeación (openable
+  // from the document, like a worksheet included with the plan). ponytail: files from
+  // abandoned creations linger in pa/<teacher>/ — add a sweep job if storage ever matters.
 }

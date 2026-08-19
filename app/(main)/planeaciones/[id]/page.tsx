@@ -84,6 +84,7 @@ type Fortnight = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   plan_document?: Record<string, any> | null
   observation_calendar?: Record<string, string[]> | null
+  attachment_context?: { name: string; text?: string; path?: string | null }[] | null
   split_documents?: boolean | null
   groups?: { name?: string; fixed_weekly_schedule?: GroupSchedule | null } | null
 }
@@ -700,6 +701,7 @@ export default function PlaneacionDetailPage() {
                 orientation={orientation}
                 logoUrl={logoUrl}
                 onReload={loadData}
+                attachments={fortnight.attachment_context ?? null}
                 splitDocuments={!!fortnight.split_documents}
                 activeDoc={activeDoc}
                 onActiveDocChange={setActiveDoc}

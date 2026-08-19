@@ -55,10 +55,10 @@ function attachmentsBlock(fn: any): string {
     .slice(0, 3)
     .map(
       (a: { name: string; text: string }) =>
-        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, 9000)}`
+        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, 12000)}`
     )
   if (!items.length) return ''
-  return `<archivos_de_la_maestra>\nLa maestra adjuntó estos documentos para ESTA planeación. TÓMALOS EN CUENTA: usa sus temas, fechas, páginas, vocabulario e indicaciones donde apliquen (sin copiarlos íntegros).\n${items.join('\n\n')}\n</archivos_de_la_maestra>`
+  return `<archivos_de_la_maestra>\nLa maestra adjuntó estos documentos para ESTA planeación y quedarán ANEXADOS al documento final. OBLIGATORIO:\n- USA su contenido: temas, FECHAS y PÁGINAS verbatim, vocabulario e indicaciones, integrados en las actividades de los días correctos.\n- Si un archivo es una hoja de trabajo o material, INCLÚYELO como actividad concreta en el momento apropiado, nombrándolo así: 'Hoja de trabajo anexa: <nombre del archivo>' (con lo que el alumno hará en ella).\n- No copies documentos íntegros; intégralos.\n${items.join('\n\n')}\n</archivos_de_la_maestra>`
 }
 
 const DEFAULT_CRONOGRAMA = {
