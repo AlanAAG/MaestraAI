@@ -51,11 +51,17 @@ const Schema = z.object({ fortnight_id: z.string().uuid() })
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function attachmentsBlock(fn: any): string {
   const list = Array.isArray(fn?.attachment_context) ? fn.attachment_context : []
-  // With RAG fragments in play the flat block slims down (retrieval carries the depth).
-  const cap = fn?.__attachRag ? 4000 : 12000
+  // Up to 10 files. The flat block is the guaranteed baseline; per-file cap shrinks as the
+  // count grows (total ≈ 24k chars) and shrinks further when RAG fragments carry the depth.
+  const count = Math.min(
+    list.filter((a: { name?: unknown; text?: unknown }) => a?.name && typeof a?.text === 'string')
+      .length,
+    10
+  )
+  const cap = fn?.__attachRag ? 2000 : Math.max(2500, Math.floor(24000 / Math.max(count, 1)))
   const items = list
     .filter((a: { name?: unknown; text?: unknown }) => a?.name && typeof a?.text === 'string')
-    .slice(0, 3)
+    .slice(0, 10)
     .map(
       (a: { name: string; text: string }) =>
         `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, cap)}`
@@ -914,12 +920,30 @@ export async function POST(req: NextRequest) {
         .map((a: any) => String(a?.key ?? a?.path ?? ''))
         .filter(Boolean)
       if (attachKeys.length) {
+        // More files → more fragments (reglamentos + circulares + libros all deserve a slot).
+        const k = Math.min(12, 4 + attachKeys.length * 2)
         const frags = await matchAttachmentChunks(
           supabase,
           teacherId,
           attachKeys,
-          `${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim()
+          `${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
+          k
         )
+        // Section-aware retrieval for the sub-plans: their topics differ from the project's.
+        const letterQuery = `letras ${[fn.letter_week1, fn.letter_week2, fn.letter_week3, fn.letter_week4].filter(Boolean).join(', ')} trazo vocabulario inglés lectoescritura`
+        const numQuery = `números ${[fn.number_week1, fn.number_week2, fn.number_week3, fn.number_week4].filter(Boolean).join(', ')} conteo pensamiento matemático`
+        const [fragsLetters, fragsNumeros] = await Promise.all([
+          matchAttachmentChunks(supabase, teacherId, attachKeys, letterQuery, 4),
+          matchAttachmentChunks(supabase, teacherId, attachKeys, numQuery, 4),
+        ])
+        const toBlock = (fs: { content: string }[], titulo: string) =>
+          fs.length
+            ? `<fragmentos_de_archivos_${titulo}>\nFragmentos de los archivos adjuntos relevantes para esta sub-planeación — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${fs.map((f) => `• ${f.content.slice(0, 1000)}`).join('\n\n')}\n</fragmentos_de_archivos_${titulo}>`
+            : ''
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(fn as any).__attachRagLetters = toBlock(fragsLetters, 'letters')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(fn as any).__attachRagNumeros = toBlock(fragsNumeros, 'numeros')
         if (frags.length) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ;(fn as any).__attachRag =

@@ -141,8 +141,8 @@ export default function NuevaPlaneacionPage() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    if (attachments.length >= 3) {
-      setAttachError('Máximo 3 archivos por planeación.')
+    if (attachments.length >= 10) {
+      setAttachError('Máximo 10 archivos por planeación.')
       return
     }
     // 50MB: heavy scanned PDFs fit; oversized ones get split by pages server-side.
@@ -1497,8 +1497,8 @@ export default function NuevaPlaneacionPage() {
           </h3>
           <p className="text-xs text-text-secondary mb-3">
             Adjunta documentos que la IA debe tomar en cuenta al crear la planeación: calendario
-            escolar, páginas del libro, circulares… (PDF, Word, imagen o texto — máx 3, hasta 25MB
-            cada uno).
+            escolar, reglamentos, páginas del libro, circulares… (PDF, Word, imagen o texto — máx
+            10, hasta 50MB cada uno).
           </p>
           {attachments.length > 0 && (
             <ul className="mb-3 space-y-2">
@@ -1533,7 +1533,7 @@ export default function NuevaPlaneacionPage() {
               type="file"
               accept=".pdf,.docx,.txt,image/jpeg,image/png,image/webp"
               onChange={handleAttach}
-              disabled={attaching || attachments.length >= 3}
+              disabled={attaching || attachments.length >= 10}
               className="hidden"
               aria-label="Adjuntar archivo de apoyo"
             />
