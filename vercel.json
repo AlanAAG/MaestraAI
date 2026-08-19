@@ -1,6 +1,16 @@
 {
   "crons": [
-    { "path": "/api/cron/audit-cleanup", "schedule": "0 3 1 * *" },
-    { "path": "/api/cron/account-deletion", "schedule": "0 4 * * *" }
+    {
+      "path": "/api/cron/audit-cleanup",
+      "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/cron/account-deletion",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/attachment-cleanup",
+      "schedule": "0 5 * * *"
+    }
   ]
 }

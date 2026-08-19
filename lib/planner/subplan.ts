@@ -110,6 +110,8 @@ export async function generateCustomSubplan(
   opts: {
     evalColumns?: string[]
     cachePrefix?: string
+    /** Attachment-RAG fragments relevant to THIS unit (query = its name+tema). */
+    ragBlock?: string
   } = {}
 ): Promise<Record<string, unknown>> {
   const struct =
@@ -140,6 +142,7 @@ ${estructuraJson}
   "observaciones": ""
 }
 
+${opts.ragBlock ?? ''}
 Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido con TODOS sus PDA oficiales VERBATIM (desglose completo, sin consolidar ni omitir). 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
 
   const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {

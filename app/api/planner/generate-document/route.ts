@@ -914,11 +914,14 @@ export async function POST(req: NextRequest) {
     }
     // Attachment RAG (migration 080): fetch the most relevant fragments of the attached files
     // for THIS project before building prompts. Best-effort; empty → flat block stays full-size.
+    const attachmentKeys: string[] = (
+      Array.isArray(fn.attachment_context) ? fn.attachment_context : []
+    )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((a: any) => String(a?.key ?? a?.path ?? ''))
+      .filter(Boolean)
     try {
-      const attachKeys = (Array.isArray(fn.attachment_context) ? fn.attachment_context : [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((a: any) => String(a?.key ?? a?.path ?? ''))
-        .filter(Boolean)
+      const attachKeys = attachmentKeys
       if (attachKeys.length) {
         // More files → more fragments (reglamentos + circulares + libros all deserve a slot).
         const k = Math.min(12, 4 + attachKeys.length * 2)
@@ -1142,8 +1145,22 @@ export async function POST(req: NextRequest) {
               .slice(0, 3)
             if (extras.length) {
               const extraResults = await Promise.allSettled(
-                extras.map((s) =>
-                  generateCustomSubplan(
+                extras.map(async (s) => {
+                  // Unit-specific fragments: the reglamento shouldn't leak into a Taller de arte.
+                  let ragBlock = ''
+                  if (attachmentKeys.length) {
+                    const frags = await matchAttachmentChunks(
+                      supabase,
+                      teacherId,
+                      attachmentKeys,
+                      `${s.nombre ?? ''} ${s.tema ?? ''} ${s.metodologia ?? ''}`.trim(),
+                      4
+                    )
+                    if (frags.length) {
+                      ragBlock = `<fragmentos_de_archivos_unidad>\nFragmentos de los archivos adjuntos relevantes para ESTA unidad — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${frags.map((f) => `• ${f.content.slice(0, 1000)}`).join('\n\n')}\n</fragmentos_de_archivos_unidad>`
+                    }
+                  }
+                  return generateCustomSubplan(
                     fn,
                     {
                       methodology: s.metodologia,
@@ -1158,9 +1175,9 @@ export async function POST(req: NextRequest) {
                           .filter(Boolean)
                           .join('. ') || undefined,
                     },
-                    { evalColumns, cachePrefix }
+                    { evalColumns, cachePrefix, ragBlock }
                   )
-                )
+                })
               )
               for (const r of extraResults) {
                 if (r.status === 'fulfilled') subPlanes.push(r.value)
