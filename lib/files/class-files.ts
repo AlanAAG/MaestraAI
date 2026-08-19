@@ -12,15 +12,20 @@ export const ALLOWED_FILE_TYPES = new Set([
 ])
 export const MAX_FILE_BASE64 = 8 * 1024 * 1024 // ~6MB file
 
-/** Filesystem-safe filename (keeps extension, strips path tricks). */
+/** Storage-safe filename: Supabase object keys reject non-ASCII and odd punctuation
+ * ("Actividades Diagnóstico.pdf" → InvalidKey). Accents are transliterated, spaces become
+ * underscores, everything else outside [A-Za-z0-9._-] is dropped. The HUMAN name is stored
+ * separately for display — this only shapes the key. */
 export function safeFileName(name: string): string {
-  return (
-    name
-      .replace(/[/\\]/g, '_')
-      .replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ ]/g, '')
-      .trim()
-      .slice(0, 100) || 'archivo'
-  )
+  const ascii = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip diacritics: ó → o, ñ → n
+    .replace(/[/\\]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9._-]/g, '')
+    .replace(/_{2,}/g, '_')
+    .replace(/^[._-]+/, '')
+  return ascii.slice(0, 100) || 'archivo'
 }
 
 export type FileScope =
