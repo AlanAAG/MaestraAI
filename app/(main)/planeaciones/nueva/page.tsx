@@ -140,9 +140,9 @@ export default function NuevaPlaneacionPage() {
       setAttachError('Máximo 3 archivos por planeación.')
       return
     }
-    // 25MB: heavy multi-page PDFs with images fit; Claude's own PDF ceiling is 32MB/100 pages.
-    if (file.size > 25 * 1024 * 1024) {
-      setAttachError('Archivo demasiado grande (máx 25MB).')
+    // 50MB: heavy scanned PDFs fit; oversized ones get split by pages server-side.
+    if (file.size > 50 * 1024 * 1024) {
+      setAttachError('Archivo demasiado grande (máx 50MB).')
       return
     }
     setAttaching(true)
