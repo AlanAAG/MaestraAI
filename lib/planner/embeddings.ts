@@ -31,7 +31,7 @@ export function planEmbeddingText(pd: Record<string, unknown>): string {
 }
 
 // pgvector accepts the array literal as text — stringify so it casts cleanly via PostgREST.
-const toVector = (v: number[]) => JSON.stringify(v)
+export const toVector = (v: number[]) => JSON.stringify(v)
 
 export async function storePlaneacionEmbedding(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

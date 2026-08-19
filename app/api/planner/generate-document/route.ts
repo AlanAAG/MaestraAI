@@ -13,6 +13,7 @@ import { autoSelectNem, extractRecentChoices } from '@/lib/planner/auto-select'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import type { ContenidoPDA } from '@/lib/nem/contenidos-fase2'
 import { extractUsedFichas, pickFicha, buildFichaBlock } from '@/lib/nem/ficha-rotation'
+import { matchAttachmentChunks } from '@/lib/planner/attachment-rag'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
 import {
   matchPlaneaciones,
@@ -50,12 +51,14 @@ const Schema = z.object({ fortnight_id: z.string().uuid() })
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function attachmentsBlock(fn: any): string {
   const list = Array.isArray(fn?.attachment_context) ? fn.attachment_context : []
+  // With RAG fragments in play the flat block slims down (retrieval carries the depth).
+  const cap = fn?.__attachRag ? 4000 : 12000
   const items = list
     .filter((a: { name?: unknown; text?: unknown }) => a?.name && typeof a?.text === 'string')
     .slice(0, 3)
     .map(
       (a: { name: string; text: string }) =>
-        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, 12000)}`
+        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, cap)}`
     )
   if (!items.length) return ''
   return `<archivos_de_la_maestra>\nLa maestra adjuntó estos documentos para ESTA planeación y quedarán ANEXADOS al documento final. OBLIGATORIO:\n- USA su contenido: temas, FECHAS y PÁGINAS verbatim, vocabulario e indicaciones, integrados en las actividades de los días correctos.\n- Si un archivo es una hoja de trabajo o material, INCLÚYELO como actividad concreta en el momento apropiado, nombrándolo así: 'Hoja de trabajo anexa: <nombre del archivo>' (con lo que el alumno hará en ella).\n- No copies documentos íntegros; intégralos.\n${items.join('\n\n')}\n</archivos_de_la_maestra>`
@@ -364,8 +367,10 @@ function buildQuincenaPrompt(
       ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
       : '')
 
-  // Reference files the teacher attached at creation (migration 075) — extracted text.
+  // Reference files the teacher attached at creation (migration 075) — extracted text,
+  // plus RAG fragments (migration 080) pre-fetched into __attachRag by the route.
   const attachBlock = attachmentsBlock(fn)
+  const ragBlock = String(fn.__attachRag ?? '')
   // High-priority: the teacher's explicit requests + continuity with the previous quincena.
   const tNotes = String(fn.teacher_notes ?? '').slice(0, 1500)
   const pNotes = String(fn.project_notes ?? '').slice(0, 1500)
@@ -447,6 +452,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     proyectoSecciones,
     teacherReq,
     attachBlock,
+    ragBlock,
     continuityBlock,
     fichaBlock,
     pausasBlock,
@@ -526,7 +532,15 @@ ${richmondBlock}${gameHint ? '\n' + gameHint : ''}
 Genera la planeación del taller completa en el formato JSON especificado. Los campos son los del schema de taller.`
 
   // Grounding is injected as a cached system prefix, not here.
-  return [styleBlock, profileCtx, ejesBlock, knowledgeBlock, attachmentsBlock(fn), requestData]
+  return [
+    styleBlock,
+    profileCtx,
+    ejesBlock,
+    knowledgeBlock,
+    attachmentsBlock(fn),
+    String(fn.__attachRag ?? ''),
+    requestData,
+  ]
     .filter(Boolean)
     .join('\n\n')
 }
@@ -892,6 +906,30 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    // Attachment RAG (migration 080): fetch the most relevant fragments of the attached files
+    // for THIS project before building prompts. Best-effort; empty → flat block stays full-size.
+    try {
+      const attachKeys = (Array.isArray(fn.attachment_context) ? fn.attachment_context : [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((a: any) => String(a?.key ?? a?.path ?? ''))
+        .filter(Boolean)
+      if (attachKeys.length) {
+        const frags = await matchAttachmentChunks(
+          supabase,
+          teacherId,
+          attachKeys,
+          `${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim()
+        )
+        if (frags.length) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(fn as any).__attachRag =
+            `<fragmentos_relevantes_de_archivos>\nFragmentos EXACTOS de los archivos adjuntos, los más relevantes para este proyecto — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${frags.map((f) => `• ${f.content.slice(0, 1200)}`).join('\n\n')}\n</fragmentos_relevantes_de_archivos>`
+        }
+      }
+    } catch (e) {
+      console.error('[generate-document] attachment RAG skipped:', e)
+    }
+
     const nemOpts = { grade: groupGrade, procesos: teacherProcesos }
     // The rows behind the block — also the deterministic fallback if the model returns no
     // campos_formativos (the contenidos+PDA table must ALWAYS precede the proyecto/taller).

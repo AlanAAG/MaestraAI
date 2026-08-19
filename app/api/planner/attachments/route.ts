@@ -7,6 +7,7 @@ import mammoth from 'mammoth'
 import { PDFDocument } from 'pdf-lib'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { CLASS_FILES_BUCKET } from '@/lib/files/class-files'
+import { ingestAttachmentChunks } from '@/lib/planner/attachment-rag'
 
 // Extracts the TEXT of a reference file the teacher attached at plan creation. The file was
 // uploaded straight to Storage (signed URL — see ./upload-url) so heavy multi-page documents
@@ -32,6 +33,9 @@ const Schema = z.object({
     'image/webp',
   ]),
   path: z.string().min(1).max(300),
+  // PDF only: 1-based pages the teacher chose to ANNEX to the document. [] = context only.
+  // Omitted = annex the whole file (non-PDFs and old clients).
+  annex_pages: z.array(z.number().int().min(1).max(500)).max(200).optional(),
 })
 
 const TRANSCRIBE =
@@ -162,7 +166,55 @@ export async function POST(req: NextRequest) {
         { status: 422 }
       )
     }
-    return NextResponse.json({ name, text: text.slice(0, MAX_TEXT), path })
+    // RAG: chunk + embed the FULL transcription (the prompt's flat block is capped; retrieval
+    // reaches the rest). Keyed by the original upload path — saved as `key` on the attachment.
+    const ragChunks = await ingestAttachmentChunks(service, teacher.id, path, text)
+
+    // Annex shaping (PDF): keep only the pages the teacher toggled ON; [] = nothing annexed.
+    let annexPath: string | null = path
+    const pages = body.data.annex_pages
+    if (mimeType === 'application/pdf' && pages !== undefined) {
+      if (pages.length === 0) {
+        annexPath = null
+        service.storage
+          .from(CLASS_FILES_BUCKET)
+          .remove([path])
+          .then(null, () => {})
+      } else {
+        try {
+          const src = await PDFDocument.load(buffer, { ignoreEncryption: true })
+          const total = src.getPageCount()
+          const wanted = pages.filter((p) => p >= 1 && p <= total).map((p) => p - 1)
+          if (wanted.length && wanted.length < total) {
+            const doc = await PDFDocument.create()
+            const copied = await doc.copyPages(src, wanted)
+            copied.forEach((pg) => doc.addPage(pg))
+            const annexBytes = Buffer.from(await doc.save())
+            const newPath = path.replace(/(\.pdf)?$/i, '') + '-anexo.pdf'
+            const { error: upErr } = await service.storage
+              .from(CLASS_FILES_BUCKET)
+              .upload(newPath, annexBytes, { contentType: 'application/pdf', upsert: true })
+            if (!upErr) {
+              annexPath = newPath
+              service.storage
+                .from(CLASS_FILES_BUCKET)
+                .remove([path])
+                .then(null, () => {})
+            }
+          }
+          // wanted === total pages → the full file already IS the annex
+        } catch (e) {
+          console.error('[plan-attachments] annex trim skipped:', e)
+        }
+      }
+    }
+    return NextResponse.json({
+      name,
+      text: text.slice(0, MAX_TEXT),
+      path: annexPath,
+      key: path,
+      rag_chunks: ragChunks,
+    })
   } catch (err) {
     console.error('[plan-attachments]', err)
     return NextResponse.json({ error: 'No pude procesar el archivo.' }, { status: 500 })

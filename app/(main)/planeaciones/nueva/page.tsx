@@ -17,6 +17,7 @@ import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { isProniApplicable, EJES_ARTICULADORES } from '@/lib/nem-official-data'
 import { activeGroups } from '@/lib/groups/archive'
 import { CONTENIDOS_FASE2_3, pdasForGrade, type ContenidoPDA } from '@/lib/nem/contenidos-fase2'
+import { PdfPageSelector } from '@/components/planner/PdfPageSelector'
 
 // Official NEM Contenidos grouped by campo — the source for the per-unit contenidos picker.
 const CONTENIDOS_BY_CAMPO = CONTENIDOS_FASE2_3.reduce<Record<string, ContenidoPDA[]>>((acc, c) => {
@@ -133,6 +134,8 @@ export default function NuevaPlaneacionPage() {
   )
   const [attaching, setAttaching] = useState(false)
   const [attachError, setAttachError] = useState('')
+  // PDF pending the iLovePDF-style page pick (which pages get annexed to the document).
+  const [pendingPdf, setPendingPdf] = useState<File | null>(null)
 
   async function handleAttach(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -147,6 +150,16 @@ export default function NuevaPlaneacionPage() {
       setAttachError('Archivo demasiado grande (máx 50MB).')
       return
     }
+    // PDFs first pass through the page picker (which pages get annexed).
+    if (file.type === 'application/pdf') {
+      setAttachError('')
+      setPendingPdf(file)
+      return
+    }
+    await uploadAndExtract(file)
+  }
+
+  async function uploadAndExtract(file: File, annexPages?: number[]) {
     setAttaching(true)
     setAttachError('')
     try {
@@ -171,11 +184,19 @@ export default function NuevaPlaneacionPage() {
       const res = await fetch('/api/planner/attachments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: file.name, mimeType: file.type, path: urlData.path }),
+        body: JSON.stringify({
+          name: file.name,
+          mimeType: file.type,
+          path: urlData.path,
+          ...(annexPages !== undefined ? { annex_pages: annexPages } : {}),
+        }),
       })
       const data = await res.json().catch(() => ({}) as { error?: string })
       if (!res.ok) throw new Error(data.error ?? 'No pude procesar el archivo.')
-      setAttachments((p) => [...p, { name: data.name, text: data.text, path: data.path }])
+      setAttachments((p) => [
+        ...p,
+        { name: data.name, text: data.text, path: data.path, key: data.key },
+      ])
     } catch (err) {
       setAttachError(err instanceof Error ? err.message : 'No pude procesar el archivo.')
     } finally {
@@ -1518,6 +1539,18 @@ export default function NuevaPlaneacionPage() {
             />
           </label>
         </Card>
+
+        {pendingPdf && (
+          <PdfPageSelector
+            file={pendingPdf}
+            onCancel={() => setPendingPdf(null)}
+            onConfirm={(pages) => {
+              const f = pendingPdf
+              setPendingPdf(null)
+              if (f) uploadAndExtract(f, pages)
+            }}
+          />
+        )}
 
         {/* Actions */}
         <div className="flex gap-3">
