@@ -121,6 +121,33 @@ function LoginForm() {
       }
       router.push('/dashboard?diary=saved')
     } else {
+      // Returning parents (no teacher row, claimed family link) go to /familia — same
+      // routing the Google callback already does.
+      try {
+        const { data: sessionData } = await supabase.auth.getUser()
+        const uid = sessionData.user?.id
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: teacher } = await (supabase as any)
+          .from('teachers')
+          .select('id')
+          .eq('auth_id', uid)
+          .maybeSingle()
+        if (!teacher) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: links } = await (supabase as any)
+            .from('parent_links')
+            .select('id')
+            .eq('parent_auth_id', uid)
+            .is('revoked_at', null)
+            .limit(1)
+          if (links?.length) {
+            router.push('/familia')
+            return
+          }
+        }
+      } catch {
+        /* fall through to the teacher default */
+      }
       router.push('/dashboard')
     }
   }
@@ -200,6 +227,12 @@ function LoginForm() {
             ¿No tienes cuenta?{' '}
             <Link href="/register" className="text-primary hover:underline font-medium">
               Regístrate
+            </Link>
+          </p>
+          <p className="text-center text-sm text-text-secondary">
+            ¿Eres familia de un alumno?{' '}
+            <Link href="/familia/acceso" className="text-primary hover:underline font-medium">
+              Cómo entrar
             </Link>
           </p>
         </div>

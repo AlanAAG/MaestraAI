@@ -17,14 +17,17 @@ export function PlayerGate({
   content,
   vocabulary,
   minCorrect,
+  initialPlayer,
 }: {
   token: string
   type: string
   content: Record<string, unknown>
   vocabulary: string[]
   minCorrect?: number | null
+  /** Server-resolved linked profile (signed-in parent) — skips the nickname gate. */
+  initialPlayer?: Player | null
 }) {
-  const [player, setPlayer] = useState<Player | null>(null)
+  const [player, setPlayer] = useState<Player | null>(initialPlayer ?? null)
   const [ready, setReady] = useState(false)
   const [nickname, setNickname] = useState('')
   const [avatar, setAvatar] = useState(AVATARS[0])
@@ -35,13 +38,17 @@ export function PlayerGate({
   const [skipped, setSkipped] = useState(false)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) setPlayer(JSON.parse(raw))
-    } catch {
-      /* first visit / blocked storage → the child just creates a profile */
+    // A server-resolved profile wins over whatever this device stored (shared devices).
+    if (!initialPlayer) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (raw) setPlayer(JSON.parse(raw))
+      } catch {
+        /* first visit / blocked storage → the child just creates a profile */
+      }
     }
     setReady(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function createProfile() {

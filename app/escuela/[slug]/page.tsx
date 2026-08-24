@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { grantsAccess } from '@/lib/parents/links'
+import { getActiveAnnouncements } from '@/lib/school/announcements'
+import { SchoolAnnouncements } from '@/components/school/SchoolAnnouncements'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +18,7 @@ export default async function EscuelaPage({ params }: { params: { slug: string }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: school } = await (service as any)
     .from('schools')
-    .select('id, name, city')
+    .select('id, name, city, logo_url, brand_color')
     .eq('slug', slug)
     .maybeSingle()
   if (!school) return <Denied />
@@ -51,6 +53,9 @@ export default async function EscuelaPage({ params }: { params: { slug: string }
   }
   if (!isTeacher && !isParent) return <Denied />
 
+  // Membership verified above → school-wide announcements via service role.
+  const announcements = await getActiveAnnouncements(service, school.id)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: staff } = await (service as any)
     .from('teachers')
@@ -61,11 +66,31 @@ export default async function EscuelaPage({ params }: { params: { slug: string }
   return (
     <div className="min-h-screen bg-page">
       <header className="border-b border-border bg-card px-6 py-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-primary">MaestraIA</p>
-        <h1 className="text-2xl font-semibold font-display text-text-primary">{school.name}</h1>
-        {school.city && <p className="text-sm text-text-secondary">{school.city}</p>}
+        <div className="flex items-center gap-4">
+          {school.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={school.logo_url} alt={school.name} className="h-12 w-auto object-contain" />
+          ) : (
+            <p className="text-xs font-medium uppercase tracking-wide text-primary">MaestraIA</p>
+          )}
+          <div>
+            <h1
+              className="text-2xl font-semibold font-display text-text-primary"
+              style={school.brand_color ? { color: school.brand_color } : undefined}
+            >
+              {school.name}
+            </h1>
+            {school.city && <p className="text-sm text-text-secondary">{school.city}</p>}
+          </div>
+        </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-8 space-y-8">
+        {announcements.length > 0 && (
+          <section className="rounded-xl border-2 border-border bg-card p-5">
+            <h2 className="text-sm font-semibold text-text-primary mb-3">Avisos de la escuela</h2>
+            <SchoolAnnouncements items={announcements} />
+          </section>
+        )}
         <section className="rounded-xl border-2 border-border bg-card p-5">
           <h2 className="text-sm font-semibold text-text-primary mb-2">Tu espacio</h2>
           <div className="flex flex-wrap gap-2">

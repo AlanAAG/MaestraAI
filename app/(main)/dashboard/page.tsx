@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { BookOpen, Database, FileText, Calendar, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getEditorialConfig } from '@/lib/editorial/registry'
+import { DashboardAnnouncements } from '@/components/school/DashboardAnnouncements'
 import { motion } from 'framer-motion'
 
 const PHRASES = [
@@ -130,6 +131,8 @@ export default function DashboardPage() {
           })}
         </p>
       </div>
+
+      <DashboardAnnouncements />
 
       {/* Phrase card */}
       <motion.div

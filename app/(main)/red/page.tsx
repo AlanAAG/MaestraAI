@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, ChevronDown, Download, Trash2, X } from 'lucide-react'
 import { SchoolAdminPanel } from '@/components/school/SchoolAdminPanel'
+import { RequestsCard } from '@/components/school/RequestsCard'
 
 type Announcement = {
   id: string
@@ -258,10 +259,20 @@ export default function RedPage() {
       </div>
 
       {roleType === 'admin' && (
-        <div className="mb-8">
+        <div className="mb-8 space-y-4">
           <SchoolAdminPanel />
+          <a
+            href="/red/supervision"
+            className="inline-block text-sm font-medium text-primary underline"
+          >
+            Supervisión: ver el trabajo de las maestras →
+          </a>
         </div>
       )}
+
+      <div className="mb-8">
+        <RequestsCard />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Avisos (2/3 width) */}

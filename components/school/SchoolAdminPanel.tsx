@@ -29,6 +29,29 @@ export function SchoolAdminPanel() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  const [brandColor, setBrandColor] = useState('#6366f1')
+  const [hasBrandColor, setHasBrandColor] = useState(false)
+
+  async function saveBrandColor(color: string | null) {
+    setBusy(true)
+    setError('')
+    setMsg('')
+    try {
+      const res = await fetch('/api/school/brand', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand_color: color }),
+      })
+      const data = await res.json().catch(() => ({}) as { error?: string })
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar')
+      setHasBrandColor(!!color)
+      setMsg(color ? 'Color guardado' : 'Color quitado')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function load() {
     const res = await fetch('/api/school/invites')
@@ -41,6 +64,15 @@ export function SchoolAdminPanel() {
   }
   useEffect(() => {
     load()
+    fetch('/api/school/brand')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.brand_color) {
+          setBrandColor(d.brand_color)
+          setHasBrandColor(true)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   async function saveSlug() {
@@ -131,6 +163,34 @@ export function SchoolAdminPanel() {
             >
               <Link2 size={13} /> Abrir portal
             </a>
+          )}
+        </div>
+      </div>
+
+      {/* Brand color */}
+      <div className="mb-5">
+        <label htmlFor="brand-color" className="block text-xs font-medium text-text-primary mb-1">
+          Color de la escuela
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            id="brand-color"
+            type="color"
+            value={brandColor}
+            onChange={(e) => setBrandColor(e.target.value)}
+            className="h-10 w-14 cursor-pointer rounded-lg border border-border bg-surface"
+          />
+          <Button size="sm" onClick={() => saveBrandColor(brandColor)} disabled={busy}>
+            Guardar color
+          </Button>
+          {hasBrandColor && (
+            <button
+              onClick={() => saveBrandColor(null)}
+              className="text-xs text-text-secondary underline"
+              disabled={busy}
+            >
+              Quitar
+            </button>
           )}
         </div>
       </div>

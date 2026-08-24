@@ -1,6 +1,11 @@
 import { notFound } from 'next/navigation'
 import { PlayerGate } from '@/components/games/PlayerGate'
+import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { grantsAccess } from '@/lib/parents/links'
+import { pickLinkedPlayer } from '@/lib/parents/child-data'
+import { getBrandByTeacherId } from '@/lib/school/brand'
+import { SchoolBrandHeader } from '@/components/school/SchoolBrandHeader'
 import { appFontStyle } from '@/lib/design/fonts'
 import { appThemeVars } from '@/lib/design/themes'
 import { TeacherVocabImages } from '@/components/games/TeacherImages'
@@ -58,11 +63,44 @@ export default async function JugarPage({ params }: Props) {
     // migration 064 not applied / any error → games fall back to stored visuals
   }
 
+  // Signed-in parent → skip the nickname gate with their child's linked profile. The
+  // teacher_id filter is required: results must land on THIS teacher's player profile.
+  let initialPlayer: { id: string; nickname: string; avatar: string; code: string } | null = null
+  try {
+    const cookieClient = await createClient()
+    const {
+      data: { user },
+    } = await cookieClient.auth.getUser()
+    if (user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rawLinks } = await (cookieClient as any)
+        .from('parent_links')
+        .select('student_id, expires_at, claimed_at, revoked_at')
+        .eq('parent_auth_id', user.id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const studentIds = (rawLinks ?? [])
+        .filter((l: any) => grantsAccess(l))
+        .map((l: any) => l.student_id)
+      if (studentIds.length) {
+        const { data: players } = await supabase
+          .from('game_players')
+          .select('id, nickname, avatar, code, created_at')
+          .in('student_id', studentIds)
+          .eq('teacher_id', material.teacher_id as string)
+        const p = pickLinkedPlayer(players ?? [])
+        if (p) initialPlayer = { id: p.id, nickname: p.nickname, avatar: p.avatar, code: p.code }
+      }
+    }
+  } catch {
+    /* anonymous flow stays the default */
+  }
+
+  // White-label: the owning teacher's school brand, MaestraIA otherwise (best-effort).
+  const brand = await getBrandByTeacherId(supabase, material.teacher_id as string)
+
   return (
     <div className="min-h-screen bg-gray-50" style={wrapperStyle}>
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center">
-        <span className="text-sm font-semibold text-indigo-600">MaestraIA</span>
-      </header>
+      <SchoolBrandHeader brand={brand} />
       <main className="max-w-3xl mx-auto py-6 px-4 sm:px-6">
         <TeacherVocabImages map={imageMap}>
           <PlayerGate
@@ -71,6 +109,7 @@ export default async function JugarPage({ params }: Props) {
             content={material.content as Record<string, unknown>}
             vocabulary={(material.vocabulary as string[]) ?? []}
             minCorrect={minCorrect}
+            initialPlayer={initialPlayer}
           />
         </TeacherVocabImages>
       </main>

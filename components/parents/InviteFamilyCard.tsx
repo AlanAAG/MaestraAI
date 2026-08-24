@@ -66,6 +66,27 @@ export function InviteFamilyCard({ studentId }: { studentId: string }) {
     load()
   }
 
+  // Self-claimed link so the teacher can test /familia as this student's family.
+  async function preview() {
+    setSending(true)
+    setMsg('')
+    try {
+      const res = await fetch('/api/parent-links/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => null)
+        setMsg(d?.error ?? 'No se pudo abrir la vista previa')
+        return
+      }
+      window.location.href = '/familia'
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <Card className="p-8 mb-6">
       <h2 className="text-xl font-semibold text-text-primary mb-1">Invitar a familia</h2>
@@ -91,6 +112,13 @@ export function InviteFamilyCard({ studentId }: { studentId: string }) {
         </Button>
       </div>
       {msg && <p className="text-sm text-text-secondary mb-3">{msg}</p>}
+      <button
+        onClick={preview}
+        disabled={sending}
+        className="mb-3 text-xs font-medium text-primary underline disabled:opacity-50"
+      >
+        Ver como familia (vista previa)
+      </button>
       {links.length > 0 && (
         <ul className="space-y-2">
           {links.map((l) => (

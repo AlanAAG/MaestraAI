@@ -20,7 +20,7 @@ const PROTECTED_PATHS = [
 ]
 
 // Public sub-paths of otherwise-protected prefixes (parent invite landing must work logged-out).
-const PUBLIC_EXCEPTIONS = ['/familia/invitacion']
+const PUBLIC_EXCEPTIONS = ['/familia/invitacion', '/familia/acceso']
 
 function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Frame-Options', 'DENY')

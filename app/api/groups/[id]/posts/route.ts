@@ -37,7 +37,7 @@ const PostSchema = z
 async function ownGroup(supabase: any, userId: string, groupId: string) {
   const { data: teacher } = await supabase
     .from('teachers')
-    .select('id, full_name, email')
+    .select('id, full_name, email, school_id')
     .eq('auth_id', userId)
     .single()
   if (!teacher) return null
@@ -156,6 +156,22 @@ ${due ? `<p style="color:#666">Fecha límite: ${due}</p>` : ''}
 ${body.data.attachments?.length ? `<p style="color:#666">📎 ${body.data.attachments.length} archivo(s) adjunto(s) — ábrelos desde el portal de familias.</p>` : ''}
 <p style="color:#666;font-size:13px"><a href="${base}/familia">Ver todos los anuncios en MaestraIA</a></p>`
 
+    // White-label touch: the school's name in the subject (best-effort).
+    let schoolName: string | null = null
+    if (teacher.school_id) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: school } = await (service as any)
+          .from('schools')
+          .select('name')
+          .eq('id', teacher.school_id)
+          .maybeSingle()
+        schoolName = school?.name ?? null
+      } catch {
+        /* subject stays generic */
+      }
+    }
+
     let sent = 0
     if (recipients.length && process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY)
@@ -165,7 +181,7 @@ ${body.data.attachments?.length ? `<p style="color:#666">📎 ${body.data.attach
             from: 'MaestraIA <notificaciones@maestraia.com>',
             to,
             replyTo: teacher.email ?? undefined,
-            subject: `${body.data.kind === 'tarea' ? '📝 Tarea' : '📣 Anuncio'}: ${body.data.title}`,
+            subject: `${schoolName ? `[${schoolName}] ` : ''}${body.data.kind === 'tarea' ? '📝 Tarea' : '📣 Anuncio'}: ${body.data.title}`,
             html,
           })
           sent++

@@ -28,9 +28,18 @@ See git history for full feature log. Major systems:
 - **Security**: Rate limiting (fails closed in prod), CSRF hardening, magic-byte file validation, failed login logging
 - **Landing**: Lenis smooth scroll, scroll choreography, GTM seam, confetti on waitlist submit
 
+- **Multiuser overhaul (2026-08-24)**:
+  - **Espacio del alumno** `/familia/[student]`: página completa por hijo (vocabulario de la quincena con dibujos de la miss, juegos como botones grandes, tareas + entregas, avisos + adjuntos), con el tema visual de la maestra. El padre entra con su Google (sin PII de menores); en `/jugar/[token]` un padre con sesión salta la pantalla de apodo — el juego usa el perfil vinculado del hijo (filtrado por teacher del material). Lógica compartida extraída a `lib/parents/child-data.ts` (+ fix: adjuntos ahora sí se seleccionan en el muro de /familia).
+  - **White-label por escuela**: `schools.brand_color` (migración 081) + logo (052) se muestran en /escuela/[slug], /jugar y /familia (`lib/school/brand.ts`, `SchoolBrandHeader`); solo si todos los hijos son de una misma escuela. Dirección elige el color en el panel de /red (`PUT /api/school/brand`, RLS 079). Nombre de la escuela en el subject de los correos del muro.
+  - **Supervisión (dirección, solo lectura)**: migración 082 — políticas SELECT para role_type=admin sobre fortnights/lesson_plans/materials/group_posts/groups de su escuela (students excluido: PII). Página `/red/supervision` consulta user-scoped (RLS = autorización real).
+  - **Avisos school-wide**: se reusó `school_announcements` (010); ahora visibles en /escuela/[slug], /familia (+ página por hijo) y tarjeta en el dashboard docente (`lib/school/announcements.ts`). Sin email en v1.
+  - **Solicitudes a dirección**: migración 083 `school_requests` (material/presupuesto/otro, inmutables, dirección aprueba/rechaza con respuesta). API `/api/school/requests` (+ `[id]` PATCH, guard 409), tarjeta `RequestsCard` en /red para ambos roles.
+
+- **Flujo "¿Eres familia?" (2026-08-24)**: página pública `/familia/acceso` (cómo funciona el acceso por invitación, sin datos), link desde /login; login con email/contraseña ahora manda a padres (sin fila de teacher, con parent_link activo) a /familia igual que ya hacía el callback de Google. **Vista previa para la miss**: botón "Ver como familia" en la ficha del alumno (`POST /api/parent-links/preview`) — se auto-reclama un parent_link (revocable, visible en la lista) y abre /familia tal como lo ve el papá. Acceso sigue siendo solo por invitación de la maestra; sin dropdown de nombres (PII).
+
 ## Pending migrations
 
-None — everything through 069 is applied, ledger repaired, types regenerated (2026-08-10).
+**081, 082, 083 pending `supabase db push`** (brand_color, admin read-only RLS, school_requests). Regenerate types after push. Everything through 080 applied.
 
 ## What does NOT exist yet
 
