@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { Resend } from 'resend'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { createServiceClient } from '@/lib/supabase/service'
+import { escapeHtml, escapeLike } from '@/lib/html'
 
 // School allowlist: directors (role_type admin) invite teacher/admin emails. Only those emails
 // can join the school; the claim happens automatically at signup/onboarding (see claim route).
@@ -113,7 +115,7 @@ export async function POST(req: NextRequest) {
           to: email,
           replyTo: admin.email ?? undefined,
           subject: `Te invitaron a ${schoolName} en MaestraIA`,
-          html: `<p>${admin.full_name ?? 'La dirección'} te invitó a unirte a <strong>${schoolName}</strong> en MaestraIA.</p>
+          html: `<p>${escapeHtml(admin.full_name ?? 'La dirección')} te invitó a unirte a <strong>${escapeHtml(schoolName)}</strong> en MaestraIA.</p>
 <p><a href="${base}/register" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Crear mi cuenta</a></p>
 <p style="color:#666;font-size:13px">Regístrate con este mismo correo (${email}) y quedarás ligada a la escuela automáticamente.</p>`,
         })
@@ -129,6 +131,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Revoking is the admin's "who is out": deleting a CLAIMED invite also detaches the teacher
+// from the school (school_id null, role back to teacher) so access ends immediately —
+// the account and its own content survive, only the school membership goes.
 export async function DELETE(req: NextRequest) {
   const inviteId = req.nextUrl.searchParams.get('id')
   if (!inviteId || !z.string().uuid().safeParse(inviteId).success) {
@@ -139,7 +144,40 @@ export async function DELETE(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  // RLS restricts the delete to the admin's own school.
+
+  // Read under RLS first: visible ⇔ the caller is an admin of the invite's school.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: invite } = await (supabase as any)
+    .from('school_invites')
+    .select('id, school_id, email, claimed_at')
+    .eq('id', inviteId)
+    .maybeSingle()
+  if (!invite) return NextResponse.json({ error: 'Invitación no encontrada' }, { status: 404 })
+
+  if (invite.claimed_at) {
+    const service = createServiceClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: member } = await (service as any)
+      .from('teachers')
+      .select('id, auth_id')
+      .ilike('email', escapeLike(invite.email))
+      .eq('school_id', invite.school_id)
+      .maybeSingle()
+    // Never let an admin lock themself out by revoking their own invite.
+    if (member && member.auth_id !== user.id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (service as any)
+        .from('teachers')
+        .update({ school_id: null, role_type: 'teacher' })
+        .eq('id', member.id)
+    } else if (member && member.auth_id === user.id) {
+      return NextResponse.json(
+        { error: 'No puedes quitarte a ti misma de la escuela.' },
+        { status: 400 }
+      )
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('school_invites').delete().eq('id', inviteId)
   if (error) return NextResponse.json({ error: 'Error interno' }, { status: 500 })

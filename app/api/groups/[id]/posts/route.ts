@@ -7,6 +7,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { decrypt } from '@/lib/encryption'
 import { mergeRecipients } from '@/lib/groups/classroom'
 import { sendPushToAuthIds, parentAuthIdsForGroups } from '@/lib/push/send'
+import { escapeHtml } from '@/lib/html'
 
 // Sending N sequential emails can exceed the default serverless window on big groups.
 export const maxDuration = 60
@@ -149,9 +150,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           month: 'long',
         })
       : null
-    const html = `<p><strong>${group.name}</strong> — ${body.data.kind === 'tarea' ? 'Nueva tarea' : 'Anuncio'} de ${teacher.full_name ?? 'la maestra'}:</p>
-<h2 style="margin:8px 0">${body.data.title}</h2>
-${body.data.body ? `<p style="white-space:pre-line">${body.data.body}</p>` : ''}
+    const html = `<p><strong>${escapeHtml(group.name)}</strong> — ${body.data.kind === 'tarea' ? 'Nueva tarea' : 'Anuncio'} de ${escapeHtml(teacher.full_name ?? 'la maestra')}:</p>
+<h2 style="margin:8px 0">${escapeHtml(body.data.title)}</h2>
+${body.data.body ? `<p style="white-space:pre-line">${escapeHtml(body.data.body)}</p>` : ''}
 ${playUrl ? `<p><a href="${playUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Abrir la actividad</a></p>` : ''}
 ${due ? `<p style="color:#666">Fecha límite: ${due}</p>` : ''}
 ${body.data.attachments?.length ? `<p style="color:#666">📎 ${body.data.attachments.length} archivo(s) adjunto(s) — ábrelos desde el portal de familias.</p>` : ''}

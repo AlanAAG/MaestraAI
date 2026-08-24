@@ -126,7 +126,14 @@ export function SchoolAdminPanel() {
     }
   }
 
-  async function revoke(id: string) {
+  async function revoke(id: string, claimed: boolean, email: string) {
+    if (
+      claimed &&
+      !confirm(
+        `${email} ya tiene cuenta activa: al quitarla pierde el acceso a la escuela (su cuenta y su material siguen siendo suyos). ¿Continuar?`
+      )
+    )
+      return
     await fetch(`/api/school/invites?id=${id}`, { method: 'DELETE' }).catch(() => {})
     load()
   }
@@ -246,7 +253,7 @@ export function SchoolAdminPanel() {
                   {i.claimed_at ? 'Activa' : 'Pendiente'}
                 </span>
                 <button
-                  onClick={() => revoke(i.id)}
+                  onClick={() => revoke(i.id, !!i.claimed_at, i.email)}
                   className="cursor-pointer rounded p-1 text-text-disabled hover:bg-red-50 hover:text-red-600"
                   aria-label={`Quitar ${i.email}`}
                 >

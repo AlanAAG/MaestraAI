@@ -8,6 +8,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { decrypt } from '@/lib/encryption'
 import { mergeRecipients } from '@/lib/groups/classroom'
 import { sendPushToAuthIds, parentAuthIdsForGroups } from '@/lib/push/send'
+import { escapeHtml } from '@/lib/html'
 
 // School-wide email volume guard: one aviso never emails more than this many addresses.
 const MAX_EMAIL_RECIPIENTS = 300
@@ -159,8 +160,8 @@ export async function POST(req: NextRequest) {
         )
         const resend = new Resend(process.env.RESEND_API_KEY)
         const html = `<p><strong>Aviso de la escuela</strong></p>
-<h2 style="margin:8px 0">${announcement.title}</h2>
-<p style="white-space:pre-line">${announcement.content}</p>
+<h2 style="margin:8px 0">${escapeHtml(announcement.title)}</h2>
+<p style="white-space:pre-line">${escapeHtml(announcement.content)}</p>
 <p style="color:#666;font-size:13px">Publicado por la dirección/coordinación de tu escuela en MaestraIA.</p>`
         for (const to of recipients) {
           try {
