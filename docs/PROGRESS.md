@@ -37,6 +37,8 @@ See git history for full feature log. Major systems:
 
 - **Flujo "¿Eres familia?" (2026-08-24)**: página pública `/familia/acceso` (cómo funciona el acceso por invitación, sin datos), link desde /login; login con email/contraseña ahora manda a padres (sin fila de teacher, con parent_link activo) a /familia igual que ya hacía el callback de Google. **Vista previa para la miss**: botón "Ver como familia" en la ficha del alumno (`POST /api/parent-links/preview`) — se auto-reclama un parent_link (revocable, visible en la lista) y abre /familia tal como lo ve el papá. Acceso sigue siendo solo por invitación de la maestra; sin dropdown de nombres (PII).
 
+- **Notificaciones a familias (2026-08-24)**: (1) **Web Push** — migración 084 `push_subscriptions`, `/sw.js`, botón "Activar notificaciones" en /familia (`PushOptIn`), `lib/push/send.ts` (web-push + VAPID, poda suscripciones muertas); publicar anuncio/tarea del grupo o aviso school-wide manda push a los papás vinculados. Requiere `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (en .env.local; **faltan en Vercel** — sin ellas el push se desactiva solo). (2) **Correo para avisos school-wide**: checkbox "Enviar también por correo" en /red (solo admin/coordinación), tope 300 destinatarios, reusa el patrón de group posts. (3) **Badge "Nuevo"** en /familia (`NewBadge`/`MarkSeen`, localStorage por dispositivo) sobre posts y avisos desde la última visita.
+
 ## Pending migrations
 
 None — everything through **083** applied (2026-08-24), types regenerated from linked project.

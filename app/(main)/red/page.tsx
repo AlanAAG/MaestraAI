@@ -93,6 +93,7 @@ export default function RedPage() {
   const [formContent, setFormContent] = useState('')
   const [formPriority, setFormPriority] = useState<'normal' | 'high' | 'urgent'>('normal')
   const [formExpires, setFormExpires] = useState('')
+  const [formNotify, setFormNotify] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -175,6 +176,7 @@ export default function RedPage() {
           content: formContent.trim(),
           priority: formPriority,
           expires_at: formExpires || undefined,
+          notify: formNotify,
         }),
       })
       if (res.ok) {
@@ -184,6 +186,7 @@ export default function RedPage() {
         setFormContent('')
         setFormPriority('normal')
         setFormExpires('')
+        setFormNotify(false)
         setShowForm(false)
       } else {
         setFormError('No se pudo publicar el aviso')
@@ -333,6 +336,15 @@ export default function RedPage() {
                   placeholder="Vence (opcional)"
                 />
               </div>
+              <label className="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formNotify}
+                  onChange={(e) => setFormNotify(e.target.checked)}
+                  className="h-4 w-4 accent-[var(--color-primary)]"
+                />
+                Enviar también por correo a todas las familias de la escuela
+              </label>
               {formError && (
                 <div className="flex items-center gap-2 text-xs text-red-600">
                   <AlertCircle size={12} /> {formError}

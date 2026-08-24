@@ -10,6 +10,8 @@ import { grantsAccess } from '@/lib/parents/links'
 import { getChildView, TYPE_LABELS, type ChildView } from '@/lib/parents/child-data'
 import { getActiveAnnouncements, type SchoolAnnouncement } from '@/lib/school/announcements'
 import { SchoolAnnouncements } from '@/components/school/SchoolAnnouncements'
+import { PushOptIn } from '@/components/parents/PushOptIn'
+import { NewBadge, MarkSeen } from '@/components/parents/NewBadge'
 import { LinkPlayerCard } from '@/components/parents/LinkPlayerCard'
 import { GroupForum } from '@/components/forum/GroupForum'
 import { SubmitTarea } from '@/components/parents/SubmitTarea'
@@ -79,12 +81,14 @@ export default async function FamiliaPage() {
 
   return (
     <div className="space-y-10">
+      <MarkSeen />
+      <PushOptIn />
       {schoolAnnouncements.length > 0 && (
         <section>
           <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-3">
             Avisos de la escuela
           </h2>
-          <SchoolAnnouncements items={schoolAnnouncements} />
+          <SchoolAnnouncements items={schoolAnnouncements} showNewBadge />
         </section>
       )}
       {children.map((child, i) => (
@@ -113,6 +117,7 @@ export default async function FamiliaPage() {
                       <p className="text-sm font-medium text-text-primary">
                         {p.kind === 'tarea' ? '📝 ' : '📣 '}
                         {p.title}
+                        <NewBadge date={p.created_at} />
                       </p>
                       {p.body && (
                         <p className="mt-1 whitespace-pre-line text-xs text-text-secondary">

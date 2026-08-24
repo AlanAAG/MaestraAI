@@ -6,6 +6,7 @@ import { Resend } from 'resend'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decrypt } from '@/lib/encryption'
 import { mergeRecipients } from '@/lib/groups/classroom'
+import { sendPushToAuthIds, parentAuthIdsForGroups } from '@/lib/push/send'
 
 // Sending N sequential emails can exceed the default serverless window on big groups.
 export const maxDuration = 60
@@ -190,6 +191,20 @@ ${body.data.attachments?.length ? `<p style="color:#666">📎 ${body.data.attach
         }
       }
     }
+    // Web push to the group's linked parents (best-effort, never blocks the response).
+    try {
+      const authIds = await parentAuthIdsForGroups(service, [params.id])
+      await sendPushToAuthIds(service, authIds, {
+        title:
+          body.data.kind === 'tarea'
+            ? `📝 Nueva tarea: ${body.data.title}`
+            : `📣 ${body.data.title}`,
+        body: schoolName ? `${group.name} · ${schoolName}` : group.name,
+      })
+    } catch (err) {
+      console.error('[group-posts] push skipped:', err)
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: logError } = await (service as any)
       .from('group_post_emails')
