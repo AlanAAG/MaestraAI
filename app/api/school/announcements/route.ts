@@ -10,6 +10,9 @@ import { mergeRecipients } from '@/lib/groups/classroom'
 import { sendPushToAuthIds, parentAuthIdsForGroups } from '@/lib/push/send'
 import { escapeHtml } from '@/lib/html'
 
+// Sequential school-wide emails can exceed the default serverless window (same as group posts).
+export const maxDuration = 60
+
 // School-wide email volume guard: one aviso never emails more than this many addresses.
 const MAX_EMAIL_RECIPIENTS = 300
 
