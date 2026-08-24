@@ -39,7 +39,7 @@ See git history for full feature log. Major systems:
 
 ## Pending migrations
 
-**081, 082, 083 pending `supabase db push`** (brand_color, admin read-only RLS, school_requests). Regenerate types after push. Everything through 080 applied.
+None — everything through **083** applied (2026-08-24), types regenerated from linked project.
 
 ## What does NOT exist yet
 
