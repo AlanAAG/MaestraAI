@@ -1058,6 +1058,44 @@ export type Database = {
           },
         ]
       }
+      plan_attachment_chunks: {
+        Row: {
+          attachment_key: string
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          idx: number
+          teacher_id: string
+        }
+        Insert: {
+          attachment_key: string
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          idx: number
+          teacher_id: string
+        }
+        Update: {
+          attachment_key?: string
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          idx?: number
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plan_attachment_chunks_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       plan_corrections: {
         Row: {
           created_at: string | null
@@ -1676,8 +1714,76 @@ export type Database = {
           },
         ]
       }
+      school_requests: {
+        Row: {
+          admin_response: string | null
+          amount: number | null
+          body: string | null
+          created_at: string
+          id: string
+          kind: string
+          resolved_at: string | null
+          resolved_by: string | null
+          school_id: string
+          status: string
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          admin_response?: string | null
+          amount?: number | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          school_id: string
+          status?: string
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          admin_response?: string | null
+          amount?: number | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          school_id?: string
+          status?: string
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'school_requests_resolved_by_fkey'
+            columns: ['resolved_by']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'school_requests_school_id_fkey'
+            columns: ['school_id']
+            isOneToOne: false
+            referencedRelation: 'schools'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'school_requests_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       schools: {
         Row: {
+          brand_color: string | null
           city: string | null
           created_at: string | null
           id: string
@@ -1688,6 +1794,7 @@ export type Database = {
           state: string | null
         }
         Insert: {
+          brand_color?: string | null
           city?: string | null
           created_at?: string | null
           id?: string
@@ -1698,6 +1805,7 @@ export type Database = {
           state?: string | null
         }
         Update: {
+          brand_color?: string | null
           city?: string | null
           created_at?: string | null
           id?: string
@@ -2280,6 +2388,19 @@ export type Database = {
           id: string
           name: string
           state: string
+        }[]
+      }
+      match_attachment_chunks: {
+        Args: {
+          match_count?: number
+          p_keys: string[]
+          p_teacher: string
+          query_embedding: string
+        }
+        Returns: {
+          attachment_key: string
+          content: string
+          similarity: number
         }[]
       }
       match_nem_knowledge: {
