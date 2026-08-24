@@ -77,10 +77,10 @@ export default async function JugarPage({ params }: Props) {
         .from('parent_links')
         .select('student_id, expires_at, claimed_at, revoked_at')
         .eq('parent_auth_id', user.id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const studentIds = (rawLinks ?? [])
-        .filter((l: any) => grantsAccess(l))
-        .map((l: any) => l.student_id)
+      type LinkRow = { student_id: string } & Parameters<typeof grantsAccess>[0]
+      const studentIds = ((rawLinks ?? []) as LinkRow[])
+        .filter((l) => grantsAccess(l))
+        .map((l) => l.student_id)
       if (studentIds.length) {
         const { data: players } = await supabase
           .from('game_players')

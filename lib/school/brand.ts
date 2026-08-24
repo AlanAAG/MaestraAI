@@ -14,9 +14,12 @@ export function resolveSingleSchool(ids: (string | null | undefined)[]): string 
   return distinct.length === 1 ? distinct[0] : null
 }
 
+// Untyped supabase client — matches how the pages these serve query (as any).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any
+
 export async function getBrandBySchoolId(
-  service: any,
+  service: Db,
   schoolId: string
 ): Promise<SchoolBrand | null> {
   try {
@@ -32,9 +35,8 @@ export async function getBrandBySchoolId(
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getBrandByTeacherId(
-  service: any,
+  service: Db,
   teacherId: string
 ): Promise<SchoolBrand | null> {
   try {
@@ -51,9 +53,8 @@ export async function getBrandByTeacherId(
 }
 
 /** The signed-in parent's school brand — only when every linked child resolves to ONE school. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getBrandForParent(
-  service: any,
+  service: Db,
   studentIds: string[]
 ): Promise<SchoolBrand | null> {
   if (!studentIds.length) return null

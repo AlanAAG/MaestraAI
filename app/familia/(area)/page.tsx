@@ -60,10 +60,9 @@ export default async function FamiliaPage() {
     const { data: students } = await (service as any)
       .from('students')
       .select('id, groups(school_id)')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .in(
         'id',
-        links.map((l: any) => l.student_id)
+        links.map((l: { student_id: string }) => l.student_id)
       )
     const schoolIds = Array.from(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
