@@ -9,6 +9,10 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // One session across www + school subdomains (see lib/school/host.ts).
+      ...(process.env.NEXT_PUBLIC_COOKIE_DOMAIN
+        ? { cookieOptions: { domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN } }
+        : {}),
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value

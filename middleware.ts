@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware'
+import { schoolSlugFromHost } from '@/lib/school/host'
 
 // Routes that require authentication
 const PROTECTED_PATHS = [
@@ -79,6 +80,16 @@ export async function middleware(req: NextRequest) {
   // ── 2. API + auth callback: pass through without session interference ────────
   if (pathname.startsWith('/api/') || pathname === '/auth/callback') {
     return applySecurityHeaders(NextResponse.next())
+  }
+
+  // ── 2.5 School subdomains: <slug>.maestraia.com's root IS the school portal. ──
+  // Only the root is rewritten; every other path works unchanged on the subdomain
+  // (the shell already shows the school's logo). /escuela does its own auth.
+  const schoolSlug = schoolSlugFromHost(req.headers.get('host'))
+  if (schoolSlug && pathname === '/') {
+    const url = req.nextUrl.clone()
+    url.pathname = `/escuela/${schoolSlug}`
+    return applySecurityHeaders(NextResponse.rewrite(url))
   }
 
   // ── 3. Supabase session refresh for page routes ───────────────────────────
