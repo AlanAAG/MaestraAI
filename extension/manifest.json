@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MaestraIA Sync",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Sincroniza calificaciones de Richmond a MaestraIA automáticamente.",
   "permissions": ["storage", "notifications"],
   "host_permissions": ["https://richmondlp.com/*", "https://*.maestraia.com/*"],

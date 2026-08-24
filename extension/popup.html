@@ -173,20 +173,97 @@
       color: #6b7280;
       margin-top: 4px;
     }
+    .help-text a { color: #4f6af0; }
+
+    /* first-run onboarding */
+    .onboarding {
+      margin-bottom: 14px;
+      padding: 12px;
+      background: #eff2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 8px;
+    }
+    .onboarding-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #3730a3;
+      margin: 0 0 8px 0;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    .onboarding-step {
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+      color: #374151;
+      margin: 0 0 8px 0;
+      line-height: 1.45;
+    }
+    .onboarding-step:last-child { margin-bottom: 0; }
+    .step-num {
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #4f6af0;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .onboarding a { color: #4f6af0; font-weight: 600; }
+
+    /* collapsed key section once connected */
+    details.key-wrap summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: #6b7280;
+      padding: 6px 0;
+      list-style: none;
+    }
+    details.key-wrap summary::-webkit-details-marker { display: none; }
+    details.key-wrap summary::before { content: '⚙ '; }
+    details.key-wrap[open] summary { color: #374151; font-weight: 600; }
   </style>
 </head>
 <body>
   <h1>MaestraIA Sync</h1>
 
-  <div class="section">
-    <label for="apiKey">Clave API</label>
-    <input type="password" id="apiKey" placeholder="Ingresa tu clave API" />
-    <div class="help-text">Genera tu clave en Configuración → API</div>
-    <div class="message" id="saveMsg"></div>
+  <div class="onboarding" id="onboarding">
+    <p class="onboarding-title">Configura en 3 pasos</p>
+    <div class="onboarding-step">
+      <span class="step-num">1</span>
+      <span>En MaestraIA abre
+        <a href="https://www.maestraia.com/configuracion" target="_blank" rel="noopener">Configuración → "Tu clave API"</a>
+        y genera tu clave de sincronización.</span>
+    </div>
+    <div class="onboarding-step">
+      <span class="step-num">2</span>
+      <span>Pégala aquí abajo y guarda. Con eso tu extensión queda ligada a tu cuenta.</span>
+    </div>
+    <div class="onboarding-step">
+      <span class="step-num">3</span>
+      <span>En <a href="https://richmondlp.com" target="_blank" rel="noopener">richmondlp.com</a>
+        abre tu grupo → <b>Markbook → Scores</b>. Las calificaciones se sincronizan solas y verás
+        el aviso «MaestraIA ✓» en pantalla.</span>
+    </div>
   </div>
 
-  <button id="saveBtn">Guardar Configuración</button>
-  <button id="testBtn" class="secondary" style="margin-top: 4px;">Probar Conexión</button>
+  <details class="key-wrap" id="keyWrap" open>
+    <summary id="keySummary">Clave API</summary>
+    <div class="section" style="margin-top:8px">
+      <input type="password" id="apiKey" placeholder="Pega aquí tu clave" aria-label="Clave API" />
+      <div class="help-text">
+        La generas en MaestraIA →
+        <a href="https://www.maestraia.com/configuracion" target="_blank" rel="noopener">Configuración → "Tu clave API"</a>
+      </div>
+      <div class="message" id="saveMsg"></div>
+    </div>
+    <button id="saveBtn">Guardar y conectar</button>
+    <button id="testBtn" class="secondary" style="margin-top: 4px;">Probar conexión</button>
+  </details>
 
   <div class="status" id="statusBox">
     <div class="status-header">

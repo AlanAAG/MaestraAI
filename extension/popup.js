@@ -20,9 +20,21 @@ function detectRichmondContext() {
   })
 }
 
+// First run: show the 3-step onboarding with the key form expanded.
+// Configured: collapse the key form behind a summary so status + next action dominate.
+function setConfiguredLayout(configured) {
+  document.getElementById('onboarding').hidden = configured
+  const wrap = document.getElementById('keyWrap')
+  wrap.open = !configured
+  document.getElementById('keySummary').textContent = configured
+    ? 'Cambiar clave API'
+    : 'Clave API'
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const { apiKey } = await chrome.storage.sync.get('apiKey')
   if (apiKey) document.getElementById('apiKey').value = apiKey
+  setConfiguredLayout(!!apiKey)
 
   if (apiKey) {
     const url = await getApiUrl()
@@ -38,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const url = await getApiUrl()
     await chrome.storage.sync.set({ apiKey: key, apiUrl: url })
     showMessage('Configuración guardada', 'success')
+    setConfiguredLayout(true)
     testConnection(key, url)
   })
 
@@ -209,7 +222,11 @@ async function testConnection(apiKey, apiUrl) {
     statusDot.className = 'status-dot red'
     statusTitle.textContent = 'Error de conexión'
     let msg = 'No se pudo conectar al servidor'
-    if (result?.statusCode === 401) msg = 'Clave API inválida o revocada'
+    if (result?.statusCode === 401) {
+      msg = 'Clave API inválida o revocada — genera una nueva en MaestraIA'
+      // Reopen the key form so the fix is one paste away.
+      document.getElementById('keyWrap').open = true
+    }
     statusDetails.replaceChildren(statusRow(msg, null, { labelColor: '#ef4444' }))
     return
   }
