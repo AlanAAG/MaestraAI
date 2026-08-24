@@ -26,6 +26,7 @@ import { TeacherNameProvider } from '@/components/app/TeacherContext'
 import { appFontStyle } from '@/lib/design/fonts'
 import { appThemeVars } from '@/lib/design/themes'
 import { writeDesignCookie } from '@/lib/design/vars'
+import { SchoolLogoBrand } from '@/components/school/SchoolLogoBrand'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
@@ -157,7 +158,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* Sidebar — desktop only */}
       <aside className="hidden md:flex flex-col w-60 border-r border-[var(--color-border)] bg-surface py-6 px-3 gap-1 shrink-0 sticky top-0 h-screen overflow-y-auto">
         <div className="px-3 mb-6">
-          <span className="font-display text-lg font-semibold text-text-primary">MaestraIA</span>
+          <SchoolLogoBrand textClassName="font-display text-lg font-semibold text-text-primary" />
         </div>
         {navItems.map(({ href, icon: Icon, label }) => (
           <Link

@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookOpen, Calendar, FileText, Settings, Database, LogOut } from 'lucide-react'
 import Link from 'next/link'
+import { SchoolLogoBrand } from '@/components/school/SchoolLogoBrand'
 
 const NAV_ITEMS = [
   { icon: Calendar, label: 'Dashboard', href: '/dashboard' },
@@ -62,7 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside className="w-64 bg-surface border-r border-border flex flex-col">
         <div className="p-6">
-          <h1 className="text-xl font-bold text-text-primary">MaestraIA</h1>
+          <SchoolLogoBrand textClassName="text-xl font-bold text-text-primary" />
           <p className="text-xs text-text-secondary mt-1">{user?.email}</p>
         </div>
 

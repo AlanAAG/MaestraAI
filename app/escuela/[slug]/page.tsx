@@ -2,6 +2,7 @@
 // content only for members: teachers of the school, or parents with a claimed link to a student
 // in one of its groups. Everyone else sees "acceso restringido".
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { grantsAccess } from '@/lib/parents/links'
@@ -27,7 +28,8 @@ export default async function EscuelaPage({ params }: { params: { slug: string }
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return <Denied />
+  // Logged out → the school's URL is the entry point: log in and come straight back.
+  if (!user) redirect(`/login?next=${encodeURIComponent(`/escuela/${slug}`)}`)
 
   // Membership: teacher of this school…
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

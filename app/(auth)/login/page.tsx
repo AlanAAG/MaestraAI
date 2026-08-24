@@ -43,6 +43,9 @@ function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
   const fromDiary = params.get('from') === 'diary'
+  // Same-origin relative paths only — prevents open redirects via ?next=
+  const rawNext = params.get('next')
+  const nextPath = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -55,7 +58,11 @@ function LoginForm() {
     const supabase = createClient()
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback${
+          nextPath ? `?next=${encodeURIComponent(nextPath)}` : ''
+        }`,
+      },
     })
     if (oauthError) {
       setError(oauthError.message)
@@ -120,6 +127,8 @@ function LoginForm() {
         console.error('Failed to restore diary draft:', e)
       }
       router.push('/dashboard?diary=saved')
+    } else if (nextPath) {
+      router.push(nextPath)
     } else {
       // Returning parents (no teacher row, claimed family link) go to /familia — same
       // routing the Google callback already does.
