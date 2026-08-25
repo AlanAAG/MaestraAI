@@ -2,9 +2,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, Share2, Trash2, Copy, Check, Link2, Users } from 'lucide-react'
+import { ArrowLeft, Download, Share2, Trash2, Link2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DownloadMenu } from '@/components/ui/download-menu'
+import { ShareSheet } from '@/components/ui/ShareSheet'
 import { createClient } from '@/lib/supabase/browser'
 
 type Entry = {
@@ -41,7 +42,7 @@ export default function DiarioDetailPage() {
   const [entry, setEntry] = useState<Entry | null>(null)
   const [loading, setLoading] = useState(true)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -128,6 +129,10 @@ export default function DiarioDetailPage() {
   }
 
   async function handleShare() {
+    if (shareUrl) {
+      setShareOpen(true)
+      return
+    }
     const res = await fetch(`/api/diary/${id}/share`, { method: 'POST' })
     if (!res.ok) {
       alert('No se pudo generar el enlace.')
@@ -135,13 +140,14 @@ export default function DiarioDetailPage() {
     }
     const { token } = (await res.json()) as { token: string }
     setShareUrl(`${window.location.origin}/compartir/${token}`)
+    setShareOpen(true)
   }
 
-  async function handleCopy() {
-    if (!shareUrl) return
-    await navigator.clipboard.writeText(shareUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  async function handleRenew() {
+    const res = await fetch(`/api/diary/${id}/share`, { method: 'POST' })
+    if (!res.ok) return
+    const { token } = (await res.json()) as { token: string }
+    setShareUrl(`${window.location.origin}/compartir/${token}`)
   }
 
   async function handleDelete() {
@@ -209,26 +215,15 @@ export default function DiarioDetailPage() {
         </div>
       </div>
 
-      {shareUrl && (
-        <div className="mb-6 p-4 rounded-xl bg-primary-light border border-primary/20">
-          <p className="text-xs font-medium text-primary mb-2">
-            Enlace para compartir (válido 7 días)
-          </p>
-          <div className="flex items-center gap-2">
-            <input
-              readOnly
-              value={shareUrl}
-              className="flex-1 text-sm bg-white border border-[var(--color-border)] rounded-lg px-3 py-2 text-text-primary"
-            />
-            <button
-              onClick={handleCopy}
-              className="p-2 rounded-lg bg-white border border-[var(--color-border)] text-text-secondary hover:text-primary transition-colors"
-            >
-              {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-            </button>
-          </div>
-        </div>
-      )}
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        url={shareUrl ?? ''}
+        title="Compartir diario"
+        whatsappText={`Te comparto el diario de esta semana: ${shareUrl ?? ''}`}
+        expiresAt={shareUrl ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : undefined}
+        onRenew={handleRenew}
+      />
 
       {entry.ai_summary && (
         <div className="p-6 rounded-2xl border border-[var(--color-border)] bg-surface whitespace-pre-wrap text-text-primary leading-relaxed">

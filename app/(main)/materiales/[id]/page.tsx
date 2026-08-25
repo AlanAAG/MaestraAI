@@ -4,18 +4,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  ArrowLeft,
-  Download,
-  Monitor,
-  Loader2,
-  Share2,
-  Copy,
-  Check,
-  X,
-  Headphones,
-  Palette,
-} from 'lucide-react'
+import { ShareSheet } from '@/components/ui/ShareSheet'
+import { ArrowLeft, Download, Monitor, Loader2, Share2, Headphones, Palette, X } from 'lucide-react'
 import Link from 'next/link'
 import { ListenAndTap, type ListenPair } from '@/components/games/ListenAndTap'
 import { VocabVisual } from '@/components/games/VocabVisual'
@@ -70,7 +60,7 @@ export default function MaterialDetailPage() {
   const [sharing, setSharing] = useState(false)
   const [playUrl, setPlayUrl] = useState<string | null>(null)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [copied, setCopied] = useState(false)
+
   const [listenPairs, setListenPairs] = useState<ListenPair[] | null>(null)
   // Open coloring item (digital brush). null = closed.
   const [coloring, setColoring] = useState<{ word: string; instruction?: string } | null>(null)
@@ -155,13 +145,6 @@ export default function MaterialDetailPage() {
     } finally {
       setSharing(false)
     }
-  }
-
-  async function handleCopy() {
-    if (!playUrl) return
-    await navigator.clipboard.writeText(playUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   const handleDownload = async (filename: string) => {
@@ -1158,106 +1141,55 @@ export default function MaterialDetailPage() {
           </section>
         )}
 
-        {/* Share modal */}
-        {showShareModal && playUrl && (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-text-primary">Compartir con alumnos</h2>
-                <button
-                  onClick={() => setShowShareModal(false)}
-                  className="text-text-muted hover:text-text-primary cursor-pointer"
-                  aria-label="Cerrar"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+        {/* Share sheet */}
+        <ShareSheet
+          open={showShareModal && !!playUrl}
+          onOpenChange={(open) => !open && setShowShareModal(false)}
+          url={playUrl ?? ''}
+          title="Compartir con alumnos"
+          whatsappText={`¡A jugar! Entra aquí: ${playUrl ?? ''}`}
+        />
 
-              {/* QR code */}
-              <div className="flex justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(playUrl)}&ecc=L`}
-                  alt="QR code para el juego"
-                  width={180}
-                  height={180}
-                  className="rounded-xl border border-border"
-                />
-              </div>
+        {/* Homework + email options — shown once a play link exists */}
+        {playUrl && (
+          <section className="mt-6 rounded-2xl border border-border bg-card p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-text-primary">Opciones de tarea en casa</h2>
 
-              {/* URL copy */}
-              <div className="flex gap-2">
-                <input
-                  readOnly
-                  value={playUrl}
-                  className="flex-1 text-xs border border-border rounded-lg px-3 py-2 bg-inset text-text-secondary truncate"
-                />
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-inset transition-colors cursor-pointer min-w-[80px] justify-center"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-4 w-4 text-success" /> ¡Listo!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4" /> Copiar
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Homework: require a minimum number of aciertos at home */}
-              <div className="rounded-xl border border-border p-3">
-                <label className="block text-xs font-medium text-text-primary">
-                  Ponerlo de tarea
-                </label>
-                <p className="mt-0.5 text-[11px] text-text-secondary">
-                  Si el niño no llega a este número de aciertos, el juego le pide repetir. Déjalo
-                  vacío para juego libre.
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    max={200}
-                    value={minCorrect}
-                    onChange={(e) => saveMinCorrect(e.target.value)}
-                    placeholder="—"
-                    className="w-20 rounded-lg border border-border bg-inset px-3 py-1.5 text-sm text-text-primary"
-                  />
-                  <span className="text-xs text-text-secondary">
-                    aciertos mínimos {savingMin && '· guardando…'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Email to families */}
-              <button
-                onClick={emailFamilies}
-                disabled={emailing}
-                className="w-full rounded-xl border border-border py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-inset disabled:opacity-50"
-              >
-                {emailing ? 'Enviando…' : 'Enviar por correo a las familias'}
-              </button>
-              {emailMsg && <p className="text-center text-xs text-text-secondary">{emailMsg}</p>}
-
-              {/* WhatsApp */}
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`¡A jugar! Entra aquí: ${playUrl}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-green-500 hover:bg-green-400 text-white font-medium text-sm transition-colors"
-              >
-                Enviar por WhatsApp
-              </a>
-
-              <p className="text-xs text-text-muted text-center">
-                Los alumnos no necesitan cuenta para jugar
+            {/* Homework threshold */}
+            <div className="rounded-xl border border-border p-3">
+              <label className="block text-xs font-medium text-text-primary">
+                Mínimo de aciertos para aprobar
+              </label>
+              <p className="mt-0.5 text-[11px] text-text-secondary">
+                Si el niño no llega a este número, el juego le pide repetir. Déjalo vacío para juego
+                libre.
               </p>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={minCorrect}
+                  onChange={(e) => saveMinCorrect(e.target.value)}
+                  placeholder="—"
+                  className="w-20 rounded-lg border border-border bg-inset px-3 py-1.5 text-sm text-text-primary"
+                />
+                <span className="text-xs text-text-secondary">
+                  aciertos mínimos {savingMin && '· guardando…'}
+                </span>
+              </div>
             </div>
-          </div>
+
+            {/* Email to families */}
+            <button
+              onClick={emailFamilies}
+              disabled={emailing}
+              className="w-full rounded-xl border border-border py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-inset disabled:opacity-50"
+            >
+              {emailing ? 'Enviando…' : 'Enviar enlace por correo a las familias'}
+            </button>
+            {emailMsg && <p className="text-center text-xs text-text-secondary">{emailMsg}</p>}
+          </section>
         )}
       </div>
     </TeacherVocabImages>
