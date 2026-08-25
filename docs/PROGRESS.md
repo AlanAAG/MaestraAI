@@ -26,7 +26,7 @@ See git history for full feature log. Major systems:
 - **NEM grounding**: Verbatim contenidos bank (35 items, full 1°/2°/3° PDA desglose — grounding, prompt block and snap-to-bank all use the plan's grade), enforce-contenidos snap, NEM knowledge RAG (migration 066 applied + ingested), fichero de la paz rotation, auto-ficha picker
 - **Design system**: Warm cream palette, 12 app color themes, app font picker, FOUC-free cookie pre-paint
 - **Security**: Rate limiting (fails closed in prod), CSRF hardening, magic-byte file validation, failed login logging
-- **Landing**: Lenis smooth scroll, scroll choreography, GTM seam, confetti on waitlist submit
+- **Landing**: Lenis smooth scroll, scroll choreography, illustrated mascot (MascotIllustration SVG — full teacher character with hair bun, rose glasses, violet blouse, apple + book props), hero redesigned with violet→rose gradient headline + dual CTA (individual/escuela), pricing comparison section (Individual free vs Mi Escuela contact-form flow), nav upgraded with Precios link + gradient primary button
 
 - **Multiuser overhaul (2026-08-24)**:
   - **Espacio del alumno** `/familia/[student]`: página completa por hijo (vocabulario de la quincena con dibujos de la miss, juegos como botones grandes, tareas + entregas, avisos + adjuntos), con el tema visual de la maestra. El padre entra con su Google (sin PII de menores); en `/jugar/[token]` un padre con sesión salta la pantalla de apodo — el juego usa el perfil vinculado del hijo (filtrado por teacher del material). Lógica compartida extraída a `lib/parents/child-data.ts` (+ fix: adjuntos ahora sí se seleccionan en el muro de /familia).
