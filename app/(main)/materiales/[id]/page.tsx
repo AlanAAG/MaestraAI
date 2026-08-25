@@ -188,12 +188,23 @@ export default function MaterialDetailPage() {
     }
     setSharingSchool(true)
     try {
+      // Get a public play URL so school recipients don't hit an auth wall.
+      let publicUrl = window.location.href
+      try {
+        const tokenRes = await fetch(`/api/materials/${id}/play-token`, { method: 'POST' })
+        if (tokenRes.ok) {
+          const { play_url } = (await tokenRes.json()) as { play_url: string }
+          publicUrl = play_url
+        }
+      } catch {
+        // fall back to current URL
+      }
       const res = await fetch('/api/school/resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: typeLabels[material.type] ?? material.type,
-          file_url: window.location.href,
+          file_url: publicUrl,
           resource_type: resourceTypeMap[material.type] ?? 'other',
         }),
       })

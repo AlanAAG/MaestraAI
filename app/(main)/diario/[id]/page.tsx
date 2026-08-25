@@ -104,12 +104,23 @@ export default function DiarioDetailPage() {
 
   async function handleShareSchool() {
     if (!entry) return
+    // Get a public share URL so school recipients don't hit an auth wall.
+    let publicUrl = window.location.href
+    try {
+      const shareRes = await fetch(`/api/diary/${id}/share`, { method: 'POST' })
+      if (shareRes.ok) {
+        const { token } = (await shareRes.json()) as { token: string }
+        publicUrl = `${window.location.origin}/compartir/${token}`
+      }
+    } catch {
+      // fall back to current URL
+    }
     const res = await fetch('/api/school/resources', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: `${weekLabel(entry.week_start, entry.week_end)} — Diario`,
-        file_url: window.location.href,
+        file_url: publicUrl,
         resource_type: 'guide',
       }),
     })
