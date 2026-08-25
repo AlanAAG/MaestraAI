@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 import Link from 'next/link'
@@ -5,6 +6,39 @@ import { BookOpen } from 'lucide-react'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 type Props = { params: Promise<{ token: string }> }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { token } = await params
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase as any)
+    .from('teacher_diary')
+    .select('week_start, week_end')
+    .eq('share_token', token)
+    .single()
+
+  const label = data ? weekLabel(data.week_start, data.week_end) : 'Diario docente'
+
+  return {
+    title: `${label} — Diario | MaestraIA`,
+    description: 'Tu maestra compartió el diario de esta semana contigo.',
+    openGraph: {
+      title: label,
+      description: 'Tu maestra compartió el diario de esta semana contigo.',
+      images: [{ url: '/og-diary.png', width: 1200, height: 630 }],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: label,
+      description: 'Tu maestra compartió el diario de esta semana contigo.',
+      images: ['/og-diary.png'],
+    },
+  }
+}
 
 function weekLabel(weekStart: string, weekEnd: string) {
   const s = new Date(weekStart + 'T12:00:00')

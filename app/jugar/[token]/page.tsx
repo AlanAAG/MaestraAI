@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { PlayerGate } from '@/components/games/PlayerGate'
 import { createClient } from '@/lib/supabase/server'
@@ -9,6 +10,53 @@ import { SchoolBrandHeader } from '@/components/school/SchoolBrandHeader'
 import { appFontStyle } from '@/lib/design/fonts'
 import { appThemeVars } from '@/lib/design/themes'
 import { TeacherVocabImages } from '@/components/games/TeacherImages'
+
+const TYPE_NAMES: Record<string, string> = {
+  flashcards: 'Flashcards',
+  memory_game: 'Memorama',
+  bingo: 'Bingo',
+  word_search: 'Sopa de Letras',
+  matching: 'Matching',
+  picture_word_match: 'Matching',
+  sorting_game: 'Actividad',
+  coloring: 'Coloreo',
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { token: string }
+}): Promise<Metadata> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('materials')
+    .select('type, content->>title')
+    .eq('play_token', params.token)
+    .single()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const title = (data as any)?.title as string | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typeName = data ? (TYPE_NAMES[(data as any).type] ?? 'Juego') : 'Juego'
+  const displayTitle = title ? `${title} — ${typeName}` : typeName
+
+  return {
+    title: `${displayTitle} | MaestraIA`,
+    description: 'Tu maestra de inglés te invita a practicar con este juego interactivo.',
+    openGraph: {
+      title: displayTitle,
+      description: 'Tu maestra de inglés te invita a practicar con este juego interactivo.',
+      images: [{ url: '/og-game.png', width: 1200, height: 630 }],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: displayTitle,
+      description: 'Tu maestra de inglés te invita a practicar con este juego interactivo.',
+      images: ['/og-game.png'],
+    },
+  }
+}
 
 interface Props {
   params: { token: string }
