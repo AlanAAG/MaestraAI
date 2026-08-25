@@ -6,8 +6,8 @@ Current phase: Phase 6 — Quality & Polish
 ## Current state
 
 - Next.js 14 App Router + Tailwind v3 + shadcn/ui + Supabase
-- **242 tests passing (52 files)**, typecheck + lint clean, production build on Vercel
-- Migrations applied through **080**
+- **272 tests passing (60 files)**, typecheck + lint clean, production build on Vercel
+- Migrations applied through **083**
 - Migration ledger repaired — `supabase db push` works normally
 
 ## What exists
@@ -36,6 +36,8 @@ See git history for full feature log. Major systems:
   - **Solicitudes a dirección**: migración 083 `school_requests` (material/presupuesto/otro, inmutables, dirección aprueba/rechaza con respuesta). API `/api/school/requests` (+ `[id]` PATCH, guard 409), tarjeta `RequestsCard` en /red para ambos roles.
 
 - **Flujo "¿Eres familia?" (2026-08-24)**: página pública `/familia/acceso` (cómo funciona el acceso por invitación, sin datos), link desde /login; login con email/contraseña ahora manda a padres (sin fila de teacher, con parent_link activo) a /familia igual que ya hacía el callback de Google. **Vista previa para la miss**: botón "Ver como familia" en la ficha del alumno (`POST /api/parent-links/preview`) — se auto-reclama un parent_link (revocable, visible en la lista) y abre /familia tal como lo ve el papá. Acceso sigue siendo solo por invitación de la maestra; sin dropdown de nombres (PII).
+
+- **Friday demo prep (2026-08-25)**: (1) **School sharing fix** — `handleShareWithSchool` in materiales and diario now obtains a public play/share URL first so school recipients don't hit an auth wall. (2) **OG metadata** — `generateMetadata` added to `/jugar/[token]` and `/compartir/[token]`; WhatsApp/iMessage previews now show title + description + branded image (`public/og-game.png`, `public/og-diary.png`). (3) **Reusable `ShareSheet`** — `components/ui/ShareSheet.tsx` replaces inline modals in materiales and diario pages; supports copy, WhatsApp, native Web Share API, expiry badge, and "Renovar enlace". (4) **Admin portal expansion** — `/red/supervision` gains school-wide stat bar (planeaciones este mes, materiales, solicitudes pendientes), per-teacher diary count and requests count, and a client-side name filter (`SupervisionFilter` client component). (5) **Extension hardening** — `extension/background.js` stores failed payload in `lastFailedSync`, `retrySync()` with 3-attempt backoff; popup shows human-readable error copy and "Reintentar" button; duplicate guard skips same group+data within 30s. Extension bumped to v1.3.0.
 
 - **Subdominios por escuela (2026-08-24)**: `<slug>.maestraia.com` (y .mx / maestraai) — el middleware reescribe la raíz al portal `/escuela/<slug>` (`lib/school/host.ts`, nombres reservados www/diario/api…); el resto de rutas funciona igual en el subdominio con el logo de la escuela en el shell. Sesión compartida entre www y subdominios vía `NEXT_PUBLIC_COOKIE_DOMAIN=.maestraia.com` (los 3 clientes supabase la respetan). **Config pendiente de Alan**: (1) dominio wildcard `*.maestraia.com` en Vercel + CNAME wildcard en DNS, (2) `NEXT_PUBLIC_COOKIE_DOMAIN` en Vercel, (3) `https://*.maestraia.com/auth/callback` en Supabase Auth → Redirect URLs (para Google en subdominios).
 - **White-label v2 (2026-08-24)**: el logo de la escuela sustituye "MaestraIA" arriba a la izquierda del shell docente (`SchoolLogoBrand`, fallback al texto); `/escuela/<slug>` funciona como URL de entrada de la escuela — sin sesión redirige a `/login?next=...` y regresa (next relativo-only en email y Google), miembros no autorizados siguen viendo acceso restringido.
