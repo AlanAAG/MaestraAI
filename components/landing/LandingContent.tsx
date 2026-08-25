@@ -11,8 +11,6 @@ import {
   type HTMLMotionProps,
 } from 'framer-motion'
 import { ReactLenis } from 'lenis/react'
-import { celebrateWarm } from '@/lib/ui/celebrate'
-import { track } from './Analytics'
 import LottieAccent from './LottieAccent'
 
 type MP = Partial<
@@ -32,7 +30,6 @@ import {
   Shapes,
   FileText,
   Download,
-  Loader2,
   Lock,
   ShieldCheck,
 } from 'lucide-react'
@@ -180,33 +177,113 @@ function Star({
   )
 }
 
-// ── Mascot placeholder (La Maestra: bun + round glasses, line art) ────────────
-// PLACEHOLDER: swap this SVG for the real La Maestra illustration when the
-// asset is ready. Keep the container dimensions.
+// ── La Maestra — illustrated teacher character ────────────────────────────────
 
-function MascotPlaceholder({ size = 160 }: { size?: number }) {
+function MascotIllustration({ size = 200 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 120 120"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      className="text-brand"
-      aria-hidden
-    >
-      {/* bun */}
-      <circle cx="60" cy="20" r="9" fill="#FDF3E4" />
+    <svg width={size} height={Math.round(size * 1.2)} viewBox="0 0 160 192" fill="none" aria-hidden>
+      {/* body — violet blouse */}
+      <rect x="28" y="128" width="104" height="64" rx="24" fill="#7C3AED" />
+      {/* collar details */}
+      <path d="M64 128 L80 144 L96 128" fill="#6D28D9" />
+      {/* star on blouse */}
+      <path d="M80 158 l3 9h9l-7 5 3 9-8-5-8 5 3-9-7-5h9z" fill="#FCD34D" />
+      {/* arms */}
+      <ellipse cx="22" cy="155" rx="14" ry="28" fill="#7C3AED" transform="rotate(-8 22 155)" />
+      <ellipse cx="138" cy="155" rx="14" ry="28" fill="#7C3AED" transform="rotate(8 138 155)" />
+      {/* right hand holding book */}
+      <rect x="122" y="168" width="28" height="36" rx="4" fill="#F59E0B" />
+      <rect x="122" y="168" width="4" height="36" rx="2" fill="#D97706" />
+      <line
+        x1="130"
+        y1="174"
+        x2="148"
+        y2="174"
+        stroke="#FBBF24"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <line
+        x1="130"
+        y1="180"
+        x2="148"
+        y2="180"
+        stroke="#FBBF24"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      {/* neck */}
+      <rect x="69" y="118" width="22" height="20" rx="6" fill="#E8C4A0" />
+      {/* hair back layer */}
+      <ellipse cx="80" cy="88" rx="44" ry="40" fill="#2D1B00" />
       {/* head */}
-      <circle cx="60" cy="64" r="34" fill="#FDF3E4" />
-      {/* round glasses, the signature element */}
-      <circle cx="47" cy="60" r="9" fill="#FFFFFF" />
-      <circle cx="73" cy="60" r="9" fill="#FFFFFF" />
-      <path d="M56 60h8" />
+      <ellipse cx="80" cy="93" rx="38" ry="38" fill="#E8C4A0" />
+      {/* hair top (covers crown) */}
+      <ellipse cx="80" cy="60" rx="40" ry="22" fill="#2D1B00" />
+      {/* bun */}
+      <circle cx="80" cy="44" r="18" fill="#2D1B00" />
+      {/* bun highlight */}
+      <circle cx="74" cy="39" r="5" fill="#3D2B10" />
+      {/* hair side tendrils */}
+      <path
+        d="M41 90 Q34 100 38 115"
+        stroke="#2D1B00"
+        strokeWidth="5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M119 90 Q126 100 122 115"
+        stroke="#2D1B00"
+        strokeWidth="5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* eyebrows */}
+      <path
+        d="M56 82 Q63 78 70 82"
+        stroke="#2D1B00"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M90 82 Q97 78 104 82"
+        stroke="#2D1B00"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* glasses — rose frames */}
+      <circle cx="63" cy="95" r="13" fill="white" stroke="#E11D48" strokeWidth="3" />
+      <circle cx="97" cy="95" r="13" fill="white" stroke="#E11D48" strokeWidth="3" />
+      <path d="M76 95 L84 95" stroke="#E11D48" strokeWidth="2.5" strokeLinecap="round" />
+      {/* eyes */}
+      <circle cx="63" cy="95" r="6" fill="#2D1B00" />
+      <circle cx="97" cy="95" r="6" fill="#2D1B00" />
+      <circle cx="65" cy="93" r="2" fill="white" />
+      <circle cx="99" cy="93" r="2" fill="white" />
+      {/* cheeks */}
+      <ellipse cx="47" cy="107" rx="8" ry="5" fill="#F9A8C9" opacity="0.6" />
+      <ellipse cx="113" cy="107" rx="8" ry="5" fill="#F9A8C9" opacity="0.6" />
       {/* smile */}
-      <path d="M51 79c3.5 3.5 14.5 3.5 18 0" />
+      <path
+        d="M66 114 Q80 124 94 114"
+        stroke="#B45309"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* small apple in left hand */}
+      <circle cx="24" cy="176" r="10" fill="#EF4444" />
+      <path
+        d="M24 166 Q26 160 30 162"
+        stroke="#16A34A"
+        strokeWidth="2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <ellipse cx="20" cy="171" rx="3" ry="4" fill="#F87171" opacity="0.6" />
     </svg>
   )
 }
@@ -214,135 +291,10 @@ function MascotPlaceholder({ size = 160 }: { size?: number }) {
 function CharacterAvatar({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`w-12 h-12 rounded-full border border-border bg-brand-subtle flex items-center justify-center shrink-0 shadow-md ${className}`}
+      className={`w-12 h-12 rounded-full border border-border bg-brand-subtle flex items-center justify-center shrink-0 shadow-md overflow-hidden ${className}`}
     >
-      <MascotPlaceholder size={36} />
+      <MascotIllustration size={42} />
     </div>
-  )
-}
-
-// ── Waitlist capture form (the conversion element) ───────────────────────────
-
-const GRADES = ['Kinder 1', 'Kinder 2', 'Kinder 3', 'Directora', 'Otro']
-
-function WaitlistForm() {
-  const [email, setEmail] = useState('')
-  const [grade, setGrade] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [done, setDone] = useState<{ position: number; ref_code: string } | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [ref, setRef] = useState<string | undefined>()
-
-  useEffect(() => {
-    const r = new URLSearchParams(window.location.search).get('ref')
-    if (r) setRef(r)
-  }, [])
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email.trim()) return setError('Escribe tu correo')
-    setSubmitting(true)
-    setError('')
-    try {
-      const res = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), grade: grade || undefined, ref }),
-      })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'No pude registrarte')
-      setDone({ position: d.position, ref_code: d.ref_code })
-      track('waitlist_submit', { grade: grade || 'sin_grado', referred: Boolean(ref) })
-      celebrateWarm()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (done) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="rounded-lg border-2 border-brand bg-card p-6 text-center max-w-md"
-      >
-        <LottieAccent src="/lottie/success.json" className="mx-auto h-16 w-16" loop={false} />
-        <div className="flex justify-center mb-2">
-          <span className="inline-flex w-11 h-11 items-center justify-center rounded-full bg-brand-subtle text-brand">
-            <Star size={20} filled />
-          </span>
-        </div>
-        <h3 className="font-display text-lg font-semibold text-text-primary">
-          Ya estás en la lista
-        </h3>
-        <p className="mt-1 text-sm text-text-secondary">
-          Estás en el lugar <strong className="font-medium text-brand">#{done.position}</strong>. Te
-          avisamos cuando sea tu turno.
-        </p>
-        <p className="mt-4 text-xs text-text-muted">Comparte con tus colegas y sube de posición:</p>
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(`${window.location.origin}/?ref=${done.ref_code}`)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
-          }}
-          className="mt-2 w-full truncate rounded-sm border border-border-strong bg-inset px-3 py-2.5 text-sm text-brand hover:bg-brand-subtle transition-colors cursor-pointer"
-        >
-          {copied ? 'Enlace copiado' : `${window.location.origin}/?ref=${done.ref_code}`}
-        </button>
-        <div className="mt-4 space-y-1 text-left text-xs text-text-muted">
-          <p>Invita 3 colegas = acceso prioritario</p>
-          <p>Invita 5 colegas = primera ola + plantilla premium gratis</p>
-        </div>
-      </motion.div>
-    )
-  }
-
-  return (
-    <form onSubmit={submit} className="w-full max-w-md">
-      <div className="flex flex-col gap-3">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value)
-            setError('')
-          }}
-          placeholder="tu@correo.com"
-          required
-          className="w-full rounded-sm border border-border bg-card px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-subtle"
-        />
-        <div className="flex flex-col sm:flex-row gap-3">
-          <select
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-            className="flex-1 rounded-sm border border-border bg-card px-4 py-3.5 text-base text-text-secondary focus:outline-none focus:border-brand focus:ring-[3px] focus:ring-brand-subtle"
-          >
-            <option value="">¿Qué grado enseñas?</option>
-            {GRADES.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover text-white font-display font-medium text-sm px-6 py-3.5 rounded-sm transition-colors active:scale-[0.98] disabled:opacity-60 cursor-pointer whitespace-nowrap"
-          >
-            {submitting && <Loader2 size={17} className="animate-spin" />}
-            Reservar mi lugar
-          </button>
-        </div>
-      </div>
-      {error && <p className="mt-2 text-sm text-error">{error}</p>}
-      <p className="mt-3 flex items-center gap-1.5 text-xs text-text-muted">
-        <Lock size={12} className="shrink-0" /> Gratis, sin tarjeta. Tu correo nunca se comparte.
-      </p>
-    </form>
   )
 }
 
@@ -632,6 +584,210 @@ const TRUST_ITEMS = [
   { Icon: ShieldCheck, label: 'Nombres cifrados' },
 ]
 
+// ── Pricing section ──────────────────────────────────────────────────────────
+
+const PLAN_FEATURES = [
+  { label: 'Planeaciones NEM alineadas', individual: true, school: true },
+  { label: '9 tipos de juegos y materiales', individual: true, school: true },
+  { label: 'Diario de la educadora', individual: true, school: true },
+  { label: 'Compartir con familias', individual: true, school: true },
+  { label: 'Integración Richmond', individual: true, school: true },
+  { label: 'Panel de directivos', individual: false, school: true },
+  { label: 'Múltiples maestras ilimitadas', individual: false, school: true },
+  { label: 'Supervisión de planeaciones', individual: false, school: true },
+  { label: 'Subdominio de la escuela', individual: false, school: true },
+  { label: 'Soporte prioritario', individual: false, school: true },
+]
+
+function CheckIcon({ yes }: { yes: boolean }) {
+  return yes ? (
+    <CheckCircle2 size={18} className="text-violet-600 shrink-0" />
+  ) : (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className="shrink-0 text-text-muted opacity-40"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function PricingSection({ reduced }: { reduced: boolean | null }) {
+  const [schoolName, setSchoolName] = useState('')
+  const [schoolEmail, setSchoolEmail] = useState('')
+  const [schoolSize, setSchoolSize] = useState('')
+  const [sent, setSent] = useState(false)
+
+  function handleSchoolContact(e: React.FormEvent) {
+    e.preventDefault()
+    const subject = encodeURIComponent(`Solicitud de cuenta escolar — ${schoolName}`)
+    const body = encodeURIComponent(
+      `Escuela: ${schoolName}\nContacto: ${schoolEmail}\nMaestras aprox.: ${schoolSize}`
+    )
+    window.open(`mailto:hola@maestraia.com?subject=${subject}&body=${body}`)
+    setSent(true)
+  }
+
+  return (
+    <section
+      id="precios"
+      className="py-20 md:py-28 px-4"
+      style={{ background: 'linear-gradient(180deg, #faf7f2 0%, #f3f0ff 100%)' }}
+    >
+      <div className="max-w-5xl mx-auto">
+        <motion.div {...(reduced ? {} : fadeUp())} className="text-center mb-12">
+          <span
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-1.5 rounded-full mb-4"
+            style={{ background: '#EDE9FE', color: '#7C3AED' }}
+          >
+            <Star size={12} filled className="text-violet-600" />
+            Planes
+          </span>
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-text-primary">
+            Un plan para cada maestra
+          </h2>
+          <p className="mt-3 text-text-secondary max-w-lg mx-auto">
+            Empieza sola o lleva la IA a toda tu escuela.
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-2 gap-6 items-start">
+          {/* Individual card */}
+          <motion.div
+            {...(reduced ? {} : popIn(0.05))}
+            className="bg-white rounded-2xl border border-border shadow-md p-8 flex flex-col"
+          >
+            <div className="mb-6">
+              <span className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                Maestra Individual
+              </span>
+              <div className="mt-2 font-display text-4xl font-bold text-text-primary">
+                Gratis<span className="text-xl font-normal text-text-muted"> / piloto</span>
+              </div>
+              <p className="mt-2 text-sm text-text-secondary">
+                Empieza hoy, sin tarjeta de crédito.
+              </p>
+            </div>
+
+            <ul className="space-y-3 mb-8 flex-1">
+              {PLAN_FEATURES.map((f) => (
+                <li key={f.label} className="flex items-center gap-3 text-sm text-text-secondary">
+                  <CheckIcon yes={f.individual} />
+                  <span className={f.individual ? '' : 'opacity-40'}>{f.label}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Link
+              href="/login"
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-lg font-display font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' }}
+            >
+              Comenzar gratis <ArrowRight size={16} />
+            </Link>
+          </motion.div>
+
+          {/* School card */}
+          <motion.div
+            {...(reduced ? {} : popIn(0.12))}
+            className="rounded-2xl p-8 flex flex-col text-white relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #1E1B4B 0%, #4C1D95 60%, #7C3AED 100%)' }}
+          >
+            <div
+              className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10"
+              style={{
+                background: 'radial-gradient(circle, white, transparent)',
+                transform: 'translate(30%, -30%)',
+              }}
+            />
+
+            <div className="mb-6">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-violet-200">
+                <Star size={11} filled className="text-yellow-300" /> Mi Escuela
+              </span>
+              <div className="mt-2 font-display text-4xl font-bold">
+                Cotización<span className="text-xl font-normal text-violet-300"> / escuela</span>
+              </div>
+              <p className="mt-2 text-sm text-violet-200">Precio según número de maestras.</p>
+            </div>
+
+            <ul className="space-y-3 mb-8 flex-1">
+              {PLAN_FEATURES.map((f) => (
+                <li key={f.label} className="flex items-center gap-3 text-sm text-violet-100">
+                  {f.school ? (
+                    <CheckCircle2 size={18} className="text-yellow-300 shrink-0" />
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden
+                      className="shrink-0 opacity-30"
+                    >
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                  )}
+                  {f.label}
+                </li>
+              ))}
+            </ul>
+
+            {sent ? (
+              <div className="rounded-lg bg-white/10 px-5 py-4 text-center text-sm text-violet-100">
+                ¡Listo! Revisa tu cliente de correo y envía el mensaje. Te respondemos en 24 h.
+              </div>
+            ) : (
+              <form onSubmit={handleSchoolContact} className="space-y-3">
+                <input
+                  required
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  placeholder="Nombre de la escuela"
+                  className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-sm text-white placeholder:text-violet-300 focus:outline-none focus:border-white/50"
+                />
+                <input
+                  required
+                  type="email"
+                  value={schoolEmail}
+                  onChange={(e) => setSchoolEmail(e.target.value)}
+                  placeholder="Correo de contacto"
+                  className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-sm text-white placeholder:text-violet-300 focus:outline-none focus:border-white/50"
+                />
+                <select
+                  required
+                  value={schoolSize}
+                  onChange={(e) => setSchoolSize(e.target.value)}
+                  className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-sm text-white focus:outline-none focus:border-white/50"
+                >
+                  <option value="" className="text-text-primary">
+                    ¿Cuántas maestras?
+                  </option>
+                  {['2–5', '6–15', '16–40', '40+'].map((n) => (
+                    <option key={n} value={n} className="text-text-primary">
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="w-full py-4 rounded-lg bg-white text-violet-700 font-display font-semibold text-sm hover:bg-violet-50 transition-colors active:scale-[0.98] cursor-pointer"
+                >
+                  Solicitar cotización
+                </button>
+              </form>
+            )}
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function LandingContent() {
   const reduced = useReducedMotion()
   const heroRef = useRef<HTMLElement>(null)
@@ -660,11 +816,8 @@ export default function LandingContent() {
             >
               La plataforma
             </a>
-            <a
-              href="#como-funciona"
-              className="hover:text-text-primary transition-colors cursor-pointer"
-            >
-              Cómo funciona
+            <a href="#precios" className="hover:text-text-primary transition-colors cursor-pointer">
+              Precios
             </a>
           </div>
           <div className="flex items-center gap-2">
@@ -674,13 +827,13 @@ export default function LandingContent() {
             >
               Entrar
             </Link>
-            {/* Secondary on purpose: the hero waitlist button is the one primary in view */}
-            <button
-              onClick={scrollToWaitlist}
-              className="text-sm font-display font-medium text-text-secondary border border-border-strong hover:bg-inset px-4 py-2 rounded-sm transition-colors active:scale-[0.98] cursor-pointer min-h-[40px]"
+            <Link
+              href="/login"
+              className="text-sm font-display font-semibold text-white px-4 py-2 rounded-lg transition-all active:scale-[0.98] cursor-pointer min-h-[40px] flex items-center"
+              style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' }}
             >
-              Reservar lugar
-            </button>
+              Comenzar gratis
+            </Link>
           </div>
         </nav>
       </div>
@@ -716,43 +869,94 @@ export default function LandingContent() {
 
               <motion.h1
                 {...(reduced ? {} : fadeUp(0.08))}
-                className="font-display text-5xl lg:text-6xl font-semibold text-text-primary leading-[1.05] tracking-tight"
+                className="font-display text-5xl lg:text-6xl font-bold text-text-primary leading-[1.02] tracking-tight"
               >
-                Recupera <span className="text-brand">tus domingos.</span>
+                Recupera{' '}
+                <span
+                  style={{
+                    background: 'linear-gradient(135deg, #7C3AED 0%, #E11D48 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  tus domingos.
+                </span>
               </motion.h1>
 
               <motion.p
                 {...(reduced ? {} : fadeUp(0.16))}
-                className="mt-5 text-lg text-text-secondary max-w-md"
+                className="mt-5 text-xl text-text-secondary max-w-md leading-relaxed"
               >
-                Tu quincena planeada en minutos — y juegos, tareas y familias conectadas en un solo
+                Tu quincena planeada en minutos. Juegos, familias y tu escuela conectados en un solo
                 lugar.
               </motion.p>
 
-              <motion.div {...(reduced ? {} : fadeUp(0.24))} className="mt-9" id="waitlist">
-                <WaitlistForm />
-              </motion.div>
-
-              <motion.div {...(reduced ? {} : fadeUp(0.3))} className="mt-5">
+              <motion.div
+                {...(reduced ? {} : fadeUp(0.24))}
+                className="mt-9 flex flex-col sm:flex-row gap-3 items-start"
+                id="waitlist"
+              >
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-brand transition-colors cursor-pointer py-2"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-lg text-white font-display font-semibold text-base transition-all active:scale-[0.97] cursor-pointer shadow-lg hover:shadow-xl hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' }}
+                >
+                  Comenzar gratis <ArrowRight size={16} />
+                </Link>
+                <button
+                  onClick={() =>
+                    document
+                      .getElementById('precios')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }
+                  className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-lg border-2 border-violet-200 text-violet-700 font-display font-semibold text-base hover:bg-violet-50 transition-colors active:scale-[0.97] cursor-pointer"
+                >
+                  Para mi escuela
+                </button>
+              </motion.div>
+
+              <motion.div
+                {...(reduced ? {} : fadeUp(0.3))}
+                className="mt-4 flex items-center gap-2"
+              >
+                <Lock size={12} className="text-text-muted" />
+                <span className="text-xs text-text-muted">
+                  Sin tarjeta · NEM 2024 · Datos protegidos
+                </span>
+              </motion.div>
+
+              <motion.div {...(reduced ? {} : fadeUp(0.34))} className="mt-3">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer py-1"
                 >
                   Ya tengo cuenta <ArrowRight size={14} />
                 </Link>
               </motion.div>
             </div>
 
-            {/* Right — floating mascot + product-card cluster, with scroll parallax */}
+            {/* Right — mascot + floating product cards */}
             <motion.div
               style={reduced ? undefined : { y: heroY }}
-              className="hidden md:flex items-center justify-center relative min-h-[460px]"
+              className="hidden md:flex items-center justify-center relative min-h-[520px]"
             >
-              <Float reduced={reduced} distance={12} duration={5}>
-                <div className="w-52 h-52 rounded-full bg-brand-subtle border border-border flex items-center justify-center shadow-lg">
-                  <MascotPlaceholder size={156} />
+              {/* gradient blob behind mascot */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div
+                  className="w-72 h-72 rounded-full opacity-25"
+                  style={{
+                    background:
+                      'radial-gradient(circle, #7C3AED 0%, #E11D48 60%, transparent 100%)',
+                  }}
+                />
+              </div>
+
+              <Float reduced={reduced} distance={10} duration={5.5}>
+                <div className="w-56 h-56 rounded-full bg-gradient-to-br from-violet-100 to-rose-50 border-2 border-violet-200 flex items-center justify-end shadow-xl overflow-hidden">
+                  <MascotIllustration size={200} />
                 </div>
               </Float>
+
               {/* Drop a brand animation at public/lottie/hero.json and this lights up */}
               <LottieAccent
                 src="/lottie/hero.json"
@@ -763,9 +967,9 @@ export default function LandingContent() {
                 reduced={reduced}
                 distance={9}
                 duration={4}
-                className="absolute -top-2 -left-2 w-44"
+                className="absolute top-4 -left-6 w-48"
               >
-                <div className="rounded-lg bg-card border border-border shadow-lg p-3 scale-[0.85] origin-top-left">
+                <div className="rounded-xl bg-white border border-violet-100 shadow-lg p-3">
                   <PlannerVisual />
                 </div>
               </Float>
@@ -775,9 +979,9 @@ export default function LandingContent() {
                 distance={11}
                 duration={4.6}
                 delay={0.6}
-                className="absolute bottom-0 -right-2 w-44"
+                className="absolute bottom-4 -right-4 w-48"
               >
-                <div className="rounded-lg bg-card border border-border shadow-lg p-3 scale-[0.85] origin-bottom-right">
+                <div className="rounded-xl bg-white border border-violet-100 shadow-lg p-3">
                   <MaterialsVisual />
                 </div>
               </Float>
@@ -981,27 +1185,8 @@ export default function LandingContent() {
         </div>
       </section>
 
-      {/* ── 8 · Final CTA — few words + waitlist ── */}
-      <section className="py-20 md:py-28 px-4 bg-page">
-        <div className="max-w-xl mx-auto text-center flex flex-col items-center">
-          <StaggerTitle
-            text="Este domingo, no planees."
-            reduced={reduced}
-            className="font-display text-3xl sm:text-4xl font-semibold text-text-primary mb-8"
-          />
-          <motion.div {...(reduced ? {} : fadeUp(0.1))} className="w-full flex justify-center">
-            <WaitlistForm />
-          </motion.div>
-          <motion.div {...(reduced ? {} : fadeUp(0.18))} className="mt-5">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-brand transition-colors cursor-pointer py-2"
-            >
-              Ya tengo cuenta <ArrowRight size={14} />
-            </Link>
-          </motion.div>
-        </div>
-      </section>
+      {/* ── 8 · Pricing ── */}
+      <PricingSection reduced={reduced} />
 
       {/* ── Footer ── */}
       <footer className="border-t border-border py-10 px-4 bg-page">
