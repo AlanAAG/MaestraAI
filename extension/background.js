@@ -18,6 +18,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'MAP_GROUP') {
     mapGroup(message.apiUrl, message.groupId, message.richmondSlug).then(sendResponse)
     return true
+  } else if (message.type === 'RETRY_SYNC') {
+    retrySync().then(sendResponse)
+    return true
   }
 })
 
@@ -59,6 +62,20 @@ function notifyTab(tabId, message) {
 }
 
 async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
+  // Deduplicate: skip if we synced this group within the last 30s with identical data
+  const syncTimes = (await chrome.storage.sync.get('syncTimes')).syncTimes || {}
+  const lastSync = syncTimes[groupId]
+  if (lastSync) {
+    const ageMs = Date.now() - new Date(lastSync).getTime()
+    const fingerprint = JSON.stringify(data).slice(0, 200)
+    const { lastSyncFingerprint } = await chrome.storage.local.get('lastSyncFingerprint')
+    if (ageMs < 30000 && lastSyncFingerprint === fingerprint) {
+      console.log('[MaestraIA] Skipping duplicate sync for', groupId)
+      return
+    }
+  }
+  await chrome.storage.local.set({ lastSyncFingerprint: JSON.stringify(data).slice(0, 200) })
+
   try {
     const { apiKey } = await chrome.storage.sync.get('apiKey')
     if (!apiKey) {
@@ -76,11 +93,12 @@ async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
     if (response.ok) {
       const result = await response.json()
       chrome.action.setBadgeText({ text: '' })
+      await chrome.storage.local.remove('lastFailedSync')
 
-      const syncTimes = (await chrome.storage.sync.get('syncTimes')).syncTimes || {}
-      syncTimes[groupId] = new Date().toISOString()
+      const times = (await chrome.storage.sync.get('syncTimes')).syncTimes || {}
+      times[groupId] = new Date().toISOString()
       await chrome.storage.sync.set({
-        syncTimes,
+        syncTimes: times,
         lastSyncStatus: 'ok',
         lastSyncTime: new Date().toISOString(),
         lastSyncGroup: groupSlug,
@@ -110,6 +128,9 @@ async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
         lastSyncGroup: groupSlug,
         lastSyncError: `HTTP ${response.status}`,
       })
+      await chrome.storage.local.set({
+        lastFailedSync: { groupId, groupSlug, data, tabId: tabId ?? null },
+      })
     }
   } catch (error) {
     console.error('[MaestraIA] Sync error:', error)
@@ -124,5 +145,58 @@ async function handleAssignmentScores(groupId, groupSlug, data, tabId) {
       lastSyncGroup: null,
       lastSyncError: error instanceof Error ? error.message : String(error),
     })
+    await chrome.storage.local.set({
+      lastFailedSync: { groupId, groupSlug, data, tabId: tabId ?? null },
+    })
   }
+}
+
+// Retry the last failed sync with exponential backoff (3 attempts: 0s, 1s, 3s).
+async function retrySync() {
+  const { lastFailedSync } = await chrome.storage.local.get('lastFailedSync')
+  if (!lastFailedSync) return { ok: false, error: 'no_pending' }
+
+  const { groupId, groupSlug, data, tabId } = lastFailedSync
+  const delays = [0, 1000, 3000]
+
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt] > 0) await new Promise((r) => setTimeout(r, delays[attempt]))
+    try {
+      const { apiKey } = await chrome.storage.sync.get('apiKey')
+      if (!apiKey) return { ok: false, error: 'no_key' }
+      const targetUrl = await getApiUrl()
+
+      const response = await fetch(`${targetUrl}/api/richmond/ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ group_id: groupId, data }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        await chrome.storage.local.remove('lastFailedSync')
+        chrome.action.setBadgeText({ text: '' })
+        const times = (await chrome.storage.sync.get('syncTimes')).syncTimes || {}
+        times[groupId] = new Date().toISOString()
+        await chrome.storage.sync.set({
+          syncTimes: times,
+          lastSyncStatus: 'ok',
+          lastSyncTime: new Date().toISOString(),
+          lastSyncGroup: groupSlug,
+        })
+        notifyTab(tabId, { type: 'SYNC_STATUS', status: 'ok', groupSlug })
+        return { ok: true, synced: result.synced ?? 0 }
+      }
+
+      // Don't retry auth errors — they won't resolve on their own
+      if (response.status === 401 || response.status === 403) {
+        await chrome.storage.sync.set({ lastSyncError: `HTTP ${response.status}` })
+        return { ok: false, error: `HTTP ${response.status}` }
+      }
+    } catch {
+      // Network error — try next attempt
+    }
+  }
+
+  return { ok: false, error: 'max_retries' }
 }

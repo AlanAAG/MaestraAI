@@ -179,6 +179,15 @@ async function lastSyncRow() {
   return statusRow(`Último intento falló (${when})`, null, { labelColor: '#ef4444' })
 }
 
+const ERROR_COPY = {
+  'HTTP 401': 'Verifica tu clave API',
+  'HTTP 403': 'Sin autorización — verifica tu clave API',
+  'HTTP 500': 'Error del servidor — reintenta en un momento',
+  'HTTP 503': 'Servicio no disponible — reintenta en un momento',
+  max_retries: 'No se pudo conectar tras 3 intentos',
+  no_key: 'Configura tu clave API primero',
+}
+
 async function showLastSyncStatus() {
   const { lastSyncStatus, lastSyncTime, lastSyncGroup, lastSyncError } =
     await chrome.storage.sync.get(['lastSyncStatus', 'lastSyncTime', 'lastSyncGroup', 'lastSyncError'])
@@ -193,9 +202,47 @@ async function showLastSyncStatus() {
     statusDetails.replaceChildren(...rows)
   } else if (lastSyncStatus === 'error') {
     document.getElementById('statusBox').className = 'status error'
-    const rows = [statusRow(`Error al sincronizar (${when})`, null, { labelColor: '#ef4444' })]
-    if (lastSyncError) rows.push(statusRow(lastSyncError, null))
-    statusDetails.replaceChildren(...rows)
+    const humanError =
+      ERROR_COPY[lastSyncError] ||
+      (lastSyncError && lastSyncError.startsWith('HTTP 5') ? 'Error del servidor' : lastSyncError || 'Error desconocido')
+    const rows = [
+      statusRow(`Error al sincronizar (${when})`, null, { labelColor: '#ef4444' }),
+      statusRow(humanError, null),
+    ]
+
+    // Retry button — only shown when there's a stored payload to retry
+    const { lastFailedSync } = await chrome.storage.local.get('lastFailedSync')
+    if (lastFailedSync) {
+      const retryBtn = document.createElement('button')
+      retryBtn.className = 'link-btn'
+      retryBtn.style.marginTop = '8px'
+      retryBtn.textContent = 'Reintentar sincronización'
+      retryBtn.onclick = async () => {
+        retryBtn.textContent = 'Reintentando…'
+        retryBtn.disabled = true
+        const result = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'RETRY_SYNC' }, (response) => {
+            void chrome.runtime.lastError
+            resolve(response)
+          })
+        })
+        if (result?.ok) {
+          retryBtn.textContent = '¡Sincronizado!'
+          retryBtn.style.background = '#22c55e'
+          retryBtn.style.color = '#fff'
+        } else {
+          const errMsg = ERROR_COPY[result?.error] || 'No se pudo — revisa tu conexión'
+          retryBtn.textContent = errMsg
+          retryBtn.disabled = false
+        }
+      }
+
+      const wrapper = document.createElement('div')
+      wrapper.replaceChildren(...rows, retryBtn)
+      statusDetails.replaceChildren(wrapper)
+    } else {
+      statusDetails.replaceChildren(...rows)
+    }
   }
 }
 
