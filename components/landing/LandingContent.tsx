@@ -24,11 +24,9 @@ import {
   CreditCard,
   Grid3X3,
   Target,
-  Type,
   Play,
   Puzzle,
   Ear,
-  Shapes,
   FileText,
   Download,
   Lock,
@@ -302,43 +300,37 @@ function CharacterAvatar({ className = '' }: { className?: string }) {
 // ── Inline UI mock-ups (light, warm palette) ──────────────────────────────────
 
 function PlannerVisual() {
-  const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
-  const labels = [
-    'Honores + Proyecto mensual',
-    '',
-    'Ed. Física + Proyecto',
-    '',
-    'Cierre · Cuento con papás',
+  const rows = [
+    { day: 'Lun', label: 'Proyecto mensual', filled: true },
+    { day: 'Mar', label: 'Letter & Number', filled: true },
+    { day: 'Mié', label: 'Ed. Física', filled: true },
+    { day: 'Jue', label: '', filled: false },
   ]
   return (
-    <div className="w-full max-w-sm rounded-lg bg-card border border-border p-5">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-text-muted text-[10px] font-medium">Quincena · Kinder 3</span>
-        <span className="text-[10px] bg-brand-subtle text-brand px-2 py-0.5 rounded-full font-medium">
-          SEP 2024
+    <div className="rounded-2xl bg-white/95 backdrop-blur border border-violet-100 shadow-xl p-4 w-56">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] font-semibold text-text-primary">Quincena lista</span>
+        <span className="text-[10px] bg-brand-subtle text-brand px-2 py-0.5 rounded-full font-semibold">
+          10 min ✓
         </span>
       </div>
-      <div className="space-y-2">
-        {days.map((day, i) => (
-          <div key={day} className="flex items-center gap-3">
-            <span className="text-text-muted text-[10px] w-16 shrink-0">{day}</span>
+      <div className="space-y-1.5">
+        {rows.map(({ day, label, filled }) => (
+          <div key={day} className="flex items-center gap-2">
+            <span className="text-[10px] text-text-muted w-7 shrink-0 font-medium">{day}</span>
             <div
-              className={`flex-1 h-7 rounded-md ${labels[i] ? 'bg-brand-subtle' : 'bg-inset'} flex items-center px-3`}
+              className={`flex-1 h-6 rounded-lg flex items-center px-2.5 ${filled ? 'bg-brand-subtle' : 'bg-inset'}`}
             >
-              {labels[i] && (
-                <span className="text-text-secondary text-[9px] font-medium truncate">
-                  {labels[i]}
-                </span>
+              {filled && (
+                <span className="text-[9px] text-brand font-medium truncate">{label}</span>
               )}
             </div>
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-center gap-2 rounded-md bg-inset px-3 py-2">
-        <FileText size={13} className="text-brand shrink-0" />
-        <span className="text-text-muted text-[10px]">
-          PDAs textuales · Programa Sintético Fase 2 · 4 campos formativos
-        </span>
+      <div className="mt-3 flex items-center gap-1.5 text-[9px] text-text-muted">
+        <FileText size={11} className="text-brand" />
+        NEM 2024 · Campos formativos incluidos
       </div>
     </div>
   )
@@ -349,34 +341,32 @@ function MaterialsVisual() {
     { name: 'Flashcards', Icon: CreditCard },
     { name: 'Memorama', Icon: Grid3X3 },
     { name: 'Bingo', Icon: Target },
-    { name: 'Sopa de letras', Icon: Type },
-    { name: 'Clasificar', Icon: Shapes },
-    { name: '¿Cuál es la palabra?', Icon: Puzzle },
-    { name: 'Escucha y toca', Icon: Ear },
-    { name: 'Videos', Icon: Play },
+    { name: 'Juegos', Icon: Puzzle },
   ]
   return (
-    <div className="w-full max-w-sm">
+    <div className="rounded-2xl bg-white/95 backdrop-blur border border-violet-100 shadow-xl p-4 w-56">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] font-semibold text-text-primary">Materiales al instante</span>
+        <span className="text-[10px] bg-success-light text-success-text px-2 py-0.5 rounded-full font-semibold">
+          9 tipos
+        </span>
+      </div>
       <div className="grid grid-cols-4 gap-2">
         {types.map(({ name, Icon }) => (
-          <div
-            key={name}
-            className="rounded-lg border border-border bg-card p-2.5 flex flex-col items-center gap-1.5"
-          >
-            <div className="w-8 h-8 rounded-md bg-brand-subtle flex items-center justify-center">
-              <Icon size={15} className="text-brand" />
+          <div key={name} className="flex flex-col items-center gap-1">
+            <div className="w-10 h-10 rounded-xl bg-brand-subtle flex items-center justify-center">
+              <Icon size={18} className="text-brand" />
             </div>
-            <span className="text-text-secondary text-[8px] font-medium text-center leading-tight">
+            <span className="text-[8px] text-text-muted font-medium text-center leading-tight">
               {name}
             </span>
           </div>
         ))}
       </div>
-      <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5">
-        <Link2 size={13} className="text-brand shrink-0" />
-        <span className="text-text-muted text-[10px] flex-1">maestraia.com/jugar/ab3x…</span>
-        <span className="text-[9px] bg-success-light text-success-text px-2 py-0.5 rounded-full font-medium">
-          Para jugar en casa
+      <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-inset px-2.5 py-1.5">
+        <Link2 size={11} className="text-brand shrink-0" />
+        <span className="text-[9px] text-text-muted">
+          Comparte en segundos · para jugar en casa
         </span>
       </div>
     </div>
@@ -941,54 +931,47 @@ export default function LandingContent() {
               </motion.div>
             </div>
 
-            {/* Right — full-bleed photo, cards float on top */}
+            {/* Right — full-bleed photo, cards sit below */}
             <motion.div
               style={reduced ? undefined : { y: heroY }}
-              className="hidden md:block relative"
+              className="hidden md:block relative pb-28"
             >
-              {/* Photo — fills the column, tall crop */}
+              {/* Photo — full column, completely unobstructed */}
               <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-2 ring-violet-100">
                 <Image
                   src="/hero.jpeg"
                   alt="Maestra leyendo a sus alumnos de preescolar"
                   width={1400}
                   height={1050}
-                  className="w-full h-[560px] object-cover object-center"
+                  className="w-full h-[500px] object-cover object-center"
                   priority
                 />
-                {/* bottom vignette so cards sit cleanly */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none" />
               </div>
 
-              {/* Lottie accent — keep it */}
+              {/* Lottie accent */}
               <LottieAccent
                 src="/lottie/hero.json"
                 className="absolute -top-6 right-4 w-20 pointer-events-none z-20"
               />
 
-              {/* Planner card — top-left, hanging off the edge */}
+              {/* Cards below the photo — left and right */}
+              <Float
+                reduced={reduced}
+                distance={7}
+                duration={4}
+                className="absolute bottom-0 left-0 z-10"
+              >
+                <PlannerVisual />
+              </Float>
+
               <Float
                 reduced={reduced}
                 distance={9}
-                duration={4}
-                className="absolute -top-6 -left-10 w-64 z-10"
-              >
-                <div className="rounded-2xl bg-white border border-violet-100 shadow-2xl p-4">
-                  <PlannerVisual />
-                </div>
-              </Float>
-
-              {/* Games card — bottom-right, hanging off the edge */}
-              <Float
-                reduced={reduced}
-                distance={11}
                 duration={4.6}
-                delay={0.6}
-                className="absolute -bottom-6 -right-10 w-64 z-10"
+                delay={0.5}
+                className="absolute bottom-0 right-0 z-10"
               >
-                <div className="rounded-2xl bg-white border border-violet-100 shadow-2xl p-4">
-                  <MaterialsVisual />
-                </div>
+                <MaterialsVisual />
               </Float>
             </motion.div>
           </div>
