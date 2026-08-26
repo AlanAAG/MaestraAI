@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { X, Building2, MessageCircle, Mail } from 'lucide-react'
 
 const SALES_WHATSAPP =
-  'https://wa.me/528115826535?text=Hola%2C%20quiero%20registrar%20mi%20escuela%20en%20MaestraIA'
+  'https://wa.me/525519361230?text=Hola%2C%20quiero%20registrar%20mi%20escuela%20en%20MaestraIA'
 const SALES_EMAIL = 'escuelas@maestraia.com'
 
 function GoogleIcon() {
