@@ -5,11 +5,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
-import { X, Building2, MessageCircle, Mail } from 'lucide-react'
+import { Building2, MessageCircle } from 'lucide-react'
 
 const SALES_WHATSAPP =
   'https://wa.me/525519361230?text=Hola%2C%20quiero%20registrar%20mi%20escuela%20en%20MaestraIA'
-const SALES_EMAIL = 'escuelas@maestraia.com'
 
 function GoogleIcon() {
   return (
@@ -34,66 +33,6 @@ function GoogleIcon() {
   )
 }
 
-function SchoolModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface rounded-2xl border border-border shadow-2xl w-full max-w-sm p-6 relative"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-text-disabled hover:text-text-secondary transition-colors cursor-pointer"
-          aria-label="Cerrar"
-        >
-          <X size={18} />
-        </button>
-
-        <div className="flex justify-center mb-4">
-          <div className="w-12 h-12 bg-brand-subtle rounded-full flex items-center justify-center">
-            <Building2 size={24} className="text-brand" />
-          </div>
-        </div>
-
-        <h2 className="text-lg font-semibold font-display text-text-primary text-center mb-2">
-          Registra tu escuela
-        </h2>
-        <p className="text-sm text-text-secondary text-center mb-5">
-          El plan Mi Escuela incluye acceso para toda la plantilla docente, portal de familias con
-          tu logo, y panel de supervisión para la dirección. Escríbenos y lo configuramos juntos.
-        </p>
-
-        <div className="space-y-3">
-          <a
-            href={SALES_WHATSAPP}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-lg font-medium text-sm text-white transition-opacity hover:opacity-90 cursor-pointer"
-            style={{ background: '#25D366' }}
-          >
-            <MessageCircle size={16} />
-            Escribir por WhatsApp
-          </a>
-          <a
-            href={`mailto:${SALES_EMAIL}?subject=Registro%20de%20escuela%20en%20MaestraIA`}
-            className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-lg border border-border text-text-primary text-sm font-medium hover:bg-muted transition-colors cursor-pointer"
-          >
-            <Mail size={16} />
-            Enviar correo
-          </a>
-        </div>
-
-        <p className="text-center text-xs text-text-disabled mt-4">
-          Respondemos en menos de 24 horas.
-        </p>
-      </div>
-    </div>
-  )
-}
-
 function RegisterForm() {
   const router = useRouter()
   const params = useSearchParams()
@@ -106,7 +45,6 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showSchoolModal, setShowSchoolModal] = useState(false)
 
   function storeConsent() {
     localStorage.setItem(
@@ -198,147 +136,140 @@ function RegisterForm() {
   }
 
   return (
-    <>
-      {showSchoolModal && <SchoolModal onClose={() => setShowSchoolModal(false)} />}
+    <div className="min-h-screen flex items-center justify-center bg-bg px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-semibold font-display text-text-primary mb-2">MaestraIA</h1>
+          <p className="text-text-secondary">
+            {isParent ? 'Crea tu cuenta de familia' : 'Crea tu cuenta de maestra'}
+          </p>
+        </div>
 
-      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-semibold font-display text-text-primary mb-2">
-              MaestraIA
-            </h1>
-            <p className="text-text-secondary">
-              {isParent ? 'Crea tu cuenta de familia' : 'Crea tu cuenta de maestra'}
-            </p>
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-error-light border border-error text-error-text text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Consent */}
+        <div className="space-y-3 mb-5 p-4 rounded-lg bg-muted border border-border">
+          <p className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+            Antes de continuar
+          </p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consentPrimary}
+              onChange={(e) => setConsentPrimary(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
+            />
+            <span className="text-sm text-text-secondary">
+              Acepto el tratamiento de mis datos conforme al{' '}
+              <Link href="/privacidad" className="text-primary hover:underline" target="_blank">
+                Aviso de Privacidad
+              </Link>{' '}
+              <span className="text-error">*</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consentSecondary}
+              onChange={(e) => setConsentSecondary(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
+            />
+            <span className="text-sm text-text-secondary">
+              Acepto análisis anónimo para mejora del servicio (opcional)
+            </span>
+          </label>
+        </div>
+
+        <div className="space-y-4">
+          <Button
+            type="button"
+            onClick={handleGoogleRegister}
+            disabled={googleLoading || loading}
+            variant="outline"
+            className="w-full min-h-[44px] flex items-center gap-2 justify-center"
+          >
+            <GoogleIcon />
+            {googleLoading ? 'Redirigiendo...' : 'Registrarse con Google'}
+          </Button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-text-disabled">o con email</span>
+            <div className="flex-1 h-px bg-border" />
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-error-light border border-error text-error-text text-sm">
-              {error}
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                required
+                className="min-h-[44px]"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-text-secondary mb-1"
+              >
+                Contraseña
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mínimo 8 caracteres"
+                required
+                className="min-h-[44px]"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading || !consentPrimary || googleLoading}
+              className="w-full min-h-[44px] bg-primary hover:bg-primary-dark disabled:opacity-50"
+            >
+              {loading ? 'Creando cuenta...' : 'Crear cuenta'}
+            </Button>
+          </form>
+
+          <p className="text-center text-sm text-text-secondary">
+            ¿Ya tienes cuenta?{' '}
+            <Link href="/login" className="text-primary hover:underline font-medium">
+              Inicia sesión
+            </Link>
+          </p>
+
+          {/* Enterprise CTA — only show for teacher path */}
+          {!isParent && (
+            <div className="border-t border-border pt-4">
+              <a
+                href={SALES_WHATSAPP}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-brand transition-colors cursor-pointer py-2"
+              >
+                <Building2 size={15} />
+                ¿Eres directora y quieres registrar tu escuela?
+                <MessageCircle size={13} className="text-[#25D366]" />
+              </a>
             </div>
           )}
-
-          {/* Consent */}
-          <div className="space-y-3 mb-5 p-4 rounded-lg bg-muted border border-border">
-            <p className="text-xs font-medium text-text-secondary uppercase tracking-wide">
-              Antes de continuar
-            </p>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={consentPrimary}
-                onChange={(e) => setConsentPrimary(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
-              />
-              <span className="text-sm text-text-secondary">
-                Acepto el tratamiento de mis datos conforme al{' '}
-                <Link href="/privacidad" className="text-primary hover:underline" target="_blank">
-                  Aviso de Privacidad
-                </Link>{' '}
-                <span className="text-error">*</span>
-              </span>
-            </label>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={consentSecondary}
-                onChange={(e) => setConsentSecondary(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
-              />
-              <span className="text-sm text-text-secondary">
-                Acepto análisis anónimo para mejora del servicio (opcional)
-              </span>
-            </label>
-          </div>
-
-          <div className="space-y-4">
-            <Button
-              type="button"
-              onClick={handleGoogleRegister}
-              disabled={googleLoading || loading}
-              variant="outline"
-              className="w-full min-h-[44px] flex items-center gap-2 justify-center"
-            >
-              <GoogleIcon />
-              {googleLoading ? 'Redirigiendo...' : 'Registrarse con Google'}
-            </Button>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-text-disabled">o con email</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-text-secondary mb-1"
-                >
-                  Email
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@email.com"
-                  required
-                  className="min-h-[44px]"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-text-secondary mb-1"
-                >
-                  Contraseña
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 8 caracteres"
-                  required
-                  className="min-h-[44px]"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading || !consentPrimary || googleLoading}
-                className="w-full min-h-[44px] bg-primary hover:bg-primary-dark disabled:opacity-50"
-              >
-                {loading ? 'Creando cuenta...' : 'Crear cuenta'}
-              </Button>
-            </form>
-
-            <p className="text-center text-sm text-text-secondary">
-              ¿Ya tienes cuenta?{' '}
-              <Link href="/login" className="text-primary hover:underline font-medium">
-                Inicia sesión
-              </Link>
-            </p>
-
-            {/* Enterprise CTA — only show for teacher path */}
-            {!isParent && (
-              <div className="border-t border-border pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowSchoolModal(true)}
-                  className="w-full flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-brand transition-colors cursor-pointer py-2"
-                >
-                  <Building2 size={15} />
-                  ¿Eres directora y quieres registrar tu escuela?
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
