@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
+import { CheckCircle } from 'lucide-react'
 
 function GoogleIcon() {
   return (
@@ -51,6 +52,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
+  const verified = params.get('verified') === '1'
 
   async function handleGoogleLogin() {
     setGoogleLoading(true)
@@ -173,6 +175,13 @@ function LoginForm() {
           </Link>
           <p className="text-text-secondary">Inicia sesión en tu cuenta</p>
         </div>
+
+        {verified && (
+          <div className="mb-4 p-3 rounded-lg bg-success-light border border-success text-success-text text-sm flex items-center gap-2">
+            <CheckCircle size={16} className="flex-shrink-0" />
+            ¡Correo verificado! Inicia sesión para entrar a tu cuenta.
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-error-light border border-error text-error-text text-sm">

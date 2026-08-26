@@ -95,26 +95,18 @@ function VerifyEmailContent() {
           <div className="bg-info-light border border-info rounded-lg p-4 mb-6">
             <h2 className="font-semibold text-info-text text-sm mb-3 flex items-center gap-2">
               <CheckCircle size={18} />
-              Sigue estos pasos:
+              Solo un paso:
             </h2>
             <ol className="space-y-2 text-sm text-info-text">
               <li className="flex gap-2">
                 <span className="font-semibold">1.</span>
-                <span>Abre tu correo electrónico (Gmail, Outlook, etc.)</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="font-semibold">2.</span>
                 <span>
-                  Busca un correo de <strong>MaestraIA</strong> o <strong>Supabase</strong>
+                  Abre tu correo y haz clic en <strong>&quot;Confirmar cuenta&quot;</strong>
                 </span>
               </li>
               <li className="flex gap-2">
-                <span className="font-semibold">3.</span>
-                <span>Haz clic en el botón de confirmar correo</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="font-semibold">4.</span>
-                <span>Regresa aquí y da clic en &quot;Ya confirmé mi correo&quot;</span>
+                <span className="font-semibold">2.</span>
+                <span>El enlace te llevará directo a la app — ya estarás dentro.</span>
               </li>
             </ol>
           </div>
