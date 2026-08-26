@@ -98,7 +98,7 @@ function LoginForm() {
         )
         setLoading(false)
         setTimeout(() => {
-          router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`)
         }, 3000)
         return
       }

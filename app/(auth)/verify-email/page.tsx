@@ -14,6 +14,7 @@ function VerifyEmailContent() {
   const email = searchParams.get('email') || ''
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
+  const [resendError, setResendError] = useState('')
   const [checking, setChecking] = useState(false)
 
   useEffect(() => {
@@ -32,15 +33,22 @@ function VerifyEmailContent() {
 
   async function handleResendEmail() {
     setResending(true)
+    setResendError('')
     const supabase = createClient()
 
+    const base = window.location.origin
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,
+      options: { emailRedirectTo: `${base}/auth/callback?next=/onboarding` },
     })
 
     if (error) {
-      alert('No pude reenviar el correo. Intenta de nuevo.')
+      // Supabase rate-limits resends — surface a helpful message
+      const msg = error.message.toLowerCase().includes('rate')
+        ? 'Supabase limita los reenvíos. Espera unos minutos y vuelve a intentarlo, o revisa tu carpeta de spam.'
+        : `No pude reenviar: ${error.message}`
+      setResendError(msg)
     } else {
       setResent(true)
       setTimeout(() => setResent(false), 5000)
@@ -59,9 +67,7 @@ function VerifyEmailContent() {
     if (session) {
       router.push('/onboarding')
     } else {
-      alert(
-        'Aún no has confirmado tu correo. Por favor revisa tu bandeja de entrada y haz clic en el enlace.'
-      )
+      setResendError('Aún no confirmado. Revisa tu correo y haz clic en el enlace.')
     }
     setChecking(false)
   }
@@ -123,6 +129,12 @@ function VerifyEmailContent() {
               </span>
             </p>
           </div>
+
+          {resendError && (
+            <div className="mb-4 p-3 rounded-lg bg-error-light border border-error text-error-text text-sm">
+              {resendError}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="space-y-3">
