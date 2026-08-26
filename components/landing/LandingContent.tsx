@@ -578,24 +578,24 @@ function TestimonialCarousel({ reduced }: { reduced: boolean | null }) {
 }
 
 const TRUST_ITEMS = [
-  { Icon: Star, label: 'NEM · SEP 2024' },
-  { Icon: CheckCircle2, label: 'Evaluación cualitativa' },
-  { Icon: Lock, label: 'Datos protegidos · LFPDPPP' },
-  { Icon: ShieldCheck, label: 'Nombres cifrados' },
+  { Icon: Star, label: 'Alineado al programa SEP 2024' },
+  { Icon: CheckCircle2, label: 'Sin calificaciones numéricas' },
+  { Icon: Lock, label: 'Datos protegidos' },
+  { Icon: ShieldCheck, label: 'Hecho para México' },
 ]
 
 // ── Pricing section ──────────────────────────────────────────────────────────
 
 const PLAN_FEATURES = [
-  { label: 'Planeaciones NEM alineadas', individual: true, school: true },
+  { label: 'Planeaciones listas en minutos', individual: true, school: true },
   { label: '9 tipos de juegos y materiales', individual: true, school: true },
-  { label: 'Diario de la educadora', individual: true, school: true },
-  { label: 'Compartir con familias', individual: true, school: true },
-  { label: 'Integración Richmond', individual: true, school: true },
-  { label: 'Panel de directivos', individual: false, school: true },
-  { label: 'Múltiples maestras ilimitadas', individual: false, school: true },
-  { label: 'Supervisión de planeaciones', individual: false, school: true },
-  { label: 'Subdominio de la escuela', individual: false, school: true },
+  { label: 'Diario de la educadora con IA', individual: true, school: true },
+  { label: 'Portal para papás y familias', individual: true, school: true },
+  { label: 'Sincronización con Richmond', individual: true, school: true },
+  { label: 'Vista de seguimiento para dirección', individual: false, school: true },
+  { label: 'Toda la planta docente incluida', individual: false, school: true },
+  { label: 'La dirección revisa planeaciones', individual: false, school: true },
+  { label: 'Portal propio de la escuela', individual: false, school: true },
   { label: 'Soporte prioritario', individual: false, school: true },
 ]
 
@@ -648,10 +648,11 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
             Planes
           </span>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-text-primary">
-            Un plan para cada maestra
+            Empieza hoy, gratis.
           </h2>
           <p className="mt-3 text-text-secondary max-w-lg mx-auto">
-            Empieza sola o lleva la IA a toda tu escuela.
+            Para la maestra que quiere trabajar menos el fin de semana — y para la escuela que
+            quiere más de su equipo docente.
           </p>
         </motion.div>
 
@@ -663,13 +664,14 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
           >
             <div className="mb-6">
               <span className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                Maestra Individual
+                Para la maestra
               </span>
               <div className="mt-2 font-display text-4xl font-bold text-text-primary">
-                Gratis<span className="text-xl font-normal text-text-muted"> / piloto</span>
+                Gratis
+                <span className="text-xl font-normal text-text-muted"> durante el piloto</span>
               </div>
               <p className="mt-2 text-sm text-text-secondary">
-                Empieza hoy, sin tarjeta de crédito.
+                Sin tarjeta. Empieza a planear hoy mismo.
               </p>
             </div>
 
@@ -707,12 +709,15 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
 
             <div className="mb-6">
               <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-violet-200">
-                <Star size={11} filled className="text-yellow-300" /> Mi Escuela
+                <Star size={11} filled className="text-yellow-300" /> Para la escuela
               </span>
               <div className="mt-2 font-display text-4xl font-bold">
-                Cotización<span className="text-xl font-normal text-violet-300"> / escuela</span>
+                A la medida
+                <span className="text-xl font-normal text-violet-300"> de tu escuela</span>
               </div>
-              <p className="mt-2 text-sm text-violet-200">Precio según número de maestras.</p>
+              <p className="mt-2 text-sm text-violet-200">
+                Toda la planta docente, un solo lugar. Precio según el tamaño de tu equipo.
+              </p>
             </div>
 
             <ul className="space-y-3 mb-8 flex-1">
@@ -739,7 +744,7 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
 
             {sent ? (
               <div className="rounded-lg bg-white/10 px-5 py-4 text-center text-sm text-violet-100">
-                ¡Listo! Revisa tu cliente de correo y envía el mensaje. Te respondemos en 24 h.
+                ¡Listo! Abre tu correo y envía el mensaje. Te respondemos en menos de 24 h.
               </div>
             ) : (
               <form onSubmit={handleSchoolContact} className="space-y-3">
@@ -747,7 +752,7 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
                   required
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder="Nombre de la escuela"
+                  placeholder="Nombre del colegio o institución"
                   className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-sm text-white placeholder:text-violet-300 focus:outline-none focus:border-white/50"
                 />
                 <input
@@ -755,7 +760,7 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
                   type="email"
                   value={schoolEmail}
                   onChange={(e) => setSchoolEmail(e.target.value)}
-                  placeholder="Correo de contacto"
+                  placeholder="Tu correo electrónico"
                   className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-sm text-white placeholder:text-violet-300 focus:outline-none focus:border-white/50"
                 />
                 <select
@@ -765,7 +770,7 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
                   className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-sm text-white focus:outline-none focus:border-white/50"
                 >
                   <option value="" className="text-text-primary">
-                    ¿Cuántas maestras?
+                    ¿Cuántas maestras hay en tu equipo?
                   </option>
                   {['2–5', '6–15', '16–40', '40+'].map((n) => (
                     <option key={n} value={n} className="text-text-primary">
@@ -777,7 +782,7 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
                   type="submit"
                   className="w-full py-4 rounded-lg bg-white text-violet-700 font-display font-semibold text-sm hover:bg-violet-50 transition-colors active:scale-[0.98] cursor-pointer"
                 >
-                  Solicitar cotización
+                  Quiero saber más →
                 </button>
               </form>
             )}
@@ -863,7 +868,7 @@ export default function LandingContent() {
               <motion.div {...(reduced ? {} : fadeUp(0))}>
                 <span className="inline-flex items-center gap-1.5 bg-brand-subtle text-brand text-xs font-medium px-4 py-1.5 rounded-full mb-8">
                   <Star size={12} filled />
-                  Para maestras de preescolar · NEM 2024
+                  Para maestras de preescolar en México
                 </span>
               </motion.div>
 
@@ -887,8 +892,8 @@ export default function LandingContent() {
                 {...(reduced ? {} : fadeUp(0.16))}
                 className="mt-5 text-xl text-text-secondary max-w-md leading-relaxed"
               >
-                Tu quincena planeada en minutos. Juegos, familias y tu escuela conectados en un solo
-                lugar.
+                Planea tu quincena en minutos, crea juegos para tus alumnos y mantén a las familias
+                al día. Sin horas extra el fin de semana.
               </motion.p>
 
               <motion.div
@@ -1007,12 +1012,17 @@ export default function LandingContent() {
             sublabel="listos al instante"
             delay={0.08}
           />
-          <MetricCard value={4} label="Campos formativos" sublabel="PDAs textuales" delay={0.16} />
+          <MetricCard
+            value={4}
+            label="Campos formativos"
+            sublabel="según la SEP 2024"
+            delay={0.16}
+          />
           <MetricCard
             value={100}
             suffix="%"
-            label="Evaluación cualitativa"
-            sublabel="nunca números"
+            label="Sin calificaciones"
+            sublabel="solo evaluación cualitativa"
             delay={0.24}
           />
         </div>
@@ -1022,7 +1032,7 @@ export default function LandingContent() {
       <section id="plataforma" className="bg-page py-20 md:py-28 px-4">
         <div className="max-w-6xl mx-auto">
           <StaggerTitle
-            text="Todo tu trabajo, en un lugar."
+            text="Todo lo que necesitas para dar clases tranquila."
             reduced={reduced}
             className="font-display text-3xl md:text-4xl font-semibold text-text-primary text-center mb-14"
           />
@@ -1034,16 +1044,20 @@ export default function LandingContent() {
             className="grid md:grid-cols-3 gap-8"
           >
             {[
-              { V: PlannerVisual, t: 'Planeaciones NEM', d: 'Con tu formato, en tu voz.' },
+              {
+                V: PlannerVisual,
+                t: 'Planeaciones',
+                d: 'Listas en minutos, con tu voz y tu formato.',
+              },
               {
                 V: MaterialsVisual,
                 t: 'Juegos y materiales',
-                d: 'Listos para proyectar o jugar en casa.',
+                d: 'Crea, proyecta y comparte con un enlace.',
               },
               {
                 V: DiaryVisual,
                 t: 'Diario de la educadora',
-                d: 'Redactado por ti, resumido por la IA.',
+                d: 'Escribe tus notas, la IA lo redacta por ti.',
               },
             ].map(({ V, t, d }) => (
               <motion.div
@@ -1074,18 +1088,19 @@ export default function LandingContent() {
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-12">
           <motion.div {...(reduced ? {} : fadeUp())} className="flex-1">
             <StaggerTitle
-              text="Habla NEM de verdad."
+              text="Planeaciones que tu directora aprueba."
               reduced={reduced}
               className="font-display text-3xl md:text-4xl font-semibold text-text-primary leading-tight"
             />
             <p className="mt-4 text-text-secondary max-w-md">
-              PDAs oficiales, citados textualmente. Nada que tu directora vaya a tachar.
+              Contenidos de la SEP, tal como los pide el programa. Con tu formato y tu manera de
+              enseñar — lista en minutos.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              <Chip Icon={CheckCircle2} label="PDAs verbatim" />
-              <Chip Icon={FileText} label="Tu formato" />
+              <Chip Icon={CheckCircle2} label="Tal como pide la SEP" />
+              <Chip Icon={FileText} label="Tu voz y tu formato" />
               <Chip Icon={ShieldCheck} label="Fichero de la Paz" />
-              <Chip Icon={Download} label="Word y PDF" />
+              <Chip Icon={Download} label="Descarga en Word o PDF" />
             </div>
           </motion.div>
           <motion.div
@@ -1113,12 +1128,13 @@ export default function LandingContent() {
               className="font-display text-3xl md:text-4xl font-semibold text-text-primary leading-tight"
             />
             <p className="mt-4 text-text-secondary max-w-md">
-              Con el vocabulario de tu quincena. Para peques que aún no leen.
+              Con el vocabulario de tu quincena, para peques que aún aprenden a leer. Proyéctalos en
+              clase o manda el enlace a los papás.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              <Chip Icon={Play} label="Proyéctalos en clase" />
-              <Chip Icon={Link2} label="Comparte con un enlace" />
-              <Chip Icon={Ear} label="Con imagen y audio" />
+              <Chip Icon={Play} label="Proyecta en clase" />
+              <Chip Icon={Link2} label="Juegan desde casa" />
+              <Chip Icon={Ear} label="Imagen y audio incluidos" />
             </div>
           </motion.div>
           <motion.div
