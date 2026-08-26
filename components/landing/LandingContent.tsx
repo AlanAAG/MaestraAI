@@ -863,7 +863,7 @@ export default function LandingContent() {
           style={reduced ? undefined : { opacity: heroOpacity, scale: heroScale }}
           className="relative z-10 max-w-6xl mx-auto px-4 pt-28 pb-16 w-full"
         >
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div className="grid md:grid-cols-[1fr_1.1fr] gap-16 items-center">
             {/* Left — promise + waitlist */}
             <div>
               <motion.div {...(reduced ? {} : fadeUp(0))}>
@@ -941,59 +941,52 @@ export default function LandingContent() {
               </motion.div>
             </div>
 
-            {/* Right — hero photo + floating product cards */}
+            {/* Right — full-bleed photo, cards float on top */}
             <motion.div
               style={reduced ? undefined : { y: heroY }}
-              className="hidden md:flex items-center justify-center relative min-h-[520px]"
+              className="hidden md:block relative"
             >
-              {/* soft violet glow behind the photo */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div
-                  className="w-[28rem] h-[28rem] rounded-full opacity-20"
-                  style={{
-                    background:
-                      'radial-gradient(circle, #7C3AED 0%, #E11D48 60%, transparent 100%)',
-                  }}
-                />
-              </div>
-
-              {/* Hero photo */}
-              <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border-4 border-white ring-1 ring-violet-100">
+              {/* Photo — fills the column, tall crop */}
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-2 ring-violet-100">
                 <Image
                   src="/hero.jpeg"
                   alt="Maestra leyendo a sus alumnos de preescolar"
-                  width={900}
-                  height={600}
-                  className="w-full h-auto object-cover"
+                  width={1400}
+                  height={1050}
+                  className="w-full h-[560px] object-cover object-center"
                   priority
                 />
+                {/* bottom vignette so cards sit cleanly */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none" />
               </div>
 
-              {/* Drop a brand animation at public/lottie/hero.json and this lights up */}
+              {/* Lottie accent — keep it */}
               <LottieAccent
                 src="/lottie/hero.json"
-                className="absolute -top-6 right-2 w-24 pointer-events-none"
+                className="absolute -top-6 right-4 w-20 pointer-events-none z-20"
               />
 
+              {/* Planner card — top-left, hanging off the edge */}
               <Float
                 reduced={reduced}
                 distance={9}
                 duration={4}
-                className="absolute top-4 -left-6 w-48"
+                className="absolute -top-6 -left-10 w-64 z-10"
               >
-                <div className="rounded-xl bg-white border border-violet-100 shadow-lg p-3">
+                <div className="rounded-2xl bg-white border border-violet-100 shadow-2xl p-4">
                   <PlannerVisual />
                 </div>
               </Float>
 
+              {/* Games card — bottom-right, hanging off the edge */}
               <Float
                 reduced={reduced}
                 distance={11}
                 duration={4.6}
                 delay={0.6}
-                className="absolute bottom-4 -right-4 w-48"
+                className="absolute -bottom-6 -right-10 w-64 z-10"
               >
-                <div className="rounded-xl bg-white border border-violet-100 shadow-lg p-3">
+                <div className="rounded-2xl bg-white border border-violet-100 shadow-2xl p-4">
                   <MaterialsVisual />
                 </div>
               </Float>
