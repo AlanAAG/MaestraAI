@@ -936,8 +936,8 @@ export default function LandingContent() {
               style={reduced ? undefined : { y: heroY }}
               className="hidden md:block relative pb-28"
             >
-              {/* Photo — full column, completely unobstructed */}
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-2 ring-violet-100">
+              {/* Photo */}
+              <div className="rounded-3xl overflow-hidden shadow-2xl ring-2 ring-violet-100">
                 <Image
                   src="/hero.jpeg"
                   alt="Maestra leyendo a sus alumnos de preescolar"
@@ -948,22 +948,23 @@ export default function LandingContent() {
                 />
               </div>
 
+              {/* PlannerVisual — top-left, slightly overlapping photo corner */}
+              <Float
+                reduced={reduced}
+                distance={7}
+                duration={4}
+                className="absolute top-4 left-4 z-10"
+              >
+                <PlannerVisual />
+              </Float>
+
               {/* Lottie accent */}
               <LottieAccent
                 src="/lottie/hero.json"
                 className="absolute -top-6 right-4 w-20 pointer-events-none z-20"
               />
 
-              {/* Cards below the photo — left and right */}
-              <Float
-                reduced={reduced}
-                distance={7}
-                duration={4}
-                className="absolute bottom-0 left-0 z-10"
-              >
-                <PlannerVisual />
-              </Float>
-
+              {/* MaterialsVisual below the photo on the right */}
               <Float
                 reduced={reduced}
                 distance={9}
