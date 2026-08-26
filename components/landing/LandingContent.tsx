@@ -676,7 +676,7 @@ function PricingSection({ reduced }: { reduced: boolean | null }) {
             </ul>
 
             <Link
-              href="/login"
+              href="/register"
               className="w-full flex items-center justify-center gap-2 py-4 rounded-lg font-display font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' }}
             >
@@ -818,13 +818,13 @@ export default function LandingContent() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/login"
+              href="/register"
               className="text-sm text-text-secondary hover:text-text-primary transition-colors px-3 py-2 cursor-pointer"
             >
               Entrar
             </Link>
             <Link
-              href="/login"
+              href="/register"
               className="text-sm font-display font-semibold text-white px-4 py-2 rounded-lg transition-all active:scale-[0.98] cursor-pointer min-h-[40px] flex items-center"
               style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' }}
             >
@@ -893,7 +893,7 @@ export default function LandingContent() {
                 id="waitlist"
               >
                 <Link
-                  href="/login"
+                  href="/register"
                   className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-lg text-white font-display font-semibold text-base transition-all active:scale-[0.97] cursor-pointer shadow-lg hover:shadow-xl hover:opacity-90"
                   style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)' }}
                 >
@@ -923,7 +923,7 @@ export default function LandingContent() {
 
               <motion.div {...(reduced ? {} : fadeUp(0.34))} className="mt-3">
                 <Link
-                  href="/login"
+                  href="/register"
                   className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer py-1"
                 >
                   Ya tengo cuenta <ArrowRight size={14} />
