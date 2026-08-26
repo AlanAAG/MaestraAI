@@ -1,19 +1,21 @@
 // app/layout.tsx
 import * as Sentry from '@sentry/nextjs'
 import type { Metadata } from 'next'
-import { DM_Sans, Inter } from 'next/font/google'
+import { Fredoka, Nunito } from 'next/font/google'
 import './globals.css'
 import { DESIGN_INIT_SCRIPT } from '@/lib/design/vars'
 
-const inter = Inter({
+const fredoka = Fredoka({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-fredoka',
   display: 'swap',
 })
 
-const dmSans = DM_Sans({
+const nunito = Nunito({
   subsets: ['latin'],
-  variable: '--font-dm-sans',
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-nunito',
   display: 'swap',
 })
 
@@ -29,7 +31,7 @@ export function generateMetadata(): Metadata {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${inter.variable} ${dmSans.variable}`}>
+    <html lang="es" className={`${fredoka.variable} ${nunito.variable}`}>
       <body className="font-sans antialiased">
         {/* Applies the teacher's saved color theme + font BEFORE paint (no flash of default). */}
         <script dangerouslySetInnerHTML={{ __html: DESIGN_INIT_SCRIPT }} />

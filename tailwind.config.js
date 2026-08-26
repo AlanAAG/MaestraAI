@@ -92,8 +92,8 @@ module.exports = {
         DEFAULT: '0 1px 2px rgba(61, 52, 39, 0.06)',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-dm-sans)', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-nunito)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-fredoka)', 'var(--font-nunito)', 'system-ui', 'sans-serif'],
       },
       maxWidth: {
         app: '1200px',

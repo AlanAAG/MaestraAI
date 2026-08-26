@@ -15,11 +15,11 @@
     --color-inset: #f3ede4;
     --color-overlay: rgba(61, 52, 39, 0.4);
 
-    /* Brand gold (from logo linework) */
-    --color-brand: #b8860b;
-    --color-brand-hover: #c9973c;
-    --color-brand-light: #deba6f;
-    --color-brand-subtle: #fdf3e4;
+    /* Brand violet */
+    --color-brand: #7c3aed;
+    --color-brand-hover: #6d28d9;
+    --color-brand-light: #a78bfa;
+    --color-brand-subtle: #ede9fe;
 
     /* Text */
     --color-text-primary: #3d3427;
