@@ -165,7 +165,12 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-semibold font-display text-text-primary mb-2">MaestraIA</h1>
+          <Link
+            href="/"
+            className="inline-block mb-4 text-3xl font-semibold font-display text-text-primary hover:opacity-70 transition-opacity"
+          >
+            MaestraIA
+          </Link>
           <p className="text-text-secondary">Inicia sesión en tu cuenta</p>
         </div>
 
