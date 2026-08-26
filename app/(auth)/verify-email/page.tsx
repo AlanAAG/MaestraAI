@@ -40,7 +40,7 @@ function VerifyEmailContent() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,
-      options: { emailRedirectTo: `${base}/auth/callback?next=/onboarding` },
+      options: { emailRedirectTo: `${base}/auth/callback` },
     })
 
     if (error) {
