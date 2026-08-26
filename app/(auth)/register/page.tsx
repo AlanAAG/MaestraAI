@@ -107,8 +107,8 @@ function RegisterForm() {
       options: {
         // Parents come back to the invite page (post-verify) so the token gets claimed.
         emailRedirectTo: isParent
-          ? `${base}/familia/invitacion/${parentToken}`
-          : `${base}/onboarding`,
+          ? `${base}/auth/callback?next=${encodeURIComponent(`/familia/invitacion/${parentToken}`)}`
+          : `${base}/auth/callback?next=/onboarding`,
         ...(isParent ? { data: { role: 'parent' } } : {}),
       },
     })
