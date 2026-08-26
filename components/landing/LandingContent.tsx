@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   motion,
@@ -940,15 +941,15 @@ export default function LandingContent() {
               </motion.div>
             </div>
 
-            {/* Right — mascot + floating product cards */}
+            {/* Right — hero photo + floating product cards */}
             <motion.div
               style={reduced ? undefined : { y: heroY }}
               className="hidden md:flex items-center justify-center relative min-h-[520px]"
             >
-              {/* gradient blob behind mascot */}
+              {/* soft violet glow behind the photo */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div
-                  className="w-72 h-72 rounded-full opacity-25"
+                  className="w-[28rem] h-[28rem] rounded-full opacity-20"
                   style={{
                     background:
                       'radial-gradient(circle, #7C3AED 0%, #E11D48 60%, transparent 100%)',
@@ -956,11 +957,17 @@ export default function LandingContent() {
                 />
               </div>
 
-              <Float reduced={reduced} distance={10} duration={5.5}>
-                <div className="w-56 h-56 rounded-full bg-gradient-to-br from-violet-100 to-rose-50 border-2 border-violet-200 flex items-center justify-end shadow-xl overflow-hidden">
-                  <MascotIllustration size={200} />
-                </div>
-              </Float>
+              {/* Hero photo */}
+              <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border-4 border-white ring-1 ring-violet-100">
+                <Image
+                  src="/hero.jpeg"
+                  alt="Maestra leyendo a sus alumnos de preescolar"
+                  width={900}
+                  height={600}
+                  className="w-full h-auto object-cover"
+                  priority
+                />
+              </div>
 
               {/* Drop a brand animation at public/lottie/hero.json and this lights up */}
               <LottieAccent
