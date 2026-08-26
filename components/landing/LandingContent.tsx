@@ -953,7 +953,7 @@ export default function LandingContent() {
                 reduced={reduced}
                 distance={7}
                 duration={4}
-                className="absolute top-4 left-4 z-10"
+                className="absolute top-4 -left-36 z-10"
               >
                 <PlannerVisual />
               </Float>
