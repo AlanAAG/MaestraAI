@@ -2164,6 +2164,7 @@ export type Database = {
           tags: string[] | null
           teacher_id: string
           title: string
+          visibility: string
         }
         Insert: {
           created_at?: string | null
@@ -2177,6 +2178,7 @@ export type Database = {
           tags?: string[] | null
           teacher_id: string
           title: string
+          visibility?: string
         }
         Update: {
           created_at?: string | null
@@ -2190,6 +2192,7 @@ export type Database = {
           tags?: string[] | null
           teacher_id?: string
           title?: string
+          visibility?: string
         }
         Relationships: [
           {

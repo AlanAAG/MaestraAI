@@ -17,8 +17,8 @@ export function designStyleVars(
   const stack = appFontStack(appFont)
   if (stack) {
     // Overriding the next/font vars restyles Tailwind font classes AND the globals h1-h3 rule.
-    vars['--font-inter'] = stack
-    vars['--font-dm-sans'] = stack
+    vars['--font-fredoka'] = stack
+    vars['--font-nunito'] = stack
   }
   return vars
 }

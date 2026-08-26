@@ -11,6 +11,7 @@ const PostSchema = z.object({
   resource_type: z.enum(['worksheet', 'game', 'flashcard', 'guide', 'template', 'other']),
   grade_level: z.string().max(50).optional(),
   tags: z.array(z.string()).max(10).optional(),
+  visibility: z.enum(['school', 'admin_only']).default('school'),
 })
 
 export async function GET() {

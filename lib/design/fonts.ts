@@ -27,7 +27,7 @@ export function appFontStyle(appFont?: string | null): React.CSSProperties | und
   if (!stack) return undefined
   return {
     fontFamily: stack,
-    '--font-inter': stack,
-    '--font-dm-sans': stack,
+    '--font-fredoka': stack,
+    '--font-nunito': stack,
   } as React.CSSProperties
 }

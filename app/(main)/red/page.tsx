@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, ChevronDown, Download, Trash2, X } from 'lucide-react'
+import { AlertCircle, ChevronDown, ExternalLink, Trash2, X } from 'lucide-react'
 import { SchoolAdminPanel } from '@/components/school/SchoolAdminPanel'
 import { RequestsCard } from '@/components/school/RequestsCard'
 
@@ -30,6 +30,7 @@ type Resource = {
   tags: string[] | null
   created_at: string
   teacher_id: string
+  visibility: 'school' | 'admin_only' | null
   teachers: { full_name: string } | null
 }
 
@@ -458,20 +459,29 @@ export default function RedPage() {
                             {r.grade_level}
                           </Badge>
                         )}
+                        {r.visibility === 'admin_only' && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs text-warning-text border-warning"
+                          >
+                            Solo directora
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-text-secondary mt-1">
                         {r.teachers?.full_name} · {formatDate(r.created_at)}
                       </p>
                     </div>
-                    <div className="flex flex-col gap-1 shrink-0">
+                    <div className="flex flex-col gap-2 shrink-0">
                       <a
                         href={r.file_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:opacity-70 transition-opacity"
-                        title="Ver / descargar"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:opacity-70 transition-opacity border border-brand-subtle rounded-lg px-2.5 py-1"
+                        title="Ver recurso"
                       >
-                        <Download size={14} />
+                        <ExternalLink size={12} />
+                        Ver
                       </a>
                       {(r.teacher_id === teacherId || roleType === 'admin') && (
                         <button

@@ -44,6 +44,7 @@ export default function DiarioDetailPage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [diaryVisibility, setDiaryVisibility] = useState<'school' | 'admin_only'>('school')
 
   useEffect(() => {
     if (!id) return
@@ -123,6 +124,7 @@ export default function DiarioDetailPage() {
         title: `${weekLabel(entry.week_start, entry.week_end)} — Diario`,
         file_url: publicUrl,
         resource_type: 'guide',
+        visibility: diaryVisibility,
       }),
     })
     alert(res.ok ? 'Compartido con tu escuela' : 'No se pudo compartir.')
@@ -196,10 +198,21 @@ export default function DiarioDetailPage() {
               },
             ]}
           />
-          <Button variant="outline" onClick={handleShareSchool} className="min-h-[44px] gap-2">
-            <Users size={16} />
-            Compartir con escuela
-          </Button>
+          <div className="flex items-center gap-1">
+            <select
+              value={diaryVisibility}
+              onChange={(e) => setDiaryVisibility(e.target.value as 'school' | 'admin_only')}
+              className="text-xs rounded-lg border border-border bg-card px-2 py-2.5 text-text-secondary focus:outline-none focus:ring-1 focus:ring-brand"
+              aria-label="Visibilidad en escuela"
+            >
+              <option value="school">Toda la escuela</option>
+              <option value="admin_only">Solo directora</option>
+            </select>
+            <Button variant="outline" onClick={handleShareSchool} className="min-h-[44px] gap-2">
+              <Users size={16} />
+              Compartir con escuela
+            </Button>
+          </div>
           <Button variant="outline" onClick={handleShare} className="min-h-[44px] gap-2">
             <Share2 size={16} />
             Enlace

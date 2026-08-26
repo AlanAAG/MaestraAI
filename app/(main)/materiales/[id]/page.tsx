@@ -66,6 +66,7 @@ export default function MaterialDetailPage() {
   const [coloring, setColoring] = useState<{ word: string; instruction?: string } | null>(null)
   const [sharingSchool, setSharingSchool] = useState(false)
   const [shareSchoolSuccess, setShareSchoolSuccess] = useState(false)
+  const [schoolVisibility, setSchoolVisibility] = useState<'school' | 'admin_only'>('school')
   const [sharingFamilia, setSharingFamilia] = useState(false)
   // Homework: minimum aciertos before the game counts as done at home.
   const [minCorrect, setMinCorrect] = useState('')
@@ -75,6 +76,22 @@ export default function MaterialDetailPage() {
   // Home-play results for this game (migration 069). Empty until kids play.
   const [plays, setPlays] = useState<
     { nickname: string; avatar: string; correct: number; total: number; passed: boolean | null }[]
+  >([])
+  // Student tracking: full roster with their best play
+  const [playerRows, setPlayerRows] = useState<
+    {
+      student_id: string
+      student_name: string
+      group_name: string | null
+      linked: boolean
+      nickname: string | null
+      avatar: string | null
+      played: boolean
+      correct: number | null
+      total: number | null
+      passed: boolean | null
+      last_played: string | null
+    }[]
   >([])
 
   async function saveMinCorrect(value: string) {
@@ -189,6 +206,7 @@ export default function MaterialDetailPage() {
           title: typeLabels[material.type] ?? material.type,
           file_url: publicUrl,
           resource_type: resourceTypeMap[material.type] ?? 'other',
+          visibility: schoolVisibility,
         }),
       })
       if (!res.ok) throw new Error()
@@ -244,11 +262,19 @@ export default function MaterialDetailPage() {
       })
   }, [id])
 
-  // Who played at home. Best-effort: no results / migration pending → the section stays hidden.
+  // Who played at home (anonymous plays by nickname only).
   useEffect(() => {
     fetch(`/api/materials/${id}/plays`)
       .then((r) => r.json())
       .then((d) => setPlays(d.plays ?? []))
+      .catch(() => {})
+  }, [id])
+
+  // Full student roster with their best play (linked profiles).
+  useEffect(() => {
+    fetch(`/api/materials/${id}/players`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setPlayerRows(d.rows ?? []))
       .catch(() => {})
   }, [id])
 
@@ -356,20 +382,31 @@ export default function MaterialDetailPage() {
                   : 'Compartir con familias'}
               </span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShareWithSchool}
-              disabled={sharingSchool || shareSchoolSuccess}
-              className="gap-2"
-            >
-              <Share2 className="h-4 w-4" />
-              {shareSchoolSuccess
-                ? '¡Compartido!'
-                : sharingSchool
-                  ? 'Compartiendo...'
-                  : 'Compartir con escuela'}
-            </Button>
+            <div className="flex items-center gap-1">
+              <select
+                value={schoolVisibility}
+                onChange={(e) => setSchoolVisibility(e.target.value as 'school' | 'admin_only')}
+                className="text-xs rounded-lg border border-border bg-card px-2 py-1.5 text-text-secondary focus:outline-none focus:ring-1 focus:ring-brand"
+                aria-label="Visibilidad en escuela"
+              >
+                <option value="school">Toda la escuela</option>
+                <option value="admin_only">Solo directora</option>
+              </select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleShareWithSchool}
+                disabled={sharingSchool || shareSchoolSuccess}
+                className="gap-2"
+              >
+                <Share2 className="h-4 w-4" />
+                {shareSchoolSuccess
+                  ? '¡Compartido!'
+                  : sharingSchool
+                    ? 'Compartiendo...'
+                    : 'Compartir con escuela'}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1135,6 +1172,56 @@ export default function MaterialDetailPage() {
                     {p.correct} de {p.total} aciertos
                     {p.passed === false ? ' · debe repetir' : ''}
                   </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Student roster tracking — visible when at least one student exists for this teacher */}
+        {playerRows.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-text-primary">Seguimiento de alumnos</h2>
+              <span className="text-xs text-text-secondary">
+                {playerRows.filter((r) => r.played).length}/{playerRows.length} jugaron
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {playerRows.map((r) => (
+                <li
+                  key={r.student_id}
+                  className="flex items-center justify-between rounded-xl border border-border px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg shrink-0">{r.avatar ?? '👤'}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">
+                        {r.student_name}
+                      </p>
+                      {r.group_name && <p className="text-xs text-text-muted">{r.group_name}</p>}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {!r.linked ? (
+                      <span className="text-xs text-text-disabled">Sin perfil vinculado</span>
+                    ) : !r.played ? (
+                      <span className="rounded-full px-3 py-1 text-xs font-medium bg-inset text-text-muted">
+                        No ha jugado
+                      </span>
+                    ) : (
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          r.passed === false
+                            ? 'bg-warning-light text-warning-text'
+                            : 'bg-success-light text-success-text'
+                        }`}
+                      >
+                        {r.correct}/{r.total} aciertos
+                        {r.passed === false ? ' · repetir' : ''}
+                      </span>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

@@ -118,6 +118,7 @@ export default function PlaneacionDetailPage() {
   const [youtubeInputPlanId, setYoutubeInputPlanId] = useState<string | null>(null)
   const [sharingPlan, setSharingPlan] = useState(false)
   const [sharePlanSuccess, setSharePlanSuccess] = useState(false)
+  const [planVisibility, setPlanVisibility] = useState<'school' | 'admin_only'>('school')
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [addingYoutube, setAddingYoutube] = useState(false)
   const [activeTab, setActiveTab] = useState<'document' | 'days'>('document')
@@ -255,6 +256,7 @@ export default function PlaneacionDetailPage() {
           title: `Quincena ${fortnight.number}: ${fortnight.project_name}`,
           file_url: window.location.href,
           resource_type: 'guide',
+          visibility: planVisibility,
         }),
       })
       setSharePlanSuccess(true)
@@ -545,19 +547,30 @@ export default function PlaneacionDetailPage() {
                     },
                   ]}
                 />
-                <Button
-                  variant="outline"
-                  className="min-h-[44px]"
-                  onClick={handleShareWithSchool}
-                  disabled={sharingPlan}
-                >
-                  <Share2 size={16} className="mr-2" />
-                  {sharePlanSuccess
-                    ? '¡Compartido!'
-                    : sharingPlan
-                      ? 'Compartiendo...'
-                      : 'Compartir con escuela'}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <select
+                    value={planVisibility}
+                    onChange={(e) => setPlanVisibility(e.target.value as 'school' | 'admin_only')}
+                    className="text-xs rounded-lg border border-border bg-card px-2 py-2.5 text-text-secondary focus:outline-none focus:ring-1 focus:ring-brand"
+                    aria-label="Visibilidad en escuela"
+                  >
+                    <option value="school">Toda la escuela</option>
+                    <option value="admin_only">Solo directora</option>
+                  </select>
+                  <Button
+                    variant="outline"
+                    className="min-h-[44px]"
+                    onClick={handleShareWithSchool}
+                    disabled={sharingPlan}
+                  >
+                    <Share2 size={16} className="mr-2" />
+                    {sharePlanSuccess
+                      ? '¡Compartido!'
+                      : sharingPlan
+                        ? 'Compartiendo...'
+                        : 'Compartir con escuela'}
+                  </Button>
+                </div>
               </>
             )}
             {lessonPlans.length === 0 && !fortnight.plan_document && (
