@@ -802,7 +802,14 @@ export default function LandingContent() {
       {/* ── Floating nav ── */}
       <div className="fixed top-5 inset-x-0 z-50 flex justify-center px-4">
         <nav className="w-full max-w-5xl flex items-center justify-between px-5 h-14 rounded-lg bg-card/90 backdrop-blur-md border border-border shadow-md">
-          <span className="font-display font-semibold text-base text-text-primary tracking-tight">
+          <span
+            className="font-display font-bold text-xl tracking-tight"
+            style={{
+              background: 'linear-gradient(135deg, #7C3AED 0%, #E11D48 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             MaestraIA
           </span>
           <div className="hidden md:flex items-center gap-6 text-sm text-text-secondary font-medium">
@@ -1192,7 +1199,16 @@ export default function LandingContent() {
       <footer className="border-t border-border py-10 px-4 bg-page">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex flex-col items-center sm:items-start gap-1">
-            <span className="font-display font-medium text-text-primary">MaestraIA</span>
+            <span
+              className="font-display font-bold text-lg"
+              style={{
+                background: 'linear-gradient(135deg, #7C3AED 0%, #E11D48 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              MaestraIA
+            </span>
             <span className="text-xs text-text-muted">
               Hecho para maestras de México · © 2026 MaestraIA
             </span>
