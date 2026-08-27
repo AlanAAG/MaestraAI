@@ -103,6 +103,7 @@ export default function NuevaPlaneacionPage() {
   const [allVocab, setAllVocab] = useState<{ id: string; word: string; letter: string }[]>([])
   const [extraMaterials, setExtraMaterials] = useState<string[]>([])
   const [manualMaterial, setManualMaterial] = useState('')
+  const [teacherEditorial, setTeacherEditorial] = useState<string | null>(null)
   // Teacher-defined didactic units. Unit 1 = the project (its name is the plan's project_name);
   // the rest become sub-plans. Always starts with one unit since Unit 1 is now required.
   const [unidades, setUnidades] = useState<
@@ -229,6 +230,7 @@ export default function NuevaPlaneacionPage() {
 
   // PRONI (Kinder 3) gates the Richmond unit selector + the read-only Richmond vocabulary section.
   const proniActive = isProniApplicable(selectedGrade)
+  const isRichmond = (teacherEditorial ?? '').toLowerCase() === 'richmond'
 
   // The teacher's vocabulary for the planeación is NOT hand-picked — it's every one of her words
   // for the letters she's working this quincena (Letra semana 1 + 2). Letters drive the vocab.
@@ -354,7 +356,7 @@ export default function NuevaPlaneacionPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: teacher } = await (supabase as any)
         .from('teachers')
-        .select('id')
+        .select('id, editorial')
         .eq('auth_id', user.id)
         .single()
       if (!teacher) {
@@ -362,6 +364,7 @@ export default function NuevaPlaneacionPage() {
         setLoadingGroups(false)
         return
       }
+      setTeacherEditorial(teacher.editorial ?? null)
 
       // Active groups only (archived cohorts must not appear as planeación targets).
       // select('*') + JS filter → works before migration 067.
@@ -991,8 +994,19 @@ export default function NuevaPlaneacionPage() {
           </Card>
         }
 
-        {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only. The single Richmond section. */}
-        {proniActive && (
+        {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only, and only for Richmond teachers. */}
+        {proniActive && !isRichmond && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-border bg-muted opacity-60 cursor-not-allowed select-none">
+            <span className="text-sm text-text-disabled">📚 Libro Richmond</span>
+            <span className="text-xs text-text-disabled ml-auto">
+              Solo disponible si tu editorial es Richmond — configúralo en{' '}
+              <a href="/perfil" className="underline pointer-events-auto cursor-pointer">
+                Mi perfil
+              </a>
+            </span>
+          </div>
+        )}
+        {proniActive && isRichmond && (
           <Card className="p-6 border-2">
             <h3 className="text-sm font-semibold text-text-primary mb-1">
               📚 Libro Richmond <span className="font-normal text-text-secondary">(opcional)</span>

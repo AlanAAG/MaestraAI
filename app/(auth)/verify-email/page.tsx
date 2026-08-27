@@ -15,7 +15,6 @@ function VerifyEmailContent() {
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
   const [resendError, setResendError] = useState('')
-  const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     // Check if user clicked email link
@@ -54,22 +53,6 @@ function VerifyEmailContent() {
       setTimeout(() => setResent(false), 5000)
     }
     setResending(false)
-  }
-
-  async function handleCheckVerification() {
-    setChecking(true)
-    const supabase = createClient()
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (session) {
-      router.push('/onboarding')
-    } else {
-      setResendError('Aún no confirmado. Revisa tu correo y haz clic en el enlace.')
-    }
-    setChecking(false)
   }
 
   return (
@@ -130,13 +113,9 @@ function VerifyEmailContent() {
 
           {/* Actions */}
           <div className="space-y-3">
-            <Button
-              onClick={handleCheckVerification}
-              disabled={checking}
-              className="w-full min-h-[44px] bg-primary hover:bg-primary-dark"
-            >
-              {checking ? 'Verificando...' : 'Ya confirmé mi correo'}
-            </Button>
+            <p className="text-sm text-text-secondary text-center py-2">
+              Continúa con tu ingreso en el enlace que mandamos a tu correo.
+            </p>
 
             {resent ? (
               <div className="text-center text-sm text-success-text font-medium">
