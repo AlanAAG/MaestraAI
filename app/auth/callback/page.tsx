@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -33,10 +33,7 @@ async function routeSession(
   router.replace(links?.length ? '/familia' : '/onboarding')
 }
 
-// Handles PKCE (?code=) and implicit (#access_token=) email confirmation flows.
-// Client-side so the browser Supabase client can read the code_verifier from
-// its own storage — server-side exchange fails cross-browser.
-export default function AuthCallbackPage() {
+function AuthCallbackInner() {
   const router = useRouter()
   const params = useSearchParams()
   const done = useRef(false)
@@ -100,5 +97,19 @@ export default function AuthCallbackPage() {
     <div className="min-h-screen flex items-center justify-center">
       <p className="text-text-muted font-sans text-sm animate-pulse">Verificando cuenta…</p>
     </div>
+  )
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-text-muted font-sans text-sm animate-pulse">Verificando cuenta…</p>
+        </div>
+      }
+    >
+      <AuthCallbackInner />
+    </Suspense>
   )
 }
