@@ -70,7 +70,7 @@ function AuthCallbackInner() {
       return
     }
 
-    // Implicit flow (PKCE disabled in Supabase dashboard) — session arrives via hash.
+    // No code param — wait for session from hash (email magic link / implicit flow).
     // The Supabase client auto-detects it; we just wait for SIGNED_IN.
     const {
       data: { subscription },
