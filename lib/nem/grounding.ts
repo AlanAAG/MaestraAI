@@ -2,6 +2,7 @@
 // official Contenidos/PDAs verbatim instead of inventing them.
 import { CONTENIDOS_FASE2_3, pdasForGrade } from './contenidos-fase2'
 import { METHODOLOGY_STRUCTURE } from '@/lib/planner/methodologies'
+import { portageBlock } from './portage'
 
 // The 6 modalidades oficiales (context/campos-formativos-modalidades.md — school ground truth).
 // METHODOLOGY_STRUCTURE also holds extra metodologías (Situación Didáctica, ABP…); the always-on
@@ -160,7 +161,9 @@ La evaluación es CUALITATIVA, continua y basada en la observación sistemática
 <modalidades>
 Las 6 modalidades de trabajo oficiales. TODOS los campos formativos pueden trabajarse a través de CUALQUIER modalidad — la elección depende de la intención pedagógica, no del campo. Cada modalidad sigue sus fases EXACTAS, EN ESTE ORDEN (usa estos nombres de fase textualmente como encabezados):
 ${modalidades}
-</modalidades>${
+</modalidades>
+
+${portageBlock(grade)}${
     includeProni
       ? `
 

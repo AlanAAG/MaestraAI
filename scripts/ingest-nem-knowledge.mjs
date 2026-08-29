@@ -16,7 +16,15 @@ import OpenAI from 'openai'
 import { chunkMarkdown } from '../lib/nem/chunking'
 
 const CONTEXT_DIR = 'context'
-const EXCLUDED_FILES = new Set(['fichero_de_la_paz.md', 'NEM_SYNTHESIS.md'])
+// Excluded because each is served deterministically by code rather than by vector
+// search: fichero_de_la_paz → lib/nem/fichero-paz.ts, NEM_SYNTHESIS → lib/nem/synthesis.ts,
+// guia-portage → lib/nem/portage.ts (injected by grade; it has no markdown headings, so
+// the chunker would also produce breadcrumb-less chunks).
+const EXCLUDED_FILES = new Set([
+  'fichero_de_la_paz.md',
+  'NEM_SYNTHESIS.md',
+  'guia-portage.md',
+])
 const EMBED_MODEL = 'text-embedding-3-small' // 1536 dims (matches the migration)
 const EMBED_BATCH = 64
 const INSERT_BATCH = 100
