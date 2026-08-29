@@ -3,35 +3,7 @@
 import { useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-
-async function routeSession(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  safeNext: string,
-  router: ReturnType<typeof useRouter>
-) {
-  const { data: teacher } = await supabase
-    .from('teachers')
-    .select('id')
-    .eq('auth_id', userId)
-    .single()
-
-  if (teacher) {
-    router.replace(safeNext || '/dashboard')
-    return
-  }
-  if (safeNext.startsWith('/familia')) {
-    router.replace(safeNext)
-    return
-  }
-  const { data: links } = await supabase
-    .from('parent_links')
-    .select('id')
-    .eq('parent_auth_id', userId)
-    .is('revoked_at', null)
-    .limit(1)
-  router.replace(links?.length ? '/familia' : '/onboarding')
-}
+import { postLoginPath, safeNextPath } from '@/lib/auth/post-login-route'
 
 function AuthCallbackInner() {
   const router = useRouter()
@@ -44,8 +16,7 @@ function AuthCallbackInner() {
 
     const supabase = createClient()
     const code = params.get('code')
-    const next = params.get('next') ?? ''
-    const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : ''
+    const safeNext = safeNextPath(params.get('next'))
     const errorCode = params.get('error_code') ?? params.get('error')
 
     if (errorCode) {
@@ -55,18 +26,27 @@ function AuthCallbackInner() {
     }
 
     if (code) {
-      // PKCE flow (default Supabase)
+      // PKCE (default). The verifier lives in a cookie written by signInWithOAuth /
+      // signUp on this origin — so this only fails when the link is opened in a
+      // different browser than it was started in, or the cookie was dropped.
       supabase.auth
         .exchangeCodeForSession(code)
         .then(async ({ data, error }) => {
           if (error || !data.session) {
-            // Code verifier mismatch — email is verified, just needs sign-in
-            router.replace('/login?verified=1')
+            // Surface the real reason instead of always claiming "email verified" —
+            // that message sent Google sign-in users into a silent loop.
+            console.error('[auth/callback] code exchange failed:', error?.message)
+            router.replace(
+              `/login?verified=1${error?.message ? `&error=${encodeURIComponent(error.message)}` : ''}`
+            )
             return
           }
-          await routeSession(supabase, data.session.user.id, safeNext, router)
+          router.replace(await postLoginPath(supabase, data.session.user.id, safeNext))
         })
-        .catch(() => router.replace('/login?verified=1'))
+        .catch((e) => {
+          console.error('[auth/callback] code exchange threw:', e)
+          router.replace('/login?verified=1')
+        })
       return
     }
 
@@ -77,7 +57,7 @@ function AuthCallbackInner() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         subscription.unsubscribe()
-        await routeSession(supabase, session.user.id, safeNext, router)
+        router.replace(await postLoginPath(supabase, session.user.id, safeNext))
       }
     })
 

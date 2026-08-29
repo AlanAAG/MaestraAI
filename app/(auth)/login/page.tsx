@@ -1,7 +1,8 @@
 'use client'
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { postLoginPath } from '@/lib/auth/post-login-route'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
@@ -51,8 +52,22 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(params.get('error') ?? '')
   const verified = params.get('verified') === '1'
+
+  // Already signed in? Don't strand them on the login form — this is the state you
+  // land in when an OAuth callback creates the session but fails to route.
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (cancelled || !data.user) return
+      router.replace(await postLoginPath(supabase, data.user.id, nextPath))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [router, nextPath])
 
   async function handleGoogleLogin() {
     setGoogleLoading(true)
@@ -129,37 +144,12 @@ function LoginForm() {
         console.error('Failed to restore diary draft:', e)
       }
       router.push('/dashboard?diary=saved')
-    } else if (nextPath) {
-      router.push(nextPath)
     } else {
-      // Returning parents (no teacher row, claimed family link) go to /familia — same
-      // routing the Google callback already does.
-      try {
-        const { data: sessionData } = await supabase.auth.getUser()
-        const uid = sessionData.user?.id
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: teacher } = await (supabase as any)
-          .from('teachers')
-          .select('id')
-          .eq('auth_id', uid)
-          .maybeSingle()
-        if (!teacher) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: links } = await (supabase as any)
-            .from('parent_links')
-            .select('id')
-            .eq('parent_auth_id', uid)
-            .is('revoked_at', null)
-            .limit(1)
-          if (links?.length) {
-            router.push('/familia')
-            return
-          }
-        }
-      } catch {
-        /* fall through to the teacher default */
-      }
-      router.push('/dashboard')
+      // Teachers → /dashboard, linked parents → /familia. Same routing the Google
+      // callback uses, so every sign-in path agrees.
+      const { data: sessionData } = await supabase.auth.getUser()
+      const uid = sessionData.user?.id
+      router.push(uid ? await postLoginPath(supabase, uid, nextPath) : (nextPath ?? '/dashboard'))
     }
   }
 
