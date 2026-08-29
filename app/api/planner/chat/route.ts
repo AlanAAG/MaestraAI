@@ -7,13 +7,22 @@ import { normalizePlanDocument } from '@/lib/planner/normalize-document'
 import { storePlaneacionEmbedding, planEmbeddingText } from '@/lib/planner/embeddings'
 import {
   CHAT_SYSTEM,
+  CHAT_TOOLS,
   EDIT_TOOL,
+  ADD_TOOL,
+  REMOVE_TOOL,
   CHAT_EDITABLE_SECTIONS,
   SECTION_LABELS,
   buildPlanContext,
   trimTurns,
   type ChatTurn,
 } from '@/lib/planner/chat'
+import {
+  addCustomSection,
+  removeCustomSection,
+  findCustomSection,
+  listCustomSections,
+} from '@/lib/planner/custom-sections'
 
 export const maxDuration = 120
 
@@ -86,6 +95,8 @@ export async function POST(req: NextRequest) {
         const send = (o: unknown) => controller.enqueue(encoder.encode(sse(o)))
         let reply = ''
         const edited: string[] = []
+        // plan_document as it was before this turn's first write — powers undo.
+        let snapshot: Record<string, unknown> | null = null
 
         try {
           // plan_document is re-read into this local as edits land, so a second tool
@@ -104,7 +115,7 @@ export async function POST(req: NextRequest) {
               model: MODEL,
               max_tokens: 8000,
               system: CHAT_SYSTEM,
-              tools: [EDIT_TOOL],
+              tools: CHAT_TOOLS,
               messages,
             })
 
@@ -120,21 +131,85 @@ export async function POST(req: NextRequest) {
 
             const results: Anthropic.ToolResultBlockParam[] = []
             for (const tu of toolUses) {
-              const input = tu.input as { seccion?: string; contenido?: string }
-              const key = input?.seccion ?? ''
-              const value = (input?.contenido ?? '').trim()
-
-              if (!CHAT_EDITABLE_SECTIONS.has(key) || !value) {
+              const input = tu.input as {
+                seccion?: string
+                contenido?: string
+                titulo?: string
+              }
+              const fail = (msg: string) =>
                 results.push({
                   type: 'tool_result',
                   tool_use_id: tu.id,
                   is_error: true,
-                  content: 'Sección no editable o contenido vacío.',
+                  content: msg,
                 })
+
+              let next: Record<string, unknown> | null = null
+              let label = ''
+              let correction: { section: string; original: string; edited: string } | null = null
+
+              if (tu.name === EDIT_TOOL.name) {
+                const key = input?.seccion ?? ''
+                const value = (input?.contenido ?? '').trim()
+                if (!CHAT_EDITABLE_SECTIONS.has(key) || !value) {
+                  fail('Sección no editable o contenido vacío.')
+                  continue
+                }
+                next = { ...planDoc, [key]: value }
+                label = SECTION_LABELS[key] ?? key
+                correction = {
+                  section: `chat:${key}`,
+                  original: String(planDoc[key] ?? ''),
+                  edited: value,
+                }
+              } else if (tu.name === ADD_TOOL.name) {
+                const title = (input?.titulo ?? '').trim()
+                const value = (input?.contenido ?? '').trim()
+                if (!title || !value) {
+                  fail('Falta el título o el contenido de la sección.')
+                  continue
+                }
+                if (findCustomSection(planDoc, title) !== -1) {
+                  fail(
+                    `Ya existe una sección propia llamada "${title}". Edítala en vez de crearla.`
+                  )
+                  continue
+                }
+                // Keeps custom_sections and _section_order in sync — a section added
+                // to one but not the other never renders.
+                next = addCustomSection(planDoc, { title, content: value })
+                label = title
+                correction = { section: `chat:add`, original: '', edited: value }
+              } else if (tu.name === REMOVE_TOOL.name) {
+                const title = (input?.titulo ?? '').trim()
+                const idx = findCustomSection(planDoc, title)
+                if (idx === -1) {
+                  const existing = listCustomSections(planDoc)
+                  fail(
+                    existing.length
+                      ? `No hay una sección propia llamada "${title}". Las que existen son: ${existing.join(', ')}.`
+                      : 'Esta planeación no tiene secciones propias. Las secciones estándar no se pueden eliminar.'
+                  )
+                  continue
+                }
+                const removed = (planDoc.custom_sections as { content?: string }[])[idx]
+                // Re-indexes the remaining 'custom:N' entries in _section_order.
+                next = removeCustomSection(planDoc, idx)
+                label = title
+                correction = {
+                  section: `chat:remove`,
+                  original: String(removed?.content ?? ''),
+                  edited: '',
+                }
+              } else {
+                fail('Herramienta desconocida.')
                 continue
               }
 
-              planDoc = normalizePlanDocument({ ...planDoc, [key]: value })
+              // First write of the turn: snapshot the document so this turn is undoable.
+              if (!snapshot) snapshot = planDoc
+
+              planDoc = normalizePlanDocument(next)
               const { error } = await db
                 .from('fortnights')
                 .update({ plan_document: planDoc })
@@ -144,29 +219,28 @@ export async function POST(req: NextRequest) {
               // Same learning capture as regenerate-section. 'chat:' prefixed for the
               // same reason 'regen:' is — this is AI prose, not the teacher's own
               // voice, so the distiller must not treat it as a writing sample.
-              await db
-                .from('plan_corrections')
-                .insert({
-                  teacher_id: teacher.id,
-                  fortnight_id,
-                  section: `chat:${key}`,
-                  original: String((fn.plan_document as Record<string, unknown>)[key] ?? '').slice(
-                    0,
-                    6000
-                  ),
-                  edited: String(planDoc[key] ?? value).slice(0, 6000),
-                })
-                .then(
-                  ({ error: e }: { error: unknown }) =>
-                    e && console.error('[planner-chat] correction capture skipped:', e)
-                )
+              if (correction) {
+                await db
+                  .from('plan_corrections')
+                  .insert({
+                    teacher_id: teacher.id,
+                    fortnight_id,
+                    section: correction.section,
+                    original: correction.original.slice(0, 6000),
+                    edited: correction.edited.slice(0, 6000),
+                  })
+                  .then(
+                    ({ error: e }: { error: unknown }) =>
+                      e && console.error('[planner-chat] correction capture skipped:', e)
+                  )
+              }
 
-              if (!edited.includes(key)) edited.push(key)
-              send({ edited: key, label: SECTION_LABELS[key] ?? key })
+              if (!edited.includes(label)) edited.push(label)
+              send({ edited: label, label })
               results.push({
                 type: 'tool_result',
                 tool_use_id: tu.id,
-                content: 'Sección actualizada.',
+                content: 'Documento actualizado.',
               })
             }
 
@@ -190,6 +264,7 @@ export async function POST(req: NextRequest) {
             role: 'assistant',
             content: finalReply.slice(0, 20000),
             edited_sections: edited,
+            plan_snapshot: snapshot,
           })
 
           send({ done: true, edited })
@@ -230,10 +305,24 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (supabase as any)
     .from('plan_chat_messages')
-    .select('id, role, content, edited_sections, created_at')
+    // plan_snapshot itself is a whole document — send only whether one exists,
+    // so the client can show the undo affordance without downloading the plan twice.
+    .select('id, role, content, edited_sections, created_at, undone_at, plan_snapshot')
     .eq('fortnight_id', fortnightId)
     .order('created_at', { ascending: true })
 
   // RLS scopes this to the owning teacher — no extra ownership check needed.
-  return NextResponse.json({ messages: data ?? [] })
+  const messages = (
+    (data ?? []) as {
+      id: string
+      role: string
+      content: string
+      edited_sections: string[] | null
+      created_at: string
+      undone_at: string | null
+      plan_snapshot: unknown
+    }[]
+  ).map(({ plan_snapshot, ...m }) => ({ ...m, can_undo: !!plan_snapshot && !m.undone_at }))
+
+  return NextResponse.json({ messages })
 }

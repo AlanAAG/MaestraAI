@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Send, ChevronDown } from 'lucide-react'
+import { Sparkles, Send, ChevronDown, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type Message = {
@@ -18,12 +18,16 @@ type Message = {
   role: 'user' | 'assistant'
   content: string
   edited_sections?: string[] | null
+  /** True while this turn's change is still the newest and can be rolled back. */
+  can_undo?: boolean
 }
 
+// One per thing the chat is for: revisar, mejorar, agregar, ideas.
 const SUGGESTIONS = [
+  '¿Ves algo que no cuadre en la planeación?',
   'Hazlo más corto y directo',
   'Agrega más actividades de movimiento',
-  'Explícame el proyecto con otras palabras',
+  'Dame ideas para cerrar el proyecto',
 ]
 
 export function PlanChat({
@@ -56,6 +60,28 @@ export function PlanChat({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, streaming])
+
+  async function undo(messageId: string) {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const res = await fetch('/api/planner/chat/undo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fortnight_id: fortnightId, message_id: messageId }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d.error ?? 'No pude deshacer el cambio.')
+      await onReload()
+      const r = await fetch(`/api/planner/chat?fortnight_id=${fortnightId}`)
+      if (r.ok) setMessages((await r.json()).messages ?? [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No pude deshacer el cambio.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function send(text: string) {
     const message = text.trim()
@@ -107,6 +133,16 @@ export function PlanChat({
         }
       }
 
+      if (touched.length) await onReload()
+      // Refetch so the new turn carries its real id — undo needs it, and the
+      // optimistic local id would 400 the endpoint.
+      if (touched.length) {
+        const r = await fetch(`/api/planner/chat?fortnight_id=${fortnightId}`)
+        if (r.ok) {
+          setMessages((await r.json()).messages ?? [])
+          return
+        }
+      }
       setMessages((m) => [
         ...m,
         {
@@ -116,7 +152,6 @@ export function PlanChat({
           edited_sections: touched,
         },
       ])
-      if (touched.length) await onReload()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Algo salió mal.')
     } finally {
@@ -158,7 +193,8 @@ export function PlanChat({
               {messages.length === 0 && !streaming && (
                 <div className="py-2">
                   <p className="text-sm text-text-secondary mb-3">
-                    Dime qué quieres cambiar y lo ajusto en el documento.
+                    Corrige errores, agrega o quita cosas, pide ideas. Los cambios se aplican al
+                    documento y puedes deshacerlos.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {SUGGESTIONS.map((s) => (
@@ -189,8 +225,20 @@ export function PlanChat({
                   >
                     {m.content}
                     {!!m.edited_sections?.length && (
-                      <div className="mt-2 pt-2 border-t border-border/40 text-xs opacity-80">
-                        ✏️ Actualicé: {m.edited_sections.join(', ')}
+                      <div className="mt-2 pt-2 border-t border-border/40 text-xs flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="opacity-80">
+                          Actualicé: <strong>{m.edited_sections.join(', ')}</strong>
+                        </span>
+                        {m.can_undo && (
+                          <button
+                            onClick={() => undo(m.id)}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1 underline underline-offset-2 hover:no-underline cursor-pointer disabled:opacity-50"
+                          >
+                            <Undo2 size={12} />
+                            Deshacer
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

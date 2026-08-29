@@ -4,7 +4,10 @@ import {
   trimTurns,
   CHAT_EDITABLE_SECTIONS,
   CHAT_SYSTEM,
+  CHAT_TOOLS,
   EDIT_TOOL,
+  ADD_TOOL,
+  REMOVE_TOOL,
   type ChatTurn,
 } from './chat'
 
@@ -25,6 +28,21 @@ describe('CHAT_EDITABLE_SECTIONS', () => {
   it('the tool enum matches the allowlist, so the model cannot name a forbidden section', () => {
     const enumValues = EDIT_TOOL.input_schema.properties.seccion.enum as readonly string[]
     expect([...enumValues].sort()).toEqual(Array.from(CHAT_EDITABLE_SECTIONS).sort())
+  })
+})
+
+describe('CHAT_TOOLS', () => {
+  it('exposes edit, add and remove — the four jobs are fix, add, remove, improve', () => {
+    expect(CHAT_TOOLS.map((t) => t.name)).toEqual([
+      'editar_seccion',
+      'agregar_seccion',
+      'eliminar_seccion',
+    ])
+  })
+
+  it('add and remove take a title, not an index — indices shift under the model', () => {
+    expect(ADD_TOOL.input_schema.required).toContain('titulo')
+    expect(REMOVE_TOOL.input_schema.required).toEqual(['titulo'])
   })
 })
 
@@ -53,11 +71,32 @@ describe('buildPlanContext', () => {
     expect(ctx).toContain('clave="pausas_activas"')
   })
 
-  it('surfaces enforced fields as read-only context, not as editable sections', () => {
+  it('shows enforced fields as read-only rather than hiding them', () => {
+    // The model must SEE the locked sections to catch inconsistencies between
+    // them and the prose — that is most of what "fix my mistakes" means here.
     const ctx = buildPlanContext(doc)
-    expect(ctx).toContain('Campos formativos (fijados, no editables)')
+    expect(ctx).toContain('<sin_editar')
     expect(ctx).toContain('Lenguajes')
     expect(ctx).not.toContain('clave="campos_formativos"')
+  })
+
+  it('includes cronograma and evaluación so cross-section mismatches are visible', () => {
+    const ctx = buildPlanContext({
+      ...doc,
+      cronograma: { Lunes: ['Honores', 'Proyecto'], Martes: ['Computación'] },
+      evaluacion_items: [{ aspecto: 'Nombra animales de la granja' }],
+    })
+    expect(ctx).toContain('Lunes: Honores | Proyecto')
+    expect(ctx).toContain('Nombra animales de la granja')
+  })
+
+  it('lists the teacher’s own sections as editable', () => {
+    const ctx = buildPlanContext({
+      ...doc,
+      custom_sections: [{ title: 'Salidas pedagógicas', content: 'Vamos al parque.' }],
+    })
+    expect(ctx).toContain('seccion_propia titulo="Salidas pedagógicas"')
+    expect(ctx).toContain('Vamos al parque.')
   })
 
   it('skips empty and non-string sections', () => {

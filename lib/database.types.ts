@@ -1103,8 +1103,10 @@ export type Database = {
           edited_sections: string[]
           fortnight_id: string
           id: string
+          plan_snapshot: Json | null
           role: string
           teacher_id: string
+          undone_at: string | null
         }
         Insert: {
           content: string
@@ -1112,8 +1114,10 @@ export type Database = {
           edited_sections?: string[]
           fortnight_id: string
           id?: string
+          plan_snapshot?: Json | null
           role: string
           teacher_id: string
+          undone_at?: string | null
         }
         Update: {
           content?: string
@@ -1121,8 +1125,10 @@ export type Database = {
           edited_sections?: string[]
           fortnight_id?: string
           id?: string
+          plan_snapshot?: Json | null
           role?: string
           teacher_id?: string
+          undone_at?: string | null
         }
         Relationships: [
           {
