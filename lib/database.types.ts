@@ -1096,6 +1096,51 @@ export type Database = {
           },
         ]
       }
+      plan_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          edited_sections: string[]
+          fortnight_id: string
+          id: string
+          role: string
+          teacher_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          edited_sections?: string[]
+          fortnight_id: string
+          id?: string
+          role: string
+          teacher_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          edited_sections?: string[]
+          fortnight_id?: string
+          id?: string
+          role?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plan_chat_messages_fortnight_id_fkey'
+            columns: ['fortnight_id']
+            isOneToOne: false
+            referencedRelation: 'fortnights'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'plan_chat_messages_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'teachers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       plan_corrections: {
         Row: {
           created_at: string | null

@@ -27,6 +27,7 @@ import { LoadingGeneration } from '@/components/app/LoadingGeneration'
 import { LessonPlanEditor } from '@/components/app/LessonPlanEditor'
 import { MaterialGenerator } from '@/components/app/MaterialGenerator'
 import { PlanDocumentViewer, type SplitDoc } from '@/components/planner/PlanDocumentViewer'
+import { PlanChat } from '@/components/planner/PlanChat'
 
 const TYPE_LABELS: Record<string, string> = {
   flashcards: 'Flashcards',
@@ -719,6 +720,7 @@ export default function PlaneacionDetailPage() {
                 activeDoc={activeDoc}
                 onActiveDocChange={setActiveDoc}
               />
+              <PlanChat fortnightId={fortnight.id} onReload={loadData} />
             </>
           )}
 
