@@ -1,6 +1,7 @@
 // Rich sub-plan (Letters / Números) generation, shared by the inline pipeline
 // (generate-document) and the on-demand route (generate-subplan).
 import { callPlannerModel, parsePlanJson } from './model'
+import { enfoqueBlock } from './enfoques'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import { METHODOLOGY_STRUCTURE } from './methodologies'
 
@@ -61,6 +62,7 @@ Formato de salida JSON:
 }
 
 ${String(fn.__attachRagLetters ?? '')}
+${enfoqueBlock(fn.pedagogical_approach)}
 Reglas: Letters es SOLO los ${letterDay}. SOLO letras, sin contenido numérico. NUNCA escribas "PRONI" ni combines Letters con Números en el nombre o los títulos. Evaluación cualitativa, nunca numérica.
 ${depth}`
   }
@@ -94,6 +96,7 @@ Formato de salida JSON:
 }
 
 ${String(fn.__attachRagNumeros ?? '')}
+${enfoqueBlock(fn.pedagogical_approach)}
 Reglas: Números es SOLO los ${numDay}. NUNCA escribas "PRONI" ni combines Números con Letters en el nombre o los títulos. Evaluación cualitativa, nunca numérica.
 ${depth}`
 }
@@ -143,6 +146,7 @@ ${estructuraJson}
 }
 
 ${opts.ragBlock ?? ''}
+${enfoqueBlock(fn.pedagogical_approach)}
 Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido con TODOS sus PDA oficiales VERBATIM (desglose completo, sin consolidar ni omitir). 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
 
   const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {

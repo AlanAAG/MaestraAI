@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { nemGroundingBlock } from '@/lib/nem/grounding'
+import { enfoqueBlock, enfoqueLabel } from '@/lib/planner/enfoques'
 import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
 import {
   selectRelevantContenidos,
@@ -456,6 +457,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     knowledgeBlock,
     durationBlock,
     proyectoSecciones,
+    enfoqueBlock(fn.pedagogical_approach),
     teacherReq,
     attachBlock,
     ragBlock,
@@ -543,6 +545,7 @@ Genera la planeación del taller completa en el formato JSON especificado. Los c
     profileCtx,
     ejesBlock,
     knowledgeBlock,
+    enfoqueBlock(fn.pedagogical_approach),
     attachmentsBlock(fn),
     String(fn.__attachRag ?? ''),
     requestData,
@@ -1091,6 +1094,10 @@ export async function POST(req: NextRequest) {
           if (Object.keys(neeMapping).length) {
             planDocument._nee_mapping = neeMapping
           }
+          // The enfoque the plan was written through — so the viewer, the DOCX export
+          // and the editing chat all know the lens without re-reading the fortnight.
+          const enfoqueName = enfoqueLabel(fn.pedagogical_approach)
+          if (enfoqueName) planDocument._enfoque = enfoqueName
 
           // Quincena/Mes: auto-generate the Letters + Números sub-plans inline so the
           // document is a complete bundle on first generation (matches the teacher's format).

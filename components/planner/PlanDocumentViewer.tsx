@@ -107,6 +107,8 @@ type PlanDoc = {
   _section_titles?: Record<string, string>
   _formatting_rules?: { section_title_trailing_colon?: boolean }
   _nee_mapping?: Record<string, string>
+  /** Enfoque pedagógico label, stamped at generation (lib/planner/enfoques.ts). */
+  _enfoque?: string
   _format_issues?: { section: string; issue: string }[]
 }
 
@@ -1257,7 +1259,10 @@ export function PlanDocumentViewer({
           </p>
           <h1 className="text-[1.25em] font-bold text-gray-900 mt-1">{pd.nombre_proyecto}</h1>
           {pd.metodologia && (
-            <p className="text-[0.875em] text-gray-600 mt-0.5">Metodología: {pd.metodologia}</p>
+            <p className="text-[0.875em] text-gray-600 mt-0.5">
+              Metodología: {pd.metodologia}
+              {pd._enfoque ? `  ·  Enfoque: ${pd._enfoque}` : ''}
+            </p>
           )}
           {metaParts.length > 0 && (
             <p className="text-[0.75em] text-gray-500 mt-2">{metaParts.join('  ·  ')}</p>

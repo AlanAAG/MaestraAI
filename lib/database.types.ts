@@ -262,6 +262,7 @@ export type Database = {
           number_week3: string | null
           number_week4: string | null
           observation_calendar: Json | null
+          pedagogical_approach: string | null
           physical_materials: string[] | null
           plan_document: Json | null
           plan_type: string
@@ -306,6 +307,7 @@ export type Database = {
           number_week3?: string | null
           number_week4?: string | null
           observation_calendar?: Json | null
+          pedagogical_approach?: string | null
           physical_materials?: string[] | null
           plan_document?: Json | null
           plan_type?: string
@@ -350,6 +352,7 @@ export type Database = {
           number_week3?: string | null
           number_week4?: string | null
           observation_calendar?: Json | null
+          pedagogical_approach?: string | null
           physical_materials?: string[] | null
           plan_document?: Json | null
           plan_type?: string

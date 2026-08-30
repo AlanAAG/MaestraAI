@@ -198,6 +198,10 @@ export function buildPlanContext(planDocument: Record<string, unknown>): string 
 
   const locked = [
     planDocument.metodologia && `Metodología: ${planDocument.metodologia}`,
+    // Stamped at generation. A rewrite that ignores it drifts out of the school's
+    // approach — a Montessori plan gaining teacher-directed activities, say.
+    planDocument._enfoque &&
+      `Enfoque pedagógico: ${planDocument._enfoque}. Cualquier texto que reescribas debe seguir siendo coherente con este enfoque.`,
     campos && `Campos formativos y contenidos oficiales:\n${campos}`,
     cronograma && `Cronograma:\n${cronograma}`,
     evaluacion && `Aspectos a evaluar:\n${evaluacion}`,

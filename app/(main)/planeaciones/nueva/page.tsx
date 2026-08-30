@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import { ENFOQUES, ENFOQUE_DEFAULT } from '@/lib/planner/enfoques'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -104,6 +105,8 @@ export default function NuevaPlaneacionPage() {
   const [extraMaterials, setExtraMaterials] = useState<string[]>([])
   const [manualMaterial, setManualMaterial] = useState('')
   const [teacherEditorial, setTeacherEditorial] = useState<string | null>(null)
+  // Classroom philosophy the activities are written through (lib/planner/enfoques.ts).
+  const [enfoque, setEnfoque] = useState<string>(ENFOQUE_DEFAULT)
   // Teacher-defined didactic units. Unit 1 = the project (its name is the plan's project_name);
   // the rest become sub-plans. Always starts with one unit since Unit 1 is now required.
   const [unidades, setUnidades] = useState<
@@ -316,10 +319,18 @@ export default function NuevaPlaneacionPage() {
     try {
       const { data } = await supabase
         .from('fortnights')
-        .select('unidades_didacticas, campos:plan_document->campos_formativos')
+        .select(
+          'unidades_didacticas, pedagogical_approach, campos:plan_document->campos_formativos'
+        )
         .eq('teacher_id', teacherId)
         .order('created_at', { ascending: false })
         .limit(12)
+      // A school's enfoque rarely changes between plans — default to the last one she
+      // used so she isn't re-picking it every fortnight.
+      const lastEnfoque = (data ?? []).find(
+        (r: { pedagogical_approach?: string | null }) => r?.pedagogical_approach
+      )?.pedagogical_approach
+      if (lastEnfoque) setEnfoque(lastEnfoque)
       const contenidos = new Set<string>()
       const pdas = new Set<string>()
       for (const row of data ?? []) {
@@ -492,6 +503,7 @@ export default function NuevaPlaneacionPage() {
           number: nextNumber,
           project_name: projectName, // derived from Unit 1 (the project)
           monthly_value: formData.monthly_value.trim() || null,
+          pedagogical_approach: enfoque,
           // "Mes" stores a DB-legal plan_type + the is_month flag (best-effort update below).
           // Never insert 'mes' — the CHECK constraint only allows quincena/taller.
           plan_type: isMonth ? 'quincena' : planType,
@@ -671,6 +683,53 @@ export default function NuevaPlaneacionPage() {
             placeholder="Ej. Que reconozcan las emociones básicas y aprendan a nombrarlas en inglés, y que identifiquen las letras A y B."
             className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
+        </Card>
+
+        {/* Enfoque pedagógico — the lens the activities are written through. Orthogonal to
+            the per-unit metodología below (which fixes the fases/structure). */}
+        <Card className="p-6 border-2">
+          <h3 className="text-sm font-semibold text-text-primary mb-1">
+            Enfoque pedagógico <span className="font-normal text-text-secondary">(opcional)</span>
+          </h3>
+          <p className="text-xs text-text-secondary mb-4">
+            Cómo se escriben las actividades. No cambia la estructura NEM ni la metodología — la
+            atraviesa.
+          </p>
+          <div className="space-y-2">
+            {ENFOQUES.map((e) => {
+              const active = enfoque === e.slug
+              return (
+                <button
+                  key={e.slug}
+                  type="button"
+                  onClick={() => setEnfoque(e.slug)}
+                  aria-pressed={active}
+                  className={`w-full text-left rounded-lg border p-3 transition-colors cursor-pointer ${
+                    active
+                      ? 'border-primary bg-primary-light/30'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${
+                        active ? 'border-primary bg-primary' : 'border-border'
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-text-primary">{e.label}</span>
+                    {e.official && (
+                      <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-success-light text-success-text">
+                        SEP
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 ml-5.5 text-xs text-text-secondary">
+                    {active ? e.detail : e.summary}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
         </Card>
 
         {/* Grade Selection — planeación covers the whole grade (all its groups) */}
