@@ -42,7 +42,10 @@ export const EJES_ARTICULADORES = [
 ] as const
 
 /** Grade levels for PRONI applicability */
-export const PRONI_GRADES = ['Kinder 3'] as const
+// PRONI applies to tercer grado. Schools name it either way — "Preprimaria" is the same
+// cohort as "Kinder 3" (lib/nem/portage.ts already maps both to the 5-6 band), so leaving
+// it out silently hid the Richmond selector and the PRONI block from those groups.
+export const PRONI_GRADES = ['Kinder 3', 'Preprimaria'] as const
 
 /** Check if PRONI applies to a given grade */
 export function isProniApplicable(grade: string): boolean {
