@@ -53,6 +53,8 @@ See git history for full feature log. Major systems:
 
 - **Auth fixes (2026-08-28/29)**: (1) revertido `flowType: 'implicit'` en el cliente browser — impedía guardar el verifier PKCE, así que el intercambio de código de Google OAuth siempre fallaba y mandaba al loop `/login?verified=1`. (2) `/login` ahora redirige a quien ya tiene sesión (antes se quedaba viendo el formulario estando dentro). (3) Los errores reales del callback se registran y se muestran en vez de reportar siempre "correo verificado". (4) Ruteo post-auth unificado en `lib/auth/post-login-route.ts` (maestra → /dashboard, papá vinculado → /familia, cuenta nueva → /onboarding), usado por el login y por el callback.
 
+- **Fix: editorial editable (2026-09-06)**: `teachers.editorial` solo se capturaba en el onboarding y `/perfil` lo mostraba en solo-lectura — una maestra con la cuenta anterior al campo (o que eligió otra editorial) quedaba bloqueada del selector de libro Richmond, con un mensaje que la mandaba a `/perfil` donde no había nada que cambiar. Ahora la caja gris en `/planeaciones/nueva` ES el selector: cambia la editorial en el momento (`PATCH /api/teachers/me`, campo validado contra `EDITORIAL_REGISTRY`) y la tarjeta de Richmond aparece sin salir del formulario. Recordatorio: el bloque Richmond sigue apareciendo solo con grado Kinder 3 (PRONI).
+
 ## Pending migrations
 
 None — everything through **088** applied (2026-08-29), types regenerated from linked project.
