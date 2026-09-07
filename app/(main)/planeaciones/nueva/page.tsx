@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { ENFOQUES, ENFOQUE_DEFAULT } from '@/lib/planner/enfoques'
+import { EDITORIAL_OPTIONS } from '@/lib/editorial/registry'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -1055,14 +1056,32 @@ export default function NuevaPlaneacionPage() {
 
         {/* Libro Richmond (book catalog) — PRONI / Kinder 3 only, and only for Richmond teachers. */}
         {proniActive && !isRichmond && (
-          <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-border bg-muted opacity-60 cursor-not-allowed select-none">
-            <span className="text-sm text-text-disabled">📚 Libro Richmond</span>
-            <span className="text-xs text-text-disabled ml-auto">
-              Solo disponible si tu editorial es Richmond — configúralo en{' '}
-              <a href="/perfil" className="underline pointer-events-auto cursor-pointer">
-                Mi perfil
-              </a>
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-lg border border-border bg-muted">
+            <span className="text-sm text-text-secondary">📚 Libro Richmond</span>
+            <span className="text-xs text-text-secondary">
+              Solo aparece si tu editorial es Richmond. ¿Cuál usas?
             </span>
+            <select
+              className="ml-auto rounded-md border border-border bg-surface px-2 py-1 text-sm cursor-pointer"
+              value={teacherEditorial ?? ''}
+              onChange={async (e) => {
+                const editorial = e.target.value
+                if (!editorial) return
+                setTeacherEditorial(editorial)
+                await fetch('/api/teachers/me', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ editorial }),
+                })
+              }}
+            >
+              <option value="">Selecciona tu editorial...</option>
+              {EDITORIAL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
         )}
         {proniActive && isRichmond && (

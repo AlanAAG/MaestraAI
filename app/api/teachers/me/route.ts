@@ -3,11 +3,19 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { EDITORIAL_REGISTRY } from '@/lib/editorial/registry'
 
 const PatchSchema = z.object({
   full_name: z.string().min(2).max(100).optional(),
   english_period_minutes: z.number().int().min(15).max(120).optional(),
   subject: z.string().max(100).optional(),
+  // Editorial was captured only at onboarding; teachers who joined before it (or picked wrong)
+  // had no way to change it, which silently locked them out of the Richmond book selector.
+  editorial: z
+    .string()
+    .max(30)
+    .refine((k) => k in EDITORIAL_REGISTRY, 'Editorial no reconocida')
+    .optional(),
   teaching_style: z.string().max(500).optional(),
   profile_notes: z.string().max(1000).optional(),
   // Do families see their child's game aciertos? (migration 069)
@@ -119,6 +127,7 @@ export async function PATCH(req: NextRequest) {
           ? { english_period_minutes: body.data.english_period_minutes }
           : {}),
         ...(body.data.subject !== undefined ? { subject: body.data.subject } : {}),
+        ...(body.data.editorial !== undefined ? { editorial: body.data.editorial } : {}),
         ...(body.data.teaching_style !== undefined
           ? { teaching_style: body.data.teaching_style }
           : {}),
