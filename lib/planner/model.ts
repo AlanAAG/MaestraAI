@@ -59,11 +59,20 @@ export async function callPlannerModel(
     }
   }
 
+  return callOpenAiJson(system, user, { ...opts, maxTokens })
+}
+
+/** The JSON-mode fallback: gpt-4o-mini in json_object mode can only return valid JSON. */
+async function callOpenAiJson(
+  system: string,
+  user: string,
+  opts: { maxTokens?: number; cachePrefix?: string } = {}
+): Promise<string> {
   if (!process.env.OPENAI_API_KEY) throw new Error('No model provider configured')
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   const resp = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    max_tokens: Math.min(maxTokens, 16384),
+    max_tokens: Math.min(opts.maxTokens ?? 20000, 16384),
     temperature: 0.4,
     response_format: { type: 'json_object' },
     messages: [
@@ -72,6 +81,32 @@ export async function callPlannerModel(
     ],
   })
   return resp.choices[0]?.message?.content ?? ''
+}
+
+/**
+ * Call the model and parse its JSON, with ONE automatic retry through the json_object fallback.
+ *
+ * Sonnet occasionally returns unparseable JSON — usually because a long document hit max_tokens
+ * and got cut mid-string. The provider fallback in callPlannerModel only fires when Anthropic
+ * *errors*; a successful-but-truncated response sailed past it and killed the whole generation
+ * with "La respuesta del modelo no es JSON válido" — an hour of the teacher's plan, gone, with
+ * nothing to retry but the whole button. json_object mode cannot return invalid JSON.
+ */
+export async function callPlannerJson<T = Record<string, unknown>>(
+  system: string,
+  user: string,
+  opts: { maxTokens?: number; cachePrefix?: string; label?: string } = {}
+): Promise<T> {
+  const raw = await callPlannerModel(system, user, opts)
+  try {
+    return parsePlanJson<T>(raw)
+  } catch (err) {
+    console.error(
+      `[planner] ${opts.label ?? 'call'}: primary model returned invalid JSON (${raw.length} chars) — retrying in json_object mode`
+    )
+    if (!process.env.OPENAI_API_KEY) throw err
+    return parsePlanJson<T>(await callOpenAiJson(system, user, opts))
+  }
 }
 
 // Strips ```json fences and parses. Falls back to the outermost {...} block if the model

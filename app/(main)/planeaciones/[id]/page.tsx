@@ -108,6 +108,7 @@ export default function PlaneacionDetailPage() {
   const [generationPhase, setGenerationPhase] = useState<
     'preparing' | 'analyzing' | 'generating' | 'subplanes' | 'done'
   >('preparing')
+  const [generationError, setGenerationError] = useState('')
   const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([])
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [showMaterialGenerator, setShowMaterialGenerator] = useState(false)
@@ -310,6 +311,7 @@ export default function PlaneacionDetailPage() {
   async function handleGenerateDocument() {
     if (!fortnight) return
     setGeneratingDocument(true)
+    setGenerationError('')
     setGenerationPhase('preparing')
     try {
       const response = await fetch('/api/planner/generate-document', {
@@ -357,7 +359,10 @@ export default function PlaneacionDetailPage() {
       }
       throw new Error('Stream ended unexpectedly')
     } catch (err) {
+      // A failed generation used to leave the page back on "lista para generar" with the reason
+      // only in the console — the teacher saw nothing, waited, and clicked again.
       console.error('[generate-document]', err)
+      setGenerationError(err instanceof Error ? err.message : 'No se pudo generar la planeación.')
     } finally {
       if (!fortnight?.plan_document) setGeneratingDocument(false)
     }
@@ -592,17 +597,27 @@ export default function PlaneacionDetailPage() {
         <Card className="p-12 text-center">
           <Sparkles size={48} className="mx-auto mb-4 text-primary" strokeWidth={1.5} />
           <h2 className="text-xl font-semibold text-text-primary mb-2">
-            Planeación lista para generar
+            {generationError ? 'No se pudo generar la planeación' : 'Planeación lista para generar'}
           </h2>
-          <p className="text-text-secondary mb-6">
-            MaestraIA creará el documento completo alineado a NEM
-          </p>
+          {generationError ? (
+            <div className="mx-auto mb-6 max-w-md rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-left">
+              <p className="text-sm text-red-900">{generationError}</p>
+              <p className="mt-1 text-xs text-red-700">
+                Nada de lo que capturaste se perdió. Vuelve a intentar; si se repite, cambia algo
+                del proyecto o quita un archivo de apoyo muy grande.
+              </p>
+            </div>
+          ) : (
+            <p className="text-text-secondary mb-6">
+              MaestraIA creará el documento completo alineado a NEM
+            </p>
+          )}
           <Button
             onClick={handleGenerateDocument}
             className="min-h-[44px] bg-primary hover:bg-primary-dark"
           >
             <Sparkles size={16} className="mr-2" />
-            Generar Planeación
+            {generationError ? 'Reintentar' : 'Generar Planeación'}
           </Button>
         </Card>
       ) : (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkPlanHealth } from './plan-health'
+import { checkPlanHealth, type HealthIssue } from './plan-health'
 
 const momentos = ['**Punto de Partida**', ...Array(9).fill('- actividad')].join('\n')
 
@@ -28,7 +28,7 @@ function plan(over: Record<string, unknown> = {}) {
   }
 }
 
-const errs = (i: { severity: string }[]) => i.filter((x) => x.severity === 'error')
+const errs = (i: HealthIssue[]) => i.filter((x) => x.severity === 'error')
 
 describe('checkPlanHealth — sub-plans', () => {
   it('is quiet on a complete quincena', () => {

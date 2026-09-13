@@ -31,7 +31,7 @@ import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
-import { callPlannerModel, parsePlanJson } from '@/lib/planner/model'
+import { callPlannerJson } from '@/lib/planner/model'
 import { activeGroups } from '@/lib/groups/archive'
 import {
   generateSubplan,
@@ -1061,11 +1061,12 @@ export async function POST(req: NextRequest) {
         try {
           // No maxTokens override: use the model default (20000) — Sonnet 5's tokenizer runs
           // ~30% fatter, and the old 16384 pin risked truncating the multi-page document.
-          const raw = await callPlannerModel(systemPrompt, userPrompt, {
-            cachePrefix,
-            label: `main:${planType}`,
-          })
-          const planDocument = parsePlanJson(raw)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const planDocument = await callPlannerJson<Record<string, any>>(
+            systemPrompt,
+            userPrompt,
+            { cachePrefix, label: `main:${planType}` }
+          )
 
           // Snap campos_formativos to the official bank: verbatim Contenidos + FULL PDA desglose,
           // invented entries dropped. Code-guaranteed correctness, not prompt hoping.

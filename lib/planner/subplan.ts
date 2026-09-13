@@ -1,6 +1,6 @@
 // Rich sub-plan (Letters / Números) generation, shared by the inline pipeline
 // (generate-document) and the on-demand route (generate-subplan).
-import { callPlannerModel, parsePlanJson } from './model'
+import { callPlannerJson } from './model'
 import { enfoqueBlock } from './enfoques'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import { METHODOLOGY_STRUCTURE } from './methodologies'
@@ -149,12 +149,11 @@ ${opts.ragBlock ?? ''}
 ${enfoqueBlock(fn.pedagogical_approach)}
 Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido con TODOS sus PDA oficiales VERBATIM (desglose completo, sin consolidar ni omitir). 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
 
-  const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
+  const doc = await callPlannerJson<Record<string, unknown>>(SUBPLAN_SYSTEM, prompt, {
     maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
     cachePrefix: opts.cachePrefix,
     label: `subplan:custom:${spec.methodology}`,
   })
-  const doc = parsePlanJson(raw)
   doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
   return doc
 }
@@ -181,12 +180,11 @@ export async function generateSubplan(
     opts.includeProni,
     opts.evalColumns
   )
-  const raw = await callPlannerModel(SUBPLAN_SYSTEM, prompt, {
+  const doc = await callPlannerJson<Record<string, unknown>>(SUBPLAN_SYSTEM, prompt, {
     maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
     cachePrefix: opts.cachePrefix,
     label: `subplan:${subType}`,
   })
-  const doc = parsePlanJson(raw)
   doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
   return doc
 }
