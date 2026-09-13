@@ -206,7 +206,10 @@ export default function MaterialesPage() {
       .then((r) => r.json())
       // API returns { vocabulary } (was read as d.items → chips were always empty).
       .then(async (d) => {
-        setAllVocab(d.vocabulary ?? d.items ?? [])
+        const own = d.vocabulary ?? d.items ?? []
+        setAllVocab(own)
+        // A Richmond teacher with no vocabulary of her own should land on the tab that HAS words.
+        if (own.length === 0 && d.editorial === 'richmond') setVocabSource('richmond')
         // Richmond teachers: load the live book catalog so vocab can be picked BY UNIT.
         if (d.editorial === 'richmond') {
           const supabase = createClient()
@@ -452,6 +455,21 @@ export default function MaterialesPage() {
                     </div>
                   )
                 })()}
+                {/* Empty roster read as "flashcards don't work" — the tab rendered blank, so a
+                    Richmond teacher concluded only the Richmond vocabulary was available. */}
+                {allVocab.length === 0 && (
+                  <div className="mb-2 rounded-lg border border-dashed border-border bg-muted px-4 py-3">
+                    <p className="text-sm text-text-primary">Aún no tienes vocabulario tuyo</p>
+                    <p className="mt-1 text-xs text-text-secondary">
+                      Agrégalo en{' '}
+                      <Link href="/vocabulario" className="text-brand underline">
+                        Vocabulario
+                      </Link>{' '}
+                      (con tus dibujos, si quieres) y aparecerá aquí por letra. También puedes
+                      escribir las palabras a mano abajo y crear el material de una vez.
+                    </p>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto mb-2">
                   {allVocab.map((v) => {
                     const sel = selectedVocab.includes(v.word)

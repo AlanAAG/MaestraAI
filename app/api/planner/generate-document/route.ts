@@ -370,11 +370,20 @@ function buildQuincenaPrompt(
       s.metodologia?.toLowerCase().includes('proyecto') ||
       s.metodologia?.toLowerCase().includes('situacion')
   )
+  const templateProyecto = proyectoInv?.secciones?.length
+    ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
+    : ''
+  // Precedence: an EXPLICIT methodology (she picked Taller Crítico, Gamificación…) keeps its
+  // SEP fases, because that pick is deliberate and the fases are what define it. Otherwise her
+  // uploaded format wins. It used to be the reverse unconditionally, so a teacher who uploaded her
+  // school's format and chose "Mi formato escolar" still got the generic momentos (Punto de Partida
+  // / A trabajar / …) instead of her own (Presentación e inicio / Desarrollo / Cierre / Producto
+  // final): the format silently never applied. `profile` is already null when she chose "Diseño de
+  // MaestraIA", so templateProyecto is empty there.
+  const explicitMetodologia =
+    mainUnit?.metodologia && mainUnit.metodologia !== 'Automático' ? mainUnit.metodologia : null
   const proyectoSecciones =
-    buildEstructuraProyectoBlock(mainUnit?.metodologia) ||
-    (proyectoInv?.secciones?.length
-      ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
-      : '')
+    buildEstructuraProyectoBlock(explicitMetodologia) || templateProyecto || ''
 
   // Reference files the teacher attached at creation (migration 075) — extracted text,
   // plus RAG fragments (migration 080) pre-fetched into __attachRag by the route.
