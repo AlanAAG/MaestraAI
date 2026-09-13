@@ -130,6 +130,8 @@ export default function NuevaPlaneacionPage() {
   })
   // Optional teacher details (general + project-specific) — both feed generation.
   const [teacherNotes, setTeacherNotes] = useState('')
+  // NEE cases described by the teacher for THIS plan — no student roster required.
+  const [neeNotes, setNeeNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
   // Binary choice: use the teacher's uploaded format, or MaestraIA's built-in design.
   const [useSystemTemplate, setUseSystemTemplate] = useState(false)
@@ -570,11 +572,12 @@ export default function NuevaPlaneacionPage() {
       }
       // project_notes now comes from Unit 1's "tema / detalles".
       const projectNotes = cleanUnidades[0]?.tema?.trim() ?? ''
-      if (teacherNotes.trim() || projectNotes) {
+      if (teacherNotes.trim() || neeNotes.trim() || projectNotes) {
         await sb
           .from('fortnights')
           .update({
             teacher_notes: teacherNotes.trim() || null,
+            nee_notes: neeNotes.trim() || null,
             project_notes: projectNotes || null,
           })
           .eq('id', fortnight.id)
@@ -1524,6 +1527,25 @@ export default function NuevaPlaneacionPage() {
             onChange={(e) => setTeacherNotes(e.target.value)}
             rows={3}
             placeholder="Ej: Quiero incluir un juego de memoria el martes. Tengo plastilina y bloques."
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+          />
+        </Card>
+
+        {/* NEE for this plan — feeds ajustes_razonables without requiring a student roster. */}
+        <Card className="p-6 border-2">
+          <h3 className="text-sm font-semibold text-text-primary mb-1">
+            Alumnos que necesitan ajustes{' '}
+            <span className="font-normal text-text-secondary">(opcional)</span>
+          </h3>
+          <p className="text-xs text-text-secondary mb-3">
+            Descríbelos <strong>sin nombres</strong>. Se usan para escribir los ajustes razonables
+            de esta planeación. Si ya marcaste alumnos con NEE en su ficha, se suman a estos.
+          </p>
+          <textarea
+            value={neeNotes}
+            onChange={(e) => setNeeNotes(e.target.value)}
+            rows={3}
+            placeholder="Ej: Un niño con TDAH: le cuesta mantener la atención, necesita consignas cortas y pausas. Una niña con retraso de lenguaje: apoyarla con imágenes y tiempo extra para responder."
             className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary resize-y"
           />
         </Card>

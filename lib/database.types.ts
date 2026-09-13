@@ -253,6 +253,7 @@ export type Database = {
           letter_week4: string | null
           methodology_types: string[] | null
           monthly_value: string | null
+          nee_notes: string | null
           nem_ejes: string[] | null
           number: number
           number_range_week1: string | null
@@ -298,6 +299,7 @@ export type Database = {
           letter_week4?: string | null
           methodology_types?: string[] | null
           monthly_value?: string | null
+          nee_notes?: string | null
           nem_ejes?: string[] | null
           number: number
           number_range_week1?: string | null
@@ -343,6 +345,7 @@ export type Database = {
           letter_week4?: string | null
           methodology_types?: string[] | null
           monthly_value?: string | null
+          nee_notes?: string | null
           nem_ejes?: string[] | null
           number?: number
           number_range_week1?: string | null

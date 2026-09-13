@@ -14,6 +14,7 @@ import { autoSelectNem, extractRecentChoices } from '@/lib/planner/auto-select'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import type { ContenidoPDA } from '@/lib/nem/contenidos-fase2'
 import { extractUsedFichas, pickFichas, buildFichaBlock } from '@/lib/nem/ficha-rotation'
+import { buildNeeSection } from '@/lib/planner/nee-section'
 import { matchAttachmentChunks } from '@/lib/planner/attachment-rag'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
 import {
@@ -343,10 +344,11 @@ function buildQuincenaPrompt(
         .join('\n')
     : ''
 
-  const neeSection =
-    neeStudents.length > 0
-      ? `ALUMNOS CON NEE (incluir en ajustes_razonables):\n${neeStudents.map((s) => `- ${s.display_name}${s.nee_notes ? ': ' + s.nee_notes : ''}`).join('\n')}`
-      : 'NEE: ninguno identificado en este grupo. AUN ASÍ, ajustes_razonables lleva su estructura completa (viñeta inicial + las 5 categorías con "## "), con estrategias de diseño universal para TODO el grupo.'
+  const neeSection = buildNeeSection(
+    neeStudents,
+    fn.nee_notes,
+    'AUN ASÍ, ajustes_razonables lleva su estructura completa (viñeta inicial + las 5 categorías con "## "), con estrategias de diseño universal para TODO el grupo.'
+  )
 
   // PRONI contenidos/PDAs come from <proni_contenidos> in the grounding block (verbatim).
   const proniNote = includeProni
@@ -500,12 +502,11 @@ function buildTallerPrompt(
     ? `CALENDARIO DE OBSERVACIÓN:\n${['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map((d) => `${d}: ${(obsCal[d] ?? []).join(', ') || '(ninguno)'}`).join('\n')}`
     : ''
 
-  // Same shape as the quincena path: the notes are what let the model write a real ajuste
-  // instead of a generic one. Already name-scrubbed and tied only to "Alumno A".
-  const neeSection =
-    neeStudents.length > 0
-      ? `ALUMNOS CON NEE (incluir en ajustes_razonables):\n${neeStudents.map((s) => `- ${s.display_name}${s.nee_notes ? ': ' + s.nee_notes : ''}`).join('\n')}`
-      : 'NEE: ninguno identificado en este grupo. AUN ASÍ, incluye ajustes razonables de diseño universal para TODO el grupo.'
+  const neeSection = buildNeeSection(
+    neeStudents,
+    fn.nee_notes,
+    'AUN ASÍ, incluye ajustes razonables de diseño universal para TODO el grupo.'
+  )
 
   const { context: profileCtx } = profileContext(profile, evalColumns)
 
