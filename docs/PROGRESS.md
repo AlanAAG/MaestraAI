@@ -57,9 +57,11 @@ See git history for full feature log. Major systems:
 
 - **Fichero de la Paz por semana + NEE en taller (2026-09-13)**: (1) La estrategia comunitaria es una actividad SEMANAL, pero la rotación asignaba **una sola ficha por planeación** — la semana 2 repetía la actividad de la semana 1. `pickFichas(used, weeks)` reparte una ficha distinta por semana (quincena 2, mes 4, taller 1), `buildFichaBlock` las etiqueta `SEMANA N` y el schema de salida pide un bloque por semana con su `**Semana N**` + `Ficha número N`. El encadenado entre planeaciones ya funcionaba (`extractUsedFichas` lee las fichas citadas en planes previos) y sigue funcionando: la siguiente planeación arranca en la ficha 3, no en la 2, porque la primera ya gastó dos. La ventana de rotación subió de 12 a 60 planes: con hasta 4 fichas por plan y un catálogo de 20, 12 planes ya no alcanzaban a recordar todo el ciclo. (2) El prompt de **taller** mandaba a la IA los alumnos con NEE solo por su etiqueta anónima, **sin las notas de apoyo** — generaba ajustes genéricos. Ahora usa la misma línea que quincena (nota incluida, ya desanonimizada y sin nombres) y exige ajustes de diseño universal cuando no hay NEE. La captura por alumna ya existía y no cambió: ficha del alumno → "Apoyos y ajustes (NEE)" → checkbox + nota libre, cifrada, anonimizada como "Alumno A" antes de llegar al modelo.
 
+- **NEE por planeación (2026-09-13)**: migración **089** `fortnights.nee_notes`. El reporte era que la planeación seguía diciendo "este grupo no tiene alumnos con NEE" pese a haber añadido los casos — y el generador tenía razón: la cuenta tiene **0 alumnos**. La única forma de declarar un caso era construir el expediente completo (nombres de menores, uno por uno) y marcar `students.has_nee`; una maestra que solo quiere decir "tengo dos niños con TDAH" no tenía dónde. Ahora hay un campo libre en el formulario ("Alumnos que necesitan ajustes", sin nombres) que alimenta la sección igual que el roster. `lib/planner/nee-section.ts` fusiona ambas fuentes — alumnos marcados (anónimos `Alumno A/B` + su nota descifrada) y el texto de la planeación — y pasa el texto libre por `scrubNames` antes de que llegue al modelo. El fallback de diseño universal solo aparece cuando **ninguna** de las dos fuentes trae nada.
+
 ## Pending migrations
 
-None — everything through **088** applied (2026-08-29), types regenerated from linked project.
+None — everything through **089** applied (2026-08-29), types regenerated from linked project.
 
 ## What does NOT exist yet
 
