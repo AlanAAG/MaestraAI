@@ -23,12 +23,43 @@ export function pickFicha(used: number[]): FichaPaz {
   return unused ?? FICHAS_PAZ[used.length % FICHAS_PAZ.length]
 }
 
-/** Prompt block with the chosen ficha's full text. */
-export function buildFichaBlock(f: FichaPaz): string {
-  return `<ficha_de_la_paz>
-Ficha asignada para ESTA planeación (Fichero de la Paz, SEP):
-Ficha número ${f.numero}: "${f.nombre}"
+/**
+ * One ficha per WEEK of the plan, all distinct.
+ *
+ * The estrategia comunitaria is a weekly activity, so a quincena needs two fichas and a
+ * month plan four. Picking a single one per plan meant week 2 repeated week 1's activity.
+ * Each pick feeds the next call's `used` list so the weeks never collide.
+ */
+export function pickFichas(used: number[], weeks: number): FichaPaz[] {
+  const picked: FichaPaz[] = []
+  const seen = [...used]
+  for (let i = 0; i < Math.max(1, weeks); i++) {
+    const f = pickFicha(seen)
+    picked.push(f)
+    seen.push(f.numero)
+  }
+  return picked
+}
 
-${f.texto}
+/** Prompt block with each week's ficha and its full text. */
+export function buildFichaBlock(fichas: FichaPaz | FichaPaz[]): string {
+  const list = Array.isArray(fichas) ? fichas : [fichas]
+  const weekly = list.length > 1
+  const body = list
+    .map(
+      (f, i) =>
+        `${weekly ? `SEMANA ${i + 1} — ` : ''}Ficha número ${f.numero}: "${f.nombre}"\n\n${f.texto}`
+    )
+    .join('\n\n---\n\n')
+
+  const rule = weekly
+    ? `La estrategia comunitaria CAMBIA cada semana. Escribe una actividad por semana, cada una basada en SU ficha y citándola por número ("Ficha número N"). NO repitas la misma actividad en las ${list.length} semanas.`
+    : 'Basa la estrategia comunitaria en esta ficha y cítala por número ("Ficha número N").'
+
+  return `<ficha_de_la_paz>
+Fichas asignadas para ESTA planeación (Fichero de la Paz, SEP).
+${rule}
+
+${body}
 </ficha_de_la_paz>`
 }

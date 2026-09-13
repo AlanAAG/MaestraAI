@@ -13,7 +13,7 @@ import {
 import { autoSelectNem, extractRecentChoices } from '@/lib/planner/auto-select'
 import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import type { ContenidoPDA } from '@/lib/nem/contenidos-fase2'
-import { extractUsedFichas, pickFicha, buildFichaBlock } from '@/lib/nem/ficha-rotation'
+import { extractUsedFichas, pickFichas, buildFichaBlock } from '@/lib/nem/ficha-rotation'
 import { matchAttachmentChunks } from '@/lib/planner/attachment-rag'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
 import {
@@ -474,7 +474,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
 function buildTallerPrompt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: any,
-  neeStudents: { display_name: string }[],
+  neeStudents: { display_name: string; nee_notes?: string | null }[],
   profile: TeacherProfile | null,
   evalColumns: string[],
   schedule: { letterDay: string; numDay: string; cronograma: Record<string, string[]> },
@@ -500,10 +500,12 @@ function buildTallerPrompt(
     ? `CALENDARIO DE OBSERVACIÓN:\n${['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map((d) => `${d}: ${(obsCal[d] ?? []).join(', ') || '(ninguno)'}`).join('\n')}`
     : ''
 
+  // Same shape as the quincena path: the notes are what let the model write a real ajuste
+  // instead of a generic one. Already name-scrubbed and tied only to "Alumno A".
   const neeSection =
     neeStudents.length > 0
-      ? `ALUMNOS CON NEE:\n${neeStudents.map((s) => `- ${s.display_name}`).join('\n')}`
-      : ''
+      ? `ALUMNOS CON NEE (incluir en ajustes_razonables):\n${neeStudents.map((s) => `- ${s.display_name}${s.nee_notes ? ': ' + s.nee_notes : ''}`).join('\n')}`
+      : 'NEE: ninguno identificado en este grupo. AUN ASÍ, incluye ajustes razonables de diseño universal para TODO el grupo.'
 
   const { context: profileCtx } = profileContext(profile, evalColumns)
 
@@ -665,15 +667,19 @@ export async function POST(req: NextRequest) {
       .neq('id', fn.id)
       .not('plan_document', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(12)
+      // Deep enough to remember every ficha in the catalogue: plans now burn up to 4 each.
+      .limit(60)
 
-    // Fichero de la Paz: pick a ficha NOT used in past plans (code-side rotation, never LLM choice).
+    // Fichero de la Paz: pick fichas NOT used in past plans (code-side rotation, never LLM choice).
+    // One per week — the estrategia comunitaria is a weekly activity, so a quincena gets 2 and a
+    // month plan 4. A single ficha per plan made week 2 repeat week 1.
     const usedFichas = extractUsedFichas(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (rotationRows ?? []).map((r: any) => r.plan_document?.estrategia_comunitaria as string)
     )
+    const fichaWeeks = fn.is_month || fn.plan_type === 'mes' ? 4 : fn.plan_type === 'taller' ? 1 : 2
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(fn as any).__fichaBlock = buildFichaBlock(pickFicha(usedFichas))
+    ;(fn as any).__fichaBlock = buildFichaBlock(pickFichas(usedFichas, fichaWeeks))
 
     // Pausas activas: expose the last 2 plans' pausas so the model rotates every 2 planeaciones.
     const prevPausas = (rotationRows ?? [])
