@@ -9,9 +9,13 @@ export async function callPlannerModel(
   user: string,
   opts: { maxTokens?: number; cachePrefix?: string; label?: string } = {}
 ): Promise<string> {
-  // Sonnet 5's tokenizer produces ~30% more tokens for the same text — give output headroom
-  // so documents sized for the old 16384 cap don't truncate.
-  const maxTokens = opts.maxTokens ?? 20000
+  // A quincena document is 4,000-6,000 words of Spanish plus JSON overhead, and Sonnet 5's
+  // tokenizer runs ~30% fatter — 20000 was not enough headroom. Truncation here is expensive:
+  // the cut-off JSON fails to parse, and the json_object fallback rescues the request with a
+  // weaker, 16K-capped model, which is how a teacher ends up with a thin, half-empty plan.
+  // Sonnet 5 allows up to 128K output; the streaming call below is what makes a cap this
+  // large safe (a non-streaming request that size risks an HTTP timeout).
+  const maxTokens = opts.maxTokens ?? 64000
 
   if (process.env.ANTHROPIC_API_KEY) {
     try {
@@ -33,13 +37,17 @@ export async function callPlannerModel(
       // thinking is explicitly DISABLED (omitting it runs adaptive thinking by default, which
       // spends output tokens this JSON-document task doesn't need). parsePlanJson already
       // handles fences/preamble, so the old "{" prefill is unnecessary.
-      const resp = await anthropic.messages.create({
-        model: 'claude-sonnet-5',
-        max_tokens: maxTokens,
-        thinking: { type: 'disabled' },
-        system: systemParam,
-        messages: [{ role: 'user', content: user }],
-      })
+      // Streamed, then collected: required at these max_tokens values so a long document
+      // can't trip the SDK's HTTP timeout. Same response shape as messages.create.
+      const resp = await anthropic.messages
+        .stream({
+          model: 'claude-sonnet-5',
+          max_tokens: maxTokens,
+          thinking: { type: 'disabled' },
+          system: systemParam,
+          messages: [{ role: 'user', content: user }],
+        })
+        .finalMessage()
       // Cost telemetry: cache reads are ~90% cheaper — this line is how we SEE whether the
       // cachePrefix is actually hitting, and where the input tokens go. One line per call.
       const u = resp.usage

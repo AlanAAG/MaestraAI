@@ -150,7 +150,7 @@ ${enfoqueBlock(fn.pedagogical_approach)}
 Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido con TODOS sus PDA oficiales VERBATIM (desglose completo, sin consolidar ni omitir). 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
 
   const doc = await callPlannerJson<Record<string, unknown>>(SUBPLAN_SYSTEM, prompt, {
-    maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
+    maxTokens: 16000, // a rich sub-plan runs ~20k chars; 8000 was cutting the long ones off
     cachePrefix: opts.cachePrefix,
     label: `subplan:custom:${spec.methodology}`,
   })
@@ -181,7 +181,7 @@ export async function generateSubplan(
     opts.evalColumns
   )
   const doc = await callPlannerJson<Record<string, unknown>>(SUBPLAN_SYSTEM, prompt, {
-    maxTokens: 8000, // Sonnet 5 tokenizer ~30% fatter — 6000 risked truncating rich sub-plans
+    maxTokens: 16000, // a rich sub-plan runs ~20k chars; 8000 was cutting the long ones off
     cachePrefix: opts.cachePrefix,
     label: `subplan:${subType}`,
   })
