@@ -15,6 +15,7 @@ import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
 import type { ContenidoPDA } from '@/lib/nem/contenidos-fase2'
 import { extractUsedFichas, pickFichas, buildFichaBlock } from '@/lib/nem/ficha-rotation'
 import { buildNeeSection } from '@/lib/planner/nee-section'
+import { checkPlanHealth } from '@/lib/planner/plan-health'
 import { matchAttachmentChunks } from '@/lib/planner/attachment-rag'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
 import {
@@ -40,7 +41,6 @@ import {
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 import { buildSectionMeta } from '@/lib/planner/section-map'
 import { normalizePlanDocument, expandStrategyAcronym } from '@/lib/planner/normalize-document'
-import { validatePlanDocument } from '@/lib/planner/validate-document'
 import { decrypt } from '@/lib/encryption'
 import { scrubNames } from '@/lib/planner/extract-template'
 
@@ -689,8 +689,9 @@ export async function POST(req: NextRequest) {
       (rotationRows ?? []).map((r: any) => r.plan_document?.estrategia_comunitaria as string)
     )
     const fichaWeeks = fn.is_month || fn.plan_type === 'mes' ? 4 : fn.plan_type === 'taller' ? 1 : 2
+    const assignedFichas = pickFichas(usedFichas, fichaWeeks)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(fn as any).__fichaBlock = buildFichaBlock(pickFichas(usedFichas, fichaWeeks))
+    ;(fn as any).__fichaBlock = buildFichaBlock(assignedFichas)
 
     // Pausas activas: expose the last 2 plans' pausas so the model rotates every 2 planeaciones.
     const prevPausas = (rotationRows ?? [])
@@ -1088,16 +1089,6 @@ export async function POST(req: NextRequest) {
             )
           }
 
-          // Strict local format validation (pure, cheap). Issues are logged + stamped on the
-          // doc — never block delivery; they're the signal for prompt/normalizer fixes.
-          const formatIssues = validatePlanDocument(planDocument)
-          if (formatIssues.length) {
-            console.warn('[generate-document] format issues:', JSON.stringify(formatIssues))
-            planDocument._format_issues = formatIssues
-          } else {
-            delete planDocument._format_issues
-          }
-
           // Embed teacher's section order + titles so the viewer renders in the right order.
           if (sectionOrder.length) {
             planDocument._section_order = sectionOrder
@@ -1223,6 +1214,20 @@ export async function POST(req: NextRequest) {
               )
               ;(planDocument.sub_planes as unknown[]).push(...custom)
             }
+          }
+
+          // Health check (pure, cheap) — runs HERE, after the sub-plans are attached, because a
+          // missing sub-plan is exactly the failure the teacher can't see. Never blocks delivery.
+          const healthIssues = checkPlanHealth(planDocument, {
+            planType,
+            fichaNumbers: assignedFichas.map((f) => f.numero),
+            richmondSelected: !!richmondContent,
+          })
+          if (healthIssues.length) {
+            console.warn('[generate-document] health:', JSON.stringify(healthIssues))
+            planDocument._format_issues = healthIssues
+          } else {
+            delete planDocument._format_issues
           }
 
           // Persist the evaluation columns so the viewer + DOCX export render this school's scale.

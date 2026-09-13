@@ -109,7 +109,7 @@ type PlanDoc = {
   _nee_mapping?: Record<string, string>
   /** Enfoque pedagógico label, stamped at generation (lib/planner/enfoques.ts). */
   _enfoque?: string
-  _format_issues?: { section: string; issue: string }[]
+  _format_issues?: { section: string; issue: string; severity?: 'error' | 'aviso' }[]
 }
 
 type GroupSchedule = {
@@ -119,30 +119,60 @@ type GroupSchedule = {
 
 // Amber, dismissible, print-hidden. The teacher fixes with Editar or "Regenerar con este
 // comentario" on the flagged section — this banner just makes the validator's findings visible.
-function FormatIssuesBanner({ issues }: { issues: { section: string; issue: string }[] }) {
+function FormatIssuesBanner({
+  issues,
+}: {
+  issues: { section: string; issue: string; severity?: 'error' | 'aviso' }[]
+}) {
   const [open, setOpen] = useState(true)
   if (!open) return null
+  // Something actually missing reads very differently from a formatting nit — a red banner for
+  // "Letters no se generó", the amber one for polish. Old plans have no severity: treat as nits.
+  const errors = issues.filter((i) => i.severity === 'error')
+  const bad = errors.length > 0
+  const shown = bad ? errors : issues
+  const tone = bad
+    ? {
+        box: 'border-red-300 bg-red-50',
+        icon: 'text-red-600',
+        title: 'text-red-900',
+        body: 'text-red-800',
+        hint: 'text-red-700',
+      }
+    : {
+        box: 'border-amber-300 bg-amber-50',
+        icon: 'text-amber-600',
+        title: 'text-amber-900',
+        body: 'text-amber-800',
+        hint: 'text-amber-700',
+      }
   return (
-    <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 print:hidden">
+    <div className={`mb-5 rounded-xl border px-4 py-3 print:hidden ${tone.box}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+          <AlertTriangle size={16} className={`mt-0.5 shrink-0 ${tone.icon}`} />
           <div>
-            <p className="text-sm font-medium text-amber-900">
-              {issues.length === 1
-                ? 'Un detalle de formato que vale la pena revisar'
-                : `${issues.length} detalles de formato que vale la pena revisar`}
+            <p className={`text-sm font-medium ${tone.title}`}>
+              {bad
+                ? shown.length === 1
+                  ? 'Falta una parte de esta planeación'
+                  : `Faltan ${shown.length} partes de esta planeación`
+                : shown.length === 1
+                  ? 'Un detalle de formato que vale la pena revisar'
+                  : `${shown.length} detalles de formato que vale la pena revisar`}
             </p>
-            <ul className="mt-1 space-y-0.5 text-xs text-amber-800">
-              {issues.slice(0, 5).map((i, k) => (
+            <ul className={`mt-1 space-y-0.5 text-xs ${tone.body}`}>
+              {shown.slice(0, 5).map((i, k) => (
                 <li key={k}>
                   <span className="font-semibold">{i.section}</span>: {i.issue}
                 </li>
               ))}
-              {issues.length > 5 && <li>… y {issues.length - 5} más</li>}
+              {shown.length > 5 && <li>… y {shown.length - 5} más</li>}
             </ul>
-            <p className="mt-1.5 text-xs text-amber-700">
-              Corrígelo con “Editar” o con un comentario + “Regenerar” en esa sección.
+            <p className={`mt-1.5 text-xs ${tone.hint}`}>
+              {bad
+                ? 'Vuelve a generar la parte que falta; el resto del documento no se pierde.'
+                : 'Corrígelo con “Editar” o con un comentario + “Regenerar” en esa sección.'}
             </p>
           </div>
         </div>
