@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     const { data: fn } = await db
       .from('fortnights')
-      .select('id, teacher_id, project_name, plan_document')
+      .select('id, teacher_id, project_name, plan_document, nee_notes')
       .eq('id', fortnight_id)
       .maybeSingle()
     if (!fn || fn.teacher_id !== teacher.id || !fn.plan_document) {
@@ -104,7 +104,10 @@ export async function POST(req: NextRequest) {
           let planDoc = fn.plan_document as Record<string, unknown>
 
           const messages: Anthropic.MessageParam[] = [
-            { role: 'user', content: `${buildPlanContext(planDoc)}\n\n${turns[0]?.content ?? ''}` },
+            {
+              role: 'user',
+              content: `${buildPlanContext(planDoc, (fn as { nee_notes?: string | null }).nee_notes)}\n\n${turns[0]?.content ?? ''}`,
+            },
             ...turns.slice(1).map((t) => ({ role: t.role, content: t.content })),
           ]
 

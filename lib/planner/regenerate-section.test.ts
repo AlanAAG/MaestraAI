@@ -43,3 +43,24 @@ describe('buildRegeneratePrompt', () => {
     expect(buildRegeneratePrompt(args)).not.toContain('<voz_de_la_maestra>')
   })
 })
+
+describe('NEE context in a regenerated ajustes section', () => {
+  const base = {
+    sectionKey: 'ajustes_razonables',
+    currentText: 'texto actual',
+    comment: 'agrega los casos',
+    projectName: 'Proyecto',
+  }
+
+  it('injects the cases when given', () => {
+    const p = buildRegeneratePrompt({ ...base, neeContext: 'Un niño con TDAH' })
+    expect(p).toContain('<alumnos_con_nee>')
+    expect(p).toContain('TDAH')
+    expect(p).toContain('etiquetas anónimas')
+  })
+
+  it('says nothing when there are no cases', () => {
+    expect(buildRegeneratePrompt(base)).not.toContain('<alumnos_con_nee>')
+    expect(buildRegeneratePrompt({ ...base, neeContext: '  ' })).not.toContain('<alumnos_con_nee>')
+  })
+})

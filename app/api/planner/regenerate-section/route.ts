@@ -7,6 +7,7 @@ import { normalizePlanDocument } from '@/lib/planner/normalize-document'
 import { getLearnedProfile } from '@/lib/planner/learning'
 import { FEEDBACK_SECTIONS, feedbackConflictTarget } from '@/lib/planner/feedback'
 import { REGENERATE_SYSTEM, buildRegeneratePrompt } from '@/lib/planner/regenerate-section'
+import { buildNeeSection } from '@/lib/planner/nee-section'
 import { storePlaneacionEmbedding, planEmbeddingText } from '@/lib/planner/embeddings'
 
 export const maxDuration = 120
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fn } = await (supabase as any)
       .from('fortnights')
-      .select('id, teacher_id, plan_type, project_name, plan_document')
+      .select('id, teacher_id, plan_type, project_name, plan_document, nee_notes')
       .eq('id', fortnight_id)
       .single()
     if (!fn || fn.teacher_id !== teacher.id || !fn.plan_document) {
@@ -87,6 +88,13 @@ export async function POST(req: NextRequest) {
         preferences: learned?.preferences ?? '',
         // Shape from getLearnedProfile/refreshLearnedProfile: LearnedProfile.profile.writing_style_samples.
         styleSamples: learned?.profile?.writing_style_samples ?? [],
+        // Only the ajustes section needs it, and only when the teacher actually described cases:
+        // buildNeeSection's empty fallback would assert "ninguno identificado", which would be a
+        // lie here — roster-flagged students survive as the "Alumno A" labels already in the text.
+        neeContext:
+          section_key === 'ajustes_razonables' && (fn as { nee_notes?: string | null }).nee_notes
+            ? buildNeeSection([], (fn as { nee_notes?: string | null }).nee_notes)
+            : '',
       }),
       { maxTokens: 4000 }
     )

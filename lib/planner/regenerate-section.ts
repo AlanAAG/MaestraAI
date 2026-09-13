@@ -10,6 +10,8 @@ export function buildRegeneratePrompt(args: {
   projectName: string
   preferences?: string
   styleSamples?: string[]
+  /** NEE cases for this plan — only meaningful when rewriting ajustes_razonables. */
+  neeContext?: string
 }): string {
   const prefs = args.preferences?.trim()
     ? `\n<preferencias_aprendidas>\n${args.preferences.trim()}\n</preferencias_aprendidas>\n`
@@ -20,9 +22,15 @@ export function buildRegeneratePrompt(args: {
         .map((s) => `"${s}"`)
         .join('\n')}\n</voz_de_la_maestra>\nImita esta voz.\n`
     : ''
+  // Without this, rewriting ajustes_razonables in isolation is blind to who needs the ajustes:
+  // the model only sees the current text, so a plan generated before the cases were entered
+  // could never gain them.
+  const nee = args.neeContext?.trim()
+    ? `\n<alumnos_con_nee>\n${args.neeContext.trim()}\nUsa SOLO etiquetas anónimas (Alumno A, B…), nunca nombres reales.\n</alumnos_con_nee>\n`
+    : ''
   return `Proyecto: ${args.projectName}
 Sección a reescribir: ${args.sectionKey}
-${prefs}${voice}
+${prefs}${voice}${nee}
 TEXTO ACTUAL DE LA SECCIÓN:
 ${args.currentText.slice(0, 8000)}
 

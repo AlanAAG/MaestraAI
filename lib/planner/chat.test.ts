@@ -134,3 +134,16 @@ describe('trimTurns', () => {
     expect(trimTurns(turns)).toEqual(turns)
   })
 })
+
+describe('buildPlanContext — NEE cases', () => {
+  it('surfaces the plan-level cases so the chat can act on them', () => {
+    const ctx = buildPlanContext({ nombre_proyecto: 'P' }, 'Un niño con TDAH')
+    expect(ctx).toContain('TDAH')
+    expect(ctx).toContain('<sin_editar')
+  })
+
+  it('omits the block when there are no cases', () => {
+    expect(buildPlanContext({ nombre_proyecto: 'P' })).not.toContain('necesitan ajustes')
+    expect(buildPlanContext({ nombre_proyecto: 'P' }, '   ')).not.toContain('necesitan ajustes')
+  })
+})

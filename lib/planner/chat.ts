@@ -151,7 +151,10 @@ const excerpt = (raw: string) =>
  * that doesn't reflect the activities. Withholding them made it blind to exactly
  * the mistakes a teacher would ask about.
  */
-export function buildPlanContext(planDocument: Record<string, unknown>): string {
+export function buildPlanContext(
+  planDocument: Record<string, unknown>,
+  neeNotes?: string | null
+): string {
   const editable = CHAT_EDITABLE_SECTION_LIST.filter(
     (key) => typeof planDocument[key] === 'string' && (planDocument[key] as string).trim()
   )
@@ -196,8 +199,14 @@ export function buildPlanContext(planDocument: Record<string, unknown>): string 
         .join('\n')
     : ''
 
+  // The teacher's NEE cases live on the plan row, not in the document, so the chat was blind to
+  // them — it could not honour "ajusta esto para mi niño con TDAH" on a plan it couldn't see.
+  const nee = String(neeNotes ?? '').trim()
+
   const locked = [
     planDocument.metodologia && `Metodología: ${planDocument.metodologia}`,
+    nee &&
+      `Alumnos que necesitan ajustes (descritos por la maestra, sin nombres):\n${nee}\nAl reescribir ajustes_razonables, atiéndelos con viñetas concretas y etiquetas anónimas.`,
     // Stamped at generation. A rewrite that ignores it drifts out of the school's
     // approach — a Montessori plan gaining teacher-directed activities, say.
     planDocument._enfoque &&
