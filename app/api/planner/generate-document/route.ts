@@ -400,6 +400,15 @@ Letters: SOLO los ${schedule.letterDay}
 Números: SOLO los ${schedule.numDay}
 ${proniNote}`
 
+  // Letters and Números are generated as their OWN sub-planeaciones. Without this the model
+  // develops those two days inside "proyecto" too, so the main document repeats what the
+  // sub-plans already say — the duplication teachers notice first.
+  const subPlanSplit = `<separacion_de_documentos>
+Esta planeación se entrega en DOCUMENTOS SEPARADOS: el principal (proyecto) y, aparte, la planeación de Letters (${schedule.letterDay}) y la de Números (${schedule.numDay}).
+En el documento principal NO desarrolles las actividades de ${schedule.letterDay} (Letters) ni de ${schedule.numDay} (Números): ni sus juegos, ni sus hojas de trabajo, ni sus cuentos, ni su cierre. Esos días ya tienen su propio documento.
+El cronograma SÍ los conserva como renglón del horario — eso es correcto y no cambia.
+</separacion_de_documentos>`
+
   // Mes = monthly (4-week) plan; reuses the quincena structure with a duration hint.
   // Month plans store plan_type='quincena' + is_month=true (the constraint-safe encoding).
   const isMes = !!fn.is_month || fn.plan_type === 'mes'
@@ -464,6 +473,7 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     attachBlock,
     ragBlock,
     continuityBlock,
+    subPlanSplit,
     fichaBlock,
     pausasBlock,
     QUINCENA_OUTPUT_SCHEMA,

@@ -77,3 +77,35 @@ describe('validatePlanDocument', () => {
     expect(validatePlanDocument(pd).some((i) => i.issue.includes('numérico'))).toBe(true)
   })
 })
+
+describe('proyecto must not develop the sub-plan days', () => {
+  const base = (proyecto: string) => ({
+    tipo: 'quincena',
+    proyecto,
+    ajustes_razonables: 'x'.repeat(100),
+    actividades_iniciales: 'x'.repeat(100),
+    actividades_rutina: 'x'.repeat(100),
+  })
+  const momentos = ['**Punto de Partida**', ...Array(9).fill('- actividad del proyecto')].join('\n')
+
+  it('flags a proyecto that develops the Letters day', () => {
+    const issues = validatePlanDocument(
+      base(`${momentos}\n**A trabajar**\n- Día 2 (martes - Letters): leeré el cuento`)
+    )
+    expect(issues.some((i) => i.issue.includes('Letters o Números'))).toBe(true)
+  })
+
+  it('flags the Números day too', () => {
+    const issues = validatePlanDocument(
+      base(`${momentos}\n**A trabajar**\n- Día 4 (jueves - Números): contaremos objetos`)
+    )
+    expect(issues.some((i) => i.issue.includes('Letters o Números'))).toBe(true)
+  })
+
+  it('leaves a clean project-only proyecto alone', () => {
+    const issues = validatePlanDocument(
+      base(`${momentos}\n**A trabajar**\n- Día 1 (lunes): armaremos el friso del proyecto`)
+    )
+    expect(issues.some((i) => i.issue.includes('Letters o Números'))).toBe(false)
+  })
+})

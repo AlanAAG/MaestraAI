@@ -61,6 +61,13 @@ export function validatePlanDocument(pd: any): FormatIssue[] {
         section: 'proyecto',
         issue: `${prose.length} líneas de párrafo suelto (todo va en viñetas)`,
       })
+    // Letters and Números ship as their own sub-planeaciones. When the proyecto develops those
+    // days too, the teacher gets the same activities twice across her documents.
+    if (!isTaller && /d[ií]a\s*\d+[^\n]{0,60}\b(letters|n[uú]meros)\b/i.test(body))
+      issues.push({
+        section: 'proyecto',
+        issue: 'desarrolla el día de Letters o Números (van en su propia planeación)',
+      })
   }
 
   // ── Ajustes razonables: the 5 numbered categories ──
