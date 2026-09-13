@@ -61,6 +61,8 @@ See git history for full feature log. Major systems:
 
 - **Documento principal vs sub-planes (2026-09-13)**: el prompt de quincena nunca decía que Letters y Números se entregan como planeaciones aparte, así que el modelo desarrollaba esos dos días **también** dentro de `proyecto` ("Día 2 (martes - Letters): leeré el cuento…") — la maestra recibía las mismas actividades duplicadas entre el documento principal y sus sub-planeaciones. Bloque `<separacion_de_documentos>` (con los días reales del grupo, no hardcodeados) + la exclusión escrita en el schema de `proyecto`; el cronograma sí conserva los renglones de Letters/Números porque son parte del horario. Regla nueva en `validate-document.ts` que marca `Día N … Letters/Números` dentro de proyecto, para que la próxima vez lo cache el validador y no la maestra.
 
+- **NEE también al regenerar y en el chat (2026-09-13)**: hueco encontrado auditando el cambio anterior — `buildRegeneratePrompt` solo recibía el texto actual de la sección y `buildPlanContext` solo el `plan_document`, así que "regenerar ajustes razonables" y el chat de edición eran ciegos a `fortnights.nee_notes`. Una planeación generada antes de capturar los casos nunca podía ganarlos por esas dos vías (la única salida era generar una nueva). Ambos reciben ahora los casos; el guard importa: `buildNeeSection([], null)` afirma "ninguno identificado", lo cual sería mentira al regenerar (los alumnos marcados en el expediente sobreviven como las etiquetas `Alumno A` que ya están en el texto), así que el bloque solo se inyecta cuando hay texto real.
+
 ## Pending migrations
 
 None — everything through **089** applied (2026-08-29), types regenerated from linked project.
