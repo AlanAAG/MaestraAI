@@ -15,7 +15,6 @@ import {
   Packer,
   TextRun,
   WidthType,
-  ShadingType,
   AlignmentType,
   PageOrientation,
   ImageRun,
@@ -40,9 +39,19 @@ const DOCX_BORDER: Record<string, string> = {
   medium: 'D1D5DB',
   strong: '9CA3AF',
 }
+// Plain paper look: a heavier outer frame, hairline grid inside, no fills anywhere.
+// (docx `size` is in eighths of a point — 12 = 1.5pt outside, 2 = 0.25pt inside.)
 function tableBorders(color: string) {
-  const b = { style: BorderStyle.SINGLE, size: 4, color }
-  return { top: b, bottom: b, left: b, right: b, insideHorizontal: b, insideVertical: b }
+  const outer = { style: BorderStyle.SINGLE, size: 12, color }
+  const inner = { style: BorderStyle.SINGLE, size: 2, color }
+  return {
+    top: outer,
+    bottom: outer,
+    left: outer,
+    right: outer,
+    insideHorizontal: inner,
+    insideVertical: inner,
+  }
 }
 
 const Schema = z.object({
@@ -228,7 +237,6 @@ function cronogramaTable(cronograma: Record<string, string[]>, borderColor: stri
               alignment: AlignmentType.CENTER,
             }),
           ],
-          shading: { type: ShadingType.SOLID, color: 'E8EAF6' },
           width: { size: 20, type: WidthType.PERCENTAGE },
         })
     ),
@@ -271,7 +279,6 @@ function camposFormativosSection(
             children: [
               new Paragraph({ children: [new TextRun({ text: 'Contenidos', bold: true })] }),
             ],
-            shading: { type: ShadingType.SOLID, color: 'E8EAF6' },
             width: { size: 40, type: WidthType.PERCENTAGE },
           }),
           new TableCell({
@@ -282,7 +289,6 @@ function camposFormativosSection(
                 ],
               }),
             ],
-            shading: { type: ShadingType.SOLID, color: 'E8EAF6' },
             width: { size: 60, type: WidthType.PERCENTAGE },
           }),
         ],
@@ -331,7 +337,6 @@ function evaluacionTable(
               alignment: AlignmentType.CENTER,
             }),
           ],
-          shading: { type: ShadingType.SOLID, color: 'E8EAF6' },
         })
     ),
   })
@@ -365,7 +370,6 @@ function observationCalendarTable(cal: Record<string, string[]>, borderColor: st
               alignment: AlignmentType.CENTER,
             }),
           ],
-          shading: { type: ShadingType.SOLID, color: 'E8EAF6' },
           width: { size: 20, type: WidthType.PERCENTAGE },
         })
     ),
@@ -775,6 +779,12 @@ export async function POST(req: NextRequest) {
         },
       ],
       styles: {
+        // Word falls back to Times New Roman for any run without an explicit font — which is what
+        // table cells were getting, since only the named paragraph styles carried `docFont`.
+        // docDefaults covers every run in the file, tables included.
+        default: {
+          document: { run: { font: docFont, size: docSize } },
+        },
         paragraphStyles: [
           {
             id: 'Normal',

@@ -340,13 +340,13 @@ function CronogramaGrid({ cronograma }: { cronograma: Record<string, string[]> }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[0.75em] border-collapse">
+      <table className="w-full text-[0.75em] border-collapse border-2 border-[color:var(--doc-border,#d1d5db)]">
         <thead>
           <tr>
             {labels.map((l) => (
               <th
                 key={l}
-                className="px-2 py-1.5 bg-gray-100 border border-[color:var(--doc-border,#d1d5db)] text-center font-semibold text-gray-700"
+                className="px-2 py-1.5 border border-[color:var(--doc-border,#d1d5db)] text-center font-semibold text-gray-700"
               >
                 {l}
               </th>
@@ -380,13 +380,13 @@ function CamposFormativosView({ campos }: { campos: CampoFormativo[] }) {
           <p className="font-semibold text-[0.875em] text-gray-900 mb-1.5">
             Campo formativo: {cf.campo}
           </p>
-          <table className="w-full text-[0.75em] border-collapse">
+          <table className="w-full text-[0.75em] border-collapse border-2 border-[color:var(--doc-border,#d1d5db)]">
             <thead>
               <tr>
-                <th className="px-3 py-2 bg-gray-100 border border-[color:var(--doc-border,#d1d5db)] text-left w-2/5 font-semibold text-gray-700">
+                <th className="px-3 py-2 border border-[color:var(--doc-border,#d1d5db)] text-left w-2/5 font-semibold text-gray-700">
                   Contenidos
                 </th>
-                <th className="px-3 py-2 bg-gray-100 border border-[color:var(--doc-border,#d1d5db)] text-left w-3/5 font-semibold text-gray-700">
+                <th className="px-3 py-2 border border-[color:var(--doc-border,#d1d5db)] text-left w-3/5 font-semibold text-gray-700">
                   Procesos de Desarrollo de Aprendizaje
                 </th>
               </tr>
@@ -422,16 +422,16 @@ function EvaluacionGrid({ items, columns }: { items: { aspecto: string }[]; colu
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[0.75em] border-collapse">
+      <table className="w-full text-[0.75em] border-collapse border-2 border-[color:var(--doc-border,#d1d5db)]">
         <thead>
           <tr>
-            <th className="px-3 py-2 bg-gray-100 border border-[color:var(--doc-border,#d1d5db)] text-left w-1/2 font-semibold text-gray-700">
+            <th className="px-3 py-2 border border-[color:var(--doc-border,#d1d5db)] text-left w-1/2 font-semibold text-gray-700">
               Aspecto
             </th>
             {opts.map((o) => (
               <th
                 key={o}
-                className="px-2 py-2 bg-gray-100 border border-[color:var(--doc-border,#d1d5db)] text-center font-semibold text-gray-700"
+                className="px-2 py-2 border border-[color:var(--doc-border,#d1d5db)] text-center font-semibold text-gray-700"
               >
                 {o}
               </th>
@@ -608,13 +608,13 @@ function ObservationCalendarSection({ cal }: { cal: Record<string, string[]> }) 
   if (maxLen === 0) return null
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[0.75em] border-collapse">
+      <table className="w-full text-[0.75em] border-collapse border-2 border-[color:var(--doc-border,#d1d5db)]">
         <thead>
           <tr>
             {labels.map((l) => (
               <th
                 key={l}
-                className="px-2 py-1.5 bg-gray-100 border border-[color:var(--doc-border,#d1d5db)] text-center font-semibold text-gray-700"
+                className="px-2 py-1.5 border border-[color:var(--doc-border,#d1d5db)] text-center font-semibold text-gray-700"
               >
                 {l}
               </th>
