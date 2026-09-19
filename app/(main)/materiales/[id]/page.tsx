@@ -436,6 +436,19 @@ export default function MaterialDetailPage() {
                   <Monitor className="mr-2 h-4 w-4" /> Proyectar en clase
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                {sharing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Compartir con alumnos
+              </Button>
               {(() => {
                 const imagePairs: ListenPair[] = (material.content?.cards ?? [])
                   .map((c: { word: string; image_url?: string; emoji?: string }) => ({
@@ -845,18 +858,33 @@ export default function MaterialDetailPage() {
         {material.type === 'letter_recognition' && (
           <Card className="p-6 space-y-4">
             <h2 className="font-semibold text-text-primary">Actividades de Reconocimiento</h2>
-            <Button
-              onClick={() => handleDownload('Reconocimiento.pdf')}
-              disabled={downloading}
-              className="bg-brand hover:bg-brand-hover"
-            >
-              {downloading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Descargar PDF
-            </Button>
+            <div className="flex gap-3 flex-wrap">
+              <Button
+                onClick={() => handleDownload('Reconocimiento.pdf')}
+                disabled={downloading}
+                className="bg-brand hover:bg-brand-hover min-h-[44px]"
+              >
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Descargar PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                {sharing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Compartir con alumnos
+              </Button>
+            </div>
             <div className="space-y-3">
               {material.content?.items?.map(
                 (
@@ -897,18 +925,33 @@ export default function MaterialDetailPage() {
         {material.type === 'matching' && (
           <Card className="p-6 space-y-4">
             <h2 className="font-semibold text-text-primary">Pares de Matching</h2>
-            <Button
-              onClick={() => handleDownload('Matching.pdf')}
-              disabled={downloading}
-              className="bg-brand hover:bg-brand-hover"
-            >
-              {downloading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Descargar PDF
-            </Button>
+            <div className="flex gap-3 flex-wrap">
+              <Button
+                onClick={() => handleDownload('Matching.pdf')}
+                disabled={downloading}
+                className="bg-brand hover:bg-brand-hover min-h-[44px]"
+              >
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Descargar PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                {sharing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Compartir con alumnos
+              </Button>
+            </div>
             <div className="space-y-3">
               {material.content?.pairs?.map(
                 (
