@@ -101,6 +101,11 @@ type PlanDocument = {
     section_separator?: 'line' | 'none' | 'space'
     section_heading_level?: 'h1' | 'h2'
     section_title_trailing_colon?: boolean
+    font_family?: string
+    font_size_pt?: number
+    page_orientation?: 'horizontal' | 'vertical'
+    page_size_twips?: { width: number; height: number }
+    page_margins_twips?: { top: number; right: number; bottom: number; left: number }
   }
   _nee_mapping?: Record<string, string>
 }
@@ -449,8 +454,6 @@ export async function POST(req: NextRequest) {
     } catch {
       /* column may not exist yet */
     }
-    const docFont = DOCX_FONT[design.font] ?? 'Calibri'
-    const docSize = Math.round(design.size * 1.375) // px → half-points (16px ≈ 22 ≈ 11pt)
     const accentHex = (design.accent || '#1f2937').replace('#', '').toUpperCase()
     const borderHex = DOCX_BORDER[design.lineIntensity] ?? 'D1D5DB'
     const docLine = DOCX_LINE[design.spacing] ?? 300
@@ -476,6 +479,11 @@ export async function POST(req: NextRequest) {
     }
 
     const pd = (fn.plan_document ?? {}) as PlanDocument
+    const templateStyle = pd._formatting_rules
+    const docFont = templateStyle?.font_family ?? DOCX_FONT[design.font] ?? 'Calibri'
+    const docSize = templateStyle?.font_size_pt
+      ? Math.round(templateStyle.font_size_pt * 2)
+      : Math.round(design.size * 1.375) // px → half-points
     // Split-documents export: 'main' drops the Letters/Números sub-plans (custom units stay);
     // 'letters'/'numeros' emit ONLY that sub-plan (with the shared title header).
     const docChoice = body.data.doc
@@ -761,20 +769,27 @@ export async function POST(req: NextRequest) {
     const doc = new Document({
       sections: [
         {
-          // Landscape must swap the page dimensions, not just set the flag — otherwise the
-          // page stays portrait-sized (the "horizontal/vertical looks the same" bug). Letter size.
-          properties:
-            body.data.orientation === 'horizontal'
-              ? {
-                  page: {
-                    size: { orientation: PageOrientation.LANDSCAPE, width: 15840, height: 12240 },
-                  },
+          // docx swaps dimensions for landscape internally. Always supply the portrait
+          // dimensions so the orientation flag and actual Word page geometry agree.
+          properties: {
+            page: {
+              size: (() => {
+                const original = templateStyle?.page_size_twips ?? { width: 12240, height: 15840 }
+                const landscape =
+                  (body.data.orientation ??
+                    templateStyle?.page_orientation ??
+                    (original.width > original.height ? 'horizontal' : 'vertical')) === 'horizontal'
+                return {
+                  orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
+                  width: Math.min(original.width, original.height),
+                  height: Math.max(original.width, original.height),
                 }
-              : {
-                  page: {
-                    size: { orientation: PageOrientation.PORTRAIT, width: 12240, height: 15840 },
-                  },
-                },
+              })(),
+              ...(templateStyle?.page_margins_twips
+                ? { margin: templateStyle.page_margins_twips }
+                : {}),
+            },
+          },
           children,
         },
       ],

@@ -4,6 +4,11 @@ import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { generateSubplan, generateCustomSubplan } from '@/lib/planner/subplan'
+import { refreshPlanHealth } from '@/lib/planner/plan-health'
+import { nemGroundingBlock } from '@/lib/nem/grounding'
+import { attachmentsBlock } from '@/lib/planner/attachment-context'
+import { loadPlanTemplate, templateContext } from '@/lib/planner/template-context'
+import { NEM_SYNTHESIS } from '@/lib/nem/synthesis'
 
 export const maxDuration = 120
 
@@ -48,9 +53,7 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: fn } = await (supabase as any)
       .from('fortnights')
-      .select(
-        'id, teacher_id, project_name, monthly_value, letter_week1, letter_week2, vocabulary, group_id, plan_document, groups(fixed_weekly_schedule, grade)'
-      )
+      .select('*, groups(fixed_weekly_schedule, grade)')
       .eq('id', body.data.fortnight_id)
       .single()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,6 +68,10 @@ export async function POST(req: NextRequest) {
     const numDay: string = sched?.numeros_day ?? 'jueves'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const includeProni = isProniApplicable((fn as any).groups?.grade ?? '')
+    fn._grade = fn.grade ?? fn.groups?.grade
+    const profile = await loadPlanTemplate(supabase, fn)
+    const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni, undefined, fn._grade)}\n\n${templateContext(profile)}\n\n${attachmentsBlock(fn)}`
+    const signal = AbortSignal.timeout(100_000)
 
     const existing = (fn.plan_document ?? {}) as Record<string, unknown>
     const evalColumns = Array.isArray(existing.evaluation_columns)
@@ -74,18 +81,54 @@ export async function POST(req: NextRequest) {
     let subplan: Record<string, unknown>
     try {
       subplan = body.data.custom
-        ? await generateCustomSubplan(fn, body.data.custom, { evalColumns })
+        ? await generateCustomSubplan(fn, body.data.custom, { evalColumns, cachePrefix, signal })
         : await generateSubplan(fn, body.data.sub_type!, {
             vocabList,
             letterDay,
             numDay,
             includeProni,
+            evalColumns,
+            cachePrefix,
+            signal,
           })
-    } catch {
-      return NextResponse.json({ error: 'Respuesta inválida del modelo' }, { status: 500 })
+    } catch (error) {
+      const message =
+        error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+          ? 'La IA tardó demasiado. Tu documento guardado se conserva; intenta de nuevo.'
+          : error instanceof Error
+            ? error.message
+            : 'No se pudo completar la subplaneación.'
+      return NextResponse.json({ error: message }, { status: 502 })
     }
 
-    const subPlanes = (Array.isArray(existing.sub_planes) ? existing.sub_planes : []) as unknown[]
+    // Re-read after the model call; generating a sub-plan must not undo edits to the main plan.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: latest, error: readError } = await (supabase as any)
+      .from('fortnights')
+      .select('plan_document')
+      .eq('id', fn.id)
+      .eq('teacher_id', teacher.id)
+      .single()
+    if (readError) throw readError
+    const latestDoc = latest?.plan_document as Record<string, unknown> | undefined
+    if (!latestDoc) return NextResponse.json({ error: 'Planeación no encontrada' }, { status: 404 })
+    const subPlanes = (Array.isArray(latestDoc.sub_planes) ? latestDoc.sub_planes : []) as Array<
+      Record<string, unknown>
+    >
+    if (!body.data.custom) {
+      const oldSub = (Array.isArray(existing.sub_planes) ? existing.sub_planes : []).find(
+        (s) => s?.tipo === body.data.sub_type
+      )
+      const newSub = subPlanes.find((s) => s?.tipo === body.data.sub_type)
+      if (JSON.stringify(oldSub) !== JSON.stringify(newSub))
+        return NextResponse.json(
+          {
+            error:
+              'Esta subplaneación cambió mientras se generaba. Conservamos tus cambios; intenta de nuevo.',
+          },
+          { status: 409 }
+        )
+    }
     // Standard sub-plans (letter_number/numeros) replace by tipo; custom ones are appended.
     const nextSubPlanes = body.data.custom
       ? [...subPlanes, subplan]
@@ -93,14 +136,23 @@ export async function POST(req: NextRequest) {
           ...subPlanes.filter((s) => (s as Record<string, unknown>).tipo !== body.data.sub_type),
           subplan,
         ]
-    const updated = { ...existing, sub_planes: nextSubPlanes }
+    const updated = refreshPlanHealth({ ...latestDoc, sub_planes: nextSubPlanes })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: saveErr } = await (supabase as any)
-      .from('fortnights')
-      .update({ plan_document: updated })
-      .eq('id', fn.id)
+    const { data: saved, error: saveErr } = await (supabase as any).rpc(
+      'save_plan_document_if_unchanged',
+      {
+        plan_id: fn.id,
+        expected_document: latestDoc,
+        new_document: updated,
+      }
+    )
     if (saveErr) throw saveErr
+    if (!saved)
+      return NextResponse.json(
+        { error: 'La planeación cambió. Conservamos tus cambios; intenta de nuevo.' },
+        { status: 409 }
+      )
 
     return NextResponse.json({ sub_plan: subplan })
   } catch (err) {

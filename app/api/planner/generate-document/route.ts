@@ -16,6 +16,10 @@ import type { ContenidoPDA } from '@/lib/nem/contenidos-fase2'
 import { extractUsedFichas, pickFichas, buildFichaBlock } from '@/lib/nem/ficha-rotation'
 import { buildNeeSection } from '@/lib/planner/nee-section'
 import { checkPlanHealth } from '@/lib/planner/plan-health'
+import { attachmentsBlock } from '@/lib/planner/attachment-context'
+import { templateContext } from '@/lib/planner/template-context'
+import { mainHeadings, mainHeadingsBlock } from '@/lib/planner/format-requirements'
+import { generateMainDocument } from '@/lib/planner/generate-parts'
 import { matchAttachmentChunks } from '@/lib/planner/attachment-rag'
 import { matchNemKnowledge, nemKnowledgeBlock } from '@/lib/nem/knowledge'
 import {
@@ -24,53 +28,24 @@ import {
   styleExamplesBlock,
   planEmbeddingText,
 } from '@/lib/planner/embeddings'
-import { refreshLearnedProfileIfStale, getLearnedProfile } from '@/lib/planner/learning'
+import { getLearnedProfile } from '@/lib/planner/learning'
 import { resolveSelectedContent } from '@/lib/richmond/queries'
 import { buildRichmondBlock, buildGameVocabularyHint } from '@/lib/prompts/blocks/richmond-block'
 import type { SelectedRichmondContent } from '@/lib/richmond/types'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { QUINCENA_SYSTEM, QUINCENA_OUTPUT_SCHEMA } from '@/prompts/planner-quincena'
 import { TALLER_SYSTEM } from '@/prompts/planner-taller'
-import { callPlannerJson } from '@/lib/planner/model'
 import { activeGroups } from '@/lib/groups/archive'
-import {
-  generateSubplan,
-  generateCustomSubplan,
-  buildEstructuraProyectoBlock,
-} from '@/lib/planner/subplan'
+import { generateSubplan, generateCustomSubplan, additionalUnits } from '@/lib/planner/subplan'
 import { type TeacherProfile, DEFAULT_EVAL_COLUMNS } from '@/types/teacher-profile'
 import { buildSectionMeta } from '@/lib/planner/section-map'
 import { normalizePlanDocument, expandStrategyAcronym } from '@/lib/planner/normalize-document'
 import { decrypt } from '@/lib/encryption'
-import { scrubNames } from '@/lib/planner/extract-template'
+import { scrubNames, hasTemplateStructure } from '@/lib/planner/extract-template'
 
 export const maxDuration = 300
 
 const Schema = z.object({ fortnight_id: z.string().uuid() })
-
-// <archivos_de_la_maestra>: extracted text of files attached at creation (migration 075).
-// Hard-capped so a huge upload can't blow the prompt; malformed rows skipped silently.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function attachmentsBlock(fn: any): string {
-  const list = Array.isArray(fn?.attachment_context) ? fn.attachment_context : []
-  // Up to 10 files. The flat block is the guaranteed baseline; per-file cap shrinks as the
-  // count grows (total ≈ 24k chars) and shrinks further when RAG fragments carry the depth.
-  const count = Math.min(
-    list.filter((a: { name?: unknown; text?: unknown }) => a?.name && typeof a?.text === 'string')
-      .length,
-    10
-  )
-  const cap = fn?.__attachRag ? 2000 : Math.max(2500, Math.floor(24000 / Math.max(count, 1)))
-  const items = list
-    .filter((a: { name?: unknown; text?: unknown }) => a?.name && typeof a?.text === 'string')
-    .slice(0, 10)
-    .map(
-      (a: { name: string; text: string }) =>
-        `--- ${String(a.name).slice(0, 120)} ---\n${a.text.slice(0, cap)}`
-    )
-  if (!items.length) return ''
-  return `<archivos_de_la_maestra>\nLa maestra adjuntó estos documentos para ESTA planeación y quedarán ANEXADOS al documento final. OBLIGATORIO:\n- USA su contenido: temas, FECHAS y PÁGINAS verbatim, vocabulario e indicaciones, integrados en las actividades de los días correctos.\n- Si un archivo es una hoja de trabajo o material, INCLÚYELO como actividad concreta en el momento apropiado, nombrándolo así: 'Hoja de trabajo anexa: <nombre del archivo>' (con lo que el alumno hará en ella).\n- No copies documentos íntegros; intégralos.\n${items.join('\n\n')}\n</archivos_de_la_maestra>`
-}
 
 const DEFAULT_CRONOGRAMA = {
   lunes: [
@@ -273,7 +248,7 @@ function profileContext(p: TeacherProfile | null, evalColumns: string[]): { cont
       // ponytail: per_subplan can leave the main doc missing a campo with no union check.
       // Rare (only fires for a teacher template that requests it); revisit if it surfaces.
       fr.campos_position === 'per_subplan'
-        ? '• Campos Formativos: NO los pongas como bloque de nivel superior. Deja el array "campos_formativos" del documento principal VACÍO ([]); cada sub-planeación lleva su propia tabla de campos.'
+        ? '• Campos Formativos: conserva el array "campos_formativos" del documento principal como referencia oficial; cada sub-planeación lleva también su propia tabla de campos.'
         : '',
     ].filter(Boolean)
     if (lines.length) {
@@ -362,32 +337,10 @@ function buildQuincenaPrompt(
 
   const { context: profileCtx } = profileContext(profile, evalColumns)
 
-  // Unit 1 (the teacher's first declared unit) drives the top-level proyecto's methodology + shape.
-  // Falls back to the uploaded template's Proyecto sub-sections, then to the schema default.
-  const mainUnit = Array.isArray(fn.unidades_didacticas) ? fn.unidades_didacticas[0] : null
-  const proyectoInv = profile?.subplan_inventory?.find(
-    (s) =>
-      s.metodologia?.toLowerCase().includes('proyecto') ||
-      s.metodologia?.toLowerCase().includes('situacion')
-  )
-  const templateProyecto = proyectoInv?.secciones?.length
-    ? `\n<estructura_proyecto>\nEl campo "proyecto" DEBE usar EXACTAMENTE estos sub-encabezados en negritas, en este orden:\n${proyectoInv.secciones.map((s) => `  **${s}**`).join('\n')}\n</estructura_proyecto>`
-    : ''
-  // Precedence: an EXPLICIT methodology (she picked Taller Crítico, Gamificación…) keeps its
-  // SEP fases, because that pick is deliberate and the fases are what define it. Otherwise her
-  // uploaded format wins. It used to be the reverse unconditionally, so a teacher who uploaded her
-  // school's format and chose "Mi formato escolar" still got the generic momentos (Punto de Partida
-  // / A trabajar / …) instead of her own (Presentación e inicio / Desarrollo / Cierre / Producto
-  // final): the format silently never applied. `profile` is already null when she chose "Diseño de
-  // MaestraIA", so templateProyecto is empty there.
-  const explicitMetodologia =
-    mainUnit?.metodologia && mainUnit.metodologia !== 'Automático' ? mainUnit.metodologia : null
-  const proyectoSecciones =
-    buildEstructuraProyectoBlock(explicitMetodologia) || templateProyecto || ''
+  const proyectoSecciones = mainHeadingsBlock(fn.__mainHeadings ?? [])
 
   // Reference files the teacher attached at creation (migration 075) — extracted text,
   // plus RAG fragments (migration 080) pre-fetched into __attachRag by the route.
-  const attachBlock = attachmentsBlock(fn)
   const ragBlock = String(fn.__attachRag ?? '')
   // High-priority: the teacher's explicit requests + continuity with the previous quincena.
   const tNotes = String(fn.teacher_notes ?? '').slice(0, 1500)
@@ -479,7 +432,6 @@ Genera la planeación completa en el formato JSON especificado. sub_planes debe 
     proyectoSecciones,
     enfoqueBlock(fn.pedagogical_approach),
     teacherReq,
-    attachBlock,
     ragBlock,
     continuityBlock,
     subPlanSplit,
@@ -568,7 +520,6 @@ Genera la planeación del taller completa en el formato JSON especificado. Los c
     ejesBlock,
     knowledgeBlock,
     enfoqueBlock(fn.pedagogical_approach),
-    attachmentsBlock(fn),
     String(fn.__attachRag ?? ''),
     requestData,
   ]
@@ -577,6 +528,7 @@ Genera la planeación del taller completa en el formato JSON especificado. Los c
 }
 
 export async function POST(req: NextRequest) {
+  const deadline = Date.now() + 270_000
   try {
     const body = Schema.safeParse(await req.json())
     if (!body.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
@@ -719,13 +671,13 @@ export async function POST(req: NextRequest) {
     // the "VOZ DE LA MAESTRA" examples across all same-type templates for richer voice. A teacher
     // with no own format inherits the school's shared/official one.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: templates } = await (supabase as any)
+    const { data: templates, error: templatesError } = await (supabase as any)
       .from('teacher_plan_templates')
-      .select('template, teacher_id, is_school_official, created_at')
-      .eq('plan_type', planType)
+      .select('id, template, teacher_id, is_school_official, created_at')
+      .eq('plan_type', planType === 'mes' ? 'quincena' : planType)
       .order('created_at', { ascending: false })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = ((templates ?? []) as any[])
+    const sortedTemplateRows = ((templates ?? []) as any[])
       // Own formats first, then official school formats, then the rest.
       .sort(
         (a, b) =>
@@ -733,369 +685,411 @@ export async function POST(req: NextRequest) {
           Number(!!b.is_school_official) - Number(!!a.is_school_official) ||
           (a.created_at < b.created_at ? 1 : -1)
       )
-      .map((t) => t.template)
-      .filter(Boolean) as TeacherProfile[]
-    // If the teacher chose "Diseño de MaestraIA" for this plan, ignore their uploaded format.
+    const selectedTemplateId = (fn as { format_template_id?: string | null }).format_template_id
+    const selectedTemplate = selectedTemplateId
+      ? sortedTemplateRows.find((t) => t.id === selectedTemplateId)
+      : sortedTemplateRows[0]
+    // An older plan may still carry a template ID after the teacher switched to the system design.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const useSystem = (fn as any).use_system_template === true
-    let profile: TeacherProfile | null = useSystem ? null : (rows[0] ?? null)
-    if (profile && rows.length > 1) {
-      // Merge voice samples + PDA bank across all same-type formats for richer few-shot.
-      const mergedVoice = Array.from(
-        new Set(rows.flatMap((r) => r?.writing_style_samples ?? r?.examples ?? []))
-      ).slice(0, 6)
-      const mergedPdas = rows.flatMap((r) => r?.pda_bank ?? [])
-      profile = {
-        ...profile,
-        ...(mergedVoice.length ? { writing_style_samples: mergedVoice } : {}),
-        ...(mergedPdas.length ? { pda_bank: mergedPdas } : {}),
-      }
+    if (templatesError && !useSystem)
+      return NextResponse.json(
+        { error: 'No se pudo consultar el formato elegido. Intenta de nuevo.' },
+        { status: 503 }
+      )
+    if (!useSystem && selectedTemplateId && !selectedTemplate) {
+      return NextResponse.json(
+        {
+          error:
+            'El formato elegido ya no está disponible. Elige otro formato para esta planeación.',
+        },
+        { status: 409 }
+      )
+    }
+    // If the teacher chose "Diseño de MaestraIA" for this plan, ignore their uploaded format.
+    let profile: TeacherProfile | null = useSystem ? null : (selectedTemplate?.template ?? null)
+    if (profile && !hasTemplateStructure(profile)) {
+      return NextResponse.json(
+        {
+          error:
+            'El formato guardado tiene una extracción incompleta. Vuelve a subirlo en Configuración antes de generar.',
+        },
+        { status: 409 }
+      )
     }
     const evalColumns = profile?.evaluation_columns?.length
       ? profile.evaluation_columns
       : DEFAULT_EVAL_COLUMNS
 
     // Compute section order/titles from teacher's format for dynamic viewer rendering.
-    const { sectionOrder, sectionTitles } = buildSectionMeta(profile?.sections ?? [])
-
-    // Self-improving: refresh (if stale) + load the teacher's LEARNED style (from her edited plans
-    // + corrections), merge her learned voice samples into the profile. Best-effort.
-    await refreshLearnedProfileIfStale(supabase, teacherId, planType)
-    const learned = await getLearnedProfile(supabase, teacherId, planType)
-    const learnedSamples = learned?.profile?.writing_style_samples ?? []
-    if (learnedSamples.length) {
-      const merged = Array.from(
-        new Set([...(profile?.writing_style_samples ?? []), ...learnedSamples])
-      ).slice(0, 6)
-      profile = { ...(profile ?? {}), writing_style_samples: merged }
-    }
-
-    // Fetch NEE students across ALL groups of the grade (plan is inclusive of every group).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: students } = await (supabase as any)
-      .from('students')
-      .select('id, has_nee')
-      .in('group_id', gradeGroupIds)
-    // LFPDPPP: disability + name is sensitive data. NEVER pass real student names into the
-    // prompt/output — anonymize to positional labels (Alumno A, B…). Names are not decrypted.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const neeRows = (students ?? []).filter((s: any) => s.has_nee)
-    // Best-effort NEE notes, fetched separately so a missing column (migration 063 not pushed)
-    // can't drop has_nee detection. Decrypt server-side, then SCRUB any names from the free text
-    // before it can reach the LLM (the note describes support needs, tied only to "Alumno A").
-    const notesById: Record<string, string> = {}
-    if (neeRows.length) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: noteRows } = await (supabase as any)
-          .from('students')
-          .select('id, nee_notes_encrypted')
-          .in(
-            'id',
-            neeRows.map((r: { id: string }) => r.id)
-          )
-        await Promise.all(
-          (noteRows ?? []).map(async (nr: { id: string; nee_notes_encrypted: string | null }) => {
-            if (!nr.nee_notes_encrypted) return
-            try {
-              notesById[nr.id] = scrubNames(await decrypt(nr.nee_notes_encrypted))
-            } catch {
-              /* undecryptable → omit */
-            }
-          })
-        )
-      } catch {
-        /* column missing → no notes, generation continues */
-      }
-    }
-    const neeStudents = neeRows.map((s: { id: string }, i: number) => ({
-      display_name: `Alumno ${i < 26 ? String.fromCharCode(65 + i) : String(i + 1)}`,
-      nee_notes: notesById[s.id] ?? null,
-    }))
-    // Names-free label→student_id map, embedded in plan_document so the viewer/DOCX can decrypt &
-    // swap real names at RENDER time only. plan_document is embedded for RAG, so it must hold NO
-    // names — only ids. The LLM still sees only "Alumno A/B".
-    const neeMapping: Record<string, string> = {}
-    neeRows.forEach((s: { id: string }, i: number) => {
-      neeMapping[`Alumno ${i < 26 ? String.fromCharCode(65 + i) : String(i + 1)}`] = s.id
-    })
-
-    // Vocabulary
-    let vocabList = ''
-    if (Array.isArray(fn.vocabulary) && fn.vocabulary.length > 0) {
-      vocabList = (fn.vocabulary as string[]).join(', ')
-    }
-
-    // Richmond context
-    let richmondInstructions = ''
-    if (fn.richmond_unit) {
-      const escaped = String(fn.richmond_unit).replace(/[%_]/g, '\\$&')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: assignment } = await (supabase as any)
-        .from('richmond_assignments')
-        .select('instructions')
-        .eq('group_id', fn.group_id)
-        .ilike('title', `%${escaped}%`)
-        .order('due_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (assignment?.instructions)
-        richmondInstructions = String(assignment.instructions).slice(0, 400)
-    }
-
-    const systemPrompt = planType === 'taller' ? TALLER_SYSTEM : QUINCENA_SYSTEM
-    // Cached grounding prefix — identical across the main + all sub-plan calls in this generation.
-    // Keeps the FULL bank so the Números sub-plan (legitimately Saberes/matemático) stays grounded.
-    // The teacher's FULL example planeación (name-scrubbed at extraction) rides in the cached
-    // prefix too: it's the highest-fidelity voice/structure/content exemplar we have, it's stable
-    // across the main + sub-plan calls, and caching makes its ~7k tokens nearly free after the
-    // first call. Older profiles without raw_text (pre-upgrade uploads) simply omit the block.
-    const exampleBlock = profile?.raw_text
-      ? `\n\n<planeacion_ejemplo_completa>\nPlaneación REAL escrita por esta maestra (su formato oficial). Es tu referencia MÁXIMA de voz, estructura, profundidad y tipo de contenido — la nueva planeación debe leerse como escrita por la misma persona, con la misma densidad y estilo operativo:\n${String(profile.raw_text).slice(0, 15000)}\n</planeacion_ejemplo_completa>`
-      : ''
-    const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni, undefined, groupGrade)}${exampleBlock}`
-
-    // Topic-relevance pre-selection: shortlist the contenidos that authentically fit THIS project's
-    // theme so the main doc's campos_formativos stop including an irrelevant Saberes (Alejandra's #1).
-    // Best-effort: empty block → prompt keeps full-bank behavior. Only the main quincena prompt uses it.
-    // The teacher's extracted pda_bank is a selection HINT only (biases which contenidos get picked);
-    // the official bank supplies all Contenido/PDA text, and enforceCamposFormativos guarantees it.
-    // Smart auto-fill of the NEM dropdowns left blank (metodología / ejes), rotation-aware.
-    // Fetch the teacher's recent plans' pedagogical choices so auto-picks vary from them
-    // (relevance still wins). Best-effort; a failure leaves the prior behavior untouched.
-    let recentChoices = {
-      metodologias: [] as string[],
-      ejes: [] as string[],
-      contenidos: [] as string[],
-    }
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: recentPlans } = await (supabase as any)
-        .from('fortnights')
-        .select('unidades_didacticas')
-        .eq('teacher_id', teacherId)
-        .neq('id', fn.id)
-        .order('created_at', { ascending: false })
-        .limit(6)
-      const recentUnits = (recentPlans ?? []).flatMap(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (p: any) => (Array.isArray(p?.unidades_didacticas) ? p.unidades_didacticas : [])
-      )
-      recentChoices = extractRecentChoices(recentUnits)
-    } catch (err) {
-      console.error('[generate-document] recent-choices fetch failed:', err)
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const unit0: any = Array.isArray(fn.unidades_didacticas) ? fn.unidades_didacticas[0] : null
-    if (unit0) {
-      const needMetodologia = !unit0.metodologia || unit0.metodologia === 'Automático'
-      const needEjes = !(
-        Array.isArray(fn.unidades_didacticas) &&
-        fn.unidades_didacticas.some(
-          (u: { ejes?: unknown }) => Array.isArray(u?.ejes) && u.ejes.length > 0
-        )
-      )
-      if (needMetodologia || needEjes) {
-        const auto = await autoSelectNem(
-          String(fn.project_name ?? ''),
-          `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
-          recentChoices,
-          { metodologia: needMetodologia, ejes: needEjes }
-        )
-        // Resolve 'Automático'/blank to a real methodology (fallback Proyecto) so the proyecto
-        // structure + label are never the placeholder. Any OTHER unit still on 'Automático' → Proyecto.
-        if (needMetodologia) unit0.metodologia = auto.metodologia ?? 'Proyecto'
-        if (needEjes && auto.ejes?.length) unit0.ejes = auto.ejes
-      }
-      // Never leave the placeholder on any unit (extras that stayed 'Automático').
-      if (Array.isArray(fn.unidades_didacticas)) {
-        for (const u of fn.unidades_didacticas) {
-          if (u && u.metodologia === 'Automático') u.metodologia = 'Proyecto'
-        }
-      }
-    }
-
-    // Teacher-selected contenidos (per unit) WIN: build the block verbatim from her choices.
-    // Otherwise fall back to the Haiku topic-relevance shortlist (seeded with her learning goal,
-    // and steered away from recently-used contenidos for variety).
-    const teacherContenidoTitles: string[] = Array.isArray(fn.unidades_didacticas)
-      ? Array.from(
-          new Set(
-            fn.unidades_didacticas.flatMap((u: { contenidos?: unknown }) =>
-              Array.isArray(u?.contenidos) ? (u.contenidos as string[]) : []
-            )
-          )
-        )
-      : []
-    // Per-contenido PDAs the teacher ticked (blank ⇒ the full official desglose for the grade).
-    const teacherProcesos: Record<string, string[]> = {}
-    if (Array.isArray(fn.unidades_didacticas)) {
-      for (const u of fn.unidades_didacticas as { procesos?: unknown }[]) {
-        const picks = u?.procesos
-        if (!picks || typeof picks !== 'object') continue
-        for (const [contenido, list] of Object.entries(picks as Record<string, unknown>)) {
-          if (!Array.isArray(list) || !list.length) continue
-          teacherProcesos[contenido] = Array.from(
-            new Set([...(teacherProcesos[contenido] ?? []), ...list.map(String)])
-          )
-        }
-      }
-    }
-    // Attachment RAG (migration 080): fetch the most relevant fragments of the attached files
-    // for THIS project before building prompts. Best-effort; empty → flat block stays full-size.
-    const attachmentKeys: string[] = (
-      Array.isArray(fn.attachment_context) ? fn.attachment_context : []
+    const { sectionOrder, sectionTitles, customSectionNames } = buildSectionMeta(
+      profile?.sections ?? []
     )
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((a: any) => String(a?.key ?? a?.path ?? ''))
-      .filter(Boolean)
-    try {
-      const attachKeys = attachmentKeys
-      if (attachKeys.length) {
-        // More files → more fragments (reglamentos + circulares + libros all deserve a slot).
-        const k = Math.min(12, 4 + attachKeys.length * 2)
-        const frags = await matchAttachmentChunks(
-          supabase,
-          teacherId,
-          attachKeys,
-          `${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
-          k
-        )
-        // Section-aware retrieval for the sub-plans: their topics differ from the project's.
-        const letterQuery = `letras ${[fn.letter_week1, fn.letter_week2, fn.letter_week3, fn.letter_week4].filter(Boolean).join(', ')} trazo vocabulario inglés lectoescritura`
-        const numQuery = `números ${[fn.number_week1, fn.number_week2, fn.number_week3, fn.number_week4].filter(Boolean).join(', ')} conteo pensamiento matemático`
-        const [fragsLetters, fragsNumeros] = await Promise.all([
-          matchAttachmentChunks(supabase, teacherId, attachKeys, letterQuery, 4),
-          matchAttachmentChunks(supabase, teacherId, attachKeys, numQuery, 4),
-        ])
-        const toBlock = (fs: { content: string }[], titulo: string) =>
-          fs.length
-            ? `<fragmentos_de_archivos_${titulo}>\nFragmentos de los archivos adjuntos relevantes para esta sub-planeación — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${fs.map((f) => `• ${f.content.slice(0, 1000)}`).join('\n\n')}\n</fragmentos_de_archivos_${titulo}>`
-            : ''
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(fn as any).__attachRagLetters = toBlock(fragsLetters, 'letters')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(fn as any).__attachRagNumeros = toBlock(fragsNumeros, 'numeros')
-        if (frags.length) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(fn as any).__attachRag =
-            `<fragmentos_relevantes_de_archivos>\nFragmentos EXACTOS de los archivos adjuntos, los más relevantes para este proyecto — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${frags.map((f) => `• ${f.content.slice(0, 1200)}`).join('\n\n')}\n</fragmentos_relevantes_de_archivos>`
-        }
-      }
-    } catch (e) {
-      console.error('[generate-document] attachment RAG skipped:', e)
-    }
-
-    const nemOpts = { grade: groupGrade, procesos: teacherProcesos }
-    // The rows behind the block — also the deterministic fallback if the model returns no
-    // campos_formativos (the contenidos+PDA table must ALWAYS precede the proyecto/taller).
-    const selectedContenidoRows: ContenidoPDA[] = teacherContenidoTitles.length
-      ? contenidosFromTitles(teacherContenidoTitles)
-      : await selectRelevantContenidos(
-          String(fn.project_name ?? ''),
-          `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
-          (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean),
-          recentChoices.contenidos
-        )
-    const contenidosBlock =
-      planType !== 'taller' ? contenidosSugeridosBlock(selectedContenidoRows, nemOpts) : ''
-
-    // RAG: retrieve THIS teacher's most-similar past plans → inject as style examples (her voice).
-    // Best-effort; empty if no key / migration 054 not pushed / no prior plans.
-    const styleExamples = await matchPlaneaciones(supabase, {
-      queryText: `${String(fn.project_name ?? '')} ${String(fn.monthly_value ?? '')}`.trim(),
-      teacherId,
-      excludeFortnight: fn.id,
-    })
-    // High-signal learned preferences (distilled from her corrections) — the accuracy lever.
-    const prefsBlock = learned?.preferences?.trim()
-      ? `<preferencias_aprendidas>\nPreferencias de ESTA maestra, aprendidas de sus correcciones anteriores. Respétalas:\n${learned.preferences.trim()}\n</preferencias_aprendidas>`
-      : ''
-    const styleBlock = [styleExamplesBlock(styleExamples), prefsBlock].filter(Boolean).join('\n\n')
-
-    // NEM knowledge RAG: retrieve EXACT relevant passages from the institutional corpus
-    // (context/*.md via migration 066) for THIS topic + methodology. Complements the always-on
-    // NEM_SYNTHESIS/grounding (long-tail knowledge). Query-dependent → NOT in cachePrefix.
-    // Best-effort: no key / migration not pushed / not ingested → empty block.
-    const mainUnitMetodologia = Array.isArray(fn.unidades_didacticas)
-      ? String(fn.unidades_didacticas[0]?.metodologia ?? '')
-      : ''
-    // Taller plans retrieve too — the corpus has Taller Crítico / metodología / evaluación
-    // passages that ground them just as well as quincenas.
-    const knowledgeQuery =
-      planType === 'taller'
-        ? `Taller Crítico ${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} evaluación formativa preescolar`
-        : `${mainUnitMetodologia} ${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} evaluación formativa preescolar`
-    const knowledgeBlock = nemKnowledgeBlock(
-      await matchNemKnowledge(supabase, knowledgeQuery.trim())
-    )
-
-    const userPrompt =
-      planType === 'taller'
-        ? buildTallerPrompt(
-            fn,
-            neeStudents,
-            profile,
-            evalColumns,
-            schedule,
-            styleBlock,
-            richmondBlock,
-            gameHint,
-            knowledgeBlock
-          )
-        : buildQuincenaPrompt(
-            fn,
-            includeProni,
-            neeStudents,
-            vocabList,
-            richmondInstructions,
-            profile,
-            evalColumns,
-            schedule,
-            styleBlock,
-            richmondBlock,
-            gameHint,
-            contenidosBlock,
-            knowledgeBlock
-          )
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
       async start(controller) {
+        const keepalive = setInterval(() => {
+          try {
+            controller.enqueue(encoder.encode(': keepalive\n\n'))
+          } catch {
+            /* stream closed */
+          }
+        }, 15_000)
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'preparing' })}\n\n`))
-        await new Promise((r) => setTimeout(r, 600))
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`))
 
         try {
-          // No maxTokens override: use the model default (20000) — Sonnet 5's tokenizer runs
-          // ~30% fatter, and the old 16384 pin risked truncating the multi-page document.
+          const generationSignal = AbortSignal.any([
+            req.signal,
+            AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+          ])
+
+          // Use already-learned preferences only when no uploaded format governs this plan.
+          // Refreshing learning invokes AI and must not delay the generation request.
+          const learned =
+            profile || useSystem ? null : await getLearnedProfile(supabase, teacherId, planType)
+          const learnedSamples = learned?.profile?.writing_style_samples ?? []
+          if (learnedSamples.length && !selectedTemplateId) {
+            const merged = Array.from(
+              new Set([...(profile?.writing_style_samples ?? []), ...learnedSamples])
+            ).slice(0, 6)
+            profile = { ...(profile ?? {}), writing_style_samples: merged }
+          }
+
+          // Fetch NEE students across ALL groups of the grade (plan is inclusive of every group).
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const planDocument = await callPlannerJson<Record<string, any>>(
-            systemPrompt,
-            userPrompt,
-            { cachePrefix, label: `main:${planType}` }
+          const { data: students } = await (supabase as any)
+            .from('students')
+            .select('id, has_nee')
+            .in('group_id', gradeGroupIds)
+          // LFPDPPP: disability + name is sensitive data. NEVER pass real student names into the
+          // prompt/output — anonymize to positional labels (Alumno A, B…). Names are not decrypted.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const neeRows = (students ?? []).filter((s: any) => s.has_nee)
+          // Best-effort NEE notes, fetched separately so a missing column (migration 063 not pushed)
+          // can't drop has_nee detection. Decrypt server-side, then SCRUB any names from the free text
+          // before it can reach the LLM (the note describes support needs, tied only to "Alumno A").
+          const notesById: Record<string, string> = {}
+          if (neeRows.length) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const { data: noteRows } = await (supabase as any)
+                .from('students')
+                .select('id, nee_notes_encrypted')
+                .in(
+                  'id',
+                  neeRows.map((r: { id: string }) => r.id)
+                )
+              await Promise.all(
+                (noteRows ?? []).map(
+                  async (nr: { id: string; nee_notes_encrypted: string | null }) => {
+                    if (!nr.nee_notes_encrypted) return
+                    try {
+                      notesById[nr.id] = scrubNames(await decrypt(nr.nee_notes_encrypted))
+                    } catch {
+                      /* undecryptable → omit */
+                    }
+                  }
+                )
+              )
+            } catch {
+              /* column missing → no notes, generation continues */
+            }
+          }
+          const neeStudents = neeRows.map((s: { id: string }, i: number) => ({
+            display_name: `Alumno ${i < 26 ? String.fromCharCode(65 + i) : String(i + 1)}`,
+            nee_notes: notesById[s.id] ?? null,
+          }))
+          // Names-free label→student_id map, embedded in plan_document so the viewer/DOCX can decrypt &
+          // swap real names at RENDER time only. plan_document is embedded for RAG, so it must hold NO
+          // names — only ids. The LLM still sees only "Alumno A/B".
+          const neeMapping: Record<string, string> = {}
+          neeRows.forEach((s: { id: string }, i: number) => {
+            neeMapping[`Alumno ${i < 26 ? String.fromCharCode(65 + i) : String(i + 1)}`] = s.id
+          })
+
+          // Vocabulary
+          let vocabList = ''
+          if (Array.isArray(fn.vocabulary) && fn.vocabulary.length > 0) {
+            vocabList = (fn.vocabulary as string[]).join(', ')
+          }
+
+          // Richmond context
+          let richmondInstructions = ''
+          if (fn.richmond_unit) {
+            const escaped = String(fn.richmond_unit).replace(/[%_]/g, '\\$&')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: assignment } = await (supabase as any)
+              .from('richmond_assignments')
+              .select('instructions')
+              .eq('group_id', fn.group_id)
+              .ilike('title', `%${escaped}%`)
+              .order('due_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (assignment?.instructions)
+              richmondInstructions = String(assignment.instructions).slice(0, 400)
+          }
+
+          const systemPrompt = planType === 'taller' ? TALLER_SYSTEM : QUINCENA_SYSTEM
+          // Cached grounding prefix — identical across the main + all sub-plan calls in this generation.
+          // Keeps the FULL bank so the Números sub-plan (legitimately Saberes/matemático) stays grounded.
+          // The complete available example (name-scrubbed at extraction) rides in the cached
+          // prefix too: it's the highest-fidelity voice/structure/content exemplar we have, it's stable
+          // across the main + sub-plan calls, and caching makes its ~7k tokens nearly free after the
+          // first call. Older profiles without raw_text (pre-upgrade uploads) simply omit the block.
+          const exampleBlock = templateContext(profile)
+          const cachePrefix = `${NEM_SYNTHESIS}\n\n${nemGroundingBlock(includeProni, undefined, groupGrade)}${exampleBlock}\n\n${attachmentsBlock(fn)}`
+
+          // Topic-relevance pre-selection: shortlist the contenidos that authentically fit THIS project's
+          // theme so the main doc's campos_formativos stop including an irrelevant Saberes (Alejandra's #1).
+          // Best-effort: empty block → prompt keeps full-bank behavior. Only the main quincena prompt uses it.
+          // The teacher's extracted pda_bank is a selection HINT only (biases which contenidos get picked);
+          // the official bank supplies all Contenido/PDA text, and enforceCamposFormativos guarantees it.
+          // Smart auto-fill of the NEM dropdowns left blank (metodología / ejes), rotation-aware.
+          // Fetch the teacher's recent plans' pedagogical choices so auto-picks vary from them
+          // (relevance still wins). Best-effort; a failure leaves the prior behavior untouched.
+          let recentChoices = {
+            metodologias: [] as string[],
+            ejes: [] as string[],
+            contenidos: [] as string[],
+          }
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: recentPlans } = await (supabase as any)
+              .from('fortnights')
+              .select('unidades_didacticas')
+              .eq('teacher_id', teacherId)
+              .neq('id', fn.id)
+              .order('created_at', { ascending: false })
+              .limit(6)
+            const recentUnits = (recentPlans ?? []).flatMap(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (p: any) => (Array.isArray(p?.unidades_didacticas) ? p.unidades_didacticas : [])
+            )
+            recentChoices = extractRecentChoices(recentUnits)
+          } catch (err) {
+            console.error('[generate-document] recent-choices fetch failed:', err)
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const unit0: any = Array.isArray(fn.unidades_didacticas)
+            ? fn.unidades_didacticas[0]
+            : null
+          const requestedMethodology = unit0?.metodologia
+          if (unit0) {
+            const needMetodologia = !unit0.metodologia || unit0.metodologia === 'Automático'
+            const needEjes = !(
+              Array.isArray(fn.unidades_didacticas) &&
+              fn.unidades_didacticas.some(
+                (u: { ejes?: unknown }) => Array.isArray(u?.ejes) && u.ejes.length > 0
+              )
+            )
+            if (needMetodologia || needEjes) {
+              const auto = await autoSelectNem(
+                String(fn.project_name ?? ''),
+                `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
+                recentChoices,
+                { metodologia: needMetodologia, ejes: needEjes },
+                generationSignal
+              )
+              // Resolve 'Automático'/blank to a real methodology (fallback Proyecto) so the proyecto
+              // structure + label are never the placeholder. Any OTHER unit still on 'Automático' → Proyecto.
+              if (needMetodologia) unit0.metodologia = auto.metodologia ?? 'Proyecto'
+              if (needEjes && auto.ejes?.length) unit0.ejes = auto.ejes
+            }
+            // Never leave the placeholder on any unit (extras that stayed 'Automático').
+            if (Array.isArray(fn.unidades_didacticas)) {
+              for (const u of fn.unidades_didacticas) {
+                if (u && u.metodologia === 'Automático') u.metodologia = 'Proyecto'
+              }
+            }
+          }
+
+          fn.__mainHeadings = mainHeadings(
+            requestedMethodology,
+            profile,
+            planType === 'taller' ? 'Taller Crítico' : (unit0?.metodologia ?? 'Proyecto')
           )
 
-          // Snap campos_formativos to the official bank: verbatim Contenidos + FULL PDA desglose,
-          // invented entries dropped. Code-guaranteed correctness, not prompt hoping.
+          // Teacher-selected contenidos (per unit) WIN: build the block verbatim from her choices.
+          // Otherwise fall back to the Haiku topic-relevance shortlist (seeded with her learning goal,
+          // and steered away from recently-used contenidos for variety).
+          const teacherContenidoTitles: string[] = Array.isArray(unit0?.contenidos)
+            ? unit0.contenidos
+            : []
+          // Each unit retains its own curriculum; pooling every unit polluted the main project.
+          const teacherProcesos: Record<string, string[]> = {}
+          for (const [contenido, list] of Object.entries(unit0?.procesos ?? {})) {
+            if (Array.isArray(list))
+              teacherProcesos[contenido] = list.filter((p): p is string => typeof p === 'string')
+          }
+          // Attachment RAG (migration 080): fetch the most relevant fragments of the attached files
+          // for THIS project before building prompts. Best-effort; empty → flat block stays full-size.
+          const attachmentKeys: string[] = (
+            Array.isArray(fn.attachment_context) ? fn.attachment_context : []
+          )
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((a: any) => String(a?.key ?? a?.path ?? ''))
+            .filter(Boolean)
+          try {
+            const attachKeys = attachmentKeys
+            if (attachKeys.length) {
+              // More files → more fragments (reglamentos + circulares + libros all deserve a slot).
+              const k = Math.min(12, 4 + attachKeys.length * 2)
+              const frags = await matchAttachmentChunks(
+                supabase,
+                teacherId,
+                attachKeys,
+                `${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
+                k
+              )
+              // Section-aware retrieval for the sub-plans: their topics differ from the project's.
+              const letterQuery = `letras ${[fn.letter_week1, fn.letter_week2, fn.letter_week3, fn.letter_week4].filter(Boolean).join(', ')} trazo vocabulario inglés lectoescritura`
+              const numQuery = `números ${[fn.number_week1, fn.number_week2, fn.number_week3, fn.number_week4].filter(Boolean).join(', ')} conteo pensamiento matemático`
+              const [fragsLetters, fragsNumeros] = await Promise.all([
+                matchAttachmentChunks(supabase, teacherId, attachKeys, letterQuery, 4),
+                matchAttachmentChunks(supabase, teacherId, attachKeys, numQuery, 4),
+              ])
+              const toBlock = (fs: { content: string }[], titulo: string) =>
+                fs.length
+                  ? `<fragmentos_de_archivos_${titulo}>\nFragmentos de los archivos adjuntos relevantes para esta sub-planeación — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${fs.map((f) => `• ${f.content.slice(0, 1000)}`).join('\n\n')}\n</fragmentos_de_archivos_${titulo}>`
+                  : ''
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ;(fn as any).__attachRagLetters = toBlock(fragsLetters, 'letters')
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ;(fn as any).__attachRagNumeros = toBlock(fragsNumeros, 'numeros')
+              if (frags.length) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ;(fn as any).__attachRag =
+                  `<fragmentos_relevantes_de_archivos>\nFragmentos EXACTOS de los archivos adjuntos, los más relevantes para este proyecto — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${frags.map((f) => `• ${f.content.slice(0, 1200)}`).join('\n\n')}\n</fragmentos_relevantes_de_archivos>`
+              }
+            }
+          } catch (e) {
+            console.error('[generate-document] attachment RAG skipped:', e)
+          }
+
+          const nemOpts = { grade: groupGrade, procesos: teacherProcesos }
+          // The rows behind the block — also the deterministic fallback if the model returns no
+          // campos_formativos (the contenidos+PDA table must ALWAYS precede the proyecto/taller).
+          const selectedContenidoRows: ContenidoPDA[] = teacherContenidoTitles.length
+            ? contenidosFromTitles(teacherContenidoTitles)
+            : await selectRelevantContenidos(
+                String(fn.project_name ?? ''),
+                `${String(fn.project_notes ?? '')} ${String(fn.learning_goal ?? '')}`.trim(),
+                (profile?.pda_bank ?? []).map((b) => String(b.contenido ?? '')).filter(Boolean),
+                recentChoices.contenidos,
+                generationSignal
+              )
+          if (!selectedContenidoRows.length)
+            throw new Error(
+              'No se reconocieron los contenidos elegidos. Revisa la selección de contenidos oficiales de la unidad.'
+            )
+          const contenidosBlock = contenidosSugeridosBlock(selectedContenidoRows, nemOpts)
+
+          // RAG: retrieve THIS teacher's most-similar past plans → inject as style examples (her voice).
+          // Best-effort; empty if no key / migration 054 not pushed / no prior plans.
+          const styleExamples =
+            profile || useSystem
+              ? []
+              : await matchPlaneaciones(supabase, {
+                  queryText:
+                    `${String(fn.project_name ?? '')} ${String(fn.monthly_value ?? '')}`.trim(),
+                  teacherId,
+                  excludeFortnight: fn.id,
+                })
+          // High-signal learned preferences (distilled from her corrections) — the accuracy lever.
+          const prefsBlock = learned?.preferences?.trim()
+            ? `<preferencias_aprendidas>\nPreferencias de ESTA maestra, aprendidas de sus correcciones anteriores. Respétalas:\n${learned.preferences.trim()}\n</preferencias_aprendidas>`
+            : ''
+          const styleBlock = [styleExamplesBlock(styleExamples), prefsBlock]
+            .filter(Boolean)
+            .join('\n\n')
+
+          // NEM knowledge RAG: retrieve EXACT relevant passages from the institutional corpus
+          // (context/*.md via migration 066) for THIS topic + methodology. Complements the always-on
+          // NEM_SYNTHESIS/grounding (long-tail knowledge). Query-dependent → NOT in cachePrefix.
+          // Best-effort: no key / migration not pushed / not ingested → empty block.
+          const mainUnitMetodologia = Array.isArray(fn.unidades_didacticas)
+            ? String(fn.unidades_didacticas[0]?.metodologia ?? '')
+            : ''
+          // Taller plans retrieve too — the corpus has Taller Crítico / metodología / evaluación
+          // passages that ground them just as well as quincenas.
+          const knowledgeQuery =
+            planType === 'taller'
+              ? `Taller Crítico ${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} evaluación formativa preescolar`
+              : `${mainUnitMetodologia} ${String(fn.project_name ?? '')} ${String(fn.project_notes ?? '')} evaluación formativa preescolar`
+          const knowledgeBlock = nemKnowledgeBlock(
+            await matchNemKnowledge(supabase, knowledgeQuery.trim())
+          )
+
+          const userPrompt =
+            planType === 'taller'
+              ? buildTallerPrompt(
+                  fn,
+                  neeStudents,
+                  profile,
+                  evalColumns,
+                  schedule,
+                  styleBlock,
+                  richmondBlock,
+                  gameHint,
+                  [knowledgeBlock, contenidosBlock, mainHeadingsBlock(fn.__mainHeadings)]
+                    .filter(Boolean)
+                    .join('\n\n')
+                )
+              : buildQuincenaPrompt(
+                  fn,
+                  includeProni,
+                  neeStudents,
+                  vocabList,
+                  richmondInstructions,
+                  profile,
+                  evalColumns,
+                  schedule,
+                  styleBlock,
+                  richmondBlock,
+                  gameHint,
+                  contenidosBlock,
+                  knowledgeBlock
+                )
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`))
+          // Generate bounded sections independently instead of one 4,000–6,000 word response.
+          // All calls share a deadline so provider retries cannot outlive this server request.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const planDocument: Record<string, any> = await generateMainDocument({
+            system: systemPrompt,
+            context: userPrompt,
+            planType,
+            schedule: schedule.cronograma,
+            customTitles: customSectionNames,
+            separateReading: sectionOrder.includes('aventura_lectora'),
+            expectedHeadings: fn.__mainHeadings,
+            adjustmentHeadings: profile?.formatting_rules?.ajustes_subheadings?.length || 5,
+            cachePrefix,
+            signal: generationSignal,
+            onRepair: () =>
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ phase: 'repairing' })}\n\n`)
+              ),
+          })
+
+          // The selected official rows and full PDAs are known already. Copy them directly;
+          // asking the model to reproduce the table wastes output and can omit entries.
           planDocument.campos_formativos = enforceCamposFormativos(
-            planDocument.campos_formativos,
+            selectedContenidoRows.map((row) => ({
+              campo: row.campo,
+              contenidos: [{ contenido: row.contenido, procesos: [] }],
+            })),
             nemOpts
           )
-          // The contenidos + PDA table must always exist before the proyecto/taller body. If the
-          // model skipped campos_formativos, rebuild it from the contenidos this plan was grounded
-          // on (teacher's picks, or the topic shortlist).
           if (
             !Array.isArray(planDocument.campos_formativos) ||
             !planDocument.campos_formativos.length
           ) {
-            planDocument.campos_formativos = enforceCamposFormativos(
-              selectedContenidoRows.map((r) => ({
-                campo: r.campo,
-                contenidos: [{ contenido: r.contenido, procesos: [] }],
-              })),
-              nemOpts
+            throw new Error(
+              'No pude completar la tabla de contenidos oficiales. Tu documento guardado se conserva; intenta de nuevo.'
             )
           }
 
@@ -1104,6 +1098,8 @@ export async function POST(req: NextRequest) {
             planDocument._section_order = sectionOrder
             planDocument._section_titles = sectionTitles
           }
+          if (profile && selectedTemplate) planDocument._format_template_id = selectedTemplate.id
+
           // Embed the detected formatting rules so the DOCX exporter can mirror them.
           if (profile?.formatting_rules) {
             planDocument._formatting_rules = profile.formatting_rules
@@ -1140,73 +1136,59 @@ export async function POST(req: NextRequest) {
               includeProni,
               evalColumns,
               cachePrefix,
+              signal: generationSignal,
             }
-            const [letterSub, numSub] = await Promise.allSettled([
-              generateSubplan(fn, 'letter_number', subOpts),
-              generateSubplan(fn, 'numeros', subOpts),
+            const requiredSubplan = (type: 'letter_number' | 'numeros') =>
+              generateSubplan(fn, type, subOpts)
+            const subPlanes: Record<string, unknown>[] = await Promise.all([
+              requiredSubplan('letter_number'),
+              requiredSubplan('numeros'),
             ])
-            const subPlanes: Record<string, unknown>[] = []
-            if (letterSub.status === 'fulfilled') subPlanes.push(letterSub.value)
-            if (numSub.status === 'fulfilled') subPlanes.push(numSub.value)
-            if (letterSub.status === 'rejected')
-              console.error('[generate-document] letter_number subplan failed:', letterSub.reason)
-            if (numSub.status === 'rejected')
-              console.error('[generate-document] numeros subplan failed:', numSub.reason)
 
             // Extra sub-plans (Taller, ABJ, etc.) beyond Proyecto + Letter&Number + Números.
-            // Source: the teacher's per-quincena units (unit[0] is the top-level Proyecto, so we
-            // drop it) when she declared them, else her uploaded template's inventory. The filter
-            // drops Centro de Interés (covered by auto letter_number/numeros) + any second Proyecto.
-            // Best-effort (allSettled), capped, non-fatal.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const unitSource: any[] =
-              Array.isArray(fn.unidades_didacticas) && fn.unidades_didacticas.length
-                ? fn.unidades_didacticas.slice(1)
-                : (profile?.subplan_inventory ?? [])
-            const extras = unitSource
-              .filter(
-                (s) => !/proyecto|centro de inter/i.test(s?.metodologia) && !!s?.metodologia?.trim()
-              )
-              .slice(0, 3)
+            // Explicit units are all required, including additional Centros de Interés or
+            // Proyectos. Their methodology alone does not make them Letters/Números duplicates.
+            const extras = additionalUnits(fn.unidades_didacticas, profile?.subplan_inventory)
             if (extras.length) {
-              const extraResults = await Promise.allSettled(
-                extras.map(async (s) => {
-                  // Unit-specific fragments: the reglamento shouldn't leak into a Taller de arte.
-                  let ragBlock = ''
-                  if (attachmentKeys.length) {
-                    const frags = await matchAttachmentChunks(
-                      supabase,
-                      teacherId,
-                      attachmentKeys,
-                      `${s.nombre ?? ''} ${s.tema ?? ''} ${s.metodologia ?? ''}`.trim(),
-                      4
-                    )
-                    if (frags.length) {
-                      ragBlock = `<fragmentos_de_archivos_unidad>\nFragmentos de los archivos adjuntos relevantes para ESTA unidad — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${frags.map((f) => `• ${f.content.slice(0, 1000)}`).join('\n\n')}\n</fragmentos_de_archivos_unidad>`
+              for (let offset = 0; offset < extras.length; offset += 3) {
+                const extraResults = await Promise.all(
+                  extras.slice(offset, offset + 3).map(async (s) => {
+                    // Unit-specific fragments: the reglamento shouldn't leak into a Taller de arte.
+                    let ragBlock = ''
+                    if (attachmentKeys.length) {
+                      const frags = await matchAttachmentChunks(
+                        supabase,
+                        teacherId,
+                        attachmentKeys,
+                        `${s.nombre ?? ''} ${s.tema ?? ''} ${s.metodologia ?? ''}`.trim(),
+                        4
+                      )
+                      if (frags.length) {
+                        ragBlock = `<fragmentos_de_archivos_unidad>\nFragmentos de los archivos adjuntos relevantes para ESTA unidad — úsalos con prioridad (fechas, páginas y consignas VERBATIM):\n${frags.map((f) => `• ${f.content.slice(0, 1000)}`).join('\n\n')}\n</fragmentos_de_archivos_unidad>`
+                      }
                     }
-                  }
-                  return generateCustomSubplan(
-                    fn,
-                    {
-                      methodology: s.metodologia,
-                      name: s.nombre || s.metodologia,
-                      // Fold the teacher's per-unit details into notes (the param already exists).
-                      notes:
-                        [
-                          s.tema && `Tema: ${s.tema}`,
-                          s.dias && `Días con fechas: ${s.dias}`,
-                          s.libros && `Libros/páginas: ${s.libros}`,
-                        ]
-                          .filter(Boolean)
-                          .join('. ') || undefined,
-                    },
-                    { evalColumns, cachePrefix, ragBlock }
-                  )
-                })
-              )
-              for (const r of extraResults) {
-                if (r.status === 'fulfilled') subPlanes.push(r.value)
-                else console.error('[generate-document] extra subplan failed:', r.reason)
+                    return generateCustomSubplan(
+                      fn,
+                      {
+                        methodology: s.metodologia,
+                        contenidos: s.contenidos,
+                        procesos: s.procesos,
+                        ejes: s.ejes,
+                        name: s.nombre || s.metodologia,
+                        notes:
+                          [
+                            s.tema && `Tema: ${s.tema}`,
+                            s.dias && `Días con fechas: ${s.dias}`,
+                            s.libros && `Libros/páginas: ${s.libros}`,
+                          ]
+                            .filter(Boolean)
+                            .join('. ') || undefined,
+                      },
+                      { evalColumns, cachePrefix, ragBlock, signal: generationSignal }
+                    )
+                  })
+                )
+                subPlanes.push(...extraResults)
               }
             }
             planDocument.sub_planes = subPlanes
@@ -1219,25 +1201,38 @@ export async function POST(req: NextRequest) {
             if (!Array.isArray(planDocument.sub_planes) || planDocument.sub_planes.length === 0) {
               planDocument.sub_planes = existingSubPlanes
             } else {
-              const custom = (existingSubPlanes as unknown[]).filter(
-                (s) => !['letter_number', 'numeros'].includes((s as { tipo?: string })?.tipo ?? '')
+              const custom = (
+                existingSubPlanes as Array<{ tipo?: string; nombre?: string }>
+              ).filter(
+                (s) =>
+                  !['letter_number', 'numeros'].includes(s?.tipo ?? '') &&
+                  !planDocument.sub_planes.some(
+                    (generated: { tipo?: string; nombre?: string }) =>
+                      generated.tipo === s.tipo && generated.nombre === s.nombre
+                  )
               )
               ;(planDocument.sub_planes as unknown[]).push(...custom)
             }
           }
 
-          // Health check (pure, cheap) — runs HERE, after the sub-plans are attached, because a
-          // missing sub-plan is exactly the failure the teacher can't see. Never blocks delivery.
-          const healthIssues = checkPlanHealth(planDocument, {
+          // Store the requested content so warnings can be recomputed after edits, too.
+          planDocument._health_expectations = {
             planType,
             fichaNumbers: assignedFichas.map((f) => f.numero),
             richmondSelected: !!richmondContent,
-          })
+          }
+          const healthIssues = checkPlanHealth(planDocument, planDocument._health_expectations)
           if (healthIssues.length) {
             console.warn('[generate-document] health:', JSON.stringify(healthIssues))
             planDocument._format_issues = healthIssues
           } else {
             delete planDocument._format_issues
+          }
+          const critical = healthIssues.filter((issue) => issue.severity === 'error')
+          if (critical.length) {
+            throw new Error(
+              `La planeación quedó incompleta (${critical.map((i) => i.section).join(', ')}). No se guardó esta versión; intenta generar de nuevo.`
+            )
           }
 
           // Persist the evaluation columns so the viewer + DOCX export render this school's scale.
@@ -1249,11 +1244,19 @@ export async function POST(req: NextRequest) {
 
           // Save plan_document to fortnight
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: saveError } = await (supabase as any)
-            .from('fortnights')
-            .update({ plan_document: normalized })
-            .eq('id', fn.id)
+          const { data: saved, error: saveError } = await (supabase as any).rpc(
+            'save_plan_document_if_unchanged',
+            {
+              plan_id: fn.id,
+              expected_document: fn.plan_document ?? null,
+              new_document: normalized,
+            }
+          )
           if (saveError) throw saveError
+          if (!saved)
+            throw new Error(
+              'La planeación cambió mientras se generaba. Conservamos tus cambios; actualiza la página antes de intentar de nuevo.'
+            )
 
           // Embed this plan for future style-example retrieval (best-effort, non-fatal).
           await storePlaneacionEmbedding(supabase, {
@@ -1275,10 +1278,16 @@ export async function POST(req: NextRequest) {
           )
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err)
+          const msg =
+            err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+              ? 'La generación tardó demasiado. Tu documento guardado se conserva; intenta de nuevo.'
+              : err instanceof Error
+                ? err.message
+                : String(err)
           console.error('[generate-document] error:', msg)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`))
         } finally {
+          clearInterval(keepalive)
           controller.close()
         }
       },

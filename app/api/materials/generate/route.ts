@@ -212,6 +212,7 @@ export async function POST(req: NextRequest) {
     }
 
     const createdMaterials: string[] = []
+    const failedTypes: string[] = []
     let lastBuilderError: string | null = null
 
     // Generate each material type
@@ -332,6 +333,7 @@ export async function POST(req: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         createdMaterials.push((material as any).id)
       } catch (err) {
+        failedTypes.push(materialType)
         console.error(`Error generating ${materialType}:`, err)
         lastBuilderError = `${materialType}: ${err instanceof Error ? err.message : String(err)}`
         // Continue with other materials even if one fails
@@ -366,6 +368,7 @@ export async function POST(req: NextRequest) {
       success: true,
       material_ids: createdMaterials,
       count: createdMaterials.length,
+      failed_types: failedTypes,
     })
   } catch (err) {
     console.error('Material generation error:', err)

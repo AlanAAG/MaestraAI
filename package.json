@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "release:check": "node scripts/check-planner-release.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

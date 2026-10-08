@@ -20,7 +20,7 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50MB upload cap
 // Claude's per-request PDF ceiling is 32MB / 100 pages — bigger PDFs get SPLIT by pages
 // (pdf-lib) and transcribed part by part.
 const CLAUDE_PDF_BYTES = 28 * 1024 * 1024
-const MAX_TEXT = 12000
+const MAX_TEXT = 60000
 
 const Schema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -39,7 +39,7 @@ const Schema = z.object({
 })
 
 const TRANSCRIBE =
-  'Transcribe este documento de forma FIEL y ESTRUCTURADA para que una IA de planeación docente lo use: conserva títulos y subtítulos, listas como listas, tablas como listas etiquetadas, y COPIA VERBATIM fechas, páginas de libros, vocabulario, instrucciones y consignas. Si es una hoja de trabajo o material imprimible, describe también QUÉ debe hacer el alumno en ella (actividad, materiales, propósito). Si es muy largo, prioriza: temas, fechas, indicaciones, vocabulario y actividades. Responde SOLO con el contenido transcrito, sin comentarios.'
+  'Transcribe este documento de forma FIEL y ESTRUCTURADA para que una IA de planeación docente lo use: conserva títulos y subtítulos, listas como listas, tablas como listas etiquetadas, y COPIA VERBATIM fechas, páginas de libros, vocabulario, instrucciones y consignas. Si es una hoja de trabajo o material imprimible, describe también QUÉ debe hacer el alumno en ella (actividad, materiales, propósito). No omitas páginas ni resumas instrucciones. Responde SOLO con el contenido transcrito, sin comentarios.'
 
 export async function POST(req: NextRequest) {
   const service = createServiceClient()
@@ -92,7 +92,11 @@ export async function POST(req: NextRequest) {
       if (!process.env.ANTHROPIC_API_KEY) {
         return NextResponse.json({ error: 'Extracción no disponible.' }, { status: 503 })
       }
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        timeout: 60000,
+        maxRetries: 0,
+      })
       const transcribe = async (buf: Buffer, media: string, note = '') => {
         const source =
           media === 'application/pdf'
@@ -114,13 +118,17 @@ export async function POST(req: NextRequest) {
               } as unknown as Anthropic.TextBlockParam)
         const resp = await anthropic.messages.create({
           model: 'claude-haiku-4-5',
-          max_tokens: 6000,
+          max_tokens: 16000,
           temperature: 0,
           messages: [
             { role: 'user', content: [source, { type: 'text', text: TRANSCRIBE + note }] },
           ],
         })
-        return resp.content[0]?.type === 'text' ? resp.content[0].text : ''
+        if (resp.stop_reason !== 'end_turn')
+          throw new Error(
+            'La lectura del archivo quedó incompleta. Divide el documento y vuelve a adjuntarlo.'
+          )
+        return resp.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n')
       }
 
       if (mimeType === 'application/pdf' && buffer.length > CLAUDE_PDF_BYTES) {
@@ -147,6 +155,10 @@ export async function POST(req: NextRequest) {
             queue.unshift([a, mid])
           }
         }
+        if (queue.length)
+          throw new Error(
+            'El documento contiene demasiadas páginas para leerlo completo. Divídelo antes de adjuntarlo.'
+          )
         const chunks: string[] = []
         for (let i = 0; i < parts.length; i++) {
           chunks.push(
@@ -160,6 +172,14 @@ export async function POST(req: NextRequest) {
     }
 
     text = text.trim()
+    if (text.length > MAX_TEXT)
+      return NextResponse.json(
+        {
+          error:
+            'El archivo supera 60,000 caracteres. Divídelo para conservar todas sus instrucciones.',
+        },
+        { status: 422 }
+      )
     if (text.length < 20) {
       return NextResponse.json(
         { error: 'No pude leer texto útil de ese archivo.' },
@@ -210,14 +230,22 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({
       name,
-      text: text.slice(0, MAX_TEXT),
+      text,
       path: annexPath,
       key: path,
       rag_chunks: ragChunks,
     })
   } catch (err) {
     console.error('[plan-attachments]', err)
-    return NextResponse.json({ error: 'No pude procesar el archivo.' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error && /incompleta|Divídelo/.test(err.message)
+            ? err.message
+            : 'No pude procesar el archivo. Intenta de nuevo.',
+      },
+      { status: 502 }
+    )
   }
   // NOTE: the file is intentionally KEPT — it becomes an annex of the planeación (openable
   // from the document, like a worksheet included with the plan). ponytail: files from

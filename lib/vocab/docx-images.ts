@@ -72,22 +72,44 @@ export async function extractVocabImagesFromDocx(file: File): Promise<ExtractedV
   }
   flush()
 
-  // Pair each image with the nearest clean word before it; first image per word wins.
+  // Pair each image with its nearest clean word — look backward first (word-caption layout),
+  // then forward (flashcard layout where image comes before the word label).
+  // Each search stops at the neighbouring image so words don't bleed across cards.
   const seen = new Set<string>()
   const pairs: { word: string; rId: string }[] = []
   for (let i = 0; i < tokens.length; i++) {
     const rId = tokens[i].rId
     if (!rId) continue
+
+    let matched: string | null = null
+
+    // Backward scan — stop at the previous image (card boundary)
     for (let j = i - 1; j >= 0; j--) {
+      if (tokens[j].rId) break // hit another image → boundary
       const w = tokens[j].word
       if (w && isCleanWord(w)) {
-        const word = w.toLowerCase().trim()
-        if (!seen.has(word)) {
-          seen.add(word)
-          pairs.push({ word, rId })
-        }
+        const candidate = w.toLowerCase().trim()
+        if (!seen.has(candidate)) matched = candidate
         break
       }
+    }
+
+    // Forward scan — only if no word found before the image (flashcard-style layout)
+    if (!matched) {
+      for (let j = i + 1; j < tokens.length; j++) {
+        if (tokens[j].rId) break // next image → boundary
+        const w = tokens[j].word
+        if (w && isCleanWord(w)) {
+          const candidate = w.toLowerCase().trim()
+          if (!seen.has(candidate)) matched = candidate
+          break
+        }
+      }
+    }
+
+    if (matched) {
+      seen.add(matched)
+      pairs.push({ word: matched, rId })
     }
   }
 

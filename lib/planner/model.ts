@@ -1,28 +1,43 @@
-// Shared model caller for planeación generation.
-// Sonnet is PRIMARY (depth + teacher-voice fidelity matter most here); gpt-4o-mini is the
-// fallback (json_object mode → guaranteed valid JSON) if Anthropic errors.
+// Shared transport for planner text and JSON tasks. A response is usable only when the
+// provider finished it; valid JSON alone says nothing about pedagogical completeness.
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 
-export async function callPlannerModel(
+export type PlannerModelOptions = {
+  maxTokens?: number
+  cachePrefix?: string
+  label?: string
+  signal?: AbortSignal
+  timeoutMs?: number
+}
+
+export class PlannerServiceError extends Error {
+  constructor() {
+    super(
+      'El servicio de IA no está disponible en este momento. Intenta en unos minutos; tu planeación guardada se conserva.'
+    )
+    this.name = 'PlannerServiceError'
+  }
+}
+
+async function requestPlanner(
   system: string,
   user: string,
-  opts: { maxTokens?: number; cachePrefix?: string; label?: string } = {}
+  opts: PlannerModelOptions,
+  format: 'text' | 'json'
 ): Promise<string> {
-  // A quincena document is 4,000-6,000 words of Spanish plus JSON overhead, and Sonnet 5's
-  // tokenizer runs ~30% fatter — 20000 was not enough headroom. Truncation here is expensive:
-  // the cut-off JSON fails to parse, and the json_object fallback rescues the request with a
-  // weaker, 16K-capped model, which is how a teacher ends up with a thin, half-empty plan.
-  // Sonnet 5 allows up to 128K output; the streaming call below is what makes a cap this
-  // large safe (a non-streaming request that size risks an HTTP timeout).
-  const maxTokens = opts.maxTokens ?? 64000
-
+  const maxTokens = opts.maxTokens ?? 12000
+  const timeout = opts.timeoutMs ?? 75000
+  const requestOptions = { signal: opts.signal, timeout, maxRetries: 0 }
+  const checked = (text: string) => {
+    if (!text.trim()) throw new Error('La IA devolvió una respuesta vacía.')
+    if (format === 'json') parsePlanJson(text)
+    return text
+  }
+  opts.signal?.throwIfAborted()
   if (process.env.ANTHROPIC_API_KEY) {
     try {
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-      // The cachePrefix (static NEM grounding) is identical across every call in a generation,
-      // so it's marked ephemeral-cacheable: the first call writes it, the rest read it (~90%
-      // cheaper). It must be the FIRST system block for the cache prefix to match.
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 })
       const systemParam = opts.cachePrefix
         ? [
             {
@@ -33,109 +48,108 @@ export async function callPlannerModel(
             { type: 'text' as const, text: system },
           ]
         : system
-      // Sonnet 5 notes: assistant prefill and non-default temperature return 400 (removed);
-      // thinking is explicitly DISABLED (omitting it runs adaptive thinking by default, which
-      // spends output tokens this JSON-document task doesn't need). parsePlanJson already
-      // handles fences/preamble, so the old "{" prefill is unnecessary.
-      // Streamed, then collected: required at these max_tokens values so a long document
-      // can't trip the SDK's HTTP timeout. Same response shape as messages.create.
       const resp = await anthropic.messages
-        .stream({
-          model: 'claude-sonnet-5',
-          max_tokens: maxTokens,
-          thinking: { type: 'disabled' },
-          system: systemParam,
-          messages: [{ role: 'user', content: user }],
-        })
+        .stream(
+          {
+            model: 'claude-sonnet-5',
+            max_tokens: maxTokens,
+            thinking: { type: 'disabled' },
+            system: systemParam,
+            messages: [{ role: 'user', content: user }],
+          },
+          requestOptions
+        )
         .finalMessage()
-      // Cost telemetry: cache reads are ~90% cheaper — this line is how we SEE whether the
-      // cachePrefix is actually hitting, and where the input tokens go. One line per call.
-      const u = resp.usage
       console.log(
-        `[planner-tokens] ${opts.label ?? 'call'}: in=${u.input_tokens} cache_write=${u.cache_creation_input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0} out=${u.output_tokens}`
+        `[planner-tokens] ${opts.label ?? 'call'}: in=${resp.usage.input_tokens} out=${resp.usage.output_tokens} stop=${resp.stop_reason}`
       )
-      if (resp.stop_reason === 'max_tokens') {
-        // Diagnostic: the document was cut off. parsePlanJson recovery may still salvage it,
-        // but this means maxTokens should rise or the request should be split.
-        console.error('[planner] Sonnet response truncated (stop_reason=max_tokens)')
+      if (resp.stop_reason !== 'end_turn') {
+        throw new Error(`Respuesta incompleta de la IA (${resp.stop_reason}).`)
       }
-      const c = resp.content.find((b) => b.type === 'text')
-      if (c?.type === 'text' && c.text.trim()) return c.text
-      throw new Error('Empty Sonnet response')
-    } catch (e) {
-      console.error('[planner] Sonnet failed, falling back to gpt-4o-mini:', e)
+      return checked(
+        resp.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')
+      )
+    } catch (error) {
+      opts.signal?.throwIfAborted()
+      console.warn(
+        `[planner] ${opts.label ?? 'call'}: primary failed; trying fallback`,
+        error instanceof Error ? error.message : 'provider error'
+      )
+      if (!process.env.OPENAI_API_KEY) throw error
     }
   }
-
-  return callOpenAiJson(system, user, { ...opts, maxTokens })
+  if (!process.env.OPENAI_API_KEY) throw new Error('No model provider configured')
+  opts.signal?.throwIfAborted()
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 })
+  const resp = await openai.chat.completions
+    .create(
+      {
+        model: 'gpt-4o-mini',
+        max_tokens: Math.min(maxTokens, 16384),
+        temperature: 0.4,
+        // Section rewriting requires plain text. Forcing JSON here used to break its fallback.
+        ...(format === 'json' ? { response_format: { type: 'json_object' as const } } : {}),
+        messages: [
+          {
+            role: 'system',
+            content: opts.cachePrefix ? `${opts.cachePrefix}\n\n${system}` : system,
+          },
+          { role: 'user', content: user },
+        ],
+      },
+      requestOptions
+    )
+    .catch((error: unknown) => {
+      opts.signal?.throwIfAborted()
+      console.error(
+        `[planner] ${opts.label ?? 'call'}: fallback unavailable`,
+        error instanceof Error ? error.message : 'provider error'
+      )
+      throw new PlannerServiceError()
+    })
+  const choice = resp.choices[0]
+  if (choice?.finish_reason !== 'stop' || choice.message.refusal) {
+    throw new Error('La IA no terminó esta sección. Intenta de nuevo.')
+  }
+  return checked(choice.message.content ?? '')
 }
 
-/** The JSON-mode fallback: gpt-4o-mini in json_object mode can only return valid JSON. */
-async function callOpenAiJson(
+export function callPlannerModel(
   system: string,
   user: string,
-  opts: { maxTokens?: number; cachePrefix?: string } = {}
+  opts: PlannerModelOptions = {}
 ): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) throw new Error('No model provider configured')
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  const resp = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    max_tokens: Math.min(opts.maxTokens ?? 20000, 16384),
-    temperature: 0.4,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: opts.cachePrefix ? `${opts.cachePrefix}\n\n${system}` : system },
-      { role: 'user', content: user },
-    ],
-  })
-  return resp.choices[0]?.message?.content ?? ''
+  return requestPlanner(system, user, opts, 'text')
 }
 
-/**
- * Call the model and parse its JSON, with ONE automatic retry through the json_object fallback.
- *
- * Sonnet occasionally returns unparseable JSON — usually because a long document hit max_tokens
- * and got cut mid-string. The provider fallback in callPlannerModel only fires when Anthropic
- * *errors*; a successful-but-truncated response sailed past it and killed the whole generation
- * with "La respuesta del modelo no es JSON válido" — an hour of the teacher's plan, gone, with
- * nothing to retry but the whole button. json_object mode cannot return invalid JSON.
- */
 export async function callPlannerJson<T = Record<string, unknown>>(
   system: string,
   user: string,
-  opts: { maxTokens?: number; cachePrefix?: string; label?: string } = {}
+  opts: PlannerModelOptions = {}
 ): Promise<T> {
-  const raw = await callPlannerModel(system, user, opts)
-  try {
-    return parsePlanJson<T>(raw)
-  } catch (err) {
-    console.error(
-      `[planner] ${opts.label ?? 'call'}: primary model returned invalid JSON (${raw.length} chars) — retrying in json_object mode`
-    )
-    if (!process.env.OPENAI_API_KEY) throw err
-    return parsePlanJson<T>(await callOpenAiJson(system, user, opts))
-  }
+  return parsePlanJson<T>(await requestPlanner(system, user, opts, 'json'))
 }
 
-// Strips ```json fences and parses. Falls back to the outermost {...} block if the model
-// added a stray prefix/suffix (long Sonnet responses occasionally do). Throws if still invalid.
+// Accept wrappers/fences, but never salvage an inner object from a truncated outer document.
 export function parsePlanJson<T = Record<string, unknown>>(raw: string): T {
   const cleaned = raw
-    .replace(/^```json\n?/, '')
-    .replace(/\n?```$/, '')
     .trim()
-  try {
-    return JSON.parse(cleaned) as T
-  } catch {
-    const first = cleaned.indexOf('{')
-    const last = cleaned.lastIndexOf('}')
-    if (first !== -1 && last > first) {
-      try {
-        return JSON.parse(cleaned.slice(first, last + 1)) as T
-      } catch {
-        /* fall through */
-      }
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
+  const first = cleaned.indexOf('{')
+  const last = cleaned.lastIndexOf('}')
+  const candidates = [cleaned]
+  // An unfinished outer document starts with '{'; extracting to an inner closing brace could
+  // turn a truncated plan into a seemingly successful response.
+  if (first > 0 && last > first) candidates.push(cleaned.slice(first, last + 1))
+  for (const candidate of candidates) {
+    try {
+      const parsed: unknown = JSON.parse(candidate)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as T
+    } catch {
+      /* try the next wrapper */
     }
-    throw new Error('La respuesta del modelo no es JSON válido')
   }
+  throw new Error('La respuesta del modelo no es un objeto JSON válido')
 }

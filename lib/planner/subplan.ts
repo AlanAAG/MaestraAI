@@ -1,8 +1,10 @@
 // Rich sub-plan (Letters / Números) generation, shared by the inline pipeline
 // (generate-document) and the on-demand route (generate-subplan).
-import { callPlannerJson } from './model'
+import { generateCheckedPart } from './generate-parts'
+import { normalizePlanDocument, sectionToString } from './normalize-document'
 import { enfoqueBlock } from './enfoques'
-import { enforceCamposFormativos } from '@/lib/nem/enforce-contenidos'
+import { contenidosFromTitles, contenidosSugeridosBlock } from '@/lib/nem/select-contenidos'
+import { enforceCamposFormativos, matchContenido } from '@/lib/nem/enforce-contenidos'
 import { METHODOLOGY_STRUCTURE } from './methodologies'
 
 export const SUBPLAN_SYSTEM = `Eres una asistente pedagógica experta en educación preescolar mexicana alineada al NEM 2024. Generas sub-planeaciones DETALLADAS para actividades específicas (Letters / Números) dentro de una quincena, con la riqueza de una maestra titular experta. Tu respuesta es ÚNICAMENTE un objeto JSON válido sin texto adicional. Desarrolla cada momento con MÚLTIPLES actividades concretas — nunca contenido genérico o resumido.`
@@ -105,16 +107,143 @@ ${depth}`
 // without creating an import cycle). Re-exported here for existing importers.
 export { METHODOLOGY_STRUCTURE, buildEstructuraProyectoBlock } from './methodologies'
 
+/** Each requested momento must exist; one long opening cannot stand in for the whole sub-plan. */
+export function missingSubplanFields(doc: Record<string, unknown>, moments: string[]): string[] {
+  const missing: string[] = []
+  const structure = doc.estructura_didactica as Record<string, unknown> | undefined
+  if (!structure || moments.some((key) => sectionToString(structure[key]).trim().length < 80))
+    missing.push('estructura_didactica')
+  if (
+    !Array.isArray(doc.evaluacion) ||
+    doc.evaluacion.filter(
+      (item) => typeof item?.aspecto === 'string' && item.aspecto.trim().length > 10
+    ).length < 4
+  )
+    missing.push('evaluacion')
+  if (
+    !Array.isArray(doc.campos_formativos) ||
+    !doc.campos_formativos.some(
+      (campo) =>
+        Array.isArray(campo?.contenidos) &&
+        campo.contenidos.some((item: { contenido?: string }) =>
+          matchContenido(item?.contenido ?? '')
+        )
+    )
+  )
+    missing.push('campos_formativos')
+  return missing
+}
+
+type UnitSpec = {
+  metodologia: string
+  nombre?: string
+  tema?: string
+  dias?: string
+  libros?: string
+  contenidos?: string[]
+  procesos?: Record<string, string[]>
+  ejes?: string[]
+}
+
+export function additionalUnits(
+  explicit: UnitSpec[] | null | undefined,
+  inventory: UnitSpec[] = []
+): UnitSpec[] {
+  if (explicit?.length) return explicit.slice(1).filter((unit) => unit?.metodologia?.trim())
+  // The template's main Proyecto is generated above. Named Letters/Números have dedicated calls.
+  const mainIndex = inventory.findIndex((unit) => /proyecto/i.test(unit?.metodologia ?? ''))
+  return inventory.filter(
+    (unit, index) =>
+      index !== mainIndex &&
+      unit?.metodologia?.trim() &&
+      !/letters?|letras|n[uú]meros|numbers?/i.test(unit.nombre ?? '')
+  )
+}
+
+async function generateCompleteSubplan(
+  system: string,
+  prompt: string,
+  opts: {
+    moments: string[]
+    contenidos?: string[]
+    procesos?: Record<string, string[]>
+    grade?: string
+    cachePrefix?: string
+    label: string
+    signal?: AbortSignal
+  }
+): Promise<Record<string, unknown>> {
+  const selectedRows = opts.contenidos?.length ? contenidosFromTitles(opts.contenidos) : []
+  if (opts.contenidos?.length && !selectedRows.length)
+    throw new Error(
+      'No se reconocieron los contenidos oficiales de esta unidad. Revisa la selección.'
+    )
+  const fixedCampos = selectedRows.length
+    ? enforceCamposFormativos(
+        selectedRows.map((row) => ({
+          campo: row.campo,
+          contenidos: [{ contenido: row.contenido }],
+        })),
+        { grade: opts.grade, procesos: opts.procesos }
+      )
+    : null
+  const doc = await generateCheckedPart(
+    system,
+    prompt +
+      '\n\n' +
+      contenidosSugeridosBlock(selectedRows, { grade: opts.grade, procesos: opts.procesos }),
+    {
+      keys: [
+        'nombre',
+        'estructura_didactica',
+        'evaluacion',
+        ...(fixedCampos ? [] : ['campos_formativos']),
+      ],
+      maxTokens: 12000,
+      cachePrefix: opts.cachePrefix,
+      label: opts.label,
+      signal: opts.signal,
+      validate: (candidate) => [
+        ...missingSubplanFields(
+          {
+            ...candidate,
+            campos_formativos:
+              fixedCampos ??
+              enforceCamposFormativos(candidate.campos_formativos, {
+                grade: opts.grade,
+                procesos: opts.procesos,
+              }),
+          },
+          opts.moments
+        ),
+        ...(typeof candidate.nombre !== 'string' || !candidate.nombre.trim() ? ['nombre'] : []),
+      ],
+    }
+  )
+  doc.campos_formativos =
+    fixedCampos ??
+    enforceCamposFormativos(doc.campos_formativos, { grade: opts.grade, procesos: opts.procesos })
+  return normalizePlanDocument({ sub_planes: [doc] }).sub_planes[0]
+}
+
 // Generate a sub-planeación of ANY NEM methodology (Taller, ABJ, etc.), teacher-driven.
 export async function generateCustomSubplan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fn: any,
-  spec: { methodology: string; name: string; notes?: string },
+  spec: {
+    methodology: string
+    name: string
+    notes?: string
+    contenidos?: string[]
+    procesos?: Record<string, string[]>
+    ejes?: string[]
+  },
   opts: {
     evalColumns?: string[]
     cachePrefix?: string
     /** Attachment-RAG fragments relevant to THIS unit (query = its name+tema). */
     ragBlock?: string
+    signal?: AbortSignal
   } = {}
 ): Promise<Record<string, unknown>> {
   const struct =
@@ -146,16 +275,20 @@ ${estructuraJson}
 }
 
 ${opts.ragBlock ?? ''}
+${spec.ejes?.length ? `Ejes elegidos para ESTA unidad: ${spec.ejes.join(', ')}` : ''}
 ${enfoqueBlock(fn.pedagogical_approach)}
 Reglas: 1-3 campos formativos elegidos de <contenidos_oficiales>, cada contenido con TODOS sus PDA oficiales VERBATIM (desglose completo, sin consolidar ni omitir). 4-6 aspectos de evaluación (columnas: ${evalCols.join(' / ')}, NUNCA numérica). Cada sección con actividades concretas y variadas. NO escribas la palabra "markdown" en el contenido.`
 
-  const doc = await callPlannerJson<Record<string, unknown>>(SUBPLAN_SYSTEM, prompt, {
-    maxTokens: 16000, // a rich sub-plan runs ~20k chars; 8000 was cutting the long ones off
+  const doc = await generateCompleteSubplan(SUBPLAN_SYSTEM, prompt, {
+    moments: struct.map((moment) => moment.key),
+    contenidos: spec.contenidos,
+    procesos: spec.procesos,
+    grade: fn._grade,
     cachePrefix: opts.cachePrefix,
-    label: `subplan:custom:${spec.methodology}`,
+    label: spec.name,
+    signal: opts.signal,
   })
-  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
-  return doc
+  return { ...doc, tipo: 'custom', metodologia: spec.methodology, nombre: spec.name }
 }
 
 export async function generateSubplan(
@@ -169,6 +302,7 @@ export async function generateSubplan(
     includeProni: boolean
     evalColumns?: string[]
     cachePrefix?: string
+    signal?: AbortSignal
   }
 ): Promise<Record<string, unknown>> {
   const prompt = buildSubplanPrompt(
@@ -180,11 +314,12 @@ export async function generateSubplan(
     opts.includeProni,
     opts.evalColumns
   )
-  const doc = await callPlannerJson<Record<string, unknown>>(SUBPLAN_SYSTEM, prompt, {
-    maxTokens: 16000, // a rich sub-plan runs ~20k chars; 8000 was cutting the long ones off
+  const doc = await generateCompleteSubplan(SUBPLAN_SYSTEM, prompt, {
+    moments: ['momento_1', 'momento_2', 'momento_3'],
+    grade: fn._grade,
     cachePrefix: opts.cachePrefix,
-    label: `subplan:${subType}`,
+    label: subType === 'numeros' ? 'Números' : 'Letters',
+    signal: opts.signal,
   })
-  doc.campos_formativos = enforceCamposFormativos(doc.campos_formativos, { grade: fn._grade })
-  return doc
+  return { ...doc, tipo: subType, metodologia: 'Centro de Interés' }
 }

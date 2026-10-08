@@ -1,11 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { callPlannerJson } from '@/lib/planner/model'
 import { CONTENIDOS_FASE2_3 } from './contenidos-fase2'
 import {
   buildContenidoMenu,
   mapSelection,
   contenidosSugeridosBlock,
   contenidosFromTitles,
+  selectRelevantContenidos,
 } from './select-contenidos'
+
+vi.mock('@/lib/planner/model', () => ({ callPlannerJson: vi.fn() }))
 
 describe('select-contenidos', () => {
   it('menu is index-stable with the bank', () => {
@@ -25,6 +29,31 @@ describe('select-contenidos', () => {
   it('mapSelection returns [] for non-array input', () => {
     expect(mapSelection(null)).toEqual([])
     expect(mapSelection(undefined)).toEqual([])
+  })
+
+  it('does not interpret null, booleans or blank strings as curriculum index zero', () => {
+    expect(mapSelection([null, true, false, '', ' ', {}])).toEqual([])
+  })
+
+  it('uses the fallback-capable bounded transport and only returns official rows', async () => {
+    vi.mocked(callPlannerJson).mockResolvedValueOnce({ indices: [0, 2, 500, null] })
+    const signal = new AbortController().signal
+    expect(await selectRelevantContenidos('Historias', '', [], [], signal)).toEqual([
+      CONTENIDOS_FASE2_3[0],
+      CONTENIDOS_FASE2_3[2],
+    ])
+    expect(callPlannerJson).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ signal, timeoutMs: 15000 })
+    )
+  })
+
+  it('reports failed or empty curriculum selection before expensive document generation', async () => {
+    vi.mocked(callPlannerJson).mockResolvedValueOnce({ indices: [] })
+    await expect(selectRelevantContenidos('Historias')).rejects.toThrow('contenidos oficiales')
+    vi.mocked(callPlannerJson).mockRejectedValueOnce(new Error('provider unavailable'))
+    await expect(selectRelevantContenidos('Historias')).rejects.toThrow('provider unavailable')
   })
 
   it('contenidosFromTitles maps verbatim, dedups, drops unknown, preserves order', () => {

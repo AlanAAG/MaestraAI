@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { normalizePlanDocument } from '@/lib/planner/normalize-document'
+import { refreshPlanHealth } from '@/lib/planner/plan-health'
 import { storePlaneacionEmbedding, planEmbeddingText } from '@/lib/planner/embeddings'
 import {
   CHAT_SYSTEM,
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
               // First write of the turn: snapshot the document so this turn is undoable.
               if (!snapshot) snapshot = planDoc
 
-              planDoc = normalizePlanDocument(next)
+              planDoc = refreshPlanHealth(next)
               const { error } = await db
                 .from('fortnights')
                 .update({ plan_document: planDoc })

@@ -165,10 +165,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    material_ids: materialIds,
-    count: materialIds.length,
-    errors,
-  })
+  return NextResponse.json(
+    {
+      ok: errors.length === 0,
+      material_ids: materialIds,
+      count: materialIds.length,
+      errors,
+    },
+    { status: materialIds.length ? 200 : 500 }
+  )
 }

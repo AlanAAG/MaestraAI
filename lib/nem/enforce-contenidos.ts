@@ -96,10 +96,10 @@ export function officialProcesos(row: ContenidoPDA, opts?: EnforceOptions): stri
  * Snap every generated contenido to its official bank row: verbatim contenido text, the official
  * PDA desglose for the grade (or the teacher's picked subset), and the correct campo. Drops
  * unmatched contenidos, regroups by campo (canonical Fase 2 order), dedupes. Malformed input
- * is returned unchanged.
+ * is rejected as an empty selection.
  */
 export function enforceCamposFormativos(campos: unknown, opts?: EnforceOptions): unknown {
-  if (!Array.isArray(campos)) return campos
+  if (!Array.isArray(campos)) return []
   const byCampo = new Map<string, { contenido: string; procesos: string[] }[]>()
   const seen = new Set<string>()
   let dropped = 0
@@ -119,7 +119,6 @@ export function enforceCamposFormativos(campos: unknown, opts?: EnforceOptions):
     }
   }
   if (dropped) console.warn(`[enforce-contenidos] dropped ${dropped} unmatched contenido(s)`)
-  if (!seen.size) return campos // nothing matched → keep model output rather than emptying the doc
   // Canonical campo order (official Fase 2 order), not model-output order.
   const CAMPO_ORDER = [
     'Lenguajes',

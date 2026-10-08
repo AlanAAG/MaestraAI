@@ -17,6 +17,16 @@ describe('buildRegeneratePrompt', () => {
     expect(p).toContain('Ya soy de Preprimaria')
     expect(p).toContain('proyecto')
   })
+  it('can complete a missing section using the existing plan context and format', () => {
+    const p = buildRegeneratePrompt({
+      ...args,
+      currentText: '',
+      documentContext: 'Grado: Preprimaria. Formato: etiquetas en negritas. Tema: Día de Muertos.',
+    })
+    expect(p).toContain('Sección pendiente')
+    expect(p).toContain('etiquetas en negritas')
+    expect(p).toContain('Día de Muertos')
+  })
 
   it('includes learned preferences only when present', () => {
     expect(buildRegeneratePrompt(args)).toContain('Prefiere frases operativas')

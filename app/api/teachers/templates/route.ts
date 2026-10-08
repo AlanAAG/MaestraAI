@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { extractTemplate } from '@/lib/planner/extract-template'
+import { extractTemplate, hasTemplateStructure } from '@/lib/planner/extract-template'
 
 // Claude extraction of a full document (verbatim PDAs + voice + formatting rules) can take a
 // while — give it room so the function isn't killed mid-extraction (the default is far too short).
@@ -65,6 +65,8 @@ export async function GET(req: NextRequest) {
       label: t.label,
       plan_type: t.plan_type,
       template: t.template,
+      usable: hasTemplateStructure(t.template),
+      has_full_example: !!t.template?.raw_text?.trim(),
       created_at: t.created_at,
       is_owner: t.teacher_id === teacher.id,
       shared_with_school: !!t.shared_with_school,
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
       .single()
     if (error) throw error
 
-    return NextResponse.json({ template_record: data })
+    return NextResponse.json({ template_record: { ...data, usable: true, has_full_example: true } })
   } catch (err) {
     console.error('POST /api/teachers/templates error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

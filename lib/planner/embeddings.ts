@@ -8,7 +8,7 @@ const EMBED_MODEL = 'text-embedding-3-small' // 1536 dims (matches the migration
 export async function embed(text: string): Promise<number[] | null> {
   if (!process.env.OPENAI_API_KEY || !text.trim()) return null
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 5000, maxRetries: 0 })
     const r = await openai.embeddings.create({ model: EMBED_MODEL, input: text.slice(0, 8000) })
     return r.data[0]?.embedding ?? null
   } catch (e) {

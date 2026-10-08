@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkPlanHealth, type HealthIssue } from './plan-health'
+import { checkPlanHealth, refreshPlanHealth, type HealthIssue } from './plan-health'
 
 const momentos = ['**Punto de Partida**', ...Array(9).fill('- actividad')].join('\n')
 
@@ -128,6 +128,55 @@ describe('checkPlanHealth — Richmond', () => {
 })
 
 describe('checkPlanHealth — degenerate input', () => {
+  it('accepts complete activities returned as objects or arrays before normalization', () => {
+    const issues = checkPlanHealth(
+      plan({
+        actividades_iniciales: {
+          Clima: 'Observaremos el clima y lo comentaremos con los niños. '.repeat(3),
+        },
+        actividades_rutina: [
+          'Saludaremos con una canción y registraremos la asistencia. '.repeat(3),
+        ],
+      }),
+      { planType: 'quincena' }
+    )
+    expect(errs(issues)).toEqual([])
+  })
+
+  it('clears stale missing warnings after an edit without changing the edited text', () => {
+    const edited =
+      'Clima: Junto con los niños, observaremos cómo está el clima cada día y comentaremos si es soleado, nublado o lluvioso.'
+    const refreshed = refreshPlanHealth(
+      plan({
+        actividades_iniciales: edited,
+        _format_issues: [
+          {
+            section: 'actividades_iniciales',
+            issue: 'faltante o demasiado corta (<80 chars)',
+            severity: 'error',
+          },
+        ],
+      })
+    )
+    expect(refreshed.actividades_iniciales).toBe(edited)
+    expect(
+      refreshed._format_issues.some((i: HealthIssue) => i.section === 'actividades_iniciales')
+    ).toBe(false)
+  })
+
+  it('keeps real missing sections and rechecks the saved generation expectations', () => {
+    const refreshed = refreshPlanHealth(
+      plan({
+        actividades_rutina: '',
+        _health_expectations: { planType: 'quincena', fichaNumbers: [7] },
+      })
+    )
+    expect(errs(refreshed._format_issues).map((i) => i.section)).toEqual(['actividades_rutina'])
+    expect(
+      refreshed._format_issues.some((i: HealthIssue) => i.issue.includes('ficha asignada'))
+    ).toBe(true)
+  })
+
   it('never throws on garbage', () => {
     for (const bad of [null, undefined, 'texto', 42]) {
       expect(() => checkPlanHealth(bad, { planType: 'quincena' })).not.toThrow()

@@ -57,7 +57,7 @@ const FortnightSchema = z.object({
   letter_week4: z.string().regex(LETTERS_RE, 'Una o más letras separadas por coma').optional(),
 })
 
-type Template = { id: string; label: string; plan_type: string }
+type Template = { id: string; label: string; plan_type: string; usable?: boolean }
 
 export default function NuevaPlaneacionPage() {
   const router = useRouter()
@@ -133,7 +133,8 @@ export default function NuevaPlaneacionPage() {
   // NEE cases described by the teacher for THIS plan — no student roster required.
   const [neeNotes, setNeeNotes] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
-  // Binary choice: use the teacher's uploaded format, or MaestraIA's built-in design.
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  // Choose a specific uploaded format, or MaestraIA's built-in design.
   const [useSystemTemplate, setUseSystemTemplate] = useState(false)
   // Reference files the AI must consider (extracted text, never the file itself).
   const [attachments, setAttachments] = useState<{ name: string; text: string; path?: string }[]>(
@@ -307,10 +308,15 @@ export default function NuevaPlaneacionPage() {
   }, [selectedGroupId])
 
   useEffect(() => {
-    fetch(`/api/teachers/templates?plan_type=${planType}`)
+    // Month plans are stored as quincenas with is_month=true, so they use quincena formats.
+    fetch(`/api/teachers/templates?plan_type=${planType === 'mes' ? 'quincena' : planType}`)
       .then((r) => r.json())
       .then((d) => {
-        setTemplates(d.templates ?? [])
+        const usable = (d.templates ?? []).filter((t: Template) => t.usable !== false)
+        setTemplates(usable)
+        setSelectedTemplateId((current) =>
+          usable.some((t: Template) => t.id === current) ? current : (usable[0]?.id ?? '')
+        )
       })
       .catch(() => {})
   }, [planType])
@@ -507,9 +513,39 @@ export default function NuevaPlaneacionPage() {
           project_name: projectName, // derived from Unit 1 (the project)
           monthly_value: formData.monthly_value.trim() || null,
           pedagogical_approach: enfoque,
-          // "Mes" stores a DB-legal plan_type + the is_month flag (best-effort update below).
+          // "Mes" stores a DB-legal plan_type + the is_month flag atomically.
           // Never insert 'mes' — the CHECK constraint only allows quincena/taller.
           plan_type: isMonth ? 'quincena' : planType,
+          ...(!useSystemTemplate && selectedTemplateId
+            ? { format_template_id: selectedTemplateId }
+            : {}),
+          // Save the source documents, instructions and format choice in the same insert.
+          // A draft must never appear successful after silently dropping its grounding inputs.
+          grade: selectedGrade,
+          is_month: isMonth,
+          use_system_template: useSystemTemplate,
+          learning_goal: learningGoal.trim() || null,
+          split_documents: splitDocuments,
+          attachment_context: attachments,
+          number_week1: formData.number_week1.trim() || null,
+          number_week2: formData.number_week2.trim() || null,
+          ...(isMonth
+            ? {
+                letter_week3: letter_week3 || null,
+                letter_week4: letter_week4 || null,
+                number_week3: formData.number_week3.trim() || null,
+                number_week4: formData.number_week4.trim() || null,
+              }
+            : {}),
+          teacher_notes: teacherNotes.trim() || null,
+          nee_notes: neeNotes.trim() || null,
+          project_notes: cleanUnidades[0]?.tema?.trim() || null,
+          ...(proniActive && richmondSelection?.unit_id
+            ? {
+                richmond_unit_id: richmondSelection.unit_id,
+                richmond_lesson_group_ids: richmondSelection.lesson_group_ids,
+              }
+            : {}),
           status: 'draft',
           vocabulary: letterVocab.length > 0 ? letterVocab : null,
           physical_materials: extraMaterials.length > 0 ? extraMaterials : null,
@@ -520,77 +556,12 @@ export default function NuevaPlaneacionPage() {
         .select()
         .single()
 
-      if (fortnightError) throw fortnightError
-
-      // Best-effort updates (separate so one missing migration doesn't block the other).
-      // Each is ignored (no throw) if its column isn't applied yet — creation never breaks.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any
-      // Per-grade scope (migration 059). Best-effort so creation never breaks if not applied yet.
-      await sb
-        .from('fortnights')
-        .update({ grade: selectedGrade })
-        .eq('id', fortnight.id)
-        .then(
-          () => {},
-          () => {}
+      if (fortnightError || !fortnight) {
+        throw new Error(
+          fortnightError?.code === '42703' || fortnightError?.code === 'PGRST204'
+            ? 'Falta una actualización de la base de datos. No guardamos una planeación sin tus documentos; avisa al administrador.'
+            : 'No se pudieron guardar todos los datos y documentos. Intenta de nuevo.'
         )
-      // Month plan (4 weeks) + weeks 3-4 letters + learning goal (migration 068). Best-effort:
-      // a missing column just no-ops, so the plan is a normal quincena until 068 is applied.
-      await sb
-        .from('fortnights')
-        .update({
-          is_month: isMonth,
-          ...(isMonth
-            ? {
-                letter_week3: letter_week3 || null,
-                letter_week4: letter_week4 || null,
-              }
-            : {}),
-          learning_goal: learningGoal.trim() || null,
-          // Separate documents choice (migration 073).
-          split_documents: splitDocuments,
-          // Reference files' extracted text (migration 075).
-          ...(attachments.length ? { attachment_context: attachments } : {}),
-          // Números por semana (migration 072) — free text ("1-10", "50, 51…").
-          number_week1: formData.number_week1.trim() || null,
-          number_week2: formData.number_week2.trim() || null,
-          ...(isMonth
-            ? {
-                number_week3: formData.number_week3.trim() || null,
-                number_week4: formData.number_week4.trim() || null,
-              }
-            : {}),
-        })
-        .eq('id', fortnight.id)
-        .then(
-          () => {},
-          () => {}
-        )
-      if (useSystemTemplate) {
-        await sb.from('fortnights').update({ use_system_template: true }).eq('id', fortnight.id)
-      }
-      // project_notes now comes from Unit 1's "tema / detalles".
-      const projectNotes = cleanUnidades[0]?.tema?.trim() ?? ''
-      if (teacherNotes.trim() || neeNotes.trim() || projectNotes) {
-        await sb
-          .from('fortnights')
-          .update({
-            teacher_notes: teacherNotes.trim() || null,
-            nee_notes: neeNotes.trim() || null,
-            project_notes: projectNotes || null,
-          })
-          .eq('id', fortnight.id)
-      }
-      // Richmond unit selection (best-effort: ignored until migration 056 is pushed).
-      if (proniActive && richmondSelection?.unit_id) {
-        await sb
-          .from('fortnights')
-          .update({
-            richmond_unit_id: richmondSelection.unit_id,
-            richmond_lesson_group_ids: richmondSelection.lesson_group_ids,
-          })
-          .eq('id', fortnight.id)
       }
 
       router.push(`/planeaciones/${fortnight.id}`)
@@ -603,7 +574,11 @@ export default function NuevaPlaneacionPage() {
         setFieldErrors(errors)
         setError('Por favor corrige los errores en el formulario')
       } else {
-        setError('No pude crear la planeación. Por favor intenta de nuevo.')
+        setError(
+          err instanceof Error
+            ? `No pude crear la planeación: ${err.message}`
+            : 'No pude crear la planeación. Por favor intenta de nuevo.'
+        )
       }
       setLoading(false)
     }
@@ -1601,6 +1576,28 @@ export default function NuevaPlaneacionPage() {
                 </button>
               ))}
             </div>
+            {!useSystemTemplate && (
+              <div className="mt-4">
+                <label
+                  htmlFor="format-template"
+                  className="block text-sm font-medium text-text-primary mb-1"
+                >
+                  Formato que seguirá esta planeación
+                </label>
+                <select
+                  id="format-template"
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="w-full min-h-[44px] rounded-lg border border-border bg-surface px-3 text-sm text-text-primary"
+                >
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </Card>
         )}
 

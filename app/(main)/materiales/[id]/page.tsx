@@ -24,10 +24,12 @@ type Material = {
   vocabulary: string[] | null
   created_at: string
   lesson_plan_id: string | null
+  fortnight_id: string | null
   lesson_plans: { day_number: number } | null
   fortnights: { project_name: string } | null
   shared_with_parents?: boolean
   homework_min_correct?: number | null
+  play_token?: string | null
 }
 
 async function downloadPdf(materialId: string, filename: string): Promise<string | null> {
@@ -73,6 +75,13 @@ export default function MaterialDetailPage() {
   const [savingMin, setSavingMin] = useState(false)
   const [emailing, setEmailing] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
+  const [homeworkMsg, setHomeworkMsg] = useState('')
+  const [resultsError, setResultsError] = useState('')
+  const [refreshingResults, setRefreshingResults] = useState(false)
+  const [playerCode, setPlayerCode] = useState('')
+  const [selectedStudent, setSelectedStudent] = useState('')
+  const [linkingPlayer, setLinkingPlayer] = useState(false)
+  const [linkMessage, setLinkMessage] = useState('')
   // Home-play results for this game (migration 069). Empty until kids play.
   const [plays, setPlays] = useState<
     { nickname: string; avatar: string; correct: number; total: number; passed: boolean | null }[]
@@ -95,16 +104,25 @@ export default function MaterialDetailPage() {
   >([])
 
   async function saveMinCorrect(value: string) {
-    setMinCorrect(value)
+    const n = value.trim() === '' ? null : Number(value)
+    if (n !== null && (!Number.isInteger(n) || n < 1 || n > 200)) {
+      setHomeworkMsg('Escribe un número entre 1 y 200.')
+      return
+    }
     setSavingMin(true)
+    setHomeworkMsg('')
     try {
-      const n = value.trim() === '' ? null : Number(value)
-      await fetch(`/api/materials/${id}`, {
+      const res = await fetch(`/api/materials/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ homework_min_correct: n }),
       })
+      if (!res.ok)
+        throw new Error((await res.json().catch(() => ({}))).error ?? 'No se pudo guardar')
       setMaterial((m) => (m ? { ...m, homework_min_correct: n } : m))
+      setHomeworkMsg('Guardado')
+    } catch {
+      setHomeworkMsg('No se pudo guardar. Intenta de nuevo.')
     } finally {
       setSavingMin(false)
     }
@@ -153,12 +171,12 @@ export default function MaterialDetailPage() {
     setSharing(true)
     try {
       const res = await fetch(`/api/materials/${id}/play-token`, { method: 'POST' })
-      if (!res.ok) throw new Error()
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error)
       const { play_url } = (await res.json()) as { play_url: string }
       setPlayUrl(play_url)
       setShowShareModal(true)
     } catch {
-      setError('No se pudo crear el enlace de compartir')
+      setHomeworkMsg('No se pudo crear el enlace. Intenta de nuevo.')
     } finally {
       setSharing(false)
     }
@@ -226,14 +244,17 @@ export default function MaterialDetailPage() {
       .from('materials' as any)
       .select(
         // Column is generated_at; alias to created_at (selecting created_at 400s → "no encontrado").
-        'id, type, content, vocabulary, created_at:generated_at, lesson_plan_id, lesson_plans(day_number), fortnights(project_name)'
+        'id, type, content, vocabulary, play_token, created_at:generated_at, lesson_plan_id, fortnight_id, lesson_plans(day_number), fortnights(project_name)'
       )
       .eq('id', id)
       .single()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data, error: err }: any) => {
         if (err || !data) setError('No se encontró el material')
-        else setMaterial(data)
+        else {
+          setMaterial(data)
+          if (data.play_token) setPlayUrl(`${window.location.origin}/jugar/${data.play_token}`)
+        }
         setLoading(false)
         // Separate best-effort fetch — column only exists after migration 065.
         if (data) {
@@ -262,21 +283,50 @@ export default function MaterialDetailPage() {
       })
   }, [id])
 
-  // Who played at home (anonymous plays by nickname only).
-  useEffect(() => {
-    fetch(`/api/materials/${id}/plays`)
-      .then((r) => r.json())
-      .then((d) => setPlays(d.plays ?? []))
-      .catch(() => {})
-  }, [id])
+  async function loadResults() {
+    setRefreshingResults(true)
+    setResultsError('')
+    try {
+      const [playsRes, playersRes] = await Promise.all([
+        fetch(`/api/materials/${id}/plays`, { cache: 'no-store' }),
+        fetch(`/api/materials/${id}/players`, { cache: 'no-store' }),
+      ])
+      if (!playsRes.ok || !playersRes.ok) throw new Error()
+      const [playsData, playersData] = await Promise.all([playsRes.json(), playersRes.json()])
+      setPlays(playsData.plays ?? [])
+      setPlayerRows(playersData.rows ?? [])
+    } catch {
+      setResultsError('No se pudo cargar el seguimiento. Intenta actualizar.')
+    } finally {
+      setRefreshingResults(false)
+    }
+  }
 
-  // Full student roster with their best play (linked profiles).
+  async function linkPlayer() {
+    if (!selectedStudent || !playerCode.trim()) return
+    setLinkingPlayer(true)
+    setLinkMessage('')
+    try {
+      const res = await fetch(`/api/materials/${id}/link-player`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: selectedStudent, code: playerCode.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo vincular')
+      setPlayerCode('')
+      setLinkMessage('Jugador vinculado ✓')
+      await loadResults()
+    } catch (err) {
+      setLinkMessage(err instanceof Error ? err.message : 'No se pudo vincular')
+    } finally {
+      setLinkingPlayer(false)
+    }
+  }
+
   useEffect(() => {
-    fetch(`/api/materials/${id}/players`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setPlayerRows(d.rows ?? []))
-      .catch(() => {})
-  }, [id])
+    void loadResults()
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -296,6 +346,24 @@ export default function MaterialDetailPage() {
       </div>
     )
   }
+
+  const maxCorrect =
+    material.type === 'bingo'
+      ? 1
+      : material.type === 'flashcards'
+        ? material.content?.cards?.length
+        : material.type === 'memory_game'
+          ? material.content?.pairs?.length
+          : material.type === 'matching'
+            ? material.content?.pairs?.length
+            : material.type === 'word_search'
+              ? material.content?.words?.length
+              : material.type === 'picture_word_match' ||
+                  material.type === 'sorting_game' ||
+                  material.type === 'letter_recognition'
+                ? material.content?.items?.length
+                : null
+  const completionOnly = material.type === 'bingo' || material.type === 'flashcards'
 
   const typeLabels: Record<string, string> = {
     flashcards: 'Flashcards',
@@ -317,7 +385,7 @@ export default function MaterialDetailPage() {
     // Teacher-uploaded drawings resolve live for every visual on this page (games + lists).
     <TeacherVocabImages>
       <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Volver
           </Button>
@@ -331,7 +399,7 @@ export default function MaterialDetailPage() {
               {typeLabels[material.type] ?? material.type}
             </h1>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Memorama: actions live in the top bar; the playable game below is the default. */}
             {material.type === 'memory_game' &&
               (() => {
@@ -355,16 +423,6 @@ export default function MaterialDetailPage() {
                         <span className="hidden sm:inline">Modo Escucha</span>
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={handleShare}
-                      disabled={sharing}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">Compartir con alumnos</span>
-                    </Button>
                   </>
                 )
               })()}
@@ -376,11 +434,9 @@ export default function MaterialDetailPage() {
               className="gap-2"
             >
               <Share2 className="h-4 w-4" />
-              <span className="hidden sm:inline">
-                {material.shared_with_parents
-                  ? 'Compartido con familias ✓'
-                  : 'Compartir con familias'}
-              </span>
+              {material.shared_with_parents
+                ? 'Visible en portal de familias ✓'
+                : 'Mostrar en portal de familias'}
             </Button>
             <div className="flex items-center gap-1">
               <select
@@ -410,6 +466,114 @@ export default function MaterialDetailPage() {
           </div>
         </div>
 
+        {PLAYABLE_TYPES.includes(material.type) && (
+          <section className="rounded-2xl border border-brand/30 bg-brand-subtle p-5 space-y-3">
+            <div>
+              <h2 className="font-semibold text-text-primary">Enviar como tarea a casa</h2>
+              <p className="text-sm text-text-secondary mt-1">
+                Comparte el enlace por WhatsApp o cópialo para las familias. Los niños juegan sin
+                iniciar sesión: eligen un apodo para guardar su avance.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleShare} disabled={sharing} className="min-h-[44px] gap-2">
+                {sharing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="h-4 w-4" />
+                )}
+                {playUrl ? 'Compartir enlace del juego' : 'Crear enlace del juego'}
+              </Button>
+              {playUrl && (
+                <a
+                  href={playUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[44px] items-center rounded-lg border border-border bg-card px-4 text-sm font-medium text-text-primary"
+                >
+                  Probar como alumno
+                </a>
+              )}
+            </div>
+            {homeworkMsg && (
+              <p role="status" className="text-sm text-text-secondary">
+                {homeworkMsg}
+              </p>
+            )}
+          </section>
+        )}
+
+        {/* Share sheet */}
+        <ShareSheet
+          open={showShareModal && !!playUrl}
+          onOpenChange={(open) => !open && setShowShareModal(false)}
+          url={playUrl ?? ''}
+          title="Compartir con alumnos"
+          whatsappText={`¡A jugar! Entra aquí: ${playUrl ?? ''}`}
+        />
+
+        {/* Homework + email options — shown once a play link exists */}
+        {playUrl && PLAYABLE_TYPES.includes(material.type) && (
+          <section className="mt-6 rounded-2xl border border-border bg-card p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-text-primary">Opciones de tarea en casa</h2>
+
+            {/* Homework threshold */}
+            {maxCorrect > 0 && (
+              <div className="rounded-xl border border-border p-3">
+                <label className="block text-xs font-medium text-text-primary">
+                  {completionOnly
+                    ? 'Meta para completar la actividad'
+                    : 'Mínimo de aciertos para aprobar'}
+                </label>
+                <p className="mt-0.5 text-[11px] text-text-secondary">
+                  {completionOnly
+                    ? material.type === 'bingo'
+                      ? 'Marca una línea para completar el Bingo. Déjalo vacío para juego libre.'
+                      : `Hay ${maxCorrect} tarjetas para repasar. Déjalo vacío para juego libre.`
+                    : `El juego tiene hasta ${maxCorrect} aciertos. Déjalo vacío para juego libre.`}
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={maxCorrect}
+                    value={minCorrect}
+                    onChange={(e) => {
+                      setMinCorrect(e.target.value)
+                      setHomeworkMsg('')
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value && Number(e.target.value) > maxCorrect) {
+                        setHomeworkMsg(`El máximo de este juego es ${maxCorrect}.`)
+                      } else void saveMinCorrect(e.target.value)
+                    }}
+                    placeholder="—"
+                    className="w-20 rounded-lg border border-border bg-inset px-3 py-1.5 text-sm text-text-primary"
+                  />
+                  <span className="text-xs text-text-secondary">
+                    {completionOnly ? 'completados' : 'aciertos mínimos'}{' '}
+                    {savingMin && '· guardando…'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Email to families */}
+            <button
+              onClick={emailFamilies}
+              disabled={emailing}
+              className="w-full rounded-xl border border-border py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-inset disabled:opacity-50"
+            >
+              {emailing
+                ? 'Enviando…'
+                : material.fortnight_id
+                  ? 'Enviar por correo a las familias del grupo'
+                  : 'Enviar por correo a todas mis familias invitadas'}
+            </button>
+            {emailMsg && <p className="text-center text-xs text-text-secondary">{emailMsg}</p>}
+          </section>
+        )}
+
         {/* Playable game front-and-center — the detail page IS the game for these types.
           Teacher tools (PDF / caller / share) stay available in the per-type blocks below. */}
         {PLAYABLE_TYPES.includes(material.type) && (
@@ -436,6 +600,19 @@ export default function MaterialDetailPage() {
                   <Monitor className="mr-2 h-4 w-4" /> Proyectar en clase
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                {sharing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Compartir con alumnos
+              </Button>
               {(() => {
                 const imagePairs: ListenPair[] = (material.content?.cards ?? [])
                   .map((c: { word: string; image_url?: string; emoji?: string }) => ({
@@ -845,18 +1022,33 @@ export default function MaterialDetailPage() {
         {material.type === 'letter_recognition' && (
           <Card className="p-6 space-y-4">
             <h2 className="font-semibold text-text-primary">Actividades de Reconocimiento</h2>
-            <Button
-              onClick={() => handleDownload('Reconocimiento.pdf')}
-              disabled={downloading}
-              className="bg-brand hover:bg-brand-hover"
-            >
-              {downloading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Descargar PDF
-            </Button>
+            <div className="flex gap-3 flex-wrap">
+              <Button
+                onClick={() => handleDownload('Reconocimiento.pdf')}
+                disabled={downloading}
+                className="bg-brand hover:bg-brand-hover min-h-[44px]"
+              >
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Descargar PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                {sharing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Compartir con alumnos
+              </Button>
+            </div>
             <div className="space-y-3">
               {material.content?.items?.map(
                 (
@@ -897,18 +1089,33 @@ export default function MaterialDetailPage() {
         {material.type === 'matching' && (
           <Card className="p-6 space-y-4">
             <h2 className="font-semibold text-text-primary">Pares de Matching</h2>
-            <Button
-              onClick={() => handleDownload('Matching.pdf')}
-              disabled={downloading}
-              className="bg-brand hover:bg-brand-hover"
-            >
-              {downloading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Descargar PDF
-            </Button>
+            <div className="flex gap-3 flex-wrap">
+              <Button
+                onClick={() => handleDownload('Matching.pdf')}
+                disabled={downloading}
+                className="bg-brand hover:bg-brand-hover min-h-[44px]"
+              >
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Descargar PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                {sharing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Compartir con alumnos
+              </Button>
+            </div>
             <div className="space-y-3">
               {material.content?.pairs?.map(
                 (
@@ -1148,6 +1355,72 @@ export default function MaterialDetailPage() {
           </div>
         )}
 
+        {PLAYABLE_TYPES.includes(material.type) && (
+          <div className="flex items-center justify-between gap-3 pt-3">
+            <div>
+              <h2 className="font-semibold text-text-primary">Avance en casa</h2>
+              <p className="text-xs text-text-secondary">
+                Los apodos aparecen al terminar un juego. Vincula un código de jugador a un alumno
+                para verlo en la lista.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadResults} disabled={refreshingResults}>
+              {refreshingResults ? 'Actualizando…' : 'Actualizar'}
+            </Button>
+          </div>
+        )}
+        {resultsError && (
+          <p role="alert" className="text-sm text-error">
+            {resultsError}
+          </p>
+        )}
+
+        {playerRows.length > 0 && PLAYABLE_TYPES.includes(material.type) && (
+          <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-text-primary">
+              Vincular apodo con un alumno
+            </h3>
+            <p className="text-xs text-text-secondary">
+              Pide a la familia el código que aparece en “Mi código” dentro del juego. Así verás los
+              aciertos junto al nombre del alumno sin que el niño inicie sesión.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={selectedStudent}
+                onChange={(e) => setSelectedStudent(e.target.value)}
+                aria-label="Alumno"
+                className="min-h-[42px] flex-1 rounded-lg border border-border bg-card px-3 text-sm"
+              >
+                <option value="">Elige un alumno</option>
+                {playerRows.map((row) => (
+                  <option key={row.student_id} value={row.student_id}>
+                    {row.student_name}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={playerCode}
+                onChange={(e) => setPlayerCode(e.target.value.toUpperCase())}
+                maxLength={10}
+                placeholder="Código de 6 caracteres"
+                aria-label="Código del jugador"
+                className="min-h-[42px] w-48 rounded-lg border border-border bg-card px-3 text-sm uppercase"
+              />
+              <Button
+                onClick={linkPlayer}
+                disabled={linkingPlayer || !selectedStudent || playerCode.trim().length < 6}
+              >
+                {linkingPlayer ? 'Vinculando…' : 'Vincular'}
+              </Button>
+            </div>
+            {linkMessage && (
+              <p role="status" className="text-xs text-text-secondary">
+                {linkMessage}
+              </p>
+            )}
+          </section>
+        )}
+
         {/* Home-play results — only once someone has played */}
         {plays.length > 0 && (
           <section className="mt-8 rounded-2xl border border-border bg-card p-5">
@@ -1169,7 +1442,9 @@ export default function MaterialDetailPage() {
                         : 'bg-success-light text-success-text'
                     }`}
                   >
-                    {p.correct} de {p.total} aciertos
+                    {completionOnly
+                      ? 'Actividad completada'
+                      : `${p.correct} de ${p.total} aciertos`}
                     {p.passed === false ? ' · debe repetir' : ''}
                   </span>
                 </li>
@@ -1217,7 +1492,9 @@ export default function MaterialDetailPage() {
                             : 'bg-success-light text-success-text'
                         }`}
                       >
-                        {r.correct}/{r.total} aciertos
+                        {completionOnly
+                          ? 'Actividad completada'
+                          : `${r.correct}/${r.total} aciertos`}
                         {r.passed === false ? ' · repetir' : ''}
                       </span>
                     )}
@@ -1225,57 +1502,6 @@ export default function MaterialDetailPage() {
                 </li>
               ))}
             </ul>
-          </section>
-        )}
-
-        {/* Share sheet */}
-        <ShareSheet
-          open={showShareModal && !!playUrl}
-          onOpenChange={(open) => !open && setShowShareModal(false)}
-          url={playUrl ?? ''}
-          title="Compartir con alumnos"
-          whatsappText={`¡A jugar! Entra aquí: ${playUrl ?? ''}`}
-        />
-
-        {/* Homework + email options — shown once a play link exists */}
-        {playUrl && (
-          <section className="mt-6 rounded-2xl border border-border bg-card p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-text-primary">Opciones de tarea en casa</h2>
-
-            {/* Homework threshold */}
-            <div className="rounded-xl border border-border p-3">
-              <label className="block text-xs font-medium text-text-primary">
-                Mínimo de aciertos para aprobar
-              </label>
-              <p className="mt-0.5 text-[11px] text-text-secondary">
-                Si el niño no llega a este número, el juego le pide repetir. Déjalo vacío para juego
-                libre.
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  max={200}
-                  value={minCorrect}
-                  onChange={(e) => saveMinCorrect(e.target.value)}
-                  placeholder="—"
-                  className="w-20 rounded-lg border border-border bg-inset px-3 py-1.5 text-sm text-text-primary"
-                />
-                <span className="text-xs text-text-secondary">
-                  aciertos mínimos {savingMin && '· guardando…'}
-                </span>
-              </div>
-            </div>
-
-            {/* Email to families */}
-            <button
-              onClick={emailFamilies}
-              disabled={emailing}
-              className="w-full rounded-xl border border-border py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-inset disabled:opacity-50"
-            >
-              {emailing ? 'Enviando…' : 'Enviar enlace por correo a las familias'}
-            </button>
-            {emailMsg && <p className="text-center text-xs text-text-secondary">{emailMsg}</p>}
           </section>
         )}
       </div>

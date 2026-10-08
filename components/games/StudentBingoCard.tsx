@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Star } from 'lucide-react'
 import { useSound } from '@/hooks/useSound'
 import { celebrate } from '@/lib/ui/celebrate'
@@ -14,6 +14,7 @@ type BingoContent = {
 
 interface Props {
   content: BingoContent
+  onComplete?: (result: { correct: number; total: number }) => void
 }
 
 function buildCard(
@@ -60,7 +61,7 @@ function checkBingo(marked: Set<string>, size: number): boolean {
   return false
 }
 
-export function StudentBingoCard({ content }: Props) {
+export function StudentBingoCard({ content, onComplete }: Props) {
   const { vocabulary, free_space, grid_size } = content
   const size: 3 | 5 = grid_size ?? 3
 
@@ -68,6 +69,7 @@ export function StudentBingoCard({ content }: Props) {
   const [seatInput, setSeatInput] = useState('')
   const [marked, setMarked] = useState<Set<string>>(new Set())
   const [hasBingo, setHasBingo] = useState(false)
+  const reported = useRef(false)
   const sfx = useSound()
 
   useEffect(() => {
@@ -87,6 +89,7 @@ export function StudentBingoCard({ content }: Props) {
     setSeatNumber(n)
     setMarked(new Set())
     setHasBingo(false)
+    reported.current = false
   }
 
   function handleCellTap(row: number, col: number) {
@@ -101,7 +104,13 @@ export function StudentBingoCard({ content }: Props) {
       setHasBingo(checkBingo(next, size))
     } else {
       next.add(key)
-      if (checkBingo(next, size)) setHasBingo(true)
+      if (checkBingo(next, size)) {
+        setHasBingo(true)
+        if (!reported.current) {
+          reported.current = true
+          onComplete?.({ correct: 1, total: 1 })
+        }
+      }
     }
     setMarked(next)
   }

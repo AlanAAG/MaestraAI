@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Check, Loader2, Sparkles } from 'lucide-react'
 
 interface LoadingGenerationProps {
-  phase: 'preparing' | 'analyzing' | 'generating' | 'subplanes' | 'done'
+  phase: 'preparing' | 'analyzing' | 'generating' | 'repairing' | 'subplanes' | 'done'
 }
 
 // Ordered steps (the visible journey); 'done' is the terminal state.
@@ -23,6 +23,11 @@ const STEPS: { key: LoadingGenerationProps['phase']; label: string; desc: string
     key: 'generating',
     label: 'Redactando con tu voz',
     desc: 'Tu estilo, proyecto, ajustes y evaluación',
+  },
+  {
+    key: 'repairing',
+    label: 'Verificando secciones',
+    desc: 'Completando las partes que falten',
   },
   {
     key: 'subplanes',
@@ -129,7 +134,7 @@ export function LoadingGeneration({ phase }: LoadingGenerationProps) {
 
       {!done && (
         <p className="mt-5 text-center text-xs text-text-disabled">
-          Una planeación completa toma 1–2 minutos. No cierres esta página.
+          Estamos redactando y verificando cada sección. Puede tardar unos minutos.
         </p>
       )}
     </div>

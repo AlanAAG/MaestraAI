@@ -87,6 +87,8 @@ type Fortnight = {
   observation_calendar?: Record<string, string[]> | null
   attachment_context?: { name: string; text?: string; path?: string | null }[] | null
   split_documents?: boolean | null
+  format_template_id?: string | null
+  use_system_template?: boolean | null
   groups?: { name?: string; fixed_weekly_schedule?: GroupSchedule | null } | null
 }
 
@@ -106,9 +108,12 @@ export default function PlaneacionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [generationPhase, setGenerationPhase] = useState<
-    'preparing' | 'analyzing' | 'generating' | 'subplanes' | 'done'
+    'preparing' | 'analyzing' | 'generating' | 'repairing' | 'subplanes' | 'done'
   >('preparing')
   const [generationError, setGenerationError] = useState('')
+  const [formatTemplates, setFormatTemplates] = useState<Array<{ id: string; label: string }>>([])
+  const [formatChoice, setFormatChoice] = useState('')
+  const [formatsLoaded, setFormatsLoaded] = useState(false)
   const [vocabularyItems, setVocabularyItems] = useState<VocabularyItem[]>([])
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [showMaterialGenerator, setShowMaterialGenerator] = useState(false)
@@ -137,6 +142,24 @@ export default function PlaneacionDetailPage() {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id])
+
+  useEffect(() => {
+    if (!fortnight) return
+    setFormatsLoaded(false)
+    fetch(`/api/teachers/templates?plan_type=${fortnight.plan_type ?? 'quincena'}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const usable = (data.templates ?? []).filter(
+          (t: { usable?: boolean }) => t.usable !== false
+        )
+        setFormatTemplates(usable)
+        setFormatChoice(
+          fortnight.use_system_template ? '' : (fortnight.format_template_id ?? usable[0]?.id ?? '')
+        )
+      })
+      .catch(() => {})
+      .finally(() => setFormatsLoaded(true))
+  }, [fortnight?.id, fortnight?.plan_type]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadData() {
     try {
@@ -172,6 +195,9 @@ export default function PlaneacionDetailPage() {
       }
 
       setFortnight(fortnightData)
+      setFormatChoice(
+        fortnightData.use_system_template ? '' : (fortnightData.format_template_id ?? '')
+      )
 
       // Default the page orientation to the teacher's format (landscape format → landscape plan).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -310,6 +336,7 @@ export default function PlaneacionDetailPage() {
 
   async function handleGenerateDocument() {
     if (!fortnight) return
+    let completed = false
     setGeneratingDocument(true)
     setGenerationError('')
     setGenerationPhase('preparing')
@@ -319,7 +346,10 @@ export default function PlaneacionDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fortnight_id: fortnight.id }),
       })
-      if (!response.ok) throw new Error('Generation failed')
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error ?? 'No se pudo generar la planeación.')
+      }
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No reader')
       const decoder = new TextDecoder()
@@ -334,6 +364,7 @@ export default function PlaneacionDetailPage() {
           if (!line.trim() || !line.startsWith('data: ')) continue
           const data = line.slice(6)
           if (data === '[DONE]') {
+            completed = true
             setGenerationPhase('done')
             celebrateWarm()
             await loadData()
@@ -364,7 +395,30 @@ export default function PlaneacionDetailPage() {
       console.error('[generate-document]', err)
       setGenerationError(err instanceof Error ? err.message : 'No se pudo generar la planeación.')
     } finally {
-      if (!fortnight?.plan_document) setGeneratingDocument(false)
+      if (!completed) setGeneratingDocument(false)
+    }
+  }
+
+  async function handleRegenerateWithFormat() {
+    if (!fortnight) return
+    if (
+      !window.confirm(
+        'Se creará una nueva versión de la planeación y se reemplazará el texto editado en este documento. ¿Continuar?'
+      )
+    )
+      return
+    setGenerationError('')
+    try {
+      const res = await fetch(`/api/planner/${fortnight.id}/format`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: formatChoice || null }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar el formato')
+      await handleGenerateDocument()
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : 'No se pudo cambiar el formato.')
     }
   }
 
@@ -653,6 +707,44 @@ export default function PlaneacionDetailPage() {
           {/* Plan document view */}
           {fortnight.plan_document && (activeTab === 'document' || lessonPlans.length === 0) && (
             <>
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 print:hidden">
+                <div className="min-w-[220px] flex-1">
+                  <label
+                    htmlFor="plan-format-choice"
+                    className="mb-1 block text-xs font-medium text-text-primary"
+                  >
+                    Formato para una nueva versión
+                  </label>
+                  <select
+                    id="plan-format-choice"
+                    value={formatChoice}
+                    onChange={(e) => setFormatChoice(e.target.value)}
+                    className="w-full min-h-[40px] rounded-lg border border-border bg-surface px-3 text-sm"
+                  >
+                    <option value="">Diseño de MaestraIA</option>
+                    {formatTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleRegenerateWithFormat}
+                  disabled={generatingDocument || !formatsLoaded}
+                >
+                  Rehacer con este formato
+                </Button>
+              </div>
+              {generationError && (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 print:hidden"
+                >
+                  {generationError}
+                </p>
+              )}
               <AnimatePresence>
                 {learnedNote && (
                   <motion.div

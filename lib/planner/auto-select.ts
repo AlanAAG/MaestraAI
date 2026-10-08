@@ -45,14 +45,15 @@ export async function autoSelectNem(
   topic: string,
   notes: string,
   recent: RecentChoices,
-  need: { metodologia: boolean; ejes: boolean }
+  need: { metodologia: boolean; ejes: boolean },
+  signal?: AbortSignal
 ): Promise<{ metodologia?: string; ejes?: string[] }> {
   if (!need.metodologia && !need.ejes) return {}
   const t = `${topic} ${notes}`.trim()
   if (!t) return {}
   try {
     // Lazy import so the pure helpers (and their tests) don't instantiate the Anthropic client.
-    const { streamToString } = await import('@/lib/claude')
+    const { callPlannerJson } = await import('./model')
     const asks: string[] = []
     if (need.metodologia)
       asks.push(
@@ -62,13 +63,11 @@ export async function autoSelectNem(
       asks.push(
         `- "ejes": 2-3 de estos 7 ejes articuladores, los más relacionados con el tema: ${[...EJES_ARTICULADORES].join(' | ')}. Prioriza pertinencia; SOLO como desempate, prefiere ejes distintos de los usados recientemente${recent.ejes.length ? ` (recientes: ${recent.ejes.join(', ')})` : ''}.`
       )
-    const raw = await streamToString(
+    const parsed = await callPlannerJson<{ metodologia?: unknown; ejes?: unknown }>(
       SYSTEM,
-      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}\nElige:\n${asks.join('\n')}\n\nResponde SOLO el JSON, por ejemplo: {"metodologia":"Proyecto","ejes":["Inclusión","Vida saludable"]}`
+      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}\nElige:\n${asks.join('\n')}\n\nResponde SOLO el JSON, por ejemplo: {"metodologia":"Proyecto","ejes":["Inclusión","Vida saludable"]}`,
+      { maxTokens: 600, timeoutMs: 10000, signal, label: 'nem-autofill' }
     )
-    const m = raw.match(/\{[\s\S]*\}/)
-    if (!m) return {}
-    const parsed = JSON.parse(m[0]) as { metodologia?: unknown; ejes?: unknown }
     const out: { metodologia?: string; ejes?: string[] } = {}
     if (
       need.metodologia &&
@@ -85,6 +84,7 @@ export async function autoSelectNem(
     }
     return out
   } catch {
+    signal?.throwIfAborted()
     return {}
   }
 }

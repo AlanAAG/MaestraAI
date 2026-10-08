@@ -6,7 +6,7 @@ import { embed, toVector } from './embeddings'
 
 export const CHUNK_SIZE = 1200
 export const CHUNK_OVERLAP = 200
-const MAX_CHUNKS = 30
+const MAX_CHUNKS = 100
 
 /** Overlapping character chunks, cut on line boundaries when possible. Pure. */
 export function chunkText(text: string, size = CHUNK_SIZE, overlap = CHUNK_OVERLAP): string[] {
@@ -39,8 +39,10 @@ export async function ingestAttachmentChunks(
     const chunks = chunkText(fullText)
     if (!chunks.length) return 0
     const rows = []
+    let embeddingsAvailable = true
     for (let i = 0; i < chunks.length; i++) {
-      const vec = await embed(chunks[i])
+      const vec = embeddingsAvailable ? await embed(chunks[i]) : null
+      if (!vec) embeddingsAvailable = false
       rows.push({
         teacher_id: teacherId,
         attachment_key: attachmentKey,

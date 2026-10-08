@@ -21,6 +21,6 @@ describe('chunkText', () => {
 
   it('caps runaway documents at MAX_CHUNKS', () => {
     const huge = 'palabra '.repeat(50000)
-    expect(chunkText(huge).length).toBeLessThanOrEqual(30)
+    expect(chunkText(huge).length).toBeLessThanOrEqual(100)
   })
 })

@@ -3,6 +3,7 @@ import mammoth from 'mammoth'
 import zlib from 'node:zlib'
 import { validateBase64Image } from '@/lib/file-validation'
 import type { TeacherProfile } from '@/types/teacher-profile'
+import { readDocxStyle } from './docx-style'
 
 // Kept as an alias so existing imports of TemplateData keep compiling.
 export type TemplateData = TeacherProfile
@@ -46,6 +47,7 @@ export function detectDocxOrientation(buf: Buffer): 'horizontal' | 'vertical' | 
 const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quirúrgica para extraer su estructura y contenido REUTILIZABLE. Responde ÚNICAMENTE con JSON válido (sin texto adicional):
 
 {
+  "raw_text": "Para PDF o imagen: transcripción COMPLETA del documento en orden, con títulos, tablas como filas etiquetadas y nombres de alumnos sustituidos por Alumno. Para DOCX omite este campo porque ya tenemos su texto completo.",
   "sections": ["nombre exacto sección 1 verbatim", "..."],
   "sub_plan_types": ["Proyecto", "Centro de Interés", "Taller Crítico"],
   "subplan_inventory": [
@@ -101,9 +103,9 @@ const EXTRACTION_SYSTEM = `Analiza esta planeación escolar con precisión quir�
 REGLAS CRÍTICAS:
 - section_samples: copia LITERAL de cada sección — identifica la sección por su nombre (aunque sea "Desarrollo del Proyecto", "Momentos Pedagógicos", "A trabajar" — mapea al campo más cercano). Solo omite claves de section_samples que genuinamente no existen en el documento.
 - writing_style_samples: copia LITERAL ≥250 chars por fragmento — no parafrasees, no resumas
-- pda_bank: copia los Procesos de Desarrollo de Aprendizaje (PDAs) COMPLETOS tal como aparecen — son la fuente de verdad para la generación; NO los abrevies
+- pda_bank: copia los Procesos de Desarrollo de Aprendizaje (PDAs) COMPLETOS tal como aparecen — son pistas de selección que se verificarán contra el banco oficial; NO los abrevies
 - evaluation_columns: detecta el formato real ("Sí/No/Proceso", "Logrado/En proceso/Requiere apoyo", u otro)
-- sections: TODOS los encabezados en orden exacto, con la ortografía del documento
+- sections: SOLO las secciones PRINCIPALES en orden exacto, con la ortografía del documento. Los momentos y subencabezados internos van en formatting_rules o subplan_inventory; NO los dupliques como secciones principales.
 - subplan_inventory: lista CADA sub-planeación que contiene el documento (Proyecto, Centros de Interés, Talleres, ABJ, etc.) con su metodología, su nombre/título y sus secciones internas. Es CLAVE para reproducir la misma estructura.
 - verb_person: detecta si la maestra escribe en primera persona singular, plural, o infinitivo
 - formatting_rules: detecta los PATRONES DE FORMATO reales del documento (no inventes, observa):
@@ -128,10 +130,15 @@ export async function extractTemplate(input: {
   documentMimeType?: string
 }): Promise<TemplateData> {
   const { imageBase64, imageMimeType, documentBase64, documentMimeType } = input
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY!,
+    timeout: 100000,
+    maxRetries: 0,
+  })
   let userContent: Anthropic.MessageParam['content']
   let sourceText = '' // raw doc text (docx) — used for a graceful fallback if JSON extraction fails
   let detectedOrientation: 'horizontal' | 'vertical' | null = null
+  let detectedDocxStyle: Awaited<ReturnType<typeof readDocxStyle>> = {}
 
   if (imageBase64 && imageMimeType) {
     const validation = await validateBase64Image(imageBase64, imageMimeType)
@@ -171,12 +178,17 @@ export async function extractTemplate(input: {
       // DOCX / DOC path via mammoth
       const buffer = Buffer.from(documentBase64, 'base64')
       detectedOrientation = detectDocxOrientation(buffer)
+      detectedDocxStyle = await readDocxStyle(buffer)
       const { value: docText } = await mammoth.extractRawText({ buffer })
       if (!docText || docText.trim().length < 50) {
         throw new Error('El documento no tiene suficiente texto para analizar.')
       }
+      if (docText.length > 60000)
+        throw new Error(
+          'El formato es demasiado extenso. Sube una sola planeación de ejemplo de hasta 60,000 caracteres para conservarla completa.'
+        )
       sourceText = docText
-      userContent = `Formato de planeación:\n---\n${docText.slice(0, 16000)}\n---`
+      userContent = `Formato de planeación:\n---\n${docText}\n---`
     }
   } else {
     throw new Error('No se recibió ningún archivo.')
@@ -184,7 +196,7 @@ export async function extractTemplate(input: {
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
-    max_tokens: 8000, // rich profile (verbatim PDAs + voice samples) needs room — was truncating
+    max_tokens: 16000, // Full visual transcription plus structured profile; reject truncation below.
     temperature: 0,
     system: EXTRACTION_SYSTEM,
     // Prefill "{" forces a clean JSON start (no prose/fences); we prepend it back below.
@@ -194,34 +206,60 @@ export async function extractTemplate(input: {
     ],
   })
 
-  const raw = '{' + (response.content[0].type === 'text' ? response.content[0].text : '')
+  if (response.stop_reason !== 'end_turn')
+    throw new Error(
+      'La lectura del formato quedó incompleta. Sube una sola planeación de ejemplo o divide el archivo en documentos más pequeños.'
+    )
+  const raw = '{' + response.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n')
   const parsed = tryParseProfile(raw)
 
-  // Graceful fallback — NEVER hard-reject a valid upload. If JSON extraction failed (e.g.
-  // truncation), still store a minimal profile from the raw text so generation gets the voice.
-  const profile: TemplateData =
-    parsed ??
-    (sourceText.trim().length > 50
-      ? {
-          writing_style_samples: chunk(sourceText, 600, 3).map(scrubNames),
-          notes: 'Formato subido; extracción automática parcial.',
-        }
-      : { notes: 'Formato subido; extracción automática no disponible.' })
+  // A voice-only fallback looked successful to the teacher but contained no section order or
+  // layout rules. Reject that upload so it can be retried with a readable document.
+  if (!hasTemplateStructure(parsed)) {
+    throw new Error(
+      'No pude identificar la estructura del formato. Prueba con un PDF legible o un DOCX que contenga texto y encabezados.'
+    )
+  }
+  const profile: TemplateData = parsed
 
   // Stamp the deterministically-detected page orientation (overrides any LLM guess).
-  if (detectedOrientation) {
+  if (detectedOrientation || Object.keys(detectedDocxStyle).length) {
     profile.formatting_rules = {
       ...(profile.formatting_rules ?? {}),
-      page_orientation: detectedOrientation,
+      ...detectedDocxStyle,
+      ...(detectedOrientation && !detectedDocxStyle.page_orientation
+        ? { page_orientation: detectedOrientation }
+        : {}),
     }
   }
 
-  // Keep the FULL document text (name-scrubbed) — fragments lose most of the teacher's voice
-  // and content. Injected at generation as the primary exemplar (cached). ~24k chars ≈ 7k tokens.
-  if (sourceText.trim().length > 200) {
-    profile.raw_text = scrubNames(sourceText).slice(0, 24000)
-  }
+  const fullText = sourceText || profile.raw_text || ''
+  if (fullText.length > 60000)
+    throw new Error(
+      'El ejemplo supera 60,000 caracteres. Sube una sola planeación para conservarla completa.'
+    )
+  if (fullText.trim().length < 50)
+    throw new Error(
+      'No se pudo conservar el texto del ejemplo completo. Prueba con un DOCX o un PDF legible.'
+    )
+  // Protect confirmed headings from the conservative name scrub, which otherwise erases
+  // phrases such as "Actividades Iniciales" and "Taller Crítico" as if they were children.
+  profile.raw_text = scrubTemplateText(fullText, profile)
   return profile
+}
+
+export function hasTemplateStructure(profile: TemplateData | null): profile is TemplateData {
+  return (
+    !!profile &&
+    ((Array.isArray(profile.sections) &&
+      profile.sections.length > 0 &&
+      profile.sections.every((s) => typeof s === 'string' && s.trim().length > 0)) ||
+      (Array.isArray(profile.subplan_inventory) &&
+        profile.subplan_inventory.length > 0 &&
+        profile.subplan_inventory.every(
+          (s) => typeof s?.metodologia === 'string' && s.metodologia.trim().length > 0
+        )))
+  )
 }
 
 function tryParseProfile(raw: string): TemplateData | null {
@@ -245,20 +283,36 @@ function tryParseProfile(raw: string): TemplateData | null {
   }
 }
 
-// LFPDPPP best-effort scrub for the raw-text fallback (the AI path is told to anonymize).
+// LFPDPPP best-effort scrub for the stored raw text (the AI path is told to anonymize).
 // ponytail: replaces runs of 2-3 Capitalized words (the "Nombre Apellido" shape) with "Alumno".
 // Ceiling: also catches capitalized non-name phrases (e.g. school names); acceptable for the
-// rare fallback path. Upgrade to NER if false positives matter.
+// stored example. Upgrade to NER if false positives matter.
 export function scrubNames(text: string): string {
   return text.replace(/\b[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,2}\b/g, 'Alumno')
 }
 
-// Splits text into up to `n` substrings of ~`size` chars (verbatim voice samples).
-function chunk(text: string, size: number, n: number): string[] {
-  const t = text.replace(/\s+/g, ' ').trim()
-  const out: string[] = []
-  for (let i = 0; i < n && i * size < t.length; i++) {
-    out.push(t.slice(i * size, (i + 1) * size))
+export function scrubTemplateText(text: string, profile: TeacherProfile): string {
+  const headings = [
+    ...(profile.sections ?? []),
+    ...(profile.formatting_rules?.proyecto_subheadings ?? []),
+    ...(profile.formatting_rules?.ajustes_subheadings ?? []),
+    ...(profile.subplan_inventory ?? []).flatMap((s) => s.secciones ?? []),
+    'Campos Formativos',
+    'Centro de Interés',
+    'Taller Crítico',
+    'Saberes y Pensamiento Científico',
+    'Ética, Naturaleza y Sociedades',
+    'De lo Humano y lo Comunitario',
+  ]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+  let protectedText = text
+  const replacements: string[] = []
+  for (const heading of Array.from(new Set(headings))) {
+    if (!protectedText.includes(heading)) continue
+    const marker = `⟪${replacements.length}⟫`
+    replacements.push(heading)
+    protectedText = protectedText.split(heading).join(marker)
   }
-  return out
+  return scrubNames(protectedText).replace(/⟪(\d+)⟫/g, (_, i) => replacements[Number(i)] ?? '')
 }
