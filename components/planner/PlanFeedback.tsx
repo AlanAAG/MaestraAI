@@ -15,7 +15,7 @@ type FeedbackState = {
   setOpenSection: (k: string | null) => void
   saveGlobal: (rating: number, comment: string) => Promise<void>
   saveSection: (key: string, comment: string) => Promise<void>
-  regenerateSection: (key: string, comment: string) => Promise<void>
+  regenerateSection: (key: string, comment: string, mode?: 'rewrite' | 'complete') => Promise<void>
 }
 
 const Ctx = createContext<FeedbackState | null>(null)
@@ -94,13 +94,13 @@ export function PlanFeedbackProvider({
       setSectionComments((p) => ({ ...p, [key]: c }))
       setOpenSection(null)
     },
-    regenerateSection: async (key, c) => {
+    regenerateSection: async (key, c, mode = 'rewrite') => {
       setBusySection(key)
       try {
         const res = await fetch('/api/planner/regenerate-section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fortnight_id: fortnightId, section_key: key, comment: c }),
+          body: JSON.stringify({ fortnight_id: fortnightId, section_key: key, comment: c, mode }),
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({}) as { error?: string })
@@ -108,13 +108,19 @@ export function PlanFeedbackProvider({
         }
         setSectionComments((p) => ({ ...p, [key]: c }))
         setOpenSection(null)
-        onReload()
+        await onReload()
       } finally {
         setBusySection(null)
       }
     },
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
+/** Recovery controls can generate even an empty section, which has no inline comment box. */
+export function usePlanSectionRepair() {
+  const ctx = useContext(Ctx)
+  return ctx ? { regenerateSection: ctx.regenerateSection, busySection: ctx.busySection } : null
 }
 
 /** DocSection's hook: null (render nothing) unless inside a provider AND a commentable key. */

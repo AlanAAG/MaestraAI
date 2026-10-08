@@ -271,7 +271,13 @@ export default function MaterialesPage() {
         }),
       })
       if (!res.ok) throw new Error()
-      const { material_ids } = await res.json()
+      const { material_ids, failed_types } = await res.json()
+      if (failed_types?.length)
+        toast.warning(`Se crearon algunos materiales, pero faltaron: ${failed_types.join(', ')}`)
+      else if (material_ids?.length > 1)
+        toast.success(
+          `Se crearon ${material_ids.length} materiales. Todos están en Mis Materiales.`
+        )
       // Navigate to the first created material
       if (material_ids?.length) router.push(`/materiales/${material_ids[0]}`)
     } catch {

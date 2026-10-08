@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Copy, Check, MessageCircle, RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -26,6 +26,8 @@ export function ShareSheet({
   const [copied, setCopied] = useState(false)
   const [renewing, setRenewing] = useState(false)
   const [canNativeShare, setCanNativeShare] = useState(false)
+  const [copyError, setCopyError] = useState(false)
+  const urlInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setCanNativeShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function')
@@ -34,9 +36,16 @@ export function ShareSheet({
   if (!open) return null
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable')
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setCopyError(false)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      urlInput.current?.select()
+      setCopyError(true)
+    }
   }
 
   async function handleNativeShare() {
@@ -81,6 +90,7 @@ export function ShareSheet({
         {/* URL copy row */}
         <div className="flex gap-2">
           <input
+            ref={urlInput}
             readOnly
             value={url}
             className="flex-1 text-xs border border-border rounded-lg px-3 py-2 bg-inset text-text-secondary truncate"
@@ -100,6 +110,11 @@ export function ShareSheet({
             )}
           </button>
         </div>
+        {copyError && (
+          <p role="status" className="text-xs text-text-secondary">
+            Enlace seleccionado: usa Copiar en tu dispositivo.
+          </p>
+        )}
 
         {/* Expiry badge + renew */}
         {expiryLabel && (

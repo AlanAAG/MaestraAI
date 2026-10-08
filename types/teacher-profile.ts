@@ -17,7 +17,7 @@ export type TeacherProfile = {
   actividades_rutina_example?: string
   estrategia_comunitaria_example?: string
 
-  // Full name-scrubbed text of the uploaded example planeación (~24k chars). The primary
+  // Complete name-scrubbed text of the uploaded example planeación (up to 60k chars). The primary
   // voice/content exemplar at generation; fragments alone lose most of the teacher's document.
   raw_text?: string
 
@@ -55,6 +55,10 @@ export type TeacherProfile = {
     // Page orientation detected from the uploaded .docx (w:pgSz orient). Defaults the plan's
     // orientation so a landscape format produces landscape plans. Neutral default: 'vertical'.
     page_orientation?: 'horizontal' | 'vertical'
+    font_family?: string
+    font_size_pt?: number
+    page_size_twips?: { width: number; height: number }
+    page_margins_twips?: { top: number; right: number; bottom: number; left: number }
   }
 
   verb_person?: 'primera_singular' | 'primera_plural' | 'infinitivo'

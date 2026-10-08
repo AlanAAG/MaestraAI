@@ -1,3 +1,4 @@
+import { gameShareUrl } from '@/lib/games/share-url'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: material } = await (supabase as any)
     .from('materials')
-    .select('id, type, play_token')
+    .select('id, type, play_token, fortnight_id')
     .eq('id', params.id)
     .eq('teacher_id', teacher.id)
     .single()
@@ -41,11 +42,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const service = createServiceClient()
+  let studentIds: string[] | null = null
+  if (material.fortnight_id) {
+    const { data: fortnight } = await service
+      .from('fortnights')
+      .select('group_id')
+      .eq('id', material.fortnight_id)
+      .eq('teacher_id', teacher.id)
+      .single()
+    if (!fortnight?.group_id) {
+      return NextResponse.json({ error: 'No se encontró el grupo de este juego.' }, { status: 400 })
+    }
+    const { data: students } = await service
+      .from('students')
+      .select('id')
+      .eq('group_id', fortnight.group_id)
+    studentIds = (students ?? []).map((s) => s.id)
+    if (!studentIds.length) {
+      return NextResponse.json({ error: 'Este grupo aún no tiene alumnos.' }, { status: 400 })
+    }
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: links } = await (service as any)
+  let linksQuery = (service as any)
     .from('parent_links')
     .select('invite_email_encrypted, expires_at, claimed_at, revoked_at')
     .eq('teacher_id', teacher.id)
+  if (studentIds) linksQuery = linksQuery.in('student_id', studentIds)
+  const { data: links } = await linksQuery
 
   const emails: string[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,26 +86,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Aún no hay familias invitadas.' }, { status: 400 })
   }
 
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-  const url = `${base}/jugar/${material.play_token}`
+  const url = gameShareUrl(req.nextUrl.origin, material.play_token)
   const resend = new Resend(process.env.RESEND_API_KEY!)
+  const teacherName = String(teacher.full_name ?? 'La maestra').replace(
+    /[&<>"']/g,
+    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] ?? ch
+  )
 
   let sent = 0
   for (const to of emails) {
     try {
-      await resend.emails.send({
+      const { error: sendError } = await resend.emails.send({
         from: 'MaestraIA <notificaciones@maestraia.com>',
         to,
         replyTo: teacher.email ?? undefined,
         subject: 'Un juego para practicar en casa 🎲',
         html: `<p>Hola,</p>
-<p>${teacher.full_name ?? 'La maestra'} compartió un juego para que su hijo/a practique en casa.</p>
+<p>${teacherName} compartió un juego para que su hijo/a practique en casa.</p>
 <p><a href="${url}">Abrir el juego</a></p>
 <p style="color:#666;font-size:13px">No necesita cuenta: el niño elige un apodo y a jugar.</p>`,
       })
-      sent++
+      if (sendError) console.error('[share-email] send failed:', sendError)
+      else sent++
     } catch (err) {
       console.error('[share-email] send failed:', err)
     }
@@ -94,5 +119,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     resource_id: material.id,
     req,
   })
+  if (!sent) {
+    return NextResponse.json(
+      { error: 'No se pudo enviar el enlace a ninguna familia.' },
+      { status: 502 }
+    )
+  }
   return NextResponse.json({ sent, total: emails.length })
 }

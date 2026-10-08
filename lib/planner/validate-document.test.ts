@@ -60,15 +60,21 @@ describe('validatePlanDocument', () => {
     expect(issues.some((i) => i.issue.includes('aprendizajes esperados'))).toBe(true)
   })
 
-  it('flags structural gaps: ajustes categories, empty campos, thin cronograma', () => {
+  it('flags structural gaps: ajustes categories, empty campos, missing schedule activities', () => {
     const pd = goodPlan()
     pd.ajustes_razonables = '- Solo un párrafo sin categorías.'.padEnd(100, '.')
     pd.campos_formativos = []
-    pd.cronograma = { ...CRON, viernes: ['solo una'] }
+    pd.cronograma = { ...CRON, viernes: [] }
     const issues = validatePlanDocument(pd)
     expect(issues.some((i) => i.section === 'ajustes_razonables')).toBe(true)
     expect(issues.some((i) => i.section === 'campos_formativos')).toBe(true)
     expect(issues.some((i) => i.issue.includes('viernes'))).toBe(true)
+  })
+
+  it('accepts the actual group schedule when a day has fewer than four activities', () => {
+    const pd = goodPlan()
+    pd.cronograma = { ...CRON, viernes: ['Asamblea', 'Lectura con familias'] }
+    expect(validatePlanDocument(pd).filter((issue) => issue.section === 'cronograma')).toEqual([])
   })
 
   it('flags numeric-grade language in evaluation (NEM qualitative rule)', () => {

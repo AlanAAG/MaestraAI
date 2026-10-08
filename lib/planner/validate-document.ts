@@ -74,10 +74,15 @@ export function validatePlanDocument(pd: any): FormatIssue[] {
   const aj = String(pd.ajustes_razonables ?? '')
   if (aj) {
     const cats = (aj.match(/^##\s/gm) ?? []).length
-    if (cats < 5)
+    const expected =
+      Array.isArray(pd._formatting_rules?.ajustes_subheadings) &&
+      pd._formatting_rules.ajustes_subheadings.length
+        ? pd._formatting_rules.ajustes_subheadings.length
+        : 5
+    if (cats < expected)
       issues.push({
         section: 'ajustes_razonables',
-        issue: `solo ${cats} sub-encabezados ## (deben ser 5)`,
+        issue: `solo ${cats} sub-encabezados ## (deben ser ${expected})`,
       })
   }
 
@@ -89,10 +94,10 @@ export function validatePlanDocument(pd: any): FormatIssue[] {
     } else {
       for (const d of DAYS) {
         const acts = (cron as Record<string, unknown>)[d]
-        if (!Array.isArray(acts) || acts.length < 4) {
+        if (!Array.isArray(acts) || acts.length < 1) {
           issues.push({
             section: 'cronograma',
-            issue: `${d}: ${Array.isArray(acts) ? acts.length : 0} actividades (mínimo 4)`,
+            issue: `${d}: faltan las actividades del horario`,
           })
         } else {
           for (const a of acts) scanBanned(`cronograma.${d}`, String(a), issues)

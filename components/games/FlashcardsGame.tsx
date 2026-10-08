@@ -8,6 +8,7 @@ import { celebrate } from '@/lib/ui/celebrate'
 import { VocabVisual } from './VocabVisual'
 import { GameProgress } from './GameProgress'
 import { GameComplete } from './GameComplete'
+import type { GameResult } from '@/hooks/useGameScore'
 
 type Card = {
   word: string
@@ -19,7 +20,7 @@ type Card = {
 type Content = { cards: Card[] }
 interface Props {
   content: Content
-  onComplete?: () => void
+  onComplete?: (result: GameResult) => void
 }
 
 // Student flip-card review: front = picture, tap to reveal word + definition (and hear it).
@@ -45,7 +46,7 @@ export function FlashcardsGame({ content, onComplete }: Props) {
       setDone(true)
       sfx.win()
       celebrate()
-      onComplete?.()
+      onComplete?.({ correct: cards.length, total: cards.length })
       return
     }
     setIndex(ni)

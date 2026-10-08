@@ -11,6 +11,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: material } = await (supabase as any)
+      .from('materials')
+      .select('homework_min_correct')
+      .eq('id', params.id)
+      .single()
+    if (!material) return NextResponse.json({ error: 'Material no encontrado' }, { status: 404 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('game_plays')
       .select('correct, total, passed, created_at, game_players(nickname, avatar)')
@@ -25,12 +32,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         avatar: p.game_players?.avatar ?? '🐣',
         correct: p.correct,
         total: p.total,
-        passed: p.passed,
+        passed:
+          material.homework_min_correct == null ? null : p.correct >= material.homework_min_correct,
         created_at: p.created_at,
       })),
     })
-  } catch {
-    // migration 069 not applied yet → nothing to show, never an error screen
-    return NextResponse.json({ plays: [] })
+  } catch (error) {
+    console.error('[material-plays] load failed:', error)
+    return NextResponse.json({ error: 'No se pudo cargar el seguimiento' }, { status: 500 })
   }
 }

@@ -6,12 +6,15 @@ import { checkRateLimit } from '@/lib/rate-limit'
 // Public: stores one finished run (aciertos) for an anonymous play profile.
 // The profile must belong to the same teacher as the game — a token from another teacher
 // can't write into this teacher's results.
-const Schema = z.object({
-  player_id: z.string().uuid(),
-  correct: z.number().int().min(0).max(500),
-  total: z.number().int().min(0).max(500),
-  duration_s: z.number().int().min(0).max(7200).optional(),
-})
+const Schema = z
+  .object({
+    attempt_id: z.string().uuid().optional(),
+    player_id: z.string().uuid(),
+    correct: z.number().int().min(0).max(500),
+    total: z.number().int().min(0).max(500),
+    duration_s: z.number().int().min(0).max(7200).optional(),
+  })
+  .refine((r) => r.correct <= r.total && r.total > 0)
 
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
   }
-  const { player_id, correct, total, duration_s } = parsed.data
+  const { attempt_id, player_id, correct, total, duration_s } = parsed.data
 
   const supabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,6 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   const min = material.homework_min_correct as number | null
   const passed = min == null ? null : correct >= min
   const { error } = await supabase.from('game_plays').insert({
+    ...(attempt_id ? { id: attempt_id } : {}),
     player_id,
     material_id: material.id,
     teacher_id: material.teacher_id,
@@ -60,6 +64,23 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     passed,
   })
   if (error) {
+    if (error.code === '23505' && attempt_id) {
+      const { data: prior } = await supabase
+        .from('game_plays')
+        .select('player_id, material_id, correct, total, duration_s, passed')
+        .eq('id', attempt_id)
+        .single()
+      if (
+        prior?.player_id === player_id &&
+        prior.material_id === material.id &&
+        prior.correct === correct &&
+        prior.total === total &&
+        prior.duration_s === (duration_s ?? null)
+      ) {
+        return NextResponse.json({ saved: true, passed: prior.passed, min_correct: min })
+      }
+      return NextResponse.json({ error: 'Este intento ya fue utilizado.' }, { status: 409 })
+    }
     console.error('[game-result] insert failed:', error)
     return NextResponse.json({ error: 'No pude guardar el resultado.' }, { status: 500 })
   }

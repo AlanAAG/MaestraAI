@@ -1,16 +1,9 @@
-// Topic-relevance pre-selection of official NEM Contenidos.
-// The model used to free-pick from the full 35-contenido bank and was FORCED to fill all 4
-// campos → it shoehorned an irrelevant "Saberes y Pensamiento Científico" into unrelated
-// projects (Alejandra's #1 complaint). Here a cheap Haiku call shortlists the contenidos that
-// can be worked AUTHENTICALLY through the project topic; the main prompt then builds
-// campos_formativos from this list only. Best-effort: any failure → [] and the prompt falls
-// back to its full-bank behavior.
-// ponytail: 35 items → a Haiku shortlist, not embeddings/RAG. Upgrade to vectors only if a
-// flat menu measurably underperforms.
+// Select official curriculum rows through the bounded, fallback-capable planner transport.
+// An empty or failed selection stops generation before any ungrounded document is produced.
 import { CONTENIDOS_FASE2_3, type ContenidoPDA } from './contenidos-fase2'
 import { officialProcesos, type EnforceOptions } from './enforce-contenidos'
 
-const SELECT_SYSTEM = `Eres una asistente pedagógica experta en el NEM (preescolar, Fase 2). Recibes el TEMA de un proyecto y una lista numerada de Contenidos oficiales de los 4 Campos Formativos. Devuelve ÚNICAMENTE un arreglo JSON con los ÍNDICES de los Contenidos que pueden trabajarse de forma AUTÉNTICA y DIRECTA a través de ese tema. No fuerces campos que no se relacionen con el tema: es preferible 2-3 campos pertinentes que los 4. Normalmente 4-8 contenidos. Responde SOLO el arreglo, por ejemplo: [0,3,12,18]`
+const SELECT_SYSTEM = `Eres una asistente pedagógica experta en el NEM (preescolar, Fase 2). Recibes el TEMA de un proyecto y una lista numerada de Contenidos oficiales de los 4 Campos Formativos. Devuelve ÚNICAMENTE un objeto JSON con la clave "indices", un arreglo con los ÍNDICES de los Contenidos que pueden trabajarse de forma AUTÉNTICA y DIRECTA a través de ese tema. No fuerces campos que no se relacionen con el tema: es preferible 2-3 campos pertinentes que los 4. Normalmente 4-8 contenidos. Responde SOLO el objeto, por ejemplo: {"indices":[0,3,12,18]}`
 
 /** Numbered menu of every contenido (index-stable with CONTENIDOS_FASE2_3). */
 export function buildContenidoMenu(): string {
@@ -23,7 +16,8 @@ export function mapSelection(indices: unknown): ContenidoPDA[] {
   const seen = new Set<number>()
   const out: ContenidoPDA[] = []
   for (const raw of indices) {
-    const i = typeof raw === 'number' ? raw : Number(raw)
+    if (typeof raw !== 'number' && (typeof raw !== 'string' || !/^\d+$/.test(raw))) continue
+    const i = Number(raw)
     if (Number.isInteger(i) && i >= 0 && i < CONTENIDOS_FASE2_3.length && !seen.has(i)) {
       seen.add(i)
       out.push(CONTENIDOS_FASE2_3[i])
@@ -83,20 +77,21 @@ ${body}
 }
 
 /**
- * Shortlist the contenidos relevant to a project topic. Best-effort — returns [] on any
- * failure (no key, bad JSON, empty topic) so the caller keeps the full-bank prompt behavior.
+ * Shortlist only official rows relevant to the project. Provider and empty-selection failures
+ * are surfaced to the caller; they must never trigger ungrounded free-form curriculum.
  */
 export async function selectRelevantContenidos(
   topic: string,
   notes = '',
   hint: string[] = [],
-  avoid: string[] = []
+  avoid: string[] = [],
+  signal?: AbortSignal
 ): Promise<ContenidoPDA[]> {
   const t = `${topic} ${notes}`.trim()
   if (!t) return []
   try {
     // Lazy import so the pure helpers (and their tests) don't instantiate the Anthropic client.
-    const { streamToString } = await import('@/lib/claude')
+    const { callPlannerJson } = await import('@/lib/planner/model')
     const hintLine = hint.length
       ? `LA MAESTRA SUELE TRABAJAR ESTOS CONTENIDOS (dales preferencia si son pertinentes al tema):\n${hint
           .slice(0, 12)
@@ -110,14 +105,19 @@ export async function selectRelevantContenidos(
           .map((a) => `- ${a}`)
           .join('\n')}\n`
       : ''
-    const raw = await streamToString(
+    const result = await callPlannerJson<{ indices?: unknown }>(
       SELECT_SYSTEM,
-      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}${hintLine}${avoidLine}\nCONTENIDOS DISPONIBLES:\n${buildContenidoMenu()}`
+      `TEMA DEL PROYECTO: ${topic}\n${notes ? `NOTAS: ${notes}\n` : ''}${hintLine}${avoidLine}\nCONTENIDOS DISPONIBLES:\n${buildContenidoMenu()}`,
+      { maxTokens: 600, timeoutMs: 15000, signal, label: 'curriculum-selection' }
     )
-    const m = raw.match(/\[[\d,\s]*\]/)
-    if (!m) return []
-    return mapSelection(JSON.parse(m[0]))
-  } catch {
-    return []
+    const rows = mapSelection(result.indices)
+    if (!rows.length)
+      throw new Error(
+        'No se pudieron seleccionar contenidos oficiales pertinentes. Elige los contenidos de la unidad e intenta de nuevo.'
+      )
+    return rows
+  } catch (error) {
+    signal?.throwIfAborted()
+    throw error
   }
 }

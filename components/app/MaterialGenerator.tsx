@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { X, Sparkles, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { DifficultySelector, type Difficulty } from '@/components/app/materials/DifficultySelector'
 import { celebrateWarm } from '@/lib/ui/celebrate'
+import { toast } from 'sonner'
 
 type LetterActivityType = 'hear_and_circle' | 'match_to_letter' | 'trace_and_say'
 const LETTER_ACTIVITY_OPTIONS: { id: LetterActivityType; label: string; sub: string }[] = [
@@ -168,6 +169,12 @@ export function MaterialGenerator({
         if (!res.ok) {
           const d = await res.json()
           throw new Error(d.error || 'Error al generar materiales')
+        }
+        const generated = await res.json()
+        if (generated.failed_types?.length) {
+          toast.warning(
+            `No se pudieron crear: ${generated.failed_types.join(', ')}. Los demás materiales sí están listos.`
+          )
         }
       }
 

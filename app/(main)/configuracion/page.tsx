@@ -520,7 +520,8 @@ export default function ConfiguracionPage() {
           )}
         </div>
         <p className="text-sm text-text-secondary mb-4">
-          Sube el formato de tu escuela (.docx recomendado) y el AI lo seguirá exactamente
+          Sube el formato de tu escuela (.docx recomendado). MaestraIA detectará sus secciones,
+          orden, redacción y propiedades de Word para acercarse al ejemplo.
         </p>
 
         {/* Template list */}
@@ -548,6 +549,17 @@ export default function ConfiguracionPage() {
                       {t.is_school_official && (
                         <span className="rounded-full bg-warning-light px-2 py-0.5 text-[0.65rem] font-semibold text-warning-text">
                           Formato de la escuela
+                        </span>
+                      )}
+                      {t.usable === false && (
+                        <span className="rounded-full bg-warning-light px-2 py-0.5 text-[0.65rem] font-semibold text-warning-text">
+                          Extracción incompleta · vuelve a subirlo
+                        </span>
+                      )}
+                      {t.usable !== false && t.has_full_example === false && (
+                        <span className="text-xs text-warning-text">
+                          Este formato conserva solo fragmentos. Vuelve a subir el ejemplo para
+                          seguirlo completo.
                         </span>
                       )}
                       {isOwner && t.shared_with_school && !t.is_school_official && (

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Clock, Volume2, VolumeX, Play, Pause, RotateCcw } from 'lucide-react'
 import { useGameAudio } from '@/hooks/useGameAudio'
 import { WordSearchGame } from './WordSearchGame'
@@ -56,6 +56,7 @@ export function GameShell({ type, content, vocabulary, onResult, minCorrect }: P
   const [started, setStarted] = useState(false)
   const [paused, setPaused] = useState(false)
   const [done, setDone] = useState(false)
+  const finished = useRef(false)
   const [seconds, setSeconds] = useState(0)
   const [runId, setRunId] = useState(0) // bump to remount (restart) the game fresh
   const [result, setResult] = useState<GameResult | null>(null)
@@ -73,6 +74,8 @@ export function GameShell({ type, content, vocabulary, onResult, minCorrect }: P
 
   // A run finished: remember the aciertos and hand them to the page (which stores them).
   function finish(r?: GameResult) {
+    if (finished.current) return
+    finished.current = true
     setDone(true)
     setResult(r ?? null)
     if (r) onResult?.({ ...r, durationS: seconds })
@@ -83,6 +86,7 @@ export function GameShell({ type, content, vocabulary, onResult, minCorrect }: P
     setStarted(true)
     setPaused(false)
     setDone(false)
+    finished.current = false
     setResult(null)
     setSeconds(0)
     play()
@@ -98,6 +102,7 @@ export function GameShell({ type, content, vocabulary, onResult, minCorrect }: P
   function restart() {
     setSeconds(0)
     setDone(false)
+    finished.current = false
     setResult(null)
     setPaused(false)
     setRunId((r) => r + 1)
@@ -106,6 +111,7 @@ export function GameShell({ type, content, vocabulary, onResult, minCorrect }: P
   function replay() {
     setSeconds(0)
     setDone(false)
+    finished.current = false
     setResult(null)
     setRunId((r) => r + 1)
     if (!muted) play()
@@ -118,7 +124,10 @@ export function GameShell({ type, content, vocabulary, onResult, minCorrect }: P
         onComplete={finish}
       />
     ) : type === 'bingo' ? (
-      <StudentBingoCard content={content as Parameters<typeof StudentBingoCard>[0]['content']} />
+      <StudentBingoCard
+        content={content as Parameters<typeof StudentBingoCard>[0]['content']}
+        onComplete={finish}
+      />
     ) : type === 'memory_game' ? (
       <MemoryMatch
         pairs={(content.pairs as Parameters<typeof MemoryMatch>[0]['pairs']) ?? []}
@@ -232,7 +241,7 @@ export function GameShell({ type, content, vocabulary, onResult, minCorrect }: P
               title={passed ? '¡Muy bien!' : '¡Casi!'}
               sub={
                 result
-                  ? `${result.correct} de ${result.total} aciertos · ${clock}` +
+                  ? `${type === 'bingo' ? 'Bingo completado' : type === 'flashcards' ? `${result.total} tarjetas repasadas` : `${result.correct} de ${result.total} aciertos`} · ${clock}` +
                     (passed ? '' : ` · necesitas ${minCorrect} para terminar la tarea`)
                   : `Terminaste en ${clock}`
               }

@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import {
   Loader2,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { applyNeeNames } from '@/lib/planner/nee-names'
+import { refreshPlanHealth } from '@/lib/planner/plan-health'
 import { normalizeActivityLabel, bulletizeMomentos } from '@/lib/planner/normalize-document'
 import { displayFirstName } from '@/lib/planner/observation'
 import { FONT_MAP, type FontKey } from '@/lib/design/fonts'
@@ -22,6 +23,8 @@ import {
   PlanFeedbackFooter,
   SectionCommentBox,
   useSectionFeedback,
+  usePlanSectionRepair,
+  COMMENTABLE,
 } from '@/components/planner/PlanFeedback'
 
 type Design = {
@@ -105,7 +108,12 @@ type PlanDoc = {
   // Embedded at generation time from teacher's profile — drives dynamic section order + titles.
   _section_order?: string[]
   _section_titles?: Record<string, string>
-  _formatting_rules?: { section_title_trailing_colon?: boolean }
+  _formatting_rules?: {
+    section_title_trailing_colon?: boolean
+    font_family?: string
+    font_size_pt?: number
+    page_margins_twips?: { top: number; right: number; bottom: number; left: number }
+  }
   _nee_mapping?: Record<string, string>
   /** Enfoque pedagógico label, stamped at generation (lib/planner/enfoques.ts). */
   _enfoque?: string
@@ -117,15 +125,18 @@ type GroupSchedule = {
   numeros_day?: string
 }
 
-// Amber, dismissible, print-hidden. The teacher fixes with Editar or "Regenerar con este
-// comentario" on the flagged section — this banner just makes the validator's findings visible.
-function FormatIssuesBanner({
+// Recovery is available here even when an empty section has no inline editor.
+export function FormatIssuesBanner({
   issues,
+  titles = {},
 }: {
   issues: { section: string; issue: string; severity?: 'error' | 'aviso' }[]
+  titles?: Record<string, string>
 }) {
   const [open, setOpen] = useState(true)
-  if (!open) return null
+  const [repairError, setRepairError] = useState('')
+  const repair = usePlanSectionRepair()
+  if (!open || !issues.length) return null
   // Something actually missing reads very differently from a formatting nit — a red banner for
   // "Letters no se generó", the amber one for polish. Old plans have no severity: treat as nits.
   const errors = issues.filter((i) => i.severity === 'error')
@@ -155,8 +166,8 @@ function FormatIssuesBanner({
             <p className={`text-sm font-medium ${tone.title}`}>
               {bad
                 ? shown.length === 1
-                  ? 'Falta una parte de esta planeación'
-                  : `Faltan ${shown.length} partes de esta planeación`
+                  ? 'Hay una sección por completar'
+                  : `Hay ${shown.length} secciones por completar`
                 : shown.length === 1
                   ? 'Un detalle de formato que vale la pena revisar'
                   : `${shown.length} detalles de formato que vale la pena revisar`}
@@ -164,16 +175,55 @@ function FormatIssuesBanner({
             <ul className={`mt-1 space-y-0.5 text-xs ${tone.body}`}>
               {shown.slice(0, 5).map((i, k) => (
                 <li key={k}>
-                  <span className="font-semibold">{i.section}</span>: {i.issue}
+                  <span className="font-semibold">
+                    {titles[i.section] ?? DEFAULT_TITLES[i.section] ?? i.section}
+                  </span>
+                  :{' '}
+                  {i.issue.includes('faltante o demasiado corta')
+                    ? 'Necesita contenido completo.'
+                    : i.issue}
+                  {i.severity === 'error' && COMMENTABLE.has(i.section) && repair && (
+                    <button
+                      type="button"
+                      disabled={!!repair.busySection}
+                      className="ml-2 inline-flex min-h-[36px] items-center gap-1 rounded-md border border-red-300 px-2 font-medium disabled:opacity-50"
+                      onClick={async () => {
+                        setRepairError('')
+                        try {
+                          await repair.regenerateSection(
+                            i.section,
+                            'Completa esta sección con actividades detalladas y listas para usar, siguiendo el tema, fechas y formato de la planeación. Conserva el texto existente y desarrolla lo que falta.',
+                            'complete'
+                          )
+                        } catch (error) {
+                          setRepairError(
+                            error instanceof Error
+                              ? error.message
+                              : 'No se pudo completar la sección.'
+                          )
+                        }
+                      }}
+                    >
+                      {repair.busySection === i.section && (
+                        <Loader2 size={12} className="animate-spin" />
+                      )}
+                      {repair.busySection === i.section ? 'Completando…' : 'Completar esta sección'}
+                    </button>
+                  )}
                 </li>
               ))}
               {shown.length > 5 && <li>… y {shown.length - 5} más</li>}
             </ul>
             <p className={`mt-1.5 text-xs ${tone.hint}`}>
               {bad
-                ? 'Vuelve a generar la parte que falta; el resto del documento no se pierde.'
+                ? 'Completa las secciones pendientes. Tus cambios en el resto del documento se conservan.'
                 : 'Corrígelo con “Editar” o con un comentario + “Regenerar” en esa sección.'}
             </p>
+            {repairError && (
+              <p role="alert" className="mt-2 text-xs text-red-800">
+                {repairError}
+              </p>
+            )}
           </div>
         </div>
         <button
@@ -914,6 +964,7 @@ const DEFAULT_TITLES: Record<string, string> = {
   ejes_articuladores: 'Ejes Articuladores',
   campos_formativos: 'Campos Formativos',
   proyecto: 'Del Proyecto',
+  desarrollo_taller: 'Desarrollo del Taller',
   cronograma: 'Cronograma de Actividades Diarias',
   evaluacion_items: 'Evaluación de Aprendizajes',
 }
@@ -1158,7 +1209,7 @@ interface PlanDocumentViewerProps {
 export type SplitDoc = 'main' | 'letters' | 'numeros'
 
 export function PlanDocumentViewer({
-  planDocument: pd,
+  planDocument,
   fortnightId,
   observationCalendar,
   schedule,
@@ -1175,6 +1226,8 @@ export function PlanDocumentViewer({
   activeDoc = 'main',
   onActiveDocChange,
 }: PlanDocumentViewerProps) {
+  // Revalidate the current normalized content, never the warnings saved before editing.
+  const pd = useMemo(() => refreshPlanHealth(planDocument) as PlanDoc, [planDocument])
   const isQuincena = pd.tipo !== 'taller'
   // Split mode: which of the three documents is on screen (main sections vs one sub-plan).
   const split = splitDocuments && isQuincena
@@ -1263,13 +1316,13 @@ export function PlanDocumentViewer({
           orientation === 'horizontal' ? 'max-w-5xl' : 'max-w-3xl'
         }`}
         style={{
-          fontSize: `${design.size}px`,
-          fontFamily: FONT_MAP[design.font],
+          fontSize: `${pd._formatting_rules?.font_size_pt ? (pd._formatting_rules.font_size_pt * 96) / 72 : design.size}px`,
+          fontFamily: pd._formatting_rules?.font_family ?? FONT_MAP[design.font],
           lineHeight: SPACING_MAP[design.spacing ?? 'normal'],
           // Headings inside the sheet are styled via var(--font-dm-sans) in globals.css; pin the
           // vars to the DOCUMENT font so the app-wide interface font can't leak into the paper.
-          ['--font-dm-sans' as string]: FONT_MAP[design.font],
-          ['--font-inter' as string]: FONT_MAP[design.font],
+          ['--font-dm-sans' as string]: pd._formatting_rules?.font_family ?? FONT_MAP[design.font],
+          ['--font-inter' as string]: pd._formatting_rules?.font_family ?? FONT_MAP[design.font],
           ['--doc-accent' as string]: design.accent,
           ['--doc-border' as string]: INTENSITY_MAP[design.lineIntensity],
         }}
@@ -1301,7 +1354,9 @@ export function PlanDocumentViewer({
 
         {/* Format-quality banner: the strict validator found details worth a look. Discreet,
             dismissible per render, never printed. */}
-        {(pd._format_issues?.length ?? 0) > 0 && <FormatIssuesBanner issues={pd._format_issues!} />}
+        {(pd._format_issues?.length ?? 0) > 0 && (
+          <FormatIssuesBanner issues={pd._format_issues!} titles={pd._section_titles} />
+        )}
 
         {/* Split documents: pick which planeación is on screen (also drives print + DOCX). */}
         {split && (

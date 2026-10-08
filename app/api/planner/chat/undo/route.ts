@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { normalizePlanDocument } from '@/lib/planner/normalize-document'
+import { refreshPlanHealth } from '@/lib/planner/plan-health'
 import { storePlaneacionEmbedding, planEmbeddingText } from '@/lib/planner/embeddings'
 
 /**
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const restored = normalizePlanDocument(msg.plan_snapshot as Record<string, unknown>)
+    const restored = refreshPlanHealth(msg.plan_snapshot as Record<string, unknown>)
     const { error } = await db
       .from('fortnights')
       .update({ plan_document: restored })

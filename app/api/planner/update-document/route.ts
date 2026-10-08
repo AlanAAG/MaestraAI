@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { storePlaneacionEmbedding, planEmbeddingText } from '@/lib/planner/embeddings'
-import { normalizePlanDocument } from '@/lib/planner/normalize-document'
+import { refreshPlanHealth } from '@/lib/planner/plan-health'
 
 const EDITABLE_SECTIONS = new Set([
   'actividades_iniciales',
@@ -88,7 +88,7 @@ export async function PATCH(req: NextRequest) {
 
     const original = typeof originalRaw === 'string' ? originalRaw : JSON.stringify(originalRaw)
     // Normalize so an edit can never (re)introduce a non-string narrative section.
-    const updated = normalizePlanDocument({
+    const updated = refreshPlanHealth({
       ...(fn.plan_document as Record<string, unknown>),
       [section]: parsedValue,
     })

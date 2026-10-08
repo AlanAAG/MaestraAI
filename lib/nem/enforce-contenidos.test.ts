@@ -79,13 +79,13 @@ describe('enforceCamposFormativos', () => {
     expect(out.map((c) => c.campo)).toEqual(['Lenguajes', 'Saberes y Pensamiento Científico'])
   })
 
-  it('returns input unchanged when malformed or nothing matches', () => {
-    expect(enforceCamposFormativos('not an array')).toBe('not an array')
-    expect(enforceCamposFormativos(undefined)).toBeUndefined()
+  it('rejects malformed or wholly invented content instead of passing it through', () => {
+    expect(enforceCamposFormativos('not an array')).toEqual([])
+    expect(enforceCamposFormativos(undefined)).toEqual([])
     const nothingMatches = [
       { campo: 'X', contenidos: [{ contenido: 'puro invento sin relación alguna', procesos: [] }] },
     ]
-    expect(enforceCamposFormativos(nothingMatches)).toBe(nothingMatches)
+    expect(enforceCamposFormativos(nothingMatches)).toEqual([])
   })
 })
 

@@ -12,6 +12,8 @@ export function buildRegeneratePrompt(args: {
   styleSamples?: string[]
   /** NEE cases for this plan — only meaningful when rewriting ajustes_razonables. */
   neeContext?: string
+  /** Existing plan context and formatting, including when the requested section is empty. */
+  documentContext?: string
 }): string {
   const prefs = args.preferences?.trim()
     ? `\n<preferencias_aprendidas>\n${args.preferences.trim()}\n</preferencias_aprendidas>\n`
@@ -31,8 +33,9 @@ export function buildRegeneratePrompt(args: {
   return `Proyecto: ${args.projectName}
 Sección a reescribir: ${args.sectionKey}
 ${prefs}${voice}${nee}
+${args.documentContext ? `CONTEXTO Y FORMATO DE LA PLANEACIÓN:\n${args.documentContext}\n` : ''}
 TEXTO ACTUAL DE LA SECCIÓN:
-${args.currentText.slice(0, 8000)}
+${args.currentText.trim() ? args.currentText.slice(0, 8000) : '(Sección pendiente: genera su contenido completo.)'}
 
 INSTRUCCIÓN DE LA MAESTRA (obligatoria):
 ${args.comment}

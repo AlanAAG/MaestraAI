@@ -7,10 +7,11 @@
  * were previously invisible: a rejected sub-plan only reached console.error, so the teacher was
  * left to notice the hole herself.
  *
- * Pure and cheap: no I/O, never throws, never blocks delivery. Issues are stamped on the document
- * and rendered by the viewer.
+ * Local validation with no network or database access. Generation decides whether an error
+ * blocks saving; the viewer rechecks the current content after edits.
  */
 import { validatePlanDocument } from './validate-document'
+import { normalizePlanDocument, sectionToString } from './normalize-document'
 
 export type Severity = 'error' | 'aviso'
 export type HealthIssue = { section: string; issue: string; severity: Severity }
@@ -36,10 +37,10 @@ const SUB_LABEL: Record<string, string> = {
 }
 
 /** A sub-plan counts as generated only if it actually carries teaching content. */
-function subPlanIsEmpty(sp: SubPlan | undefined): boolean {
+export function subPlanIsEmpty(sp: SubPlan | undefined): boolean {
   if (!sp) return true
   const body = Object.values(sp.estructura_didactica ?? {})
-    .map((v) => (typeof v === 'string' ? v : ''))
+    .map(sectionToString)
     .join(' ')
     .trim()
   return body.length < 80
@@ -66,6 +67,9 @@ export function checkPlanHealth(
   if (!pd || typeof pd !== 'object') {
     return [{ section: 'documento', issue: 'no se generó', severity: 'error' }]
   }
+  // Validate the same text that the viewer/exporter receive. The model sometimes returns
+  // complete activities as arrays or labeled objects; those are not missing sections.
+  pd = normalizePlanDocument(pd)
 
   // ── Everything validate-document already knows ──
   // A missing or stub section means the generation genuinely failed; the rest is polish.
@@ -129,4 +133,20 @@ export function checkPlanHealth(
   }
 
   return issues
+}
+
+/** Recompute warnings after edits and when opening older plans with stale generation warnings. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function refreshPlanHealth(pd: any, expectations?: PlanExpectations): any {
+  const normalized = normalizePlanDocument(pd)
+  if (!normalized || typeof normalized !== 'object') return normalized
+  const exp = expectations ??
+    normalized._health_expectations ?? {
+      planType: normalized.tipo === 'taller' ? 'taller' : 'quincena',
+    }
+  return {
+    ...normalized,
+    _health_expectations: exp,
+    _format_issues: checkPlanHealth(normalized, exp),
+  }
 }

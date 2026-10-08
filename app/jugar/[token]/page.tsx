@@ -152,12 +152,14 @@ export default async function JugarPage({ params }: Props) {
       <main className="max-w-3xl mx-auto py-6 px-4 sm:px-6">
         <TeacherVocabImages map={imageMap}>
           <PlayerGate
+            key={`${material.teacher_id}:${params.token}`}
             token={params.token}
             type={material.type as string}
             content={material.content as Record<string, unknown>}
             vocabulary={(material.vocabulary as string[]) ?? []}
             minCorrect={minCorrect}
             initialPlayer={initialPlayer}
+            teacherId={material.teacher_id as string}
           />
         </TeacherVocabImages>
       </main>
