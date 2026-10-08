@@ -16,11 +16,11 @@ Automated coverage exercises provider truncation, malformed JSON, fallback outag
 
 The opt-in command `PLANNER_LIVE_SMOKE=1 npx vitest run lib/planner/generation.live.test.ts --reporter=verbose` generates a fictional main plan plus Letters and Números with the locally configured providers. It does not access teacher records or save a plan to the database. The live attempt on October 6, 2026 did not complete: the primary provider returned HTTP 403 “Request not allowed,” and fallback requests timed out. This establishes an access/connectivity problem in this test environment, not proof that production uses the same configuration or has the same failure.
 
-The changes have not been deployed. Apply migrations `090_fortnight_format_template.sql` (exact format selection) and `091_atomic_plan_document_save.sql` (atomic document saves) before deploying the application. The save function runs with the caller's privileges, retains RLS, and checks teacher ownership. Comparing documents inside this function avoids putting large JSON documents in a URL. A successful provider-backed generation and a production user-flow check remain necessary before declaring the full workflow verified in production.
+At the initial review, the changes had not been deployed. The required migrations are `090_fortnight_format_template.sql` (exact format selection) and `091_atomic_plan_document_save.sql` (atomic document saves) (applied on October 8 after authentication was restored). The save function runs with the caller's privileges, retains RLS, and checks teacher ownership. Comparing documents inside this function avoids putting large JSON documents in a URL. A successful provider-backed generation and a production user-flow check remain necessary before declaring the full workflow verified in production.
 
 ## October 8 follow-up: sources, preparation and homework
 
-Read-only checks against the configured database found seven saved plans, five carrying stored warnings. All seven already contained substantial initial and routine activities (685–1,353 and 777–1,696 characters respectively). Two of five saved template profiles contained section excerpts but no full example text. There were 33 materials, two shared links, and no recorded game attempts. These counts describe the configured database at inspection time; no teacher data was changed. The `fortnights.format_template_id` column was confirmed missing, so migration 090 is still required.
+Read-only checks against the configured database found seven saved plans, five carrying stored warnings. All seven already contained substantial initial and routine activities (685–1,353 and 777–1,696 characters respectively). Two of five saved template profiles contained section excerpts but no full example text. There were 33 materials, two shared links, and no recorded game attempts. These counts describe the configured database at inspection time; no teacher data was changed. The `fortnights.format_template_id` column was confirmed missing, and was added by migration 090 during the authenticated release check.
 
 Additional defects corrected:
 
@@ -44,7 +44,7 @@ The final release review found and fixed two additional source-loss paths: creat
 
 The current patch passes **413 tests**, type checking and a production build (including lint). `npm run release:check -- --origin https://maestraia.com` performs repeatable schema and public-link checks without printing keys or teacher content. At review time, it correctly fails the missing format-selection column (090) and atomic save RPC (091). The other queried tables pass. Both existing production game pages respond successfully without login; deliberately invalid public player/result requests reach the API and return 404, rather than an authentication or rate-configuration failure. Production redirects to `www.maestraia.com`, so mutation probes use that canonical page origin.
 
-**Release is not yet cleared for production.** The GitHub CLI's saved login is rejected, but Git's credential helper successfully authenticated and published the release branch. Draft PR: https://github.com/AlanAAG/MaestraAI/pull/1. Supabase and Vercel management access remain logged out. Those credentials and the real-provider generation smoke test remain release blockers. Do not merge or promote the application to production while the migration preflight fails. A branch preview may build for review without changing production.
+**Initial release review (superseded by the authenticated checks below):** The GitHub CLI's saved login is rejected, but Git's credential helper successfully authenticated and published the release branch. Draft PR: https://github.com/AlanAAG/MaestraAI/pull/1. Supabase and Vercel management access remain logged out. Those credentials and the real-provider generation smoke test remain release blockers. Do not merge or promote the application to production while the migration preflight fails. A branch preview may build for review without changing production.
 
 Release sequence once access is restored:
 
@@ -54,3 +54,17 @@ Release sequence once access is restored:
 4. Promote the verified deployment to production, verify the deployment commit, and rerun the public-link checks. If the application must be rolled back, restore the previous Vercel deployment; leave the additive columns/function in place. Do not drop the new column or overwrite teachers' documents.
 
 Do not mark an AI or production round trip as passed on the strength of mocked tests. Legacy uploads whose full text was discarded still require re-upload; the interface flags formats containing only excerpts.
+
+## Authenticated preview verification — October 8
+
+Supabase and Vercel access were restored. Migration history matched through 089; the dry run contained only 090 and 091, and both were applied successfully to the linked production database. The read-only release preflight now passes every schema and anonymous-route check.
+
+Using a disposable synthetic teacher, group, student, plan and game on the branch preview:
+
+- The teacher created a persistent homework URL. An anonymous child created a nickname profile, saved a completed attempt and retried it; only one database row was recorded. The teacher retrieved the result, associated the child's code with the synthetic roster student, and saw completed homework.
+- A fresh headless Chrome profile completed the actual flashcards interface without an app login. Blocking the result request produced a retry message and a durable pending attempt. Unblocking and reloading restored the nickname, saved the pending result and displayed the saved-progress confirmation.
+- A synthetic Word example was uploaded through the deployed extraction API. Its complete source, three custom project headings, evaluation columns, Century Gothic font, page size, landscape orientation and margins were retained.
+- Actual deployed AI generation completed the main plan, Letters and Números with no missing-section failures. All six curriculum rows across the three plans matched the official content and complete second-grade PDAs verbatim. The selected example's headings, order and evaluation columns were preserved. Earlier local-provider failures did not reproduce on the deployment.
+- Inspecting the exported Word ZIP caught another defect: the API ignored template orientation when omitted, and horizontal requests swapped dimensions twice because the `docx` library already rotates them. The exporter now resolves explicit teacher choice → uploaded orientation → source dimensions and passes portrait dimensions to the library. Four regression tests inspect real generated Word XML, covering template defaults, explicit horizontal/vertical choices, typography, margins and legacy Letter paper. The corrected preview export must pass before production promotion.
+
+Rollback reference before this release: production deployment `dpl_BPTLF192b7CwNkmsskp1BSmxi4Z3` (`maestra-hp60kj2ej-alan-ayalas-projects-4b7879e2.vercel.app`). Keep migrations 090–091 in place if reverting the app. No real teacher plans or student attempts were changed by these synthetic checks.

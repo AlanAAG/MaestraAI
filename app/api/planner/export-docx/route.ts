@@ -103,6 +103,7 @@ type PlanDocument = {
     section_title_trailing_colon?: boolean
     font_family?: string
     font_size_pt?: number
+    page_orientation?: 'horizontal' | 'vertical'
     page_size_twips?: { width: number; height: number }
     page_margins_twips?: { top: number; right: number; bottom: number; left: number }
   }
@@ -768,21 +769,20 @@ export async function POST(req: NextRequest) {
     const doc = new Document({
       sections: [
         {
-          // Landscape must swap the page dimensions, not just set the flag — otherwise the
-          // page stays portrait-sized (the "horizontal/vertical looks the same" bug). Letter size.
+          // docx swaps dimensions for landscape internally. Always supply the portrait
+          // dimensions so the orientation flag and actual Word page geometry agree.
           properties: {
             page: {
               size: (() => {
                 const original = templateStyle?.page_size_twips ?? { width: 12240, height: 15840 }
-                const landscape = body.data.orientation === 'horizontal'
+                const landscape =
+                  (body.data.orientation ??
+                    templateStyle?.page_orientation ??
+                    (original.width > original.height ? 'horizontal' : 'vertical')) === 'horizontal'
                 return {
                   orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
-                  width: landscape
-                    ? Math.max(original.width, original.height)
-                    : Math.min(original.width, original.height),
-                  height: landscape
-                    ? Math.min(original.width, original.height)
-                    : Math.max(original.width, original.height),
+                  width: Math.min(original.width, original.height),
+                  height: Math.max(original.width, original.height),
                 }
               })(),
               ...(templateStyle?.page_margins_twips
