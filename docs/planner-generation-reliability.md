@@ -44,7 +44,7 @@ The final release review found and fixed two additional source-loss paths: creat
 
 The current patch passes **413 tests**, type checking and a production build (including lint). `npm run release:check -- --origin https://maestraia.com` performs repeatable schema and public-link checks without printing keys or teacher content. At review time, it correctly fails the missing format-selection column (090) and atomic save RPC (091). The other queried tables pass. Both existing production game pages respond successfully without login; deliberately invalid public player/result requests reach the API and return 404, rather than an authentication or rate-configuration failure. Production redirects to `www.maestraia.com`, so mutation probes use that canonical page origin.
 
-**Release is not yet cleared or deployed.** GitHub's saved login is rejected, and the Supabase and Vercel CLIs are logged out. These are external release blockers, in addition to the outstanding real-provider generation smoke test. The branch must not be merged/deployed while the migration preflight fails.
+**Release is not yet cleared for production.** The GitHub CLI's saved login is rejected, but Git's credential helper successfully authenticated and published the release branch. Draft PR: https://github.com/AlanAAG/MaestraAI/pull/1. Supabase and Vercel management access remain logged out. Those credentials and the real-provider generation smoke test remain release blockers. Do not merge or promote the application to production while the migration preflight fails. A branch preview may build for review without changing production.
 
 Release sequence once access is restored:
 
