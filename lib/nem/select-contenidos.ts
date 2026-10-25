@@ -90,7 +90,7 @@ export async function selectRelevantContenidos(
   const t = `${topic} ${notes}`.trim()
   if (!t) return []
   try {
-    // Lazy import so the pure helpers (and their tests) don't instantiate the Anthropic client.
+    // Lazy import so the pure helpers (and their tests) don't instantiate the OpenAI client.
     const { callPlannerJson } = await import('@/lib/planner/model')
     const hintLine = hint.length
       ? `LA MAESTRA SUELE TRABAJAR ESTOS CONTENIDOS (dales preferencia si son pertinentes al tema):\n${hint

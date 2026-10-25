@@ -37,7 +37,7 @@
     <text x="149" y="219" fill="#FFFFFF" text-anchor="middle">NEM aligned</text>
 
     <rect x="218" y="200" rx="14" ry="14" width="132" height="28" fill="#E4007C"/>
-    <text x="284" y="219" fill="#FFFFFF" text-anchor="middle">Claude powered</text>
+    <text x="284" y="219" fill="#FFFFFF" text-anchor="middle">OpenAI powered</text>
 
     <rect x="360" y="200" rx="14" ry="14" width="130" height="28" fill="#1F8A70"/>
     <text x="425" y="219" fill="#FFFFFF" text-anchor="middle">maestraia.com</text>

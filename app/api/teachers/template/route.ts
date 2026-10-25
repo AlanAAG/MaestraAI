@@ -1,7 +1,8 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAIProvider, { type MessageParam, type TextBlockParam } from '@/lib/ai/openai-provider'
 import { validateBase64Image } from '@/lib/file-validation'
 import { checkRateLimit } from '@/lib/rate-limit'
 import mammoth from 'mammoth'
@@ -70,11 +71,11 @@ export async function POST(req: NextRequest) {
 
     const { imageBase64, imageMimeType, documentBase64, documentMimeType } = body.data
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-    let userContent: Anthropic.MessageParam['content']
+    const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
+    let userContent: MessageParam['content']
 
     if (imageBase64 && imageMimeType) {
-      // Image path — Claude Vision
+      // Image path — OpenAI vision
       const validation = await validateBase64Image(imageBase64, imageMimeType)
       if (!validation.valid) return NextResponse.json({ error: validation.error }, { status: 400 })
 
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (documentMimeType === 'application/pdf') {
-        // PDF path — Claude document API (native PDF support, zero extra deps)
+        // PDF path — OpenAI file input (native PDF support, zero extra deps)
         userContent = [
           {
             type: 'document',
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
               media_type: 'application/pdf',
               data: documentBase64,
             },
-          } as unknown as Anthropic.TextBlockParam,
+          } as unknown as TextBlockParam,
           {
             type: 'text',
             text: 'Analiza este formato de planeación escolar y extrae su estructura en el JSON indicado.',
@@ -140,10 +141,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se recibió ningún archivo.' }, { status: 400 })
     }
 
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5',
+    const response = await provider.messages.create({
+      jsonMode: true,
+      model: OPENAI_MODELS.routine,
       max_tokens: 800,
-      temperature: 0,
       system: SYSTEM,
       messages: [{ role: 'user', content: userContent }],
     })

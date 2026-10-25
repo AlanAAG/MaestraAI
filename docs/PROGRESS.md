@@ -1,16 +1,18 @@
 MaestraAI — Project Progress
-Claude: update this file after every coding session before ending. Add what was built, what changed, and what's next. Keep it accurate — this is the single source of truth for project state.
+Update this file after every coding session before ending. Add what was built, what changed, and what's next. Keep it accurate — this is the single source of truth for project state.
 
 Current phase: Phase 6 — Quality & Polish
 
 ## Current state
 
 - Next.js 14 App Router + Tailwind v3 + shadcn/ui + Supabase
-- **272 tests passing (60 files)**, typecheck + lint clean, production build on Vercel
+- **423 tests passing (85 files)**, typecheck and local production build pass
 - Migrations applied through **083**
 - Migration ledger repaired — `supabase db push` works normally
 
 ## What exists
+
+- **OpenAI-only API migration (2026-10-25)**: All active Anthropic calls now use the OpenAI Responses API through `lib/ai/openai-provider.ts`, including planner generation/chat, diary streaming, materials, vocabulary, contacts, and PDF/image extraction. Routine work uses GPT-6 Luna, with `gpt-4o-mini` if Luna is unavailable; incomplete/invalid planning responses retry with GPT-6.1 Sol. The ten-day planner also rejects missing or empty days before saving. Embeddings remain `text-embedding-3-small`. Removed the Anthropic SDK and local revoked-key entry; updated setup and privacy copy. Added migration 092 to label new material records as OpenAI. Typecheck and all 423 tests pass. `npm run ai:smoke` checks access to both new model tiers; live verification is pending because outbound requests timed out in this environment. Vercel Production and Preview have `OPENAI_API_KEY`, though the key and model access are unverified; code deployment and migration 092 remain pending.
 
 See git history for full feature log. Major systems:
 
@@ -67,7 +69,7 @@ See git history for full feature log. Major systems:
 
 ## Pending migrations
 
-None — everything through **089** applied (2026-08-29), types regenerated from linked project.
+**092_materials_openai_default.sql** — created locally for this migration; apply to production after deployment. Earlier migration status should be checked against the linked project before pushing.
 
 ## What does NOT exist yet
 

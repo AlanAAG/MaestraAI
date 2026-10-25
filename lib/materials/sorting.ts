@@ -1,4 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { OPENAI_MODELS } from '@/lib/ai/models'
+import OpenAIProvider from '@/lib/ai/openai-provider'
 import type { FortnightContext } from './types'
 import { extractJson } from './ai-json'
 import { sanitizeEmoji } from './emoji'
@@ -35,7 +36,7 @@ export async function buildSortingGame(
   ctx: FortnightContext,
   imageMap: Record<string, string> = {}
 ): Promise<SortingContent> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+  const client = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
 
   const prompt = `You are creating a vocabulary sorting game for Kinder 3 students (ages 5-6) learning English in Mexico.
 
@@ -71,9 +72,9 @@ Return ONLY valid JSON with no markdown or explanation:
 Assign EVERY vocabulary word to exactly one category. Use 2 to 4 categories.`
 
   const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    jsonMode: true,
+    model: OPENAI_MODELS.routine,
     max_tokens: 2048,
-    temperature: 0.3,
     messages: [{ role: 'user', content: prompt }],
   })
 

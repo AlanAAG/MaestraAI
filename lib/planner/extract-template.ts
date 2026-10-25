@@ -1,4 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { OPENAI_MODELS } from '@/lib/ai/models'
+import OpenAIProvider, { type MessageParam, type TextBlockParam } from '@/lib/ai/openai-provider'
 import mammoth from 'mammoth'
 import zlib from 'node:zlib'
 import { validateBase64Image } from '@/lib/file-validation'
@@ -121,7 +122,7 @@ REGLAS CRÍTICAS:
 - Si una sección no existe en el documento, omite ese campo (NO inventes)
 - PRIVACIDAD (LFPDPPP): NUNCA copies nombres propios de alumnos. Si un fragmento contiene el nombre de un alumno, sustitúyelo por "Alumno". No extraigas datos personales de menores.`
 
-type ClaudeImageMimeType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+type ImageMimeType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
 export async function extractTemplate(input: {
   imageBase64?: string
@@ -130,12 +131,12 @@ export async function extractTemplate(input: {
   documentMimeType?: string
 }): Promise<TemplateData> {
   const { imageBase64, imageMimeType, documentBase64, documentMimeType } = input
-  const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY!,
+  const provider = new OpenAIProvider({
+    apiKey: process.env.OPENAI_API_KEY!,
     timeout: 100000,
     maxRetries: 0,
   })
-  let userContent: Anthropic.MessageParam['content']
+  let userContent: MessageParam['content']
   let sourceText = '' // raw doc text (docx) — used for a graceful fallback if JSON extraction fails
   let detectedOrientation: 'horizontal' | 'vertical' | null = null
   let detectedDocxStyle: Awaited<ReturnType<typeof readDocxStyle>> = {}
@@ -149,7 +150,7 @@ export async function extractTemplate(input: {
         type: 'image',
         source: {
           type: 'base64',
-          media_type: imageMimeType as ClaudeImageMimeType,
+          media_type: imageMimeType as ImageMimeType,
           data: imageBase64,
         },
       },
@@ -168,7 +169,7 @@ export async function extractTemplate(input: {
         {
           type: 'document',
           source: { type: 'base64', media_type: 'application/pdf', data: documentBase64 },
-        } as unknown as Anthropic.TextBlockParam,
+        } as unknown as TextBlockParam,
         {
           type: 'text',
           text: 'Analiza este formato de planeación escolar y extrae su estructura.',
@@ -194,23 +195,19 @@ export async function extractTemplate(input: {
     throw new Error('No se recibió ningún archivo.')
   }
 
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5',
+  const response = await provider.messages.create({
+    jsonMode: true,
+    model: OPENAI_MODELS.routine,
     max_tokens: 16000, // Full visual transcription plus structured profile; reject truncation below.
-    temperature: 0,
     system: EXTRACTION_SYSTEM,
-    // Prefill "{" forces a clean JSON start (no prose/fences); we prepend it back below.
-    messages: [
-      { role: 'user', content: userContent },
-      { role: 'assistant', content: '{' },
-    ],
+    messages: [{ role: 'user', content: userContent }],
   })
 
   if (response.stop_reason !== 'end_turn')
     throw new Error(
       'La lectura del formato quedó incompleta. Sube una sola planeación de ejemplo o divide el archivo en documentos más pequeños.'
     )
-  const raw = '{' + response.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n')
+  const raw = response.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n')
   const parsed = tryParseProfile(raw)
 
   // A voice-only fallback looked successful to the teacher but contained no section order or

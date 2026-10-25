@@ -1,76 +1,74 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { callPlannerJson, callPlannerModel, parsePlanJson } from './model'
 
-const mocks = vi.hoisted(() => ({ primary: vi.fn(), fallback: vi.fn() }))
-vi.mock('@anthropic-ai/sdk', () => ({
+const create = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/ai/openai-provider', () => ({
   default: class {
-    messages = { stream: () => ({ finalMessage: mocks.primary }) }
+    messages = { create }
   },
+  shouldTryAnotherModel: (error: { status?: number }) =>
+    ![400, 401, 403, 429].includes(error.status ?? 0),
 }))
-vi.mock('openai', () => ({
-  default: class {
-    chat = { completions: { create: mocks.fallback } }
-  },
-}))
-const primary = (text: string, stop = 'end_turn') => ({
+const reply = (text: string, stop_reason = 'end_turn') => ({
   content: [{ type: 'text', text }],
-  stop_reason: stop,
+  stop_reason,
   usage: { input_tokens: 20, output_tokens: 20 },
 })
-const fallback = (text: string, stop = 'stop') => ({
-  choices: [{ finish_reason: stop, message: { content: text } }],
-})
-
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
   vi.stubEnv('OPENAI_API_KEY', 'test-key')
 })
 afterEach(() => vi.unstubAllEnvs())
 
-describe('planner provider failure recovery', () => {
-  it('rejects even parseable JSON when the provider reports truncation', async () => {
-    mocks.primary.mockResolvedValue(primary('{"proyecto":"incompleto"}', 'max_tokens'))
-    mocks.fallback.mockResolvedValue(fallback('{"proyecto":"completo"}'))
+describe('planner OpenAI model recovery', () => {
+  it('retries an incomplete Luna response with Sol', async () => {
+    create
+      .mockResolvedValueOnce(reply('{"proyecto":"parcial"}', 'max_tokens'))
+      .mockResolvedValueOnce(reply('{"proyecto":"completo"}'))
     expect(await callPlannerJson('JSON', 'plan')).toEqual({ proyecto: 'completo' })
-    expect(mocks.fallback).toHaveBeenCalledOnce()
+    expect(create.mock.calls.map((call) => call[0].model)).toEqual(['gpt-6-luna', 'gpt-6.1-sol'])
   })
 
-  it('does not salvage truncated output when there is no fallback configured', async () => {
-    vi.stubEnv('OPENAI_API_KEY', '')
-    mocks.primary.mockResolvedValue(primary('{"proyecto":"parcial"}', 'max_tokens'))
+  it('retries invalid Luna JSON and rejects an incomplete Sol response', async () => {
+    create
+      .mockResolvedValueOnce(reply('{"proyecto":'))
+      .mockResolvedValueOnce(reply('{"proyecto":"parcial"}', 'max_tokens'))
     await expect(callPlannerJson('JSON', 'plan')).rejects.toThrow('incompleta')
   })
 
-  it('retries invalid primary JSON once and rejects a truncated fallback', async () => {
-    mocks.primary.mockResolvedValue(primary('{"proyecto":'))
-    mocks.fallback.mockResolvedValue(fallback('{"proyecto":"parcial"}', 'length'))
-    await expect(callPlannerJson('JSON', 'plan')).rejects.toThrow('no terminó')
-    expect(mocks.fallback).toHaveBeenCalledOnce()
-  })
-
-  it('does not require JSON from the fallback when rewriting plain text', async () => {
-    mocks.primary.mockRejectedValue(new Error('unavailable'))
-    mocks.fallback.mockResolvedValue(fallback('Clima: observaremos el cielo.'))
+  it('accepts plain text for section rewriting', async () => {
+    create.mockResolvedValueOnce(reply('Clima: observaremos el cielo.'))
     expect(await callPlannerModel('Solo texto', 'Completa la sección')).toBe(
       'Clima: observaremos el cielo.'
     )
-    expect(mocks.fallback.mock.calls[0][0]).not.toHaveProperty('response_format')
-    expect(mocks.fallback.mock.calls[0][1]).toMatchObject({ maxRetries: 0, timeout: 75000 })
+    expect(create.mock.calls[0][0]).toMatchObject({
+      model: 'gpt-6-luna',
+      system: 'Solo texto',
+      messages: [{ role: 'user', content: 'Completa la sección' }],
+    })
   })
 
-  it('reports a provider outage clearly when primary access is rejected and fallback times out', async () => {
-    mocks.primary.mockRejectedValue(new Error('403 Request not allowed'))
-    mocks.fallback.mockRejectedValue(new Error('Request timed out'))
+  it('reports a provider outage when both model tiers fail', async () => {
+    create
+      .mockRejectedValueOnce(new Error('unavailable'))
+      .mockRejectedValueOnce(new Error('timeout'))
     await expect(callPlannerJson('JSON', 'plan')).rejects.toThrow(
       'servicio de IA no está disponible'
     )
-    expect(mocks.fallback).toHaveBeenCalledOnce()
+    expect(create).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not pay for a second model attempt after an authentication failure', async () => {
+    create.mockRejectedValueOnce(Object.assign(new Error('bad key'), { status: 401 }))
+    await expect(callPlannerModel('text', 'plan')).rejects.toThrow(
+      'servicio de IA no está disponible'
+    )
+    expect(create).toHaveBeenCalledOnce()
   })
 
   it('collects all text blocks in a completed response', async () => {
-    mocks.primary.mockResolvedValue({
-      ...primary('Inicio'),
+    create.mockResolvedValueOnce({
+      ...reply('Inicio'),
       content: [
         { type: 'text', text: 'Inicio' },
         { type: 'text', text: 'Cierre' },
@@ -79,14 +77,20 @@ describe('planner provider failure recovery', () => {
     expect(await callPlannerModel('text', 'plan')).toBe('Inicio\nCierre')
   })
 
-  it('does not start or retry calls after the generation deadline', async () => {
+  it('does not call a model after the generation deadline', async () => {
     const controller = new AbortController()
     controller.abort(new Error('deadline'))
     await expect(callPlannerJson('JSON', 'plan', { signal: controller.signal })).rejects.toThrow(
       'deadline'
     )
-    expect(mocks.primary).not.toHaveBeenCalled()
-    expect(mocks.fallback).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('requires a configured OpenAI key', async () => {
+    vi.stubEnv('OPENAI_API_KEY', '')
+    await expect(callPlannerModel('text', 'plan')).rejects.toThrow(
+      'servicio de IA no está disponible'
+    )
   })
 
   it('rejects null and arrays instead of treating them as a plan', () => {

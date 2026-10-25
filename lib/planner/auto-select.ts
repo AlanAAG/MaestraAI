@@ -52,7 +52,7 @@ export async function autoSelectNem(
   const t = `${topic} ${notes}`.trim()
   if (!t) return {}
   try {
-    // Lazy import so the pure helpers (and their tests) don't instantiate the Anthropic client.
+    // Lazy import so the pure helpers (and their tests) don't instantiate the OpenAI client.
     const { callPlannerJson } = await import('./model')
     const asks: string[] = []
     if (need.metodologia)

@@ -1,8 +1,9 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAIProvider, { type TextBlockParam } from '@/lib/ai/openai-provider'
 import mammoth from 'mammoth'
 import { PDFDocument } from 'pdf-lib'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -12,14 +13,14 @@ import { ingestAttachmentChunks } from '@/lib/planner/attachment-rag'
 // Extracts the TEXT of a reference file the teacher attached at plan creation. The file was
 // uploaded straight to Storage (signed URL — see ./upload-url) so heavy multi-page documents
 // don't hit Vercel's ~4.5MB API body cap. Only the extracted text survives: the file itself is
-// deleted right after extraction. PDF/images → Claude Haiku transcription; DOCX → mammoth.
+// deleted right after extraction. PDF/images → OpenAI transcription; DOCX → mammoth.
 
 export const maxDuration = 300
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50MB upload cap
-// Claude's per-request PDF ceiling is 32MB / 100 pages — bigger PDFs get SPLIT by pages
+// Split large PDFs into smaller requests for reliable transcription
 // (pdf-lib) and transcribed part by part.
-const CLAUDE_PDF_BYTES = 28 * 1024 * 1024
+const PDF_PART_BYTES = 28 * 1024 * 1024
 const MAX_TEXT = 60000
 
 const Schema = z.object({
@@ -89,11 +90,11 @@ export async function POST(req: NextRequest) {
       const { value } = await mammoth.extractRawText({ buffer })
       text = value ?? ''
     } else {
-      if (!process.env.ANTHROPIC_API_KEY) {
+      if (!process.env.OPENAI_API_KEY) {
         return NextResponse.json({ error: 'Extracción no disponible.' }, { status: 503 })
       }
-      const anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
+      const provider = new OpenAIProvider({
+        apiKey: process.env.OPENAI_API_KEY,
         timeout: 60000,
         maxRetries: 0,
       })
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
                   media_type: 'application/pdf',
                   data: buf.toString('base64'),
                 },
-              } as unknown as Anthropic.TextBlockParam)
+              } as unknown as TextBlockParam)
             : ({
                 type: 'image',
                 source: {
@@ -115,11 +116,10 @@ export async function POST(req: NextRequest) {
                   media_type: media as 'image/jpeg' | 'image/png' | 'image/webp',
                   data: buf.toString('base64'),
                 },
-              } as unknown as Anthropic.TextBlockParam)
-        const resp = await anthropic.messages.create({
-          model: 'claude-haiku-4-5',
+              } as unknown as TextBlockParam)
+        const resp = await provider.messages.create({
+          model: OPENAI_MODELS.routine,
           max_tokens: 16000,
-          temperature: 0,
           messages: [
             { role: 'user', content: [source, { type: 'text', text: TRANSCRIBE + note }] },
           ],
@@ -131,8 +131,8 @@ export async function POST(req: NextRequest) {
         return resp.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('\n')
       }
 
-      if (mimeType === 'application/pdf' && buffer.length > CLAUDE_PDF_BYTES) {
-        // Heavy scanned PDF: split into page-halves until each part fits Claude's ceiling,
+      if (mimeType === 'application/pdf' && buffer.length > PDF_PART_BYTES) {
+        // Heavy scanned PDF: split into page-halves until each part fits the request size threshold,
         // transcribe up to 3 parts and stitch. Order preserved; parts beyond 3 are dropped
         // (the prompt cap would truncate them anyway).
         const src = await PDFDocument.load(buffer, { ignoreEncryption: true })
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
           )
           pages.forEach((pg) => doc.addPage(pg))
           const bytes = Buffer.from(await doc.save())
-          if (bytes.length <= CLAUDE_PDF_BYTES || b - a <= 1) parts.push(bytes)
+          if (bytes.length <= PDF_PART_BYTES || b - a <= 1) parts.push(bytes)
           else {
             const mid = a + Math.ceil((b - a) / 2)
             queue.unshift([mid, b])

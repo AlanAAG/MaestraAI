@@ -1,4 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { OPENAI_MODELS } from '@/lib/ai/models'
+import OpenAIProvider from '@/lib/ai/openai-provider'
 import { MATCHING_PROMPT } from '@/prompts/materials'
 import { keepVocabItems } from './own-vocab'
 import { classContextBlock, type FortnightContext } from './types'
@@ -23,21 +24,21 @@ export async function buildMatching(
   context?: FortnightContext,
   imageMap?: Record<string, string>
 ): Promise<MatchingContent> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
 
   const contextBlock = classContextBlock(context)
 
   const prompt = contextBlock + MATCHING_PROMPT.replace('{vocabulary}', vocabulary.join(', '))
 
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+  const response = await provider.messages.create({
+    jsonMode: true,
+    model: OPENAI_MODELS.routine,
     max_tokens: 2048,
-    temperature: 0.3,
     messages: [{ role: 'user', content: prompt }],
   })
 
   const content = response.content[0]
-  if (content.type !== 'text') throw new Error('Unexpected response type from Claude')
+  if (content.type !== 'text') throw new Error('Unexpected response type from OpenAI')
 
   const result = extractJson(content.text) as MatchingContent
 

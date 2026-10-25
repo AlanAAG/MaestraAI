@@ -11,9 +11,9 @@ type DayPlan = {
 
 const DAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes']
 
-export function parseClaudeResponse(text: string, startDate: string): DayPlan[] {
+export function parsePlanResponse(text: string, startDate: string): DayPlan[] {
   // Extract JSON from markdown code blocks if present
-  // Try direct parse first — handles clean JSON from both GPT-4o-mini and Claude
+  // Try direct JSON before accepting a markdown wrapper.
   let parsed: unknown
   try {
     parsed = JSON.parse(text.trim())
@@ -27,16 +27,20 @@ export function parseClaudeResponse(text: string, startDate: string): DayPlan[] 
     try {
       parsed = JSON.parse(jsonText)
     } catch {
-      throw new Error('Failed to parse Claude response')
+      throw new Error('Failed to parse plan response')
     }
   }
 
-  // GPT-4o-mini wraps the array in an object: { "days": [...] }
+  // Plan generation returns an object with a days array.
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'days' in parsed) {
     parsed = (parsed as Record<string, unknown>).days
   }
 
-  if (!Array.isArray(parsed)) throw new Error('Claude response is not a JSON array')
+  if (!Array.isArray(parsed)) throw new Error('Plan response is not a JSON array')
+  if (parsed.length !== 10) throw new Error('La IA no generó los 10 días de la planeación')
+  if (parsed.some((day) => !day || !Array.isArray(day.blocks) || day.blocks.length === 0)) {
+    throw new Error('La IA devolvió un día sin actividades')
+  }
 
   const start = new Date(startDate)
   const plans: DayPlan[] = []

@@ -1,7 +1,8 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAIProvider, { type MessageParam } from '@/lib/ai/openai-provider'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { encrypt, decrypt } from '@/lib/encryption'
 
@@ -75,9 +76,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 })
 
     const { pasteText, imageBase64, imageMimeType } = parsed.data
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+    const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
 
-    const userContent: Anthropic.MessageParam['content'] =
+    const userContent: MessageParam['content'] =
       imageBase64 && imageMimeType
         ? [
             {
@@ -96,10 +97,10 @@ export async function POST(req: NextRequest) {
           ]
         : `Lista de contactos:\n${pasteText}`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5',
+    const response = await provider.messages.create({
+      jsonMode: true,
+      model: OPENAI_MODELS.routine,
       max_tokens: 1024,
-      temperature: 0,
       system: EXTRACT_SYSTEM,
       messages: [{ role: 'user', content: userContent }],
     })

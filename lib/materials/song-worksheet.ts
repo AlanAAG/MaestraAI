@@ -1,4 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { OPENAI_MODELS } from '@/lib/ai/models'
+import OpenAIProvider from '@/lib/ai/openai-provider'
 import { SONG_WORKSHEET_PROMPT } from '@/prompts/materials'
 
 export type LyricLineOption = {
@@ -27,29 +28,29 @@ export async function buildSongWorksheet(
   songTitle: string,
   keyVocabulary: string[]
 ): Promise<SongWorksheetContent> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
 
   const prompt = SONG_WORKSHEET_PROMPT.replace('{transcript}', transcript.slice(0, 4000))
     .replace('{song_title}', songTitle || 'Unknown')
     .replace('{key_vocabulary}', keyVocabulary.join(', '))
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-5',
+  const response = await provider.messages.create({
+    jsonMode: true,
+    model: OPENAI_MODELS.routine,
     max_tokens: 2048,
-    thinking: { type: 'disabled' },
     messages: [{ role: 'user', content: prompt }],
   })
 
   const content = response.content[0]
-  if (content.type !== 'text') throw new Error('Unexpected response type from Claude')
+  if (content.type !== 'text') throw new Error('Unexpected response type from OpenAI')
 
   const jsonMatch =
     content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
   const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
-  if (!raw) throw new Error('Claude no devolvió JSON válido')
+  if (!raw) throw new Error('La IA no devolvió JSON válido')
   try {
     return JSON.parse(raw) as SongWorksheetContent
   } catch {
-    throw new Error('Respuesta de Claude no es JSON válido')
+    throw new Error('La respuesta de la IA no es JSON válido')
   }
 }

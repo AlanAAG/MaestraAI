@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { extractTemplate } from './extract-template'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), text: vi.fn() }))
-vi.mock('@anthropic-ai/sdk', () => ({
+vi.mock('@/lib/ai/openai-provider', () => ({
   default: class {
     messages = { create: mocks.create }
   },
@@ -15,7 +15,7 @@ const docx = {
 }
 const pdf = { documentBase64: 'YQ==', documentMimeType: 'application/pdf' }
 const response = (profile: object, stop_reason = 'end_turn') => ({
-  content: [{ type: 'text', text: JSON.stringify(profile).slice(1) }],
+  content: [{ type: 'text', text: JSON.stringify(profile) }],
   stop_reason,
 })
 beforeEach(() => vi.clearAllMocks())

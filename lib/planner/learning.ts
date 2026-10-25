@@ -1,7 +1,8 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 // Self-improving planeaciones: distill a teacher's accumulated edited plans + corrections into an
 // evolving style profile (refreshed writing samples + a short learned-preferences note) that is
 // injected into future generations. All DB calls are best-effort (graceful until migration 055).
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAIProvider from '@/lib/ai/openai-provider'
 import type { TeacherProfile } from '@/types/teacher-profile'
 import type { FeedbackRow } from './feedback'
 import { planEmbeddingText } from './embeddings'
@@ -123,7 +124,7 @@ export async function refreshLearnedProfile(
   teacherId: string,
   planType: string
 ): Promise<{ source_count: number } | null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null
+  if (!process.env.OPENAI_API_KEY) return null
   try {
     // Recent plans of this type (voice source) + recent corrections (preference source).
     const { data: plans } = await supabase
@@ -159,18 +160,15 @@ export async function refreshLearnedProfile(
     const sourceCount = planTexts.length + corr.length + fb.length
     if (sourceCount === 0) return null
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    const resp = await anthropic.messages.create({
-      model: 'claude-haiku-4-5',
+    const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
+    const resp = await provider.messages.create({
+      jsonMode: true,
+      model: OPENAI_MODELS.routine,
       max_tokens: 1500,
-      temperature: 0,
       system: DISTILL_SYSTEM,
-      messages: [
-        { role: 'user', content: buildDistillUserPrompt(planTexts, corr, fb) },
-        { role: 'assistant', content: '{' },
-      ],
+      messages: [{ role: 'user', content: buildDistillUserPrompt(planTexts, corr, fb) }],
     })
-    const raw = '{' + (resp.content[0]?.type === 'text' ? resp.content[0].text : '')
+    const raw = resp.content[0]?.type === 'text' ? resp.content[0].text : ''
     let parsed: { writing_style_samples?: string[]; preferences?: string }
     try {
       parsed = JSON.parse(raw)

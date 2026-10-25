@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { DIARIO_SYSTEM_PROMPT } from '@/prompts/diario'
-import { streamToReadable } from '@/lib/claude'
+import { streamToReadable } from '@/lib/ai/diary-stream'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { createClient } from '@/lib/supabase/server'
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const { q1, q2, q3, q4, q5, teacherName, weekStart, weekEnd } = parsed.data
   const sanitizedName = teacherName.replace(/[\r\n]/g, ' ')
 
-  // Heuristic strip of likely student names before sending to Anthropic.
+  // Heuristic strip of likely student names before sending to OpenAI.
   // The diary is a public endpoint so we can't query the teacher's student list;
   // this regex catches capitalized proper-name sequences (2–3 words) as a best-effort guard.
   function stripProperNames(text: string): string {

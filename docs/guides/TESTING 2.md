@@ -88,7 +88,7 @@ Verify `.env.local` has:
 NEXT_PUBLIC_SUPABASE_URL=your_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-ANTHROPIC_API_KEY=your_anthropic_key
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 ## Testing Checklist
@@ -146,8 +146,8 @@ ANTHROPIC_API_KEY=your_anthropic_key
 - [ ] Should show "Planeación lista para generar" card
 - [ ] Click "Generar Planeación"
 - [ ] Should see loading phases: Preparando → Analizando → Generando
-- [ ] **This requires ANTHROPIC_API_KEY** - will fail without it
-- [ ] **Check console** for Claude API errors
+- [ ] **This requires OPENAI_API_KEY** - will fail without it
+- [ ] **Check console** for OpenAI API errors
 
 ### Phase 5: Configuración
 
@@ -203,9 +203,9 @@ WHERE t.auth_id = auth.uid();
 -- Should return 1 row with matching UUIDs
 ```
 
-**3. Claude API generation fails**
+**3. OpenAI API generation fails**
 
-- Check `ANTHROPIC_API_KEY` is set in `.env.local`
+- Check `OPENAI_API_KEY` is set in `.env.local`
 - Check API key has credits
 - Check console for exact API error message
 - Verify `/api/planner/generate` endpoint is accessible

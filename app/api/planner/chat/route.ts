@@ -1,5 +1,9 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAIProvider, {
+  type MessageParam,
+  type ToolResultBlockParam,
+} from '@/lib/ai/openai-provider'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -31,8 +35,8 @@ const Schema = z.object({
   message: z.string().trim().min(1).max(2000),
 })
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const MODEL = 'claude-sonnet-5'
+const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
+const MODEL = OPENAI_MODELS.routine
 
 const sse = (o: unknown) => `data: ${JSON.stringify(o)}\n\n`
 
@@ -103,7 +107,7 @@ export async function POST(req: NextRequest) {
           // call in the same turn sees the first one's result.
           let planDoc = fn.plan_document as Record<string, unknown>
 
-          const messages: Anthropic.MessageParam[] = [
+          const messages: MessageParam[] = [
             {
               role: 'user',
               content: `${buildPlanContext(planDoc, (fn as { nee_notes?: string | null }).nee_notes)}\n\n${turns[0]?.content ?? ''}`,
@@ -114,7 +118,7 @@ export async function POST(req: NextRequest) {
           // Agentic loop: the model may edit several sections before its final reply.
           // Bounded so a misbehaving turn can't spin.
           for (let step = 0; step < 6; step++) {
-            const res = await anthropic.messages.create({
+            const res = await provider.messages.create({
               model: MODEL,
               max_tokens: 8000,
               system: CHAT_SYSTEM,
@@ -132,7 +136,7 @@ export async function POST(req: NextRequest) {
             const toolUses = res.content.filter((b) => b.type === 'tool_use')
             if (!toolUses.length) break
 
-            const results: Anthropic.ToolResultBlockParam[] = []
+            const results: ToolResultBlockParam[] = []
             for (const tu of toolUses) {
               const input = tu.input as {
                 seccion?: string

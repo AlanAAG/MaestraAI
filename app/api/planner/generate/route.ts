@@ -1,13 +1,13 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
+import OpenAIProvider, { shouldTryAnotherModel } from '@/lib/ai/openai-provider'
 import { isProniApplicable } from '@/lib/nem-official-data'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decryptName } from '@/lib/students/name'
 import { logAudit, AUDIT_ACTIONS } from '@/lib/audit'
-import { parseClaudeResponse } from '@/lib/planner/parse-response'
+import { parsePlanResponse } from '@/lib/planner/parse-response'
 
 export const maxDuration = 120
 
@@ -35,18 +35,21 @@ const NEM_AXES = [
 const SYSTEM_PROMPT =
   'Eres una asistente pedagógica experta en educación preescolar mexicana alineada al Nuevo Modelo Educativo (NEM) 2024. Generas planeaciones didácticas de alta calidad para grupos de Kinder 3 (5-6 años). Respondes ÚNICAMENTE con un objeto JSON válido con clave "days" que contiene el array de planeaciones, sin texto adicional, sin markdown, sin explicaciones.'
 
-async function callSonnet(prompt: string): Promise<string> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-  const resp = await anthropic.messages.create({
-    model: 'claude-sonnet-5',
+async function callPlanningModel(prompt: string, model: string): Promise<string> {
+  const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
+  const resp = await provider.messages.create({
+    model,
     max_tokens: 8192,
-    thinking: { type: 'disabled' },
+    jsonMode: true,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: prompt }],
   })
-  const content = resp.content[0]
-  if (content.type !== 'text') throw new Error('Unexpected response type')
-  return content.text
+  if (resp.stop_reason !== 'end_turn') throw new Error('Incomplete model response')
+  const text = resp.content
+    .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+    .join('\n')
+  if (!text.trim()) throw new Error('Empty model response')
+  return text
 }
 
 export async function POST(req: NextRequest) {
@@ -126,8 +129,8 @@ export async function POST(req: NextRequest) {
     const groupGrade = (fortnight as any).groups?.grade || ''
     const includeProni = isProniApplicable(groupGrade)
 
-    // Anonymize student names before they reach Anthropic.
-    // Real names are restored server-side after parsing Claude's response.
+    // Anonymize student names before they reach OpenAIProvider.
+    // Real names are restored server-side after parsing the model response.
     const neeMap: Record<string, string> = {}
     for (let i = 0; i < neeStudents.length; i++) {
       neeMap[`ALUMNO_NEE_${i + 1}`] = (await decryptName(neeStudents[i])).name
@@ -209,32 +212,20 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`))
 
         try {
+          if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is missing')
+          const startDate = (fortnight as { start_date: string }).start_date
           let responseText: string
-          if (process.env.OPENAI_API_KEY) {
-            try {
-              const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-              const resp = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                max_tokens: 8192,
-                temperature: 0.3,
-                response_format: { type: 'json_object' },
-                messages: [
-                  { role: 'system', content: SYSTEM_PROMPT },
-                  { role: 'user', content: prompt },
-                ],
-              })
-              responseText = resp.choices[0]?.message?.content ?? ''
-            } catch (openaiErr) {
-              console.error('[planner] GPT-4o-mini failed, falling back to Sonnet:', openaiErr)
-              responseText = await callSonnet(prompt)
-            }
-          } else {
-            responseText = await callSonnet(prompt)
+          try {
+            responseText = await callPlanningModel(prompt, OPENAI_MODELS.routine)
+            parsePlanResponse(responseText, startDate)
+          } catch (lunaError) {
+            if (!shouldTryAnotherModel(lunaError)) throw lunaError
+            console.warn('[planner] Luna response failed; retrying with Sol:', lunaError)
+            responseText = await callPlanningModel(prompt, OPENAI_MODELS.planning)
           }
 
           const lessonPlans = restoreStudentNames(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            parseClaudeResponse(responseText, (fortnight as any).start_date as string),
+            parsePlanResponse(responseText, startDate),
             neeMap,
             obsMap
           )
@@ -276,7 +267,7 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : String(error)
-          console.error('[planner/generate] Claude API error:', errMsg, error)
+          console.error('[planner/generate] OpenAI API error:', errMsg, error)
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ error: 'Generation failed' })}\n\n`)
           )

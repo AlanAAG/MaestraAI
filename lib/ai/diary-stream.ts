@@ -1,13 +1,12 @@
-// lib/claude.ts
-import Anthropic from '@anthropic-ai/sdk'
+import { OPENAI_MODELS } from '@/lib/ai/models'
+import OpenAIProvider from '@/lib/ai/openai-provider'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const MODEL = OPENAI_MODELS.routine
 
-const MODEL = 'claude-haiku-4-5-20251001'
-
-/** Streams Claude response and returns the full accumulated text. */
+/** Streams OpenAI response and returns the full accumulated text. */
 export async function streamToString(systemPrompt: string, userMessage: string): Promise<string> {
-  const stream = anthropic.messages.stream({
+  const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
+  const stream = provider.messages.stream({
     model: MODEL,
     max_tokens: 1024,
     system: systemPrompt,
@@ -24,7 +23,7 @@ export async function streamToString(systemPrompt: string, userMessage: string):
 }
 
 /**
- * Streams Claude response to a ReadableStream (for SSE API routes).
+ * Streams OpenAI response to a ReadableStream (for SSE API routes).
  * Caller is responsible for closing the controller.
  */
 export function streamToReadable(
@@ -35,7 +34,8 @@ export function streamToReadable(
 
   return new ReadableStream({
     async start(controller) {
-      const stream = anthropic.messages.stream({
+      const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
+      const stream = provider.messages.stream({
         model: MODEL,
         max_tokens: 1024,
         system: systemPrompt,

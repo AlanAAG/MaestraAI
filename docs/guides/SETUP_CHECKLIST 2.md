@@ -10,13 +10,13 @@ Create/verify `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 **Where to get these:**
 
 - Supabase: Project Settings → API → URL & Keys
-- Anthropic: console.anthropic.com → API Keys
+- OpenAI: platform.openai.com → API keys
 
 ## ✅ 2. Database Migrations
 

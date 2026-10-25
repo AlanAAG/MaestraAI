@@ -1,4 +1,4 @@
-// Pure algorithm — no Claude needed.
+// Pure algorithm — no model call needed.
 
 export type BingoCard = {
   card: string[][]

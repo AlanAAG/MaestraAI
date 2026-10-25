@@ -1,5 +1,6 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 // lib/materials/games.ts
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAIProvider from '@/lib/ai/openai-provider'
 import { GAMES_PROMPT } from '@/prompts/materials'
 import { keepVocabItems } from './own-vocab'
 import { classContextBlock, type FortnightContext } from './types'
@@ -25,7 +26,7 @@ export async function buildGameContent(
   imageMap?: Record<string, string>,
   maxPairs: number = 6
 ): Promise<GameContent> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
 
   const contextBlock = classContextBlock(context)
 
@@ -36,17 +37,17 @@ Tipo de juego: ${gameType}
 
 Genera pares de memoria para este vocabulario.`
 
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+  const response = await provider.messages.create({
+    jsonMode: true,
+    model: OPENAI_MODELS.routine,
     max_tokens: 2048,
-    temperature: 0.4,
     system: GAMES_PROMPT,
     messages: [{ role: 'user', content: userMessage }],
   })
 
   const content = response.content[0]
   if (content.type !== 'text') {
-    throw new Error('Unexpected response type from Claude')
+    throw new Error('Unexpected response type from OpenAI')
   }
 
   const result = extractJson(content.text) as GameContent

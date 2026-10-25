@@ -1,4 +1,4 @@
-// Shared extraction for Claude material builders (they all emitted the same regex inline).
+// Shared extraction for AI material builders (they all emitted the same regex inline).
 // Pulls the JSON out of a ```json fence or the outermost {...} block.
 export function extractJson(text: string): unknown {
   const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/)

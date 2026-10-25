@@ -111,8 +111,8 @@ export default function TerminosPage() {
               IV. Contenido Generado por Inteligencia Artificial
             </h2>
             <p>
-              MaestraIA utiliza modelos de lenguaje (Claude de Anthropic y GPT-4o-mini de OpenAI)
-              para asistir en la elaboración de planeaciones y materiales. Al respecto:
+              MaestraIA utiliza modelos de lenguaje de OpenAI para asistir en la elaboración de
+              planeaciones y materiales. Al respecto:
             </p>
             <ul className="list-disc list-inside space-y-2 ml-4 mt-3">
               <li>

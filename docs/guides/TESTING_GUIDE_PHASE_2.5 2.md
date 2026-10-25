@@ -106,7 +106,7 @@ SELECT
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 **Verify:**
@@ -1656,8 +1656,8 @@ WHERE titular_teacher_id = (SELECT id FROM teachers WHERE email = 'test@maestraa
 
 After completing all tests, fill in this summary:
 
-**Date:** ******\_\_\_******
-**Tester:** ******\_\_\_******
+**Date:** **\*\***\_\_\_**\*\***
+**Tester:** **\*\***\_\_\_**\*\***
 
 **Migration Status:**
 
@@ -1667,8 +1667,8 @@ After completing all tests, fill in this summary:
 
 **Onboarding Flow:**
 
-- [ ] User 1 completed (email: ****\_\_\_\_****)
-- [ ] User 2 completed (email: ****\_\_\_\_****)
+- [ ] User 1 completed (email: \***\*\_\_\_\_\*\***)
+- [ ] User 2 completed (email: \***\*\_\_\_\_\*\***)
 - [ ] All steps functional
 
 **Critical Features:**

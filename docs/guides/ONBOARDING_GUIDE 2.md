@@ -7,7 +7,7 @@
 ## Prerequisites
 
 - ✅ All migrations run (001-006)
-- ✅ `.env.local` configured with Supabase + Anthropic keys
+- ✅ `.env.local` configured with Supabase + OpenAI keys
 - ✅ `npm run dev` running on http://localhost:3000
 - ✅ Browser DevTools Console open (F12)
 
@@ -256,7 +256,7 @@ Click "**Generar Planeación**"
    - Analizando...
    - Generando...
 
-**⚠️ Requires `ANTHROPIC_API_KEY` in `.env.local`**
+**⚠️ Requires `OPENAI_API_KEY` in `.env.local`**
 
 **Expected (success):**
 
@@ -267,7 +267,7 @@ Click "**Generar Planeación**"
 **Expected (if no API key):**
 
 - ❌ Stuck on "Preparando..." or error
-- Check console for: `ANTHROPIC_API_KEY is not set`
+- Check console for: `OPENAI_API_KEY is not set`
 
 ---
 

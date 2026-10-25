@@ -17,7 +17,7 @@ shadcn/ui + Inter font
 
 Supabase: server client in Server Components, browser client in Client Components
 
-Claude API server-side only — never client-side, always streaming
+OpenAI API server-side only — never client-side. Use the shared OpenAI Responses bridge.
 
 framer-motion for all UI animations
 
@@ -38,20 +38,18 @@ Components: components/
 
 Diary microsite: app/diary/
 
-Claude API usage patterns
-claude-haiku-4-5 → diary summaries, flashcards, quick validations, template extraction
+OpenAI API usage patterns
+gpt-6-luna → diary summaries, materials, extraction, and routine planner calls
+gpt-6.1-sol → fallback for incomplete or invalid planning output
+text-embedding-3-small → RAG embeddings
 
-claude-sonnet-4-6 → lesson plan fallback (when OPENAI_API_KEY missing/fails), report cards, complex generation
-
-gpt-4o-mini (OpenAI) → lesson plans (primary, json_object mode — guaranteed valid JSON)
-
-Always stream — never await full response, never return buffered text
+Keep model routing and response conversion in lib/ai/openai-provider.ts.
 
 Prompts live in lib/prompts/\*.ts
 
 Environment vars
 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
-SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY,
+SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY,
 NEXT_PUBLIC_FORCE_DIARY_SITE (local subdomain testing)
 
 Subdomain routing
@@ -74,7 +72,7 @@ Regen types: supabase gen types typescript --local > lib/database.types.ts
 Absolute rules
 Never disable RLS. Not even for debugging.
 
-Never call Claude API from the client.
+Never call OpenAI API from the client.
 
 Never show blank screen during AI processing — streaming UI always.
 
@@ -86,7 +84,7 @@ Números day is configurable per group via `groups.fixed_weekly_schedule.numeros
 
 Never more than 4 fields visible at once in any form.
 
-Always validate API inputs with Zod before touching DB or calling Claude.
+Always validate API inputs with Zod before touching DB or calling OpenAI.
 
 Always run typecheck after modifying TypeScript files.
 

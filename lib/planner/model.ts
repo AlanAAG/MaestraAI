@@ -1,7 +1,7 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 // Shared transport for planner text and JSON tasks. A response is usable only when the
 // provider finished it; valid JSON alone says nothing about pedagogical completeness.
-import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
+import OpenAIProvider, { shouldTryAnotherModel } from '@/lib/ai/openai-provider'
 
 export type PlannerModelOptions = {
   maxTokens?: number
@@ -35,33 +35,25 @@ async function requestPlanner(
     return text
   }
   opts.signal?.throwIfAborted()
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) throw new PlannerServiceError()
+  const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 })
+  const instructions = opts.cachePrefix ? `${opts.cachePrefix}\n\n${system}` : system
+  let lastError: unknown
+  for (const model of [OPENAI_MODELS.routine, OPENAI_MODELS.planning]) {
+    opts.signal?.throwIfAborted()
     try {
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 })
-      const systemParam = opts.cachePrefix
-        ? [
-            {
-              type: 'text' as const,
-              text: opts.cachePrefix,
-              cache_control: { type: 'ephemeral' as const },
-            },
-            { type: 'text' as const, text: system },
-          ]
-        : system
-      const resp = await anthropic.messages
-        .stream(
-          {
-            model: 'claude-sonnet-5',
-            max_tokens: maxTokens,
-            thinking: { type: 'disabled' },
-            system: systemParam,
-            messages: [{ role: 'user', content: user }],
-          },
-          requestOptions
-        )
-        .finalMessage()
+      const resp = await provider.messages.create(
+        {
+          model,
+          max_tokens: maxTokens,
+          jsonMode: format === 'json',
+          system: instructions,
+          messages: [{ role: 'user', content: user }],
+        },
+        requestOptions
+      )
       console.log(
-        `[planner-tokens] ${opts.label ?? 'call'}: in=${resp.usage.input_tokens} out=${resp.usage.output_tokens} stop=${resp.stop_reason}`
+        `[planner-tokens] ${opts.label ?? 'call'} ${model}: in=${resp.usage.input_tokens} out=${resp.usage.output_tokens} stop=${resp.stop_reason}`
       )
       if (resp.stop_reason !== 'end_turn') {
         throw new Error(`Respuesta incompleta de la IA (${resp.stop_reason}).`)
@@ -71,47 +63,18 @@ async function requestPlanner(
       )
     } catch (error) {
       opts.signal?.throwIfAborted()
+      lastError = error
       console.warn(
-        `[planner] ${opts.label ?? 'call'}: primary failed; trying fallback`,
+        `[planner] ${opts.label ?? 'call'} ${model} failed`,
         error instanceof Error ? error.message : 'provider error'
       )
-      if (!process.env.OPENAI_API_KEY) throw error
+      if (model === OPENAI_MODELS.routine && !shouldTryAnotherModel(error)) {
+        throw new PlannerServiceError()
+      }
     }
   }
-  if (!process.env.OPENAI_API_KEY) throw new Error('No model provider configured')
-  opts.signal?.throwIfAborted()
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 })
-  const resp = await openai.chat.completions
-    .create(
-      {
-        model: 'gpt-4o-mini',
-        max_tokens: Math.min(maxTokens, 16384),
-        temperature: 0.4,
-        // Section rewriting requires plain text. Forcing JSON here used to break its fallback.
-        ...(format === 'json' ? { response_format: { type: 'json_object' as const } } : {}),
-        messages: [
-          {
-            role: 'system',
-            content: opts.cachePrefix ? `${opts.cachePrefix}\n\n${system}` : system,
-          },
-          { role: 'user', content: user },
-        ],
-      },
-      requestOptions
-    )
-    .catch((error: unknown) => {
-      opts.signal?.throwIfAborted()
-      console.error(
-        `[planner] ${opts.label ?? 'call'}: fallback unavailable`,
-        error instanceof Error ? error.message : 'provider error'
-      )
-      throw new PlannerServiceError()
-    })
-  const choice = resp.choices[0]
-  if (choice?.finish_reason !== 'stop' || choice.message.refusal) {
-    throw new Error('La IA no terminó esta sección. Intenta de nuevo.')
-  }
-  return checked(choice.message.content ?? '')
+  if (lastError instanceof Error && /incompleta|no terminó/.test(lastError.message)) throw lastError
+  throw new PlannerServiceError()
 }
 
 export function callPlannerModel(

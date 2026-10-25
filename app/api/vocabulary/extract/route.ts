@@ -1,7 +1,8 @@
+import { OPENAI_MODELS } from '@/lib/ai/models'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAIProvider, { type MessageParam, type TextBlockParam } from '@/lib/ai/openai-provider'
 import mammoth from 'mammoth'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBase64Image } from '@/lib/file-validation'
@@ -18,14 +19,14 @@ const ExtractInputSchema = z.object({
 type Item = VocabItem
 
 async function llmExtract(
-  anthropic: Anthropic,
+  provider: OpenAIProvider,
   systemPrompt: string,
-  content: Anthropic.MessageParam['content']
+  content: MessageParam['content']
 ): Promise<Item[]> {
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-5',
+  const response = await provider.messages.create({
+    jsonMode: true,
+    model: OPENAI_MODELS.routine,
     max_tokens: 8192,
-    thinking: { type: 'disabled' },
     system: systemPrompt,
     messages: [{ role: 'user', content }],
   })
@@ -93,8 +94,8 @@ REGLAS:
 - Ignora números y nombres propios
 - Si hay duplicados, inclúyelos solo una vez`
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-    let content: Anthropic.MessageParam['content']
+    const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! })
+    let content: MessageParam['content']
 
     if (input.imageBase64 && input.imageMimeType) {
       const validation = await validateBase64Image(input.imageBase64, input.imageMimeType)
@@ -115,7 +116,7 @@ REGLAS:
         {
           type: 'document',
           source: { type: 'base64', media_type: 'application/pdf', data: input.documentBase64 },
-        } as unknown as Anthropic.TextBlockParam,
+        } as unknown as TextBlockParam,
         {
           type: 'text',
           text: 'Extrae todo el vocabulario de este documento (texto o imagen/OCR). Devuelve el JSON.',
@@ -135,7 +136,7 @@ REGLAS:
       )
     }
 
-    const items = await llmExtract(anthropic, systemPrompt, content)
+    const items = await llmExtract(provider, systemPrompt, content)
     return NextResponse.json({ items, count: items.length })
   } catch (error) {
     if (error instanceof z.ZodError) {

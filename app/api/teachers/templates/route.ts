@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { extractTemplate, hasTemplateStructure } from '@/lib/planner/extract-template'
 
-// Claude extraction of a full document (verbatim PDAs + voice + formatting rules) can take a
+// AI extraction of a full document (verbatim PDAs + voice + formatting rules) can take a
 // while — give it room so the function isn't killed mid-extraction (the default is far too short).
 export const maxDuration = 120
 

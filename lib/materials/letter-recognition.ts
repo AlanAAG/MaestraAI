@@ -1,4 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { OPENAI_MODELS } from '@/lib/ai/models'
+import OpenAIProvider from '@/lib/ai/openai-provider'
 import { LETTER_RECOGNITION_PROMPT } from '@/prompts/materials'
 import { wordToEmoji } from './emoji'
 
@@ -104,7 +105,7 @@ export async function buildLetterRecognition(
   /** "Usar solo mi contenido": her words + her flashcard images, no invented words/emojis. */
   onlyOwnContent = true
 ): Promise<LetterRecognitionContent> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
 
   // One or more focus letters (e.g. the week's letter_week1 + letter_week2). Dedup, uppercase.
   const letterList = Array.from(
@@ -124,25 +125,25 @@ export async function buildLetterRecognition(
     prompt += `\n\nREGLA ADICIONAL (OBLIGATORIA): usa ÚNICAMENTE palabras del VOCABULARIO de la maestra. NO inventes ni agregues palabras que no estén en esa lista, aunque queden pocos ítems.`
   }
 
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+  const response = await provider.messages.create({
+    jsonMode: true,
+    model: OPENAI_MODELS.routine,
     max_tokens: 2048,
-    temperature: 0.3,
     messages: [{ role: 'user', content: prompt }],
   })
 
   const content = response.content[0]
-  if (content.type !== 'text') throw new Error('Unexpected response type from Claude')
+  if (content.type !== 'text') throw new Error('Unexpected response type from OpenAI')
 
   const jsonMatch =
     content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/\{[\s\S]*\}/)
   const raw = jsonMatch?.[1] ?? jsonMatch?.[0]
-  if (!raw) throw new Error('Claude no devolvió JSON válido')
+  if (!raw) throw new Error('La IA no devolvió JSON válido')
   let parsed: LetterRecognitionContent
   try {
     parsed = JSON.parse(raw) as LetterRecognitionContent
   } catch {
-    throw new Error('Respuesta de Claude no es JSON válido')
+    throw new Error('La respuesta de la IA no es JSON válido')
   }
   // Attach a real visual per item, and OVERRIDE foils in code so the distractors vary per item
   // (not the same 3 every time) while staying visually confusable with the word's real initial.

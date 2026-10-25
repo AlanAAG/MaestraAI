@@ -182,8 +182,8 @@ export default function PrivacidadPage() {
               VI. Uso de Inteligencia Artificial
             </h2>
             <p className="mb-4">
-              MaestraIA usa la API de Claude (<strong>Anthropic PBC</strong>) y GPT-4o-mini (
-              <strong>OpenAI, L.L.C.</strong>) para generar contenido pedagógico.
+              MaestraIA usa la API de <strong>OpenAI, L.L.C.</strong> para generar contenido
+              pedagógico y analizar archivos que el docente decide subir.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
@@ -224,12 +224,24 @@ export default function PrivacidadPage() {
                       No se envían
                     </td>
                   </tr>
+                  <tr className="bg-gray-50">
+                    <td className="p-3 border border-gray-200">
+                      Extracción de documentos y contactos
+                    </td>
+                    <td className="p-3 border border-gray-200">
+                      Texto, imágenes o PDF que el docente decide proporcionar; en la extracción de
+                      contactos, nombres y correos incluidos en la lista
+                    </td>
+                    <td className="p-3 border border-gray-200 text-amber-600 font-medium">
+                      Pueden estar presentes en los archivos subidos*
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
             <p className="mt-3 text-sm text-gray-500">
-              * El Diario tiene campos de texto libre. Se recomienda no incluir nombres completos de
-              alumnos.
+              * Los campos de texto libre y los archivos subidos pueden contener datos personales.
+              Se recomienda omitir nombres completos de alumnos cuando no sean necesarios.
             </p>
             <p className="mt-3">
               Las credenciales de Richmond LP y los datos de calificaciones{' '}
@@ -253,12 +265,9 @@ export default function PrivacidadPage() {
                 AWS con DPA conforme a LFPDPPP.
               </li>
               <li>
-                <strong>Anthropic PBC</strong> (EE.UU.) — Generación de contenido pedagógico. Solo
-                los datos descritos en Sección VI.
-              </li>
-              <li>
-                <strong>OpenAI, L.L.C.</strong> (EE.UU.) — Generación de planeaciones. Solo fechas,
-                grado y parámetros pedagógicos; ningún dato personal de alumnos.
+                <strong>OpenAI, L.L.C.</strong> (EE.UU.) — Generación de planeaciones, materiales,
+                resúmenes y análisis de documentos o imágenes que el docente decide proporcionar.
+                Recibe el contenido necesario para cada función, según la Sección VI.
               </li>
               <li>
                 <strong>Resend Inc.</strong> (EE.UU.) — Envío de correos a padres cuando el docente

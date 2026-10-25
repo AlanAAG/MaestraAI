@@ -1,5 +1,5 @@
 // Pure worksheet content shape + normalization — safe to import from client components
-// (lib/materials/worksheets.ts pulls in the Anthropic SDK, so renderers import from here).
+// (lib/materials/worksheets.ts pulls in the OpenAI client, so renderers import from here).
 
 // Mirrors the JSON shape WORKSHEETS_PROMPT actually requests (prompts/materials.ts).
 export type WorksheetItem = {

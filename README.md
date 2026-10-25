@@ -6,7 +6,7 @@
   <a href="https://maestraia.com"><img src="https://img.shields.io/badge/Live-maestraia.com-1F8A70?style=flat-square" alt="Live site"/></a>
   <img src="https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=nextdotjs" alt="Next.js 14"/>
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL_+_RLS-3FCF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase"/>
-  <img src="https://img.shields.io/badge/Claude-Sonnet_4.5-D97757?style=flat-square" alt="Claude"/>
+  <img src="https://img.shields.io/badge/OpenAI-Luna_+_Sol-412991?style=flat-square" alt="OpenAI"/>
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
 </p>
 
@@ -22,7 +22,7 @@ MaestraAI started as a tool for one teacher. It's now built for all of them.
 
 ## What it does
 
-**Lesson planning.** Generates full 10-day fortnight plans with Claude, aligned to NEM's 4 Campos Formativos and 7 Ejes Articuladores, respecting each school's fixed weekly schedule (Honores, Computación, Ed. Física). Plans are editable inline with vocabulary autocomplete and export to professional multi-page PDFs that pass coordinator and auditor review.
+**Lesson planning.** Generates full 10-day fortnight plans with OpenAI, aligned to NEM's 4 Campos Formativos and 7 Ejes Articuladores, respecting each school's fixed weekly schedule (Honores, Computación, Ed. Física). Plans are editable inline with vocabulary autocomplete and export to professional multi-page PDFs that pass coordinator and auditor review.
 
 **Classroom materials.** AI-generated flashcards, worksheets, memory games, and curated YouTube playlists per lesson. Flashcards print 4 per page with cut lines, or project directly on the classroom screen. Includes an interactive Memory Match game kids play as a group.
 
@@ -38,7 +38,7 @@ MaestraAI started as a tool for one teacher. It's now built for all of them.
 graph LR
     A[Next.js 14 App Router] --> B[API Routes / Edge Functions]
     B --> C[(Supabase PostgreSQL<br/>17 tables, RLS on everything)]
-    B --> D[Claude API<br/>Sonnet 4.5 + Haiku 4.5]
+    B --> D[OpenAI API<br/>GPT-6 Luna + GPT-6.1 Sol]
     D -->|streamed responses| A
     E[Richmond Chrome Extension] --> B
     F[diario.maestraai.mx] -->|middleware subdomain routing| A
@@ -49,20 +49,20 @@ A few engineering decisions worth calling out:
 
 - **RAG-grounded generation.** Lesson plans are grounded in official SEP curriculum documents (NEM framework, PRONI 2024, Programa Sintético) so output is compliant by design, not by prompt luck.
 - **Row Level Security on all 17 tables.** Teacher data never crosses tenant boundaries. RLS is never disabled, no exceptions.
-- **Claude is server-side only, always streamed.** No API keys touch the client, and teachers never stare at a blank screen during generation.
+- **OpenAI is server-side only.** No API keys touch the client, and teachers never stare at a blank screen during generation.
 - **Pedagogy encoded as constraints.** The generator enforces rules like Letter & Number activities only on Tuesdays and number-sequence work only on Thursdays, because that's how real classrooms in this system run.
 - **Qualitative by design.** The entire data model rejects numeric grades to match NEM evaluation philosophy.
 
 ## Tech stack
 
-| Layer    | Tools                                                                                     |
-| -------- | ----------------------------------------------------------------------------------------- |
-| Frontend | Next.js 14 (App Router), TypeScript strict, Tailwind CSS, shadcn/ui, Framer Motion        |
-| Backend  | Supabase (PostgreSQL + RLS), Edge Functions, Zod validation                               |
-| AI       | Claude API (Sonnet 4.5 for generation, Haiku 4.5 for light tasks), RAG over SEP documents |
-| PDF      | @react-pdf/renderer                                                                       |
-| Quality  | Vitest, ESLint, Prettier, Husky pre-commit hooks                                          |
-| Deploy   | Vercel, subdomain routing via middleware                                                  |
+| Layer    | Tools                                                                                  |
+| -------- | -------------------------------------------------------------------------------------- |
+| Frontend | Next.js 14 (App Router), TypeScript strict, Tailwind CSS, shadcn/ui, Framer Motion     |
+| Backend  | Supabase (PostgreSQL + RLS), Edge Functions, Zod validation                            |
+| AI       | OpenAI API (Luna for routine tasks, Sol for planning fallback), RAG over SEP documents |
+| PDF      | @react-pdf/renderer                                                                    |
+| Quality  | Vitest, ESLint, Prettier, Husky pre-commit hooks                                       |
+| Deploy   | Vercel, subdomain routing via middleware                                               |
 
 ## Screenshots
 
@@ -77,7 +77,7 @@ _Coming soon. In the meantime, the real thing is live at [maestraia.com](https:/
 
 - Node.js 18+
 - Supabase CLI
-- Anthropic API key
+- OpenAI project API key
 
 ### Installation
 
@@ -88,7 +88,7 @@ npm install
 
 cp .env.local.example .env.local
 # Fill in: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
-#          SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY
+#          SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY
 
 supabase db push                          # migrations 001-008
 psql $DATABASE_URL < supabase/seed.sql    # seed 129 vocabulary words
@@ -103,6 +103,7 @@ npm run typecheck    # TypeScript compilation
 npm run lint         # ESLint
 npm test             # Vitest
 npm run build        # production build
+npm run ai:smoke     # check OpenAI model access with two small API requests
 ```
 
 ### Environment variables
@@ -111,7 +112,7 @@ npm run build        # production build
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
 NEXT_PUBLIC_FORCE_DIARY_SITE=true   # optional: test diary subdomain locally
 ```
 
@@ -139,7 +140,7 @@ MaestraAI/
 │   ├── supabase/            # Clients
 │   ├── richmond/            # Richmond API & CSV parser
 │   ├── materials/           # Material generation
-│   └── prompts/             # Claude prompts
+│   └── prompts/             # AI prompts
 ├── supabase/migrations/     # 001-008
 ├── docs/                    # PROGRESS.md, guides, archive
 └── extension/               # Richmond Chrome extension
