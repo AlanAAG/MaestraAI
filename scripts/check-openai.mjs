@@ -1,8 +1,9 @@
 // Run after setting OPENAI_API_KEY locally or in a deployment shell.
 // Sends two tiny requests to confirm both configured model tiers are accessible.
-import { loadEnvConfig } from '@next/env'
+import nextEnv from '@next/env'
 import OpenAI from 'openai'
 
+const { loadEnvConfig } = nextEnv
 loadEnvConfig(process.cwd())
 if (!process.env.OPENAI_API_KEY) {
   console.error('OPENAI_API_KEY is missing')
