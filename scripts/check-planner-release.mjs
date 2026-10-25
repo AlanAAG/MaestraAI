@@ -37,6 +37,12 @@ const requirements = [
   ['game_players', 'id,teacher_id,code,nickname,avatar,student_id'],
   ['game_plays', 'id,player_id,material_id,teacher_id,correct,total,duration_s,passed'],
   ['students', 'id,group_id,first_name_encrypted,last_name_encrypted'],
+  ['richmond_assignments', 'id,group_id,title,due_at,total_students,total_submitted'],
+  [
+    'richmond_scores',
+    'assignment_id,student_id,richmond_student_id,first_name_encrypted,last_name_encrypted,done,total_score',
+  ],
+  ['parent_contacts', 'id,teacher_id,group_id,richmond_student_id,parent_email_encrypted'],
 ]
 for (const [table, columns] of requirements) {
   const { error } = await db.from(table).select(columns).limit(0)
@@ -66,6 +72,10 @@ if (origin) {
       'public sharing origin',
       url.protocol === 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
     )
+    const gradesResponse = await fetch(new URL('/api/calificaciones/scores?group_id=all', url), {
+      signal: AbortSignal.timeout(15000),
+    })
+    report('grades API requires a teacher session', gradesResponse.status === 401)
     const { data, error } = await db
       .from('materials')
       .select('play_token,type')

@@ -110,12 +110,15 @@ function requestBody(request: Request) {
   const instructions = Array.isArray(request.system)
     ? request.system.map((part) => part.text).join('\n\n')
     : request.system
+  const input = convertMessages(request.messages)
+  // OpenAI's JSON mode validates input messages, not just top-level instructions.
+  if (request.jsonMode) input.push({ role: 'user', content: 'Responde en JSON.' })
   return {
     model: request.model,
     instructions: request.jsonMode
       ? `Responde solo con un objeto JSON válido.\n\n${instructions ?? ''}`
       : instructions,
-    input: convertMessages(request.messages) as OpenAI.Responses.ResponseInput,
+    input: input as OpenAI.Responses.ResponseInput,
     max_output_tokens: request.max_tokens,
     ...(request.jsonMode ? { text: { format: { type: 'json_object' as const } } } : {}),
     ...(request.model === OPENAI_MODELS.routine || request.model === OPENAI_MODELS.planning

@@ -46,6 +46,10 @@ describe('OpenAI Responses bridge', () => {
       text: { format: { type: 'json_object' } },
     })
     const parts = create.mock.calls[0][0].input[0].content
+    expect(create.mock.calls[0][0].input.at(-1)).toEqual({
+      role: 'user',
+      content: 'Responde en JSON.',
+    })
     expect(parts[0]).toMatchObject({
       type: 'input_image',
       image_url: 'data:image/png;base64,aW1hZ2U=',

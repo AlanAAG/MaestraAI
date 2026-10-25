@@ -6,13 +6,14 @@ Current phase: Phase 6 — Quality & Polish
 ## Current state
 
 - Next.js 14 App Router + Tailwind v3 + shadcn/ui + Supabase
-- **423 tests passing (85 files)**, typecheck and local production build pass
+- **425 tests passing (86 files)**, typecheck and local production build pass
 - Migrations applied through **091**
 - Migration ledger repaired — `supabase db push` works normally
 
 ## What exists
 
-- **OpenAI-only API migration (2026-10-25)**: All active Anthropic calls now use the OpenAI Responses API through `lib/ai/openai-provider.ts`, including planner generation/chat, diary streaming, materials, vocabulary, contacts, and PDF/image extraction. Routine work uses GPT-6 Luna, with `gpt-4o-mini` if Luna is unavailable; incomplete/invalid planning responses retry with GPT-6.1 Sol. The ten-day planner also rejects missing or empty days before saving. Embeddings remain `text-embedding-3-small`. Removed the Anthropic SDK and local revoked-key entry; updated setup and privacy copy. Typecheck, all 423 tests, and the production build pass. Vercel reported the `main` deployment successful. `npm run ai:smoke` checks access to both new model tiers, but direct requests timed out in this environment. Vercel Production and Preview have `OPENAI_API_KEY`, though key validity and model access remain unverified. An attempted metadata migration was removed after the linked database confirmed the old `generated_by` column no longer exists.
+- **OpenAI-only API migration (2026-10-25)**: All active Anthropic calls now use the OpenAI Responses API through `lib/ai/openai-provider.ts`, including planner generation/chat, diary streaming, materials, vocabulary, contacts, and PDF/image extraction. Routine work uses GPT-6 Luna, with `gpt-4o-mini` if Luna is unavailable; incomplete/invalid planning responses retry with GPT-6.1 Sol. The ten-day planner also rejects missing or empty days before saving. Embeddings remain `text-embedding-3-small`. Removed the Anthropic SDK and local revoked-key entry; updated setup and privacy copy. Vercel reported the `main` deployment successful. Vercel Production and Preview have `OPENAI_API_KEY`. An attempted metadata migration was removed after the linked database confirmed the old `generated_by` column no longer exists.
+- **OpenAI release verification (2026-10-25)**: The local OpenAI key is valid and both GPT-6 Luna and GPT-6.1 Sol completed real Responses API smoke requests. Fixed JSON mode by adding a JSON instruction to the input messages; OpenAI rejected requests that mentioned JSON only in top-level instructions. A fictional ten-day plan plus Letters and Números subplans generated in 62 seconds with zero health errors; real memory-game and flashcard generation also passed. A real stateless tool call and continuation passed for planner chat. Expanded release preflight passes production database schemas, public game pages, anonymous game routing, and grades authentication. Added a grades API regression test; 425 automated tests and the production build pass. Authenticated production creation, sharing, score viewing, and player-result saving still need a disposable teacher test account.
 
 See git history for full feature log. Major systems:
 
